@@ -1,0 +1,6 @@
+cadquery==2.8.0
+fastapi==0.141.1
+uvicorn==0.53.0
+openai==3.17.0
+pydantic==2.13.5
+scipy==1.18.1

@@ -1,0 +1,254 @@
+[
+  {
+    "kind": "round_specimen",
+    "valid": true,
+    "parts": 1,
+    "volume": 13126.471704599178,
+    "bounds": [
+      100.0,
+      16.0000002,
+      16.0000002
+    ],
+    "min": [
+      -50.0,
+      -8.0000001,
+      -8.0000001
+    ],
+    "max": [
+      50.0,
+      8.0000001,
+      8.0000001
+    ],
+    "triangles": 3272,
+    "collisions": [],
+    "assembly_constraints": {
+      "mates": 0,
+      "grounded": 0,
+      "dof": 6
+    }
+  },
+  {
+    "kind": "flat_specimen",
+    "valid": true,
+    "parts": 1,
+    "volume": 6525.0,
+    "bounds": [
+      120.0000002,
+      25.0000002,
+      3.0000002
+    ],
+    "min": [
+      -60.0000001,
+      -12.5000001,
+      -1.5000001
+    ],
+    "max": [
+      60.0000001,
+      12.5000001,
+      1.5000001
+    ],
+    "triangles": 404,
+    "collisions": [],
+    "assembly_constraints": {
+      "mates": 0,
+      "grounded": 0,
+      "dof": 6
+    }
+  },
+  {
+    "kind": "wafer",
+    "valid": true,
+    "parts": 1,
+    "volume": 4087.2964229611407,
+    "bounds": [
+      97.0,
+      100.0,
+      0.525
+    ],
+    "min": [
+      -50.0,
+      -50.0,
+      0.0
+    ],
+    "max": [
+      47.0,
+      50.0,
+      0.525
+    ],
+    "triangles": 376,
+    "collisions": [],
+    "assembly_constraints": {
+      "mates": 0,
+      "grounded": 0,
+      "dof": 6
+    }
+  },
+  {
+    "kind": "link",
+    "valid": true,
+    "parts": 1,
+    "volume": 14495.150263212343,
+    "bounds": [
+      110.0,
+      24.0,
+      6.0
+    ],
+    "min": [
+      -55.0,
+      -12.0,
+      0.0
+    ],
+    "max": [
+      55.0,
+      12.0,
+      6.0
+    ],
+    "triangles": 1276,
+    "collisions": [],
+    "assembly_constraints": {
+      "mates": 0,
+      "grounded": 0,
+      "dof": 6
+    }
+  },
+  {
+    "kind": "plate",
+    "valid": true,
+    "parts": 1,
+    "volume": 28121.4159868246,
+    "bounds": [
+      80.0,
+      60.0,
+      6.0
+    ],
+    "min": [
+      -40.0,
+      -30.0,
+      0.0
+    ],
+    "max": [
+      40.0,
+      30.0,
+      6.0
+    ],
+    "triangles": 1708,
+    "collisions": [],
+    "assembly_constraints": {
+      "mates": 0,
+      "grounded": 0,
+      "dof": 6
+    }
+  },
+  {
+    "kind": "bracket",
+    "valid": true,
+    "parts": 1,
+    "volume": 20434.513322353836,
+    "bounds": [
+      60.0,
+      40.0,
+      50.0
+    ],
+    "min": [
+      0.0,
+      -20.0,
+      0.0
+    ],
+    "max": [
+      60.0,
+      20.0,
+      50.0
+    ],
+    "triangles": 1716,
+    "collisions": [],
+    "assembly_constraints": {
+      "mates": 0,
+      "grounded": 0,
+      "dof": 6
+    }
+  },
+  {
+    "kind": "cylinder",
+    "valid": true,
+    "parts": 1,
+    "volume": 14137.166941154072,
+    "bounds": [
+      30.0,
+      30.0,
+      20.0
+    ],
+    "min": [
+      -15.0,
+      -15.0,
+      0.0
+    ],
+    "max": [
+      15.0,
+      15.0,
+      20.0
+    ],
+    "triangles": 416,
+    "collisions": [],
+    "assembly_constraints": {
+      "mates": 0,
+      "grounded": 0,
+      "dof": 6
+    }
+  },
+  {
+    "kind": "extrusion",
+    "valid": true,
+    "parts": 1,
+    "volume": 26500.0,
+    "bounds": [
+      70.0,
+      50.0,
+      8.0
+    ],
+    "min": [
+      -35.0,
+      -25.0,
+      0.0
+    ],
+    "max": [
+      35.0,
+      25.0,
+      8.0
+    ],
+    "triangles": 16,
+    "collisions": [],
+    "assembly_constraints": {
+      "mates": 0,
+      "grounded": 0,
+      "dof": 6
+    }
+  },
+  {
+    "kind": "robot_arm",
+    "valid": true,
+    "parts": 5,
+    "volume": 61329.83485969234,
+    "bounds": [
+      188.01086266906242,
+      77.72611660362574,
+      28.0
+    ],
+    "min": [
+      -25.0,
+      -25.0,
+      0.0
+    ],
+    "max": [
+      163.01086266906242,
+      52.72611660362575,
+      28.0
+    ],
+    "triangles": 4224,
+    "collisions": [],
+    "assembly_constraints": {
+      "mates": 4,
+      "grounded": 1,
+      "dof": 2
+    }
+  }
+]

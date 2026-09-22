@@ -1,0 +1,305 @@
+"""The entire design language. No scripts, expressions or executable operations."""
+from __future__ import annotations
+
+import math
+from typing import Annotated, Literal, Union
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+
+Dimension = Annotated[float, Field(ge=0.01, le=2000)]
+Nonnegative = Annotated[float, Field(ge=0, le=2000)]
+Coordinate = Annotated[float, Field(ge=-5000, le=5000)]
+Angle = Annotated[float, Field(ge=-360, le=360)]
+
+
+class Transform(StrictModel):
+    x: Coordinate = 0
+    y: Coordinate = 0
+    z: Coordinate = 0
+    rx: Angle = 0
+    ry: Angle = 0
+    rz: Angle = 0
+
+
+class RoundSpecimen(StrictModel):
+    kind: Literal["round_specimen"] = "round_specimen"
+    length: Dimension = 100
+    gauge_length: Dimension = 30
+    grip_diameter: Dimension = 16
+    gauge_diameter: Dimension = 8
+    transition_length: Dimension = 15
+
+    @model_validator(mode="after")
+    def proportions(self):
+        if self.gauge_diameter >= self.grip_diameter:
+            raise ValueError("목 직경은 그립 직경보다 작아야 합니다.")
+        if self.gauge_length + 2 * self.transition_length >= self.length - 0.02:
+            raise ValueError("전체 길이는 평행부 길이 + 전이 길이 × 2보다 커야 합니다.")
+        return self
+
+
+class FlatSpecimen(StrictModel):
+    kind: Literal["flat_specimen"] = "flat_specimen"
+    length: Dimension = 120
+    gauge_length: Dimension = 35
+    grip_width: Dimension = 25
+    gauge_width: Dimension = 10
+    thickness: Dimension = 3
+    transition_length: Dimension = 20
+
+    @model_validator(mode="after")
+    def proportions(self):
+        if self.gauge_width >= self.grip_width:
+            raise ValueError("목 폭은 그립 폭보다 작아야 합니다.")
+        if self.gauge_length + 2 * self.transition_length >= self.length - 0.02:
+            raise ValueError("전체 길이는 평행부 길이 + 전이 길이 × 2보다 커야 합니다.")
+        return self
+
+
+class Wafer(StrictModel):
+    kind: Literal["wafer"] = "wafer"
+    diameter: Dimension = 100
+    thickness: Dimension = 0.525
+    flat_depth: Nonnegative = 3
+
+    @model_validator(mode="after")
+    def proportions(self):
+        if self.flat_depth >= self.diameter / 4:
+            raise ValueError("플랫 깊이는 웨이퍼 직경의 1/4보다 작아야 합니다.")
+        return self
+
+
+class Link(StrictModel):
+    kind: Literal["link"] = "link"
+    length: Dimension = 110
+    width: Dimension = 24
+    thickness: Dimension = 6
+    hole_diameter: Dimension = 8
+    hole_spacing: Dimension = 80
+
+    @model_validator(mode="after")
+    def proportions(self):
+        if self.length <= self.width:
+            raise ValueError("링크 길이는 폭보다 커야 합니다.")
+        if self.hole_diameter >= self.width - 0.2:
+            raise ValueError("구멍 직경은 링크 폭보다 0.2 mm 이상 작아야 합니다.")
+        if self.hole_spacing > self.length - self.width:
+            raise ValueError("구멍 간격은 길이 − 폭 이하여야 합니다.")
+        if self.hole_spacing <= self.hole_diameter + 0.2:
+            raise ValueError("두 구멍 사이에 0.2 mm보다 큰 재료 폭이 필요합니다.")
+        return self
+
+
+class Plate(StrictModel):
+    kind: Literal["plate"] = "plate"
+    length: Dimension = 80
+    width: Dimension = 60
+    thickness: Dimension = 6
+    hole_count: Literal[0, 2, 4] = 4
+    hole_diameter: Dimension = 6
+    hole_pitch_x: Dimension = 56
+    hole_pitch_y: Dimension = 36
+
+    @model_validator(mode="after")
+    def proportions(self):
+        if not self.hole_count:
+            return self
+        if self.hole_pitch_x + self.hole_diameter >= self.length - 0.2:
+            raise ValueError("X 구멍 간격 + 직경은 판 길이보다 0.2 mm 이상 작아야 합니다.")
+        if self.hole_pitch_x <= self.hole_diameter + 0.2:
+            raise ValueError("X 방향 구멍이 서로 겹치거나 너무 가깝습니다.")
+        if self.hole_count == 4:
+            if self.hole_pitch_y + self.hole_diameter >= self.width - 0.2:
+                raise ValueError("Y 구멍 간격 + 직경은 판 폭보다 0.2 mm 이상 작아야 합니다.")
+            if self.hole_pitch_y <= self.hole_diameter + 0.2:
+                raise ValueError("Y 방향 구멍이 서로 겹치거나 너무 가깝습니다.")
+        elif self.hole_diameter >= self.width - 0.2:
+            raise ValueError("구멍 직경이 판 폭보다 큽니다.")
+        return self
+
+
+class Bracket(StrictModel):
+    kind: Literal["bracket"] = "bracket"
+    length: Dimension = 60
+    width: Dimension = 40
+    height: Dimension = 50
+    thickness: Dimension = 5
+    hole_diameter: Dimension = 6
+    hole_inset: Dimension = 12
+
+    @model_validator(mode="after")
+    def proportions(self):
+        if self.thickness >= min(self.length, self.height) / 2:
+            raise ValueError("브래킷 두께는 길이와 높이의 절반보다 작아야 합니다.")
+        r = self.hole_diameter / 2
+        if r + 0.1 >= self.width / 4:
+            raise ValueError("구멍이 브래킷 폭에 비해 너무 큽니다.")
+        if self.hole_inset <= r + 0.1:
+            raise ValueError("구멍 중심의 가장자리 거리가 너무 작습니다.")
+        if self.hole_inset + r + self.thickness >= min(self.length, self.height) - 0.1:
+            raise ValueError("구멍이 브래킷 모서리 접합부와 겹칩니다.")
+        return self
+
+
+class Cylinder(StrictModel):
+    kind: Literal["cylinder"] = "cylinder"
+    diameter: Dimension = 30
+    height: Dimension = 20
+    bore_diameter: Nonnegative = 0
+
+    @model_validator(mode="after")
+    def proportions(self):
+        if self.bore_diameter and (self.bore_diameter < 0.01 or self.bore_diameter >= self.diameter - 0.2):
+            raise ValueError("내경은 0 또는 외경보다 0.2 mm 이상 작은 값이어야 합니다.")
+        return self
+
+
+class Point2D(StrictModel):
+    x: Annotated[float, Field(ge=-1000, le=1000)]
+    y: Annotated[float, Field(ge=-1000, le=1000)]
+
+
+class SketchHole(Point2D):
+    diameter: Dimension = 6
+
+
+class SketchConstraint(StrictModel):
+    kind: Literal["fixed", "horizontal", "vertical", "distance", "coincident", "angle"]
+    a: int = Field(ge=0, le=31)
+    b: int = Field(default=0, ge=0, le=31)
+    value: Annotated[float, Field(ge=-360, le=2000)] = 0
+    x: Annotated[float, Field(ge=-1000, le=1000)] = 0
+    y: Annotated[float, Field(ge=-1000, le=1000)] = 0
+
+
+class Extrusion(StrictModel):
+    kind: Literal["extrusion"] = "extrusion"
+    thickness: Dimension = 8
+    points: list[Point2D] = Field(default_factory=lambda: [Point2D(x=-35, y=-25), Point2D(x=35, y=-25), Point2D(x=35, y=10), Point2D(x=10, y=25), Point2D(x=-35, y=25)], min_length=3, max_length=32)
+    holes: list[SketchHole] = Field(default_factory=list, max_length=16)
+    constraints: list[SketchConstraint] = Field(default_factory=list, max_length=48)
+
+    @model_validator(mode="after")
+    def simple_polygon(self):
+        if self.constraints:
+            from .constraints import solve_sketch
+            solved, _ = solve_sketch(self.points, self.constraints)
+            self.points = [Point2D(x=p[0], y=p[1]) for p in solved]
+        pts = [(p.x, p.y) for p in self.points]
+        edges = list(zip(pts, pts[1:]+pts[:1]))
+
+        def cross(a, b, c):
+            return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
+
+        def distance(p, a, b):
+            dx, dy = b[0]-a[0], b[1]-a[1]
+            t = max(0, min(1, ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy)))
+            return math.hypot(p[0]-a[0]-t*dx, p[1]-a[1]-t*dy)
+
+        if len(set(pts)) != len(pts) or any(math.dist(a, b) < .01 for a, b in edges):
+            raise ValueError("스케치 점은 중복될 수 없으며 변 길이는 0.01 mm 이상이어야 합니다.")
+        if abs(sum(a[0]*b[1]-b[0]*a[1] for a, b in edges))/2 < .01:
+            raise ValueError("스케치 면적이 너무 작거나 점이 한 직선 위에 있습니다.")
+        for i, (a, b) in enumerate(edges):
+            for j, (c, d) in enumerate(edges):
+                if j <= i or j == i+1 or (i == 0 and j == len(edges)-1):
+                    continue
+                if (cross(a, b, c)*cross(a, b, d) < 0 and cross(c, d, a)*cross(c, d, b) < 0) or min(distance(c, a, b), distance(d, a, b), distance(a, c, d), distance(b, c, d)) < .01:
+                    raise ValueError("스케치 외곽선이 교차하거나 서로 너무 가깝습니다.")
+        for hole in self.holes:
+            p = (hole.x, hole.y)
+            inside = False
+            for a, b in edges:
+                if (a[1] > p[1]) != (b[1] > p[1]) and p[0] < (b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0]:
+                    inside = not inside
+            if not inside or min(distance(p, a, b) for a, b in edges) <= hole.diameter/2+.01:
+                raise ValueError("스케치 구멍은 외곽선 안에 있어야 하며 가장자리와 겹칠 수 없습니다.")
+        for i, h in enumerate(self.holes):
+            for other in self.holes[i+1:]:
+                if math.hypot(h.x-other.x, h.y-other.y) <= (h.diameter+other.diameter)/2+.01:
+                    raise ValueError("스케치 구멍이 서로 겹칩니다.")
+        return self
+
+
+Geometry = Annotated[Union[RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, Extrusion], Field(discriminator="kind")]
+
+
+class SketchFeature(StrictModel):
+    id: str = Field(min_length=1, max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
+    name: str = Field(default="면 스케치", min_length=1, max_length=80)
+    face: int = Field(ge=0, le=500)
+    support_face_count: int = Field(default=0, ge=0, le=500)
+    normal: list[Annotated[float, Field(ge=-1, le=1)]] = Field(min_length=3, max_length=3)
+    operation: Literal["add", "cut"] = "add"
+    sketch: Extrusion
+
+
+class AssemblyMate(StrictModel):
+    id: str = Field(min_length=1, max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
+    kind: Literal["rigid", "revolute", "slider", "cylindrical"] = "rigid"
+    parent: str = Field(min_length=1, max_length=40)
+    child: str = Field(min_length=1, max_length=40)
+    parent_anchor: str = Field(default="origin", max_length=40)
+    child_anchor: str = Field(default="origin", max_length=40)
+    x: Coordinate = 0
+    y: Coordinate = 0
+    z: Coordinate = 0
+    rx: Angle = 0
+    ry: Angle = 0
+    rz: Angle = 0
+
+
+class Part(StrictModel):
+    id: str = Field(min_length=1, max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
+    name: str = Field(min_length=1, max_length=80)
+    geometry: Geometry
+    transform: Transform = Field(default_factory=Transform)
+    color: str = Field(default="#70aebf", pattern=r"^#[0-9a-fA-F]{6}$")
+    fixed: bool = False
+    features: list[SketchFeature] = Field(default_factory=list, max_length=8)
+
+
+class Design(StrictModel):
+    schema_version: Literal[1] = 1
+    name: str = Field(default="새 설계", min_length=1, max_length=100)
+    mode: Literal["specimen", "robot"] = "specimen"
+    units: Literal["mm"] = "mm"
+    parts: list[Part] = Field(min_length=1, max_length=12)
+    mates: list[AssemblyMate] = Field(default_factory=list, max_length=11)
+
+    @model_validator(mode="after")
+    def unique_ids(self):
+        ids = [p.id for p in self.parts]
+        if len(ids) != len(set(ids)):
+            raise ValueError("부품 ID는 중복될 수 없습니다.")
+        if len({m.id for m in self.mates}) != len(self.mates):
+            raise ValueError("조립 구속 ID는 중복될 수 없습니다.")
+        for part in self.parts:
+            if len({f.id for f in part.features}) != len(part.features):
+                raise ValueError("피처 ID는 중복될 수 없습니다.")
+        from .constraints import solve_assembly
+        solve_assembly(self)
+        return self
+
+
+class Project(StrictModel):
+    format: Literal["prompt-cad-project"] = "prompt-cad-project"
+    version: Literal[1] = 1
+    design: Design
+    prompt: str = Field(default="", max_length=4000)
+
+
+class DraftRequest(StrictModel):
+    prompt: str = Field(min_length=1, max_length=4000)
+    mode: Literal["specimen", "robot"] = "specimen"
+    provider: Literal["local", "openai"] = "local"
+    current: Design | None = None
+    selected_part: str | None = Field(default=None, max_length=40)
+
+
+GEOMETRY_TYPES = {c.model_fields["kind"].default: c for c in (RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, Extrusion)}

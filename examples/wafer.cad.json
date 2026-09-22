@@ -1,0 +1,35 @@
+{
+  "format": "prompt-cad-project",
+  "version": 1,
+  "design": {
+    "schema_version": 1,
+    "name": "웨이퍼",
+    "mode": "specimen",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "part-1",
+        "name": "웨이퍼",
+        "geometry": {
+          "kind": "wafer",
+          "diameter": 100.0,
+          "thickness": 0.525,
+          "flat_depth": 3.0
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#70aebf",
+        "fixed": false,
+        "features": []
+      }
+    ],
+    "mates": []
+  },
+  "prompt": "웨이퍼 직경 100 mm, 두께 525 um, 플랫 깊이 3 mm"
+}

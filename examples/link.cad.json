@@ -1,0 +1,37 @@
+{
+  "format": "prompt-cad-project",
+  "version": 1,
+  "design": {
+    "schema_version": 1,
+    "name": "양단 링크",
+    "mode": "robot",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "part-1",
+        "name": "양단 링크",
+        "geometry": {
+          "kind": "link",
+          "length": 110.0,
+          "width": 24.0,
+          "thickness": 6.0,
+          "hole_diameter": 8.0,
+          "hole_spacing": 80.0
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#70aebf",
+        "fixed": false,
+        "features": []
+      }
+    ],
+    "mates": []
+  },
+  "prompt": "링크 길이 110, 폭 24, 두께 6, 구멍 직경 8, 구멍 간격 80 mm"
+}

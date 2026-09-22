@@ -1,0 +1,14 @@
+* text=auto
+*.py text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.step -text -whitespace
+*.stl binary
+*.png binary
+*.ico binary
+# Keep upstream license and vendored source bytes untouched.
+licenses/** -text -whitespace
+static/vendor/** -text -whitespace

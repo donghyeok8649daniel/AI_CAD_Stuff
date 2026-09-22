@@ -1,0 +1,35 @@
+{
+  "format": "prompt-cad-project",
+  "version": 1,
+  "design": {
+    "schema_version": 1,
+    "name": "원통 · 튜브",
+    "mode": "robot",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "part-1",
+        "name": "원통 · 튜브",
+        "geometry": {
+          "kind": "cylinder",
+          "diameter": 30.0,
+          "height": 20.0,
+          "bore_diameter": 0.0
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#70aebf",
+        "fixed": false,
+        "features": []
+      }
+    ],
+    "mates": []
+  },
+  "prompt": "튜브 직경 30, 높이 20, 내경 20 mm"
+}

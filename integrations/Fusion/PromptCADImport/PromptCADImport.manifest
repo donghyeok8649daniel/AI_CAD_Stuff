@@ -1,0 +1,8 @@
+{
+  "autodeskProduct": "Fusion360",
+  "type": "script",
+  "author": "Prompt CAD Studio",
+  "description": {"": "Import a STEP into a new Fusion document and save an actual F3D archive."},
+  "version": "1.1.0",
+  "supportedOS": "windows|mac"
+}

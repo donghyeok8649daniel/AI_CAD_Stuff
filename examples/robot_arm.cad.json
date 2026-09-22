@@ -1,0 +1,180 @@
+{
+  "format": "prompt-cad-project",
+  "version": 1,
+  "design": {
+    "schema_version": 1,
+    "name": "2링크 로봇 조립",
+    "mode": "robot",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "base",
+        "name": "베이스",
+        "geometry": {
+          "kind": "cylinder",
+          "diameter": 50.0,
+          "height": 10.0,
+          "bore_diameter": 8.0
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#667b89",
+        "fixed": true,
+        "features": []
+      },
+      {
+        "id": "link-1",
+        "name": "링크 1",
+        "geometry": {
+          "kind": "link",
+          "length": 120.0,
+          "width": 26.0,
+          "thickness": 8.0,
+          "hole_diameter": 8.4,
+          "hole_spacing": 94.0
+        },
+        "transform": {
+          "x": 42.59646599072255,
+          "y": 19.863058301812874,
+          "z": 10.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 25.0
+        },
+        "color": "#70aebf",
+        "fixed": false,
+        "features": []
+      },
+      {
+        "id": "link-2",
+        "name": "링크 2",
+        "geometry": {
+          "kind": "link",
+          "length": 100.0,
+          "width": 24.0,
+          "thickness": 8.0,
+          "hole_diameter": 8.4,
+          "hole_spacing": 76.0
+        },
+        "transform": {
+          "x": 118.10189732525376,
+          "y": 20.726116603625744,
+          "z": 19.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": -30.000000000000004
+        },
+        "color": "#d6ad70",
+        "fixed": false,
+        "features": []
+      },
+      {
+        "id": "pin-1",
+        "name": "어깨 핀",
+        "geometry": {
+          "kind": "cylinder",
+          "diameter": 8.0,
+          "height": 20.0,
+          "bore_diameter": 0.0
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#c4cdd4",
+        "fixed": false,
+        "features": []
+      },
+      {
+        "id": "pin-2",
+        "name": "팔꿈치 핀",
+        "geometry": {
+          "kind": "cylinder",
+          "diameter": 8.0,
+          "height": 19.0,
+          "bore_diameter": 0.0
+        },
+        "transform": {
+          "x": 85.1929319814451,
+          "y": 39.72611660362575,
+          "z": 9.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 25.0
+        },
+        "color": "#c4cdd4",
+        "fixed": false,
+        "features": []
+      }
+    ],
+    "mates": [
+      {
+        "id": "shoulder",
+        "kind": "revolute",
+        "parent": "base",
+        "child": "link-1",
+        "parent_anchor": "top",
+        "child_anchor": "hole_1_bottom",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 25.0
+      },
+      {
+        "id": "elbow",
+        "kind": "revolute",
+        "parent": "link-1",
+        "child": "link-2",
+        "parent_anchor": "hole_2_top",
+        "child_anchor": "hole_1_bottom",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": -55.0
+      },
+      {
+        "id": "shoulder-pin",
+        "kind": "rigid",
+        "parent": "base",
+        "child": "pin-1",
+        "parent_anchor": "origin",
+        "child_anchor": "origin",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 0.0
+      },
+      {
+        "id": "elbow-pin",
+        "kind": "rigid",
+        "parent": "link-1",
+        "child": "pin-2",
+        "parent_anchor": "hole_2_bottom",
+        "child_anchor": "origin",
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 0.0
+      }
+    ]
+  },
+  "prompt": "2링크 로봇 조립"
+}

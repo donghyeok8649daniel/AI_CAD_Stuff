@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Prompt CAD Studio</title><link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="module" src="/static/app.js?v=1.1.0"></script>
+</head>
+<body>
+  <header class="titlebar">
+    <a class="brand" href="/" aria-label="Prompt CAD Studio"><img src="/static/icon.svg" alt=""><span>PROMPT<span class="brand-light"> CAD</span><small>STUDIO</small></span></a>
+    <div class="document-title"><span class="file-icon">◇</span><input id="project-name" aria-label="프로젝트 이름" maxlength="100" value="원통형 시편"><span id="save-state">로컬 작업</span></div>
+    <div class="header-actions"><button id="open-project">프로젝트 열기</button><button id="save-project" class="filled">저장 <kbd>Ctrl S</kbd></button><button id="settings" class="icon-btn" aria-label="설정과 사용 안내">⚙</button></div>
+  </header>
+  <nav class="workspacebar" aria-label="작업 공간">
+    <div class="mode-switch"><button data-mode="specimen" class="active">시편 설계</button><button data-mode="robot">로봇 · 부품</button></div>
+    <span class="workspace-label">DESIGN WORKSPACE</span><span class="status-dot"></span><span id="kernel-status">CAD 엔진 연결 중</span><span class="unit-badge">mm</span>
+  </nav>
+  <section class="toolbar" aria-label="설계 도구">
+    <div class="tool-group"><button id="new-part" class="tool"><span class="tool-icon">⊞</span><span>부품 추가</span></button><button id="sketch-tool" class="tool"><span class="tool-icon">⌑</span><span>스케치 돌출</span></button></div>
+    <div class="tool-group"><button id="duplicate-part" class="tool"><span class="tool-icon">▱</span><span>복제</span></button><button id="focus-transform" class="tool"><span class="tool-icon">✥</span><span>이동 · 회전</span></button><button id="remove-part" class="tool"><span class="tool-icon">⊟</span><span>삭제</span></button></div>
+    <div class="tool-group"><button id="toggle-ai" class="tool ai-tool"><span class="tool-icon">✧</span><span>AI 설계</span><span class="mini-tag">선택 기능</span></button></div>
+    <div class="tool-group export-group"><button id="export-step" class="tool"><span class="tool-icon">↗</span><span>STEP 내보내기</span></button><button id="export-stl" class="tool"><span class="tool-icon">△</span><span>STL</span></button><button id="download-project" class="tool"><span class="tool-icon">⇩</span><span>설계 파일</span></button></div>
+  </section>
+  <main class="workbench">
+    <aside class="browser-panel">
+      <div class="panel-heading"><h2>설계 탐색기</h2><span id="part-count">01</span></div>
+      <div class="tree-root"><span>▾</span><span class="root-icon">▧</span><strong id="tree-title">원통형 시편</strong></div>
+      <div class="tree-meta">단위: mm <span>솔리드 모델</span></div>
+      <div id="part-tree" role="list" aria-label="부품 목록"></div>
+      <div class="panel-divider"></div>
+      <div class="section-label">시작 형상 <span>새 설계</span></div>
+      <div id="templates" class="template-list"></div>
+      <div class="browser-footer"><span class="online-dot"></span>내 컴퓨터에서 실행<small>직접 설계에는 API 키가 필요 없습니다.</small></div>
+    </aside>
+    <section class="viewport-shell" aria-label="3D 작업 공간">
+      <div id="viewport"></div>
+      <div class="viewport-top"><div><span class="overline" id="viewport-kicker">SPECIMEN / PARAMETRIC</span><h1 id="model-title">원통형 시편</h1><p id="model-subtitle">치수로 정의하고, 형상으로 확인하세요.</p></div><span class="valid-badge" id="valid-badge">솔리드 검증 중</span></div>
+      <div class="view-presets" aria-label="시점"><button data-view="iso" class="active">등각</button><button data-view="top">상면</button><button data-view="front">정면</button><button data-view="side">측면</button></div>
+      <div class="axis-label"><span class="axis-x">X</span><span class="axis-y">Y</span><span class="axis-z">Z</span><small>회전: 드래그 · 확대: 휠 · 이동: 우클릭</small></div>
+      <div class="viewport-tools"><button id="fit-view" title="화면에 맞추기 (F)" aria-label="화면에 맞추기">⌖</button><button id="toggle-edges" class="active" title="모서리 표시" aria-label="모서리 표시">⬡</button><button id="toggle-grid" class="active" title="그리드 표시" aria-label="그리드 표시">▦</button></div>
+      <div class="measure-strip"><div><span>BOUNDING BOX</span><strong id="bounds-value">—</strong><small>mm</small></div><div><span>VOLUME</span><strong id="volume-value">—</strong><small>mm³</small></div><div><span>COMPONENTS</span><strong id="solid-value">—</strong><small>솔리드</small></div></div>
+      <div id="collision-notice" class="collision-notice" hidden></div>
+      <div id="draft-banner" class="draft-banner" hidden><span>설계 초안 미리보기</span><button id="discard-draft">취소</button><button id="apply-draft" class="primary">초안 적용</button></div>
+      <div id="busy-overlay" class="busy-overlay" hidden><div class="spinner"></div><strong id="busy-text">CAD 형상 생성 중</strong><span>검증된 치수로 솔리드를 만들고 있습니다.</span></div>
+    </section>
+    <aside class="inspector-panel">
+      <div class="panel-heading"><h2>속성 · 치수</h2><span class="small-badge">직접 편집</span></div>
+      <div class="inspector-scroll">
+        <div class="selected-part"><span class="part-symbol">◈</span><div><strong id="selected-title">원통형 시편</strong><small id="selected-kind">PARAMETRIC SOLID</small></div><input type="color" id="part-color" aria-label="부품 색상" value="#70aebf"></div>
+        <form id="dimension-form">
+          <label class="name-field">부품 이름<input id="part-name" maxlength="80" required></label>
+          <div class="section-label">형상 치수<span>mm</span></div><div id="dimension-fields"></div>
+          <div id="sketch-fields" hidden><label class="text-field">스케치 외곽점 (X, Y)<textarea id="sketch-points" rows="6" spellcheck="false" aria-label="스케치 외곽점"></textarea></label><p class="field-help">한 줄에 X, Y. 마지막 점과 첫 점은 자동 연결됩니다.</p><label class="text-field">관통 구멍 (X, Y, 직경)<textarea id="sketch-holes" rows="3" spellcheck="false" aria-label="스케치 구멍"></textarea></label><p class="field-help">구멍마다 한 줄. 필요 없으면 비워두세요.</p></div>
+          <details id="transform-details"><summary>위치 · 회전 <span>WORLD</span></summary><div id="transform-fields" class="transform-fields"></div><p class="field-help">로컬 X → Y → Z 회전 후 월드 좌표로 이동합니다.</p></details>
+          <div id="form-error" class="inline-error" role="alert" hidden></div>
+          <button type="submit" id="update-geometry" class="primary full-width">치수 적용 <span>↵</span></button><p class="field-help centered">변경한 치수는 적용 후 형상에 반영됩니다.</p>
+        </form>
+        <div class="inspector-note"><span>ⓘ</span><p id="geometry-note">곡선 전이부를 가진 매개변수 시편입니다. 규격 인증이나 물성 해석은 포함하지 않습니다.</p></div>
+      </div>
+    </aside>
+    <aside id="ai-panel" class="ai-panel" hidden>
+      <div class="panel-heading"><h2>✧ 설계 어시스턴트</h2><button id="close-ai" class="icon-btn" aria-label="AI 패널 닫기">×</button></div>
+      <div class="ai-content"><span class="overline">YOUR IDEA → CAD</span><h2>설계를 말로<br>풀어보세요.</h2><p>새 부품을 만들거나, 선택한 부품의 치수를 수정할 수 있습니다.</p>
+        <label class="name-field">설계 엔진<select id="provider"><option value="local">로컬 치수 명령 · 키 없이</option><option value="openai">OpenAI · API 연결 필요</option></select></label>
+        <p id="provider-note" class="field-help">형상 이름과 명시한 치수를 해석합니다. AI 모델은 사용하지 않습니다.</p>
+        <label class="text-field">설계 요청<textarea id="prompt" rows="6" maxlength="4000" placeholder="예: 목 직경을 6 mm로 수정해줘"></textarea></label>
+        <div class="prompt-examples"><button data-prompt="목 직경 6 mm">목 직경 6 mm</button><button data-prompt="웨이퍼 직경 100 mm, 두께 525 um">100 mm 웨이퍼</button><button data-prompt="2링크 로봇 조립">2링크 조립</button></div>
+        <button id="generate-draft" class="primary full-width">설계 초안 생성 <span>✧</span></button>
+        <div id="ai-result" class="ai-result" aria-live="polite"><span class="result-placeholder">초안을 검토하고 적용하면<br>작업 이력에 추가됩니다.</span></div>
+      </div>
+    </aside>
+  </main>
+  <footer class="timeline-bar"><div class="history-controls"><button id="undo" aria-label="되돌리기" title="되돌리기 Ctrl Z">↶</button><button id="redo" aria-label="다시 실행" title="다시 실행 Ctrl Y">↷</button></div><span class="timeline-label">작업 이력</span><div id="timeline" class="timeline"></div><div class="timeline-status"><span id="timeline-info">초기 설계</span><span class="status-dot"></span>LOCAL</div></footer>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="library-dialog"><div class="dialog-head"><div><span class="overline">COMPONENT LIBRARY</span><h2>부품 추가</h2></div><button data-close-dialog class="icon-btn" aria-label="닫기">×</button></div><p>형상을 선택한 후 오른쪽에서 치수를 편집하세요.</p><div id="library-grid" class="library-grid"></div></dialog>
+  <dialog id="projects-dialog"><div class="dialog-head"><div><span class="overline">LOCAL PROJECTS</span><h2>프로젝트 열기</h2></div><button data-close-dialog class="icon-btn" aria-label="닫기">×</button></div><div id="project-list"></div><div class="dialog-bottom"><label class="button file-button">설계 파일 가져오기<input id="import-file" type="file" accept=".json,.cad.json" hidden></label><small>.cad.json · 최대 1 MB</small></div></dialog>
+  <dialog id="settings-dialog"><div class="dialog-head"><div><span class="overline">SETUP & HELP</span><h2>내 CAD, 선택형 AI</h2></div><button data-close-dialog class="icon-btn" aria-label="닫기">×</button></div><div class="help-body"><h3>직접 설계가 기본입니다</h3><p>시작 형상 선택 → 치수 편집 → 치수 적용 → STEP/STL 내보내기. 부품 트리와 3D 형상을 클릭해 선택합니다. 부품 추가와 조립 구속으로 기준점과 관절을 연결합니다. 면 스케치를 누르고 3D 모델의 평면을 클릭하면 그 면에서 스케치·돌출·파내기를 시작합니다.</p><h3>OpenAI 연결</h3><p id="api-status-help"></p><p>시작 메뉴에서 “계정의 환경 변수 편집”을 열고 사용자 변수 <code>OPENAI_API_KEY</code>에 본인의 API 키를 저장하세요. 선택적으로 <code>OPENAI_MODEL</code>에 Structured Outputs를 지원하는 모델 이름을 지정할 수 있습니다. 기본값은 <code>gpt-4.1</code>입니다.</p><p>앱 서버를 종료한 뒤 바로가기로 다시 실행하세요. 키는 브라우저·프로젝트·GitHub에 저장되지 않습니다. 이 화면이나 채팅에 붙여넣지 마세요.</p><p>ChatGPT Plus/Pro 구독과 API는 별도입니다. AI 요청 시 프롬프트와 현재 설계가 OpenAI API로 전송되며 API 사용 요금이 발생할 수 있습니다. 치수·형상 오류 교정을 위해 요청당 최대 2회 호출합니다.</p><h3>이번 버전의 범위</h3><p>매개변수 부품, 면 스케치, 돌출·파내기, 점 고정·수평·수직·거리·각도 구속, 강체·회전·슬라이더·원통 조립 구속을 지원합니다. 구멍은 좌표와 직경으로 정의되며 자유도는 외곽점에 대해 표시됩니다. 조립은 트리 구조이며 폐루프·동역학·자유곡면·구조 해석은 포함하지 않습니다. 시편 전이부는 3차 베지어 곡선이며 특정 시험 규격을 자동 인증하지 않습니다.</p><p>STEP은 mm 단위 솔리드와 부품 이름·색상을 보존합니다. STL은 삼각형 메시이며 단위 정보가 없으므로 받는 프로그램에서 mm로 지정하세요. 조립 STL은 부품별 셸을 합쳐 저장하며 접합·융합하지 않습니다.</p><h3>Windows 앱</h3><p><a href="https://github.com/donghyeok8649daniel/AI_CAD_Stuff/releases/latest" target="_blank" rel="noreferrer">Windows 앱 다운로드 ↗</a> · ZIP을 풀고 PromptCADStudio.exe를 실행하세요. Python 설치 없이 독립 창에서 사용할 수 있습니다.</p><h3>저장과 단축키</h3><p>저장은 앱의 로컬 프로젝트 보관함에 저장합니다. “설계 파일”은 다른 컴퓨터로 옮길 수 있는 JSON 파일입니다. 같은 브라우저의 마지막 적용 설계는 자동 복원됩니다. 작업 이력은 현재 세션에서 최근 30개를 보관합니다.</p><p><kbd>Ctrl S</kbd> 저장 · <kbd>Ctrl Z</kbd> 되돌리기 · <kbd>Ctrl Y</kbd> 다시 실행 · <kbd>F</kbd> 화면 맞추기</p><p><a href="https://github.com/donghyeok8649daniel/AI_CAD_Stuff" target="_blank" rel="noreferrer">GitHub 저장소 ↗</a> · <a href="https://developers.openai.com/api/docs/guides/structured-outputs" target="_blank" rel="noreferrer">OpenAI 공식 문서 ↗</a></p></div></dialog>
+<dialog id="native-dialog"><div class="dialog-head"><h2>Autodesk 형식으로 내보내기</h2><button data-close-dialog class="icon-btn" aria-label="변환 안내 닫기">×</button></div><div class="help-body"><p><strong>Fusion → .f3d</strong><br>변환 패키지의 STEP을 Fusion에서 열고, 함께 제공한 PromptCADImport 스크립트로 Fusion 아카이브를 저장합니다.</p><p><strong>Inventor → .ipt</strong><br>Inventor가 설치된 PC에서 ConvertToIpt.ps1을 실행하면 부품별 IPT를 저장합니다.</p><p>Autodesk 프로그램이 네이티브 파일을 생성합니다. 솔리드 형상이 전달되며 원본 치수·구속·피처 이력은 함께 내보내는 CAD JSON에 보관됩니다. 변환 도구는 Autodesk 내 실변환 미검증 상태입니다.</p><button id="download-native" class="primary full-width">변환 패키지 다운로드 · ZIP</button></div></dialog></body></html>

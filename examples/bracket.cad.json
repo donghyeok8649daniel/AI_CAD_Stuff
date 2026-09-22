@@ -1,0 +1,38 @@
+{
+  "format": "prompt-cad-project",
+  "version": 1,
+  "design": {
+    "schema_version": 1,
+    "name": "L 브래킷",
+    "mode": "robot",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "part-1",
+        "name": "L 브래킷",
+        "geometry": {
+          "kind": "bracket",
+          "length": 60.0,
+          "width": 40.0,
+          "height": 50.0,
+          "thickness": 5.0,
+          "hole_diameter": 6.0,
+          "hole_inset": 12.0
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#70aebf",
+        "fixed": false,
+        "features": []
+      }
+    ],
+    "mates": []
+  },
+  "prompt": "브래킷 길이 60, 폭 40, 높이 50, 두께 5, 구멍 직경 6 mm"
+}

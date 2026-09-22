@@ -1,0 +1,37 @@
+{
+  "format": "prompt-cad-project",
+  "version": 1,
+  "design": {
+    "schema_version": 1,
+    "name": "원통형 시편",
+    "mode": "specimen",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "part-1",
+        "name": "원통형 시편",
+        "geometry": {
+          "kind": "round_specimen",
+          "length": 100.0,
+          "gauge_length": 30.0,
+          "grip_diameter": 16.0,
+          "gauge_diameter": 8.0,
+          "transition_length": 15.0
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#70aebf",
+        "fixed": false,
+        "features": []
+      }
+    ],
+    "mates": []
+  },
+  "prompt": "원통형 시편 전체 길이 100, 목 직경 8, 그립 직경 16, 평행부 길이 30, 전이 길이 15 mm"
+}

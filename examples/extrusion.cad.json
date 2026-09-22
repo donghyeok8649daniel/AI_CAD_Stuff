@@ -1,0 +1,57 @@
+{
+  "format": "prompt-cad-project",
+  "version": 1,
+  "design": {
+    "schema_version": 1,
+    "name": "스케치 돌출",
+    "mode": "robot",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "part-1",
+        "name": "스케치 돌출",
+        "geometry": {
+          "kind": "extrusion",
+          "thickness": 8.0,
+          "points": [
+            {
+              "x": -35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": 10.0
+            },
+            {
+              "x": 10.0,
+              "y": 25.0
+            },
+            {
+              "x": -35.0,
+              "y": 25.0
+            }
+          ],
+          "holes": [],
+          "constraints": []
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#70aebf",
+        "fixed": false,
+        "features": []
+      }
+    ],
+    "mates": []
+  },
+  "prompt": "스케치 돌출 두께 8 mm"
+}

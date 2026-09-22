@@ -1,0 +1,133 @@
+{
+  "format": "prompt-cad-project",
+  "version": 1,
+  "design": {
+    "schema_version": 1,
+    "name": "완전 구속 면 스케치 예제",
+    "mode": "robot",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "part-1",
+        "name": "구멍판",
+        "geometry": {
+          "kind": "plate",
+          "length": 80.0,
+          "width": 60.0,
+          "thickness": 6.0,
+          "hole_count": 4,
+          "hole_diameter": 6.0,
+          "hole_pitch_x": 56.0,
+          "hole_pitch_y": 36.0
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#70aebf",
+        "fixed": false,
+        "features": [
+          {
+            "id": "face-sketch",
+            "name": "20 x 10 돌출",
+            "face": 2,
+            "support_face_count": 10,
+            "normal": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "operation": "add",
+            "sketch": {
+              "kind": "extrusion",
+              "thickness": 5.0,
+              "points": [
+                {
+                  "x": -10.0,
+                  "y": -5.0
+                },
+                {
+                  "x": 10.0,
+                  "y": -5.0
+                },
+                {
+                  "x": 10.0,
+                  "y": 5.0
+                },
+                {
+                  "x": -10.0,
+                  "y": 5.0
+                }
+              ],
+              "holes": [],
+              "constraints": [
+                {
+                  "kind": "fixed",
+                  "a": 0,
+                  "b": 0,
+                  "value": 0.0,
+                  "x": -10.0,
+                  "y": -5.0
+                },
+                {
+                  "kind": "horizontal",
+                  "a": 0,
+                  "b": 1,
+                  "value": 0.0,
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                {
+                  "kind": "vertical",
+                  "a": 1,
+                  "b": 2,
+                  "value": 0.0,
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                {
+                  "kind": "horizontal",
+                  "a": 2,
+                  "b": 3,
+                  "value": 0.0,
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                {
+                  "kind": "vertical",
+                  "a": 3,
+                  "b": 0,
+                  "value": 0.0,
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                {
+                  "kind": "distance",
+                  "a": 0,
+                  "b": 1,
+                  "value": 20.0,
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                {
+                  "kind": "distance",
+                  "a": 1,
+                  "b": 2,
+                  "value": 10.0,
+                  "x": 0.0,
+                  "y": 0.0
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "mates": []
+  },
+  "prompt": ""
+}
