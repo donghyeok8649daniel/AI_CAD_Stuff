@@ -2,7 +2,7 @@
 import math
 import numpy as np
 from PySide6.QtCore import Qt,Signal,QTimer
-from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QToolButton
+from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QToolButton,QSizePolicy
 import vtkmodules.qt
 vtkmodules.qt.PyQtImpl='PySide6'
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
@@ -45,27 +45,29 @@ class CADStyle(vtkInteractorStyleTrackballCamera):
 
 
 class CADViewport(QWidget):
+    sketch_selected=Signal(str)
     part_selected=Signal(str)
     face_selected=Signal(str,object)
     message=Signal(str)
     def __init__(self,parent=None):
         super().__init__(parent);self.setObjectName('cadViewport');self.meshes={};self.actors={};self.actor_ids={};self.hidden=set();self.selected=None;self.face=None
-        self.show_edges=True;self.face_pick=False;self.result=None;self.grid_actor=None;self.highlight=None
+        self.closed=False;self.show_edges=True;self.face_pick=False;self.result=None;self.grid_actor=None;self.highlight=None;self.sketch_actors={}
         layout=QVBoxLayout(self);layout.setContentsMargins(0,0,0,0);layout.setSpacing(0)
-        bar=QHBoxLayout();bar.setContentsMargins(12,8,12,8);self.caption=QLabel('새 설계 · XY 원점');self.caption.setStyleSheet('font-weight:600;color:#526775;');bar.addWidget(self.caption);bar.addStretch()
+        bar=QHBoxLayout();bar.setContentsMargins(12,8,12,8);self.caption=QLabel('새 설계 · XY 원점');self.caption.setStyleSheet('font-weight:600;color:#afc7d6;');self.caption.setWordWrap(True);self.caption.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);layout.addWidget(self.caption);self.caption.setContentsMargins(12,7,12,0);bar.addStretch()
         for key,name in [('iso','등각 1'),('top','상면 2'),('front','정면 3'),('right','측면 4')]:
             b=QToolButton();b.setText(name);b.clicked.connect(lambda _,k=key:self.set_view(k));bar.addWidget(b)
-        layout.addLayout(bar)
+        self.caption.setMinimumHeight(38);layout.addLayout(bar)
         self.widget=QVTKRenderWindowInteractor(self);self.widget.setObjectName('nativeOpenGLViewport');self.widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus);layout.addWidget(self.widget,1)
-        self.renderer=vtkRenderer();self.renderer.SetBackground(.91,.94,.955);self.renderer.SetBackground2(.985,.99,.995);self.renderer.GradientBackgroundOn()
+        self.renderer=vtkRenderer();self.renderer.SetBackground(.07,.105,.15);self.renderer.SetBackground2(.16,.22,.28);self.renderer.GradientBackgroundOn()
         self.window=self.widget.GetRenderWindow();self.window.AddRenderer(self.renderer);self.window.SetMultiSamples(4)
         self.interactor=self.window.GetInteractor();self.style=CADStyle(self);self.style.SetDefaultRenderer(self.renderer);self.interactor.SetInteractorStyle(self.style)
         self.axes=vtkAxesActor();self.axes.SetShaftTypeToCylinder();self.axes_widget=vtkOrientationMarkerWidget();self.axes_widget.SetOrientationMarker(self.axes);self.axes_widget.SetInteractor(self.interactor);self.axes_widget.SetViewport(0,0,.13,.19)
         self.footer=QLabel('드래그: 회전   ·   가운데 버튼: 이동   ·   휠: 확대   ·   클릭: 부품/면 선택   ·   F: 맞춤')
-        self.footer.setStyleSheet('padding:7px 12px;background:#f6f8fa;color:#74858f;font-size:11px;');layout.addWidget(self.footer)
+        self.footer.setStyleSheet('padding:7px 12px;background:#17232e;color:#92aabd;font-size:11px;');layout.addWidget(self.footer)
         self.make_grid(100);self.set_view('iso',render=False);QTimer.singleShot(0,self.initialize)
 
     def initialize(self):
+        if self.closed:return
         self.widget.Initialize();self.axes_widget.SetEnabled(1);self.axes_widget.InteractiveOff();self.window.Render()
 
     def make_grid(self,extent):
@@ -76,12 +78,13 @@ class CADViewport(QWidget):
             v=i*step
             for a,b in [((-extent,v,-.02),(extent,v,-.02)),((v,-extent,-.02),(v,extent,-.02))]:
                 start=pts.InsertNextPoint(*a);end=pts.InsertNextPoint(*b);lines.InsertNextCell(2);lines.InsertCellPoint(start);lines.InsertCellPoint(end)
-        mesh=vtkPolyData();mesh.SetPoints(pts);mesh.SetLines(lines);mapper=vtkPolyDataMapper();mapper.SetInputData(mesh);self.grid_actor=vtkActor();self.grid_actor.SetMapper(mapper);self.grid_actor.GetProperty().SetColor(.73,.79,.82);self.grid_actor.GetProperty().SetOpacity(.3);self.grid_actor.PickableOff();self.renderer.AddActor(self.grid_actor)
+        mesh=vtkPolyData();mesh.SetPoints(pts);mesh.SetLines(lines);mapper=vtkPolyDataMapper();mapper.SetInputData(mesh);self.grid_actor=vtkActor();self.grid_actor.SetMapper(mapper);self.grid_actor.GetProperty().SetColor(.35,.49,.56);self.grid_actor.GetProperty().SetOpacity(.22);self.grid_actor.PickableOff();self.renderer.AddActor(self.grid_actor)
 
     def load(self,result,fit=True):
         for data in self.actors.values():
             for actor in data:self.renderer.RemoveActor(actor)
-        self.actors={};self.actor_ids={};self.meshes={};self.clear_face();self.result=result
+        for actor in self.sketch_actors:self.renderer.RemoveActor(actor)
+        self.sketch_actors={};self.actors={};self.actor_ids={};self.meshes={};self.clear_face();self.result=result
         if result:
             for mesh in result['meshes']:
                 self.meshes[mesh['id']]=mesh;data=polydata(mesh['vertices'],mesh['triangles'])
@@ -89,11 +92,19 @@ class CADViewport(QWidget):
                 mapper=vtkPolyDataMapper();mapper.SetInputConnection(normals.GetOutputPort());mapper.ScalarVisibilityOff()
                 actor=vtkActor();actor.SetMapper(mapper);color=tuple(int(mesh['color'][i:i+2],16)/255 for i in [1,3,5]);actor.GetProperty().SetColor(*color);actor.GetProperty().SetSpecular(.18);actor.GetProperty().SetSpecularPower(28);actor.GetProperty().SetAmbient(.24);actor.GetProperty().SetDiffuse(.76)
                 edges=vtkFeatureEdges();edges.SetInputData(data);edges.BoundaryEdgesOn();edges.FeatureEdgesOn();edges.ManifoldEdgesOff();edges.NonManifoldEdgesOff();edges.SetFeatureAngle(28)
-                edge_mapper=vtkPolyDataMapper();edge_mapper.SetInputConnection(edges.GetOutputPort());edge_mapper.ScalarVisibilityOff();edge_actor=vtkActor();edge_actor.SetMapper(edge_mapper);edge_actor.GetProperty().SetColor(.22,.35,.40);edge_actor.GetProperty().SetLineWidth(1);edge_actor.PickableOff();edge_actor.SetVisibility(self.show_edges)
+                edge_mapper=vtkPolyDataMapper();edge_mapper.SetInputConnection(edges.GetOutputPort());edge_mapper.ScalarVisibilityOff();edge_actor=vtkActor();edge_actor.SetMapper(edge_mapper);edge_actor.GetProperty().SetColor(.19,.29,.34);edge_actor.GetProperty().SetLineWidth(1);edge_actor.PickableOff();edge_actor.SetVisibility(self.show_edges)
                 for a in [actor,edge_actor]:self.renderer.AddActor(a)
                 self.actors[mesh['id']]=(actor,edge_actor);self.actor_ids[actor]=mesh['id']
+            for sketch in result.get('sketches',[]):
+                pts=vtkPoints();lines=vtkCellArray()
+                for row in sketch['lines']:
+                    if len(row)<2:continue
+                    lines.InsertNextCell(len(row))
+                    for point in row:lines.InsertCellPoint(pts.InsertNextPoint(*point))
+                data=vtkPolyData();data.SetPoints(pts);data.SetLines(lines);mapper=vtkPolyDataMapper();mapper.SetInputData(data);actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.38,.81,.83);actor.GetProperty().SetLineWidth(2.5);self.renderer.AddActor(actor);self.sketch_actors[actor]=sketch['id']
             self.make_grid(max(result['stats']['bounds'])*1.2)
             s=result['stats'];self.caption.setText(f"{s['parts']}개 부품   ·   {' × '.join(f'{n:.2f}' for n in s['bounds'])} mm   ·   {s['volume']:,.2f} mm³")
+            if result.get('sketches'):self.caption.setText(self.caption.text()+f"   ·   스케치 {len(result['sketches'])}개")
             if s['assembly_constraints']['mates']:self.caption.setText(self.caption.text()+f"   ·   조립 자유도 {s['assembly_constraints']['dof']}")
             if s['collisions']:self.caption.setText(self.caption.text()+f"   ·   간섭 {len(s['collisions'])}건")
         else:self.caption.setText('새 설계 · 스케치를 시작하거나 부품을 추가하세요.')
@@ -109,6 +120,8 @@ class CADViewport(QWidget):
     def pick(self,x,y):
         picker=vtkCellPicker();picker.SetTolerance(.0005)
         if not picker.Pick(x,y,0,self.renderer):self.clear_face();self.window.Render();return
+        if picker.GetActor() in self.sketch_actors:
+            self.sketch_selected.emit(self.sketch_actors[picker.GetActor()]);return
         identifier=self.actor_ids.get(picker.GetActor())
         if not identifier:return
         mesh=self.meshes[identifier];index=picker.GetCellId()
@@ -144,7 +157,7 @@ class CADViewport(QWidget):
 
     def fit(self):
         if self.result:
-            a=self.result['stats']['min'];b=self.result['stats']['max'];bounds=[v for pair in zip(a,b) for v in pair];self.renderer.ResetCamera(bounds)
+            a=self.result['stats']['min'];b=self.result['stats']['max'];bounds=[v for pair in zip(a,b) for v in pair];self.renderer.ResetCamera(bounds if max(self.result['stats']['bounds'])>1e-6 else [-25,25,-25,25,0,0])
         else:self.renderer.ResetCamera(-50,50,-50,50,0,0)
         self.renderer.ResetCameraClippingRange();self.window.Render()
 
@@ -155,4 +168,6 @@ class CADViewport(QWidget):
         if render:self.fit()
 
     def shutdown(self):
+        if self.closed:return
+        self.closed=True
         self.axes_widget.SetEnabled(0);self.widget.Finalize()

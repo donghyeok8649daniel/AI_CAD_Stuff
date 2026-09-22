@@ -16,12 +16,12 @@ def main():
     from PySide6.QtCore import Qt,QTimer
     from PySide6.QtGui import QIcon,QFont
     from PySide6.QtWidgets import QApplication,QMessageBox,QSplashScreen
-    app=QApplication(sys.argv);app.setApplicationName('Prompt CAD Studio');app.setOrganizationName('PromptCAD');app.setApplicationVersion('2.0.0');app.setFont(QFont('Malgun Gothic',9));app.setStyle('Fusion')
+    app=QApplication(sys.argv);app.setApplicationName('Prompt CAD Studio');app.setOrganizationName('PromptCAD');app.setApplicationVersion('2.1.0');app.setFont(QFont('Malgun Gothic',9));app.setStyle('Fusion')
     root=Path(__file__).resolve().parent;ico=root/'assets'/'app.ico'
     if not ico.exists():ico=root/'static'/'app.ico'
     app.setWindowIcon(QIcon(str(ico)))
-    from cadstudio.native.widgets import STYLE
-    app.setStyleSheet(STYLE)
+    from cadstudio.native.widgets import apply_theme
+    apply_theme(app)
     def report_exception(kind,value,tb):
         text=''.join(traceback.format_exception(kind,value,tb));log.write(text);log.flush()
         if args.smoke_test:args.smoke_test.with_suffix('.error.txt').write_text(text,encoding='utf-8');app.exit(1)

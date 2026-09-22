@@ -61,7 +61,13 @@ def local_draft(request: DraftRequest):
         design = preset(kind)
         return {"design": design.model_dump(), "summary": "회전 구속 2개와 강체 구속 2개가 연결된 2링크 조립 초안을 만들었습니다.", "assumptions": warnings+["베이스가 고정됩니다. 관절 각도를 편집하면 자식 부품도 이동합니다. 동역학 해석은 포함하지 않습니다."], "changes": [], "provider": "local"}
     current = request.current
-    if current:
+    if current and not current.parts:
+        if not kind:
+            raise ValueError("아직 입체 부품이 없습니다. 형상 이름과 치수를 입력하거나 저장한 스케치를 돌출하세요.")
+        design_data = current.model_dump()
+        design_data['parts'] = preset(kind).model_dump()['parts']
+        index, fresh = 0, True
+    elif current:
         design_data = current.model_dump()
         index = next((i for i, p in enumerate(current.parts) if p.id == request.selected_part), 0)
         if request.selected_part and all(p.id != request.selected_part for p in current.parts):

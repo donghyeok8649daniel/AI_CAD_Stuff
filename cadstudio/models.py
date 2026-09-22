@@ -337,6 +337,28 @@ class AssemblyMate(StrictModel):
     rz: Angle = 0
 
 
+class JointAnchorFrame(StrictModel):
+    face: int = Field(ge=0, le=500)
+    face_count: int = Field(ge=1, le=500)
+    support_feature: str = Field(default='base', max_length=40)
+    origin: list[Coordinate] = Field(min_length=3, max_length=3)
+    normal: list[float] = Field(min_length=3, max_length=3)
+    x_direction: list[float] = Field(min_length=3, max_length=3)
+
+    @model_validator(mode='after')
+    def orthogonal_frame(self):
+        if abs(sum(v*v for v in self.normal)-1)>1e-5 or abs(sum(v*v for v in self.x_direction)-1)>1e-5 or abs(sum(a*b for a,b in zip(self.normal,self.x_direction)))>1e-5:
+            raise ValueError('조인트 기준 축은 서로 수직인 단위 벡터여야 합니다.')
+        return self
+
+
+class JointFrames(StrictModel):
+    mate_id: str = Field(min_length=1, max_length=40)
+    parent: JointAnchorFrame
+    child: JointAnchorFrame
+    flipped: bool = True
+
+
 class Part(StrictModel):
     id: str = Field(min_length=1, max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
     name: str = Field(min_length=1, max_length=80)
@@ -347,21 +369,56 @@ class Part(StrictModel):
     features: list[SketchFeature] = Field(default_factory=list, max_length=8)
 
 
+class SketchSupportFace(StrictModel):
+    index: int = Field(ge=0, le=500)
+    planar: Literal[True] = True
+    normal: list[float] = Field(min_length=3, max_length=3)
+    origin: list[Coordinate] = Field(min_length=3, max_length=3)
+    x_direction: list[float] = Field(min_length=3, max_length=3)
+    outline: list[list[list[float]]] = Field(default_factory=list)
+    face_count: int = Field(ge=1, le=500)
+    projected_entities: list[SketchEntity] = Field(default_factory=list)
+    projection_unsupported: int = Field(default=0, ge=0)
+
+
+class SavedSketchContext(StrictModel):
+    plane: Literal['XY', 'XZ', 'YZ'] = 'XY'
+    title: str = Field(default='스케치', max_length=160)
+    part_id: str = Field(default='', max_length=40)
+    support_feature: str = Field(default='', max_length=40)
+    operation: Literal['add', 'cut'] = 'add'
+    face: SketchSupportFace | None = None
+
+
+class SavedSketch(StrictModel):
+    """A sketch need not enclose a face or produce a solid to be saved."""
+    id: str = Field(min_length=1, max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
+    name: str = Field(default="스케치", min_length=1, max_length=80)
+    geometry: Extrusion
+    context: SavedSketchContext = Field(default_factory=SavedSketchContext)
+
+
 class Design(StrictModel):
     schema_version: Literal[1] = 1
     name: str = Field(default="새 설계", min_length=1, max_length=100)
     mode: Literal["specimen", "robot"] = "specimen"
     units: Literal["mm"] = "mm"
-    parts: list[Part] = Field(min_length=1, max_length=12)
+    parts: list[Part] = Field(default_factory=list, max_length=12)
     mates: list[AssemblyMate] = Field(default_factory=list, max_length=11)
+    sketches: list[SavedSketch] = Field(default_factory=list, max_length=64)
+    joint_frames: list[JointFrames] = Field(default_factory=list, max_length=11)
 
     @model_validator(mode="after")
     def unique_ids(self):
+        if len({s.id for s in self.sketches}) != len(self.sketches):
+            raise ValueError("스케치 ID는 중복될 수 없습니다.")
         ids = [p.id for p in self.parts]
         if len(ids) != len(set(ids)):
             raise ValueError("부품 ID는 중복될 수 없습니다.")
         if len({m.id for m in self.mates}) != len(self.mates):
             raise ValueError("조립 구속 ID는 중복될 수 없습니다.")
+        if len({f.mate_id for f in self.joint_frames}) != len(self.joint_frames) or any(f.mate_id not in {m.id for m in self.mates} for f in self.joint_frames):
+            raise ValueError('면 조인트 기준은 실제 조립 구속 하나에 한 번만 연결해야 합니다.')
         for part in self.parts:
             if len({f.id for f in part.features}) != len(part.features):
                 raise ValueError("피처 ID는 중복될 수 없습니다.")

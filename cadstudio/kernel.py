@@ -155,6 +155,20 @@ def _build_cached(canonical_json):
 
 def build(design: Design):
     with KERNEL_LOCK:
+        # Re-evaluate the selected local face before propagating a joint. This
+        # makes a parent dimension edit move attached parts with the actual face.
+        parts={p.id:p for p in design.parts};mates={m.id:m for m in design.mates}
+        for binding in design.joint_frames:
+            mate=mates[binding.mate_id]
+            for identifier,frame in ((mate.parent,binding.parent),(mate.child,binding.child)):
+                part=parts[identifier];shape=_part_cached(part.model_dump_json());faces=shape.Faces();support=part.features[-1].id if part.features else 'base'
+                if len(faces)!=frame.face_count or frame.face>=len(faces) or support!=frame.support_feature:
+                    raise ValueError('면 조인트가 참조한 피처/면 구성이 변경되었습니다. 기준 면을 다시 선택하세요.')
+                plane=face_frame(faces[frame.face])
+                if (plane.zDir-cq.Vector(*frame.normal)).Length>1e-5:
+                    raise ValueError('면 조인트의 기준 방향이 변경되었습니다. 기준 면을 다시 선택하세요.')
+                frame.origin=list(plane.origin.toTuple());frame.x_direction=list(plane.xDir.toTuple())
+        solve_assembly(design)
         return _build_cached(design.model_dump_json())
 
 
@@ -193,8 +207,16 @@ def preview(design: Design):
                 "volume": shape.Volume(), "area": shape.Area(), "valid": shape.isValid(),
                 "bounds": [bb.xlen, bb.ylen, bb.zlen],
             })
-        compound = cq.Compound.makeCompound(shapes)
-        bb = exact_bounds(compound)
+        from .native.saved_sketches import preview_sketches
+        saved_sketches = preview_sketches(design)
+        points = [p for sketch in saved_sketches for row in sketch['lines'] for p in row]
+        if shapes:
+            compound = cq.Compound.makeCompound(shapes)
+            bb = exact_bounds(compound)
+            points.extend([[bb.xmin,bb.ymin,bb.zmin],[bb.xmax,bb.ymax,bb.zmax]])
+        if not points: points = [[-25,-25,0],[25,25,0]]
+        minimum = [min(p[i] for p in points) for i in range(3)]
+        maximum = [max(p[i] for p in points) for i in range(3)]
         collisions = []
         for i, a in enumerate(shapes):
             ba = exact_bounds(a)
@@ -206,11 +228,11 @@ def preview(design: Design):
                     volume = a.intersect(b).Volume()
                     if volume > 1e-5:
                         collisions.append({"a": design.parts[i].id, "b": design.parts[j].id, "volume": volume})
-        return {"meshes": meshes, "stats": {
+        return {"meshes": meshes, "sketches": saved_sketches, "stats": {
             "valid": all(m["valid"] for m in meshes), "parts": len(shapes),
             "volume": sum(m["volume"] for m in meshes),
-            "bounds": [bb.xlen, bb.ylen, bb.zlen],
-            "min": [bb.xmin, bb.ymin, bb.zmin], "max": [bb.xmax, bb.ymax, bb.zmax],
+            "bounds": [b-a for a,b in zip(minimum,maximum)],
+            "min": minimum, "max": maximum,
             "triangles": sum(len(m["triangles"])//3 for m in meshes), "collisions": collisions,"assembly_constraints":solve_assembly(design),
         }}
 
@@ -220,6 +242,8 @@ def export(design: Design, destination: Path, fmt: str):
         raise ValueError("STEP 또는 STL만 내보낼 수 있습니다.")
     with KERNEL_LOCK:
         shapes = build(design)
+        if not shapes:
+            raise ValueError("입체 형상이 없습니다. 스케치는 CAD 프로젝트로 저장하고 닫힌 영역을 돌출한 뒤 STEP/STL로 내보내세요.")
         if fmt == "step":
             assembly = cq.Assembly(name="PromptCAD")
             for part, shape in zip(design.parts, shapes):

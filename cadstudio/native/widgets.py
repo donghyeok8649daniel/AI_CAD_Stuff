@@ -5,20 +5,42 @@ from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QDoubleSpinBox,QLabel,QPushButton,QFormLayout,QWidget,QVBoxLayout,QHBoxLayout
 
 STYLE='''
-QMainWindow,QDialog{background:#f0f2f5;color:#24313d;} QWidget{font-family:"Malgun Gothic";font-size:12px;}
-QMenuBar,QMenu,QToolBar{background:#fff;color:#263746;} QMenuBar{padding:3px;} QMenu::item{padding:7px 28px;} QMenu::item:selected{background:#dbece9;}
-QToolBar{border:0;border-bottom:1px solid #d8e0e5;spacing:5px;padding:6px;} QToolButton{padding:7px;border:1px solid transparent;border-radius:4px;} QToolButton:hover{background:#edf3f5;} QToolButton:checked{background:#d5e9e4;border:1px solid #79aaa1;}
-QDockWidget{font-weight:600;} QDockWidget::title{background:#e5eaee;padding:7px;} QDockWidget::close-button,QDockWidget::float-button{padding:2px;}
-QTreeWidget,QListWidget,QTableWidget,QPlainTextEdit,QTextEdit{background:#fff;border:1px solid #dce2e7;selection-background-color:#d5e9e4;selection-color:#193c37;}
-QTreeWidget::item,QListWidget::item{padding:6px;} QHeaderView::section{background:#eef2f4;padding:6px;border:0;border-bottom:1px solid #d8e0e5;}
-QPushButton{background:#fff;border:1px solid #cbd6dc;border-radius:4px;padding:7px 12px;} QPushButton:hover{background:#eaf2f3;border-color:#81aaa7;} QPushButton:pressed{background:#d3e9e5;} QPushButton:disabled,QToolButton:disabled{color:#9ca8b0;background:#f2f4f5;}
-QPushButton[primary="true"]{background:#26796d;color:white;border-color:#26796d;font-weight:600;} QPushButton[primary="true"]:hover{background:#1f695f;}
-QLineEdit,QDoubleSpinBox,QSpinBox,QComboBox{background:#fff;border:1px solid #cfd9de;border-radius:3px;padding:6px;min-height:20px;} QLineEdit:focus,QDoubleSpinBox:focus,QComboBox:focus{border-color:#469589;}
-QGroupBox{font-weight:600;border:1px solid #d6dfe5;border-radius:4px;margin-top:14px;padding-top:12px;} QGroupBox::title{subcontrol-origin:margin;left:10px;padding:0 4px;} QTabWidget::pane{border:1px solid #d6dfe5;background:#fff;} QTabBar::tab{background:#e8eef1;padding:9px 16px;border-bottom:2px solid transparent;} QTabBar::tab:selected{background:#fff;border-bottom-color:#26796d;}
-QStatusBar{background:#e9eef1;border-top:1px solid #d8e0e5;color:#49616c;} QSplitter::handle{background:#dde5e9;} QScrollArea{border:0;background:#f7f9fa;} QCheckBox{spacing:6px;padding:3px;}
+QWidget{font-family:"Malgun Gothic";font-size:12px;color:#d7e2ec;}
+QMainWindow,QDialog,QWidget#nativeCADMainWindow{background:#141d27;}
+QMenuBar,QMenu,QToolBar{background:#1b2531;color:#d7e2ec;}
+QMenuBar{padding:5px 8px;border-bottom:1px solid #2b3948;} QMenuBar::item{padding:5px 10px;border-radius:4px;} QMenuBar::item:selected{background:#2b3c4b;}
+QMenu{border:1px solid #3a4b5c;padding:5px;} QMenu::item{padding:8px 30px;border-radius:4px;} QMenu::item:selected{background:#234c4e;color:#d6fff5;} QMenu::separator{height:1px;background:#344453;margin:5px 8px;}
+QToolBar{border:0;border-bottom:1px solid #30404f;spacing:3px;padding:6px;} QToolBar::separator{width:1px;background:#354554;margin:8px;}
+QToolButton{padding:7px 9px;border:1px solid transparent;border-radius:6px;background:transparent;} QToolButton:hover{background:#2a3b48;border-color:#365260;} QToolButton:checked{background:#204944;border-color:#3bb39f;color:#aef3e1;}
+QDockWidget{font-weight:600;} QDockWidget::title{background:#202c39;color:#a9bdce;padding:9px 12px;} QDockWidget::close-button,QDockWidget::float-button{padding:2px;}
+QTreeWidget,QListWidget,QTableWidget,QPlainTextEdit,QTextEdit{background:#17222e;border:1px solid #2c3d4c;border-radius:5px;selection-background-color:#244f50;selection-color:#d9fff6;alternate-background-color:#1c2935;}
+QTreeWidget::item,QListWidget::item{padding:7px 5px;border-radius:4px;} QTreeWidget::item:hover,QListWidget::item:hover{background:#253845;} QHeaderView::section{background:#202d3b;padding:7px;border:0;border-bottom:1px solid #344858;}
+QPushButton{background:#263644;color:#dce6ee;border:1px solid #405363;border-radius:6px;padding:8px 12px;} QPushButton:hover{background:#304858;border-color:#68969e;} QPushButton:pressed{background:#1d5350;}
+QPushButton:disabled,QToolButton:disabled{color:#6f8292;background:#1b2733;border-color:#2d3b47;}
+QPushButton[primary="true"]{background:#187d72;color:#f3fffb;border-color:#2dac99;font-weight:600;} QPushButton[primary="true"]:hover{background:#209588;border-color:#68d7bd;}
+QLineEdit,QDoubleSpinBox,QSpinBox,QComboBox{background:#111c27;color:#e3edf4;border:1px solid #384d60;border-radius:5px;padding:7px;min-height:20px;selection-background-color:#267d78;}
+QLineEdit:focus,QDoubleSpinBox:focus,QComboBox:focus,QPlainTextEdit:focus{border-color:#43bca7;background:#162630;}
+QComboBox QAbstractItemView{background:#203240;color:#e1ecf4;selection-background-color:#28635e;selection-color:#f3fffc;}
+QGroupBox{font-weight:600;border:1px solid #344858;border-radius:6px;margin-top:14px;padding-top:12px;} QGroupBox::title{subcontrol-origin:margin;left:10px;padding:0 4px;color:#a8c6d4;}
+QTabWidget::pane{border:1px solid #314553;background:#1a2733;} QTabBar::tab{background:#1a2733;color:#9db3c3;padding:10px 13px;border-bottom:2px solid transparent;} QTabBar::tab:selected{background:#213a42;color:#b7f6e8;border-bottom:2px solid #44c6b0;} QTabBar::tab:hover{background:#283d49;}
+QStatusBar{background:#111b26;border-top:1px solid #2b3e4d;color:#a1b9c9;} QSplitter::handle{background:#304453;width:3px;height:3px;} QScrollArea{border:0;background:#1a2733;}
+QCheckBox{spacing:7px;padding:4px 0;} QCheckBox::indicator{width:15px;height:15px;border:1px solid #537080;border-radius:3px;background:#182631;} QCheckBox::indicator:checked{background:#2dac99;border:3px solid #204e4b;}
+QScrollBar:vertical{background:#16232e;width:11px;margin:0;} QScrollBar::handle:vertical{background:#405766;border-radius:5px;min-height:28px;} QScrollBar::handle:vertical:hover{background:#617d89;} QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}
+QScrollBar:horizontal{background:#16232e;height:11px;margin:0;} QScrollBar::handle:horizontal{background:#405766;border-radius:5px;min-width:28px;} QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal{width:0;}
+QToolTip{background:#243e49;color:#e1f8f3;border:1px solid #567e86;padding:6px;border-radius:4px;}
 '''
 
+def apply_theme(app):
+    from PySide6.QtGui import QPalette
+    palette=QPalette()
+    for role,color in [('Window','#1a2733'),('WindowText','#d7e2ec'),('Base','#111c27'),('AlternateBase','#1c2935'),('Text','#e1eaf3'),('Button','#263644'),('ButtonText','#d7e2ec'),('Highlight','#28635e'),('HighlightedText','#f3fffc'),('ToolTipBase','#243e49'),('ToolTipText','#e1f8f3'),('PlaceholderText','#829bac'),('Link','#64d0bd'),('Light','#506474'),('Mid','#344858'),('Dark','#101a24')]:
+        palette.setColor(getattr(QPalette.ColorRole,role),QColor(color))
+    app.setPalette(palette);app.setStyleSheet(STYLE);app.styleHints().setColorScheme(Qt.ColorScheme.Dark)
+
+
 PATHS={
+ 'specimen':'M2 4H7L10 9H14L17 4H22V20H17L14 15H10L7 20H2Z M10 12H14',
+ 'check':'M4 12L10 18L22 5',
  'sketch':'M3 21L7 12L19 0L24 5L12 17Z M7 12L12 17 M3 21L12 17',
  'line':'M3 21L21 3 M1 19L5 23 M19 1L23 5',
  'rectangle':'M3 5H21V19H3Z',
@@ -46,7 +68,7 @@ PATHS={
 }
 
 
-def icon(name,color='#335f67',size=28):
+def icon(name,color='#9fc8d2',size=28):
     path=PATHS.get(name,PATHS['file'])
     svg=f'<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="-1 -1 26 26"><path d="{path}" fill="none" stroke="{color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     pix=QPixmap(size,size);pix.fill(Qt.GlobalColor.transparent);p=QPainter(pix);QSvgRenderer(QByteArray(svg.encode())).render(p);p.end();return QIcon(pix)
@@ -58,7 +80,7 @@ def number(value=0,low=-5000,high=5000,suffix='',decimals=5):
 
 def label(text,muted=False):
     widget=QLabel(text);widget.setWordWrap(True)
-    if muted:widget.setStyleSheet('color:#70818c;font-size:11px;')
+    if muted:widget.setStyleSheet('color:#9bb2c3;font-size:11px;')
     return widget
 
 
@@ -84,9 +106,13 @@ class Worker(QRunnable):
     def __init__(self,fn):super().__init__();self.fn=fn;self.signals=WorkerSignals()
     @Slot()
     def run(self):
-        try:self.signals.done.emit(self.fn())
+        try:result=self.fn()
         except Exception as exc:
             from pydantic import ValidationError
             if isinstance(exc,ValidationError):message='\n'.join(e['msg'].removeprefix('Value error, ') for e in exc.errors())
             else:message=str(exc)
-            self.signals.failed.emit(message)
+            try:self.signals.failed.emit(message)
+            except RuntimeError:pass  # Application already disposed the receiver.
+        else:
+            try:self.signals.done.emit(result)
+            except RuntimeError:pass

@@ -70,7 +70,7 @@ def transform_matrix(t):
 
 
 def solve_assembly(design):
-    parts={p.id:p for p in design.parts}; driving={}
+    parts={p.id:p for p in design.parts}; driving={}; frames={f.mate_id:f for f in design.joint_frames}
     for mate in design.mates:
         if mate.parent not in parts or mate.child not in parts or mate.parent==mate.child:
             raise ValueError("조립 구속은 서로 다른 실제 부품 두 개를 참조해야 합니다.")
@@ -92,9 +92,17 @@ def solve_assembly(design):
                 raise ValueError("조립 구속의 기준점이 현재 형상에 없습니다.")
             parent_rotation=transform_matrix(parent.transform)
             relative=Rotation.from_euler("xyz",[mate.rx,mate.ry,mate.rz],degrees=True).as_matrix()
-            rotation=parent_rotation@relative
             parent_pos=np.array([parent.transform.x,parent.transform.y,parent.transform.z])
-            translation=parent_pos+parent_rotation@(np.array(pa[mate.parent_anchor])+np.array([mate.x,mate.y,mate.z]))-rotation@np.array(ca[mate.child_anchor])
+            frame=frames.get(mate.id)
+            if frame:
+                def basis(f):return np.column_stack([f.x_direction,np.cross(f.normal,f.x_direction),f.normal])
+                parent_frame=parent_rotation@basis(frame.parent)
+                align=np.diag([1,-1,-1]) if frame.flipped else np.eye(3)
+                rotation=parent_frame@relative@align@basis(frame.child).T
+                translation=parent_pos+parent_rotation@np.array(frame.parent.origin)+parent_frame@np.array([mate.x,mate.y,mate.z])-rotation@np.array(frame.child.origin)
+            else:
+                rotation=parent_rotation@relative
+                translation=parent_pos+parent_rotation@(np.array(pa[mate.parent_anchor])+np.array([mate.x,mate.y,mate.z]))-rotation@np.array(ca[mate.child_anchor])
             angles=Rotation.from_matrix(rotation).as_euler("xyz",degrees=True)
             values=dict(zip(["x","y","z","rx","ry","rz"],map(float,[*translation,*angles])))
             child.transform=type(child.transform).model_validate(values)
