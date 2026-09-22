@@ -164,7 +164,7 @@ This is a geometric draft, not engineering certification. Output finite numeric 
 """
 
 
-def openai_draft(request: DraftRequest, client=None):
+def openai_draft(request: DraftRequest, client=None, model=None):
     if client is None:
         if not os.getenv("OPENAI_API_KEY"):
             raise ValueError("API 키가 연결되지 않았습니다. 설정 안내에서 로컬 환경변수 OPENAI_API_KEY를 설정한 뒤 앱을 재시작하세요.")
@@ -174,7 +174,7 @@ def openai_draft(request: DraftRequest, client=None):
     payload = {"prompt": request.prompt, "mode": request.mode, "selected_part": request.selected_part, "current_design": request.current.model_dump() if request.current else None}
     for attempt in range(2):
         response = client.responses.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4.1"), instructions=SYSTEM_PROMPT,
+            model=model or os.getenv("OPENAI_MODEL", "gpt-4.1"), instructions=SYSTEM_PROMPT,
             input=json.dumps(payload, ensure_ascii=False),
             text={"format": {"type": "json_schema", "name": "cad_design", "strict": True, "schema": strict_schema(AIReply.model_json_schema())}},
             max_output_tokens=6000, store=False,

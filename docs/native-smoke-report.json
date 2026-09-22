@@ -1,0 +1,27 @@
+{
+  "renderer": "Qt Widgets / VTK OpenGL",
+  "browser": false,
+  "checks": [
+    "native main window visible",
+    "native sketch completion",
+    "valid extruded solid",
+    "rectangle and circular hole volume",
+    "OpenGL triangle face picking",
+    "face sketch completion",
+    "face pocket removes exact volume",
+    "face and previous feature references",
+    "timeline commits preserved",
+    "sketch tools stored in history",
+    "project history reload validation",
+    "STEP export",
+    "undo restores prior feature state",
+    "redo restores face feature",
+    "native assembly with four joints",
+    "assembly geometry valid",
+    "history returns from assembly to CAD",
+    "native OpenGL renders visible geometry: final"
+  ],
+  "initial_volume": 18571.68146928204,
+  "success": true,
+  "elapsed_seconds": 2.27
+}

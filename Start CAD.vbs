@@ -13,4 +13,4 @@ If Not fso.FileExists(python) Then
   WScript.Quit 1
 End If
 shell.CurrentDirectory = root
-shell.Run Chr(34) & python & Chr(34) & " " & Chr(34) & root & "\launch.py" & Chr(34), 0, False
+shell.Run Chr(34) & python & Chr(34) & " " & Chr(34) & root & "\native_desktop.py" & Chr(34), 0, False

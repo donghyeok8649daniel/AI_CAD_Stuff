@@ -1,0 +1,21 @@
+{
+  "round_specimen": {
+    "valid": true,
+    "parts": 1,
+    "step_bytes": 17797
+  },
+  "extrusion": {
+    "valid": true,
+    "parts": 1,
+    "step_bytes": 21179
+  },
+  "robot_arm": {
+    "valid": true,
+    "parts": 5,
+    "step_bytes": 74963
+  },
+  "analytic": {
+    "dof": 0,
+    "valid": true
+  }
+}

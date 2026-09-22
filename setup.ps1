@@ -14,6 +14,6 @@ if (-not $PythonPath) {
 if ($LASTEXITCODE -ne 0) { throw 'Unsupported Python version.' }
 & $PythonPath -m venv .venv
 if ($LASTEXITCODE -ne 0) { throw 'Virtual environment creation failed.' }
-& '.\.venv\Scripts\python.exe' -m pip install -r requirements.txt
+& '.\.venv\Scripts\python.exe' -m pip install -r requirements-native.txt
 if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed. Check network access and retry.' }
-Write-Host 'Ready. Double-click Start CAD.vbs, or run .\.venv\Scripts\python.exe launch.py'
+Write-Host 'Ready. Double-click Start CAD.vbs, or run .\.venv\Scripts\python.exe native_desktop.py'

@@ -1,0 +1,1999 @@
+{
+  "format": "prompt-cad-project",
+  "version": 2,
+  "design": {
+    "schema_version": 1,
+    "name": "스케치 설계",
+    "mode": "specimen",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "part-5e4cbcc4ceaf480493ae8d9bd01c27fa",
+        "name": "스케치 돌출 1",
+        "geometry": {
+          "kind": "extrusion",
+          "thickness": 8.0,
+          "points": [
+            {
+              "x": -35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": 10.0
+            },
+            {
+              "x": 10.0,
+              "y": 25.0
+            },
+            {
+              "x": -35.0,
+              "y": 25.0
+            }
+          ],
+          "holes": [],
+          "constraints": [],
+          "sketch_mode": "entities",
+          "entities": [
+            {
+              "id": "27a6d5a595e644bbb7740b9597fd6534",
+              "construction": false,
+              "kind": "line",
+              "start": {
+                "x": -30.0,
+                "y": -20.0
+              },
+              "end": {
+                "x": 30.0,
+                "y": -20.0
+              }
+            },
+            {
+              "id": "aa84d541a6774843a99ecdc6d4d3c6ad",
+              "construction": false,
+              "kind": "line",
+              "start": {
+                "x": 30.0,
+                "y": -20.0
+              },
+              "end": {
+                "x": 30.0,
+                "y": 20.0
+              }
+            },
+            {
+              "id": "acfd2e8e268047a781b6f045cf8722a5",
+              "construction": false,
+              "kind": "line",
+              "start": {
+                "x": 30.0,
+                "y": 20.0
+              },
+              "end": {
+                "x": -30.0,
+                "y": 20.0
+              }
+            },
+            {
+              "id": "b6dbbb0b0a5845d78405a4a6d14759fa",
+              "construction": false,
+              "kind": "line",
+              "start": {
+                "x": -30.0,
+                "y": 20.0
+              },
+              "end": {
+                "x": -30.0,
+                "y": -20.0
+              }
+            },
+            {
+              "id": "589fb1819cc44aab975f2dc5fa897055",
+              "construction": false,
+              "kind": "circle",
+              "center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "radius": 5.0
+            }
+          ],
+          "entity_constraints": [
+            {
+              "id": "964c94704f0d49ac88a32440ca06837c",
+              "kind": "horizontal",
+              "a": "27a6d5a595e644bbb7740b9597fd6534",
+              "b": "",
+              "c": "",
+              "a_point": "start",
+              "b_point": "start",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            },
+            {
+              "id": "091d6523891f4d56ae5bcb91cd2fdb66",
+              "kind": "coincident",
+              "a": "aa84d541a6774843a99ecdc6d4d3c6ad",
+              "b": "27a6d5a595e644bbb7740b9597fd6534",
+              "c": "",
+              "a_point": "start",
+              "b_point": "end",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            },
+            {
+              "id": "45c2f3edc87744d68b405e9a4c013506",
+              "kind": "vertical",
+              "a": "aa84d541a6774843a99ecdc6d4d3c6ad",
+              "b": "",
+              "c": "",
+              "a_point": "start",
+              "b_point": "start",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            },
+            {
+              "id": "f267a4a782834763bd068ca5ebca8cbd",
+              "kind": "coincident",
+              "a": "acfd2e8e268047a781b6f045cf8722a5",
+              "b": "aa84d541a6774843a99ecdc6d4d3c6ad",
+              "c": "",
+              "a_point": "start",
+              "b_point": "end",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            },
+            {
+              "id": "c099da9bbdce4666b088718b706d6eb4",
+              "kind": "horizontal",
+              "a": "acfd2e8e268047a781b6f045cf8722a5",
+              "b": "",
+              "c": "",
+              "a_point": "start",
+              "b_point": "start",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            },
+            {
+              "id": "445312747dcf42feafc0a313713e2c3d",
+              "kind": "coincident",
+              "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+              "b": "acfd2e8e268047a781b6f045cf8722a5",
+              "c": "",
+              "a_point": "start",
+              "b_point": "end",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            },
+            {
+              "id": "eebc3f4769fe456ea64ac68acaac3058",
+              "kind": "coincident",
+              "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+              "b": "27a6d5a595e644bbb7740b9597fd6534",
+              "c": "",
+              "a_point": "end",
+              "b_point": "start",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            },
+            {
+              "id": "934b693483224f4380c7d787aea51f1b",
+              "kind": "vertical",
+              "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+              "b": "",
+              "c": "",
+              "a_point": "start",
+              "b_point": "start",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            },
+            {
+              "id": "72f0e0c5bd2b40b0bec772429250212d",
+              "kind": "fixed",
+              "a": "589fb1819cc44aab975f2dc5fa897055",
+              "b": "",
+              "c": "",
+              "a_point": "center",
+              "b_point": "start",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            }
+          ],
+          "profiles": []
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#70aebf",
+        "fixed": false,
+        "features": [
+          {
+            "id": "feature-7dd80e010f1e41f8886a71aa3e394c10",
+            "name": "구멍 / 포켓 절삭 1",
+            "face": 6,
+            "support_face_count": 7,
+            "support_feature": "base",
+            "origin": [
+              -1.1102230246251565e-15,
+              6.384253291886696e-16,
+              8.0
+            ],
+            "x_direction": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "normal": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "operation": "cut",
+            "sketch": {
+              "kind": "extrusion",
+              "thickness": 4.0,
+              "points": [
+                {
+                  "x": -35.0,
+                  "y": -25.0
+                },
+                {
+                  "x": 35.0,
+                  "y": -25.0
+                },
+                {
+                  "x": 35.0,
+                  "y": 10.0
+                },
+                {
+                  "x": 10.0,
+                  "y": 25.0
+                },
+                {
+                  "x": -35.0,
+                  "y": 25.0
+                }
+              ],
+              "holes": [],
+              "constraints": [],
+              "sketch_mode": "entities",
+              "entities": [
+                {
+                  "id": "2ca980b000404a16920cb343f4041e28",
+                  "construction": false,
+                  "kind": "circle",
+                  "center": {
+                    "x": 15.0,
+                    "y": 0.0
+                  },
+                  "radius": 3.0
+                }
+              ],
+              "entity_constraints": [],
+              "profiles": []
+            }
+          }
+        ]
+      }
+    ],
+    "mates": []
+  },
+  "prompt": "",
+  "history": {
+    "version": 1,
+    "base": {
+      "schema_version": 1,
+      "name": "스케치 설계",
+      "mode": "specimen",
+      "units": "mm",
+      "parts": [
+        {
+          "id": "part-5e4cbcc4ceaf480493ae8d9bd01c27fa",
+          "name": "스케치 돌출 1",
+          "geometry": {
+            "kind": "extrusion",
+            "thickness": 8.0,
+            "points": [
+              {
+                "x": -35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": 10.0
+              },
+              {
+                "x": 10.0,
+                "y": 25.0
+              },
+              {
+                "x": -35.0,
+                "y": 25.0
+              }
+            ],
+            "holes": [],
+            "constraints": [],
+            "sketch_mode": "entities",
+            "entities": [
+              {
+                "id": "27a6d5a595e644bbb7740b9597fd6534",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": -30.0,
+                  "y": -20.0
+                },
+                "end": {
+                  "x": 30.0,
+                  "y": -20.0
+                }
+              },
+              {
+                "id": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": 30.0,
+                  "y": -20.0
+                },
+                "end": {
+                  "x": 30.0,
+                  "y": 20.0
+                }
+              },
+              {
+                "id": "acfd2e8e268047a781b6f045cf8722a5",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": 30.0,
+                  "y": 20.0
+                },
+                "end": {
+                  "x": -30.0,
+                  "y": 20.0
+                }
+              },
+              {
+                "id": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": -30.0,
+                  "y": 20.0
+                },
+                "end": {
+                  "x": -30.0,
+                  "y": -20.0
+                }
+              },
+              {
+                "id": "589fb1819cc44aab975f2dc5fa897055",
+                "construction": false,
+                "kind": "circle",
+                "center": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "radius": 5.0
+              }
+            ],
+            "entity_constraints": [
+              {
+                "id": "964c94704f0d49ac88a32440ca06837c",
+                "kind": "horizontal",
+                "a": "27a6d5a595e644bbb7740b9597fd6534",
+                "b": "",
+                "c": "",
+                "a_point": "start",
+                "b_point": "start",
+                "value": 0.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "091d6523891f4d56ae5bcb91cd2fdb66",
+                "kind": "coincident",
+                "a": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                "b": "27a6d5a595e644bbb7740b9597fd6534",
+                "c": "",
+                "a_point": "start",
+                "b_point": "end",
+                "value": 0.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "45c2f3edc87744d68b405e9a4c013506",
+                "kind": "vertical",
+                "a": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                "b": "",
+                "c": "",
+                "a_point": "start",
+                "b_point": "start",
+                "value": 0.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "f267a4a782834763bd068ca5ebca8cbd",
+                "kind": "coincident",
+                "a": "acfd2e8e268047a781b6f045cf8722a5",
+                "b": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                "c": "",
+                "a_point": "start",
+                "b_point": "end",
+                "value": 0.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "c099da9bbdce4666b088718b706d6eb4",
+                "kind": "horizontal",
+                "a": "acfd2e8e268047a781b6f045cf8722a5",
+                "b": "",
+                "c": "",
+                "a_point": "start",
+                "b_point": "start",
+                "value": 0.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "445312747dcf42feafc0a313713e2c3d",
+                "kind": "coincident",
+                "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                "b": "acfd2e8e268047a781b6f045cf8722a5",
+                "c": "",
+                "a_point": "start",
+                "b_point": "end",
+                "value": 0.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "eebc3f4769fe456ea64ac68acaac3058",
+                "kind": "coincident",
+                "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                "b": "27a6d5a595e644bbb7740b9597fd6534",
+                "c": "",
+                "a_point": "end",
+                "b_point": "start",
+                "value": 0.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "934b693483224f4380c7d787aea51f1b",
+                "kind": "vertical",
+                "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                "b": "",
+                "c": "",
+                "a_point": "start",
+                "b_point": "start",
+                "value": 0.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "72f0e0c5bd2b40b0bec772429250212d",
+                "kind": "fixed",
+                "a": "589fb1819cc44aab975f2dc5fa897055",
+                "b": "",
+                "c": "",
+                "a_point": "center",
+                "b_point": "start",
+                "value": 0.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              }
+            ],
+            "profiles": []
+          },
+          "transform": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          "color": "#70aebf",
+          "fixed": false,
+          "features": []
+        }
+      ],
+      "mates": []
+    },
+    "entries": [
+      {
+        "id": "step-0d015a9bb35944729da6f0310142d458",
+        "parent": null,
+        "label": "스케치 돌출 생성",
+        "created_at": "2026-09-22T16:47:27.154161+00:00",
+        "source": "manual",
+        "changes": [],
+        "context": {
+          "plane": "XY",
+          "title": "새 스케치 · XY 기준 평면",
+          "tool_actions": [
+            {
+              "tool": "2점 사각형",
+              "before": {
+                "kind": "extrusion",
+                "thickness": 8,
+                "points": [
+                  {
+                    "x": -35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": 10.0
+                  },
+                  {
+                    "x": 10.0,
+                    "y": 25.0
+                  },
+                  {
+                    "x": -35.0,
+                    "y": 25.0
+                  }
+                ],
+                "holes": [],
+                "constraints": [],
+                "sketch_mode": "entities",
+                "entities": [],
+                "entity_constraints": [],
+                "profiles": []
+              },
+              "after": {
+                "kind": "extrusion",
+                "thickness": 8,
+                "points": [
+                  {
+                    "x": -35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": 10.0
+                  },
+                  {
+                    "x": 10.0,
+                    "y": 25.0
+                  },
+                  {
+                    "x": -35.0,
+                    "y": 25.0
+                  }
+                ],
+                "holes": [],
+                "constraints": [],
+                "sketch_mode": "entities",
+                "entities": [
+                  {
+                    "id": "27a6d5a595e644bbb7740b9597fd6534",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": -30.0,
+                      "y": -20.0
+                    },
+                    "end": {
+                      "x": 30.0,
+                      "y": -20.0
+                    }
+                  },
+                  {
+                    "id": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": 30.0,
+                      "y": -20.0
+                    },
+                    "end": {
+                      "x": 30.0,
+                      "y": 20.0
+                    }
+                  },
+                  {
+                    "id": "acfd2e8e268047a781b6f045cf8722a5",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": 30.0,
+                      "y": 20.0
+                    },
+                    "end": {
+                      "x": -30.0,
+                      "y": 20.0
+                    }
+                  },
+                  {
+                    "id": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": -30.0,
+                      "y": 20.0
+                    },
+                    "end": {
+                      "x": -30.0,
+                      "y": -20.0
+                    }
+                  }
+                ],
+                "entity_constraints": [
+                  {
+                    "id": "964c94704f0d49ac88a32440ca06837c",
+                    "kind": "horizontal",
+                    "a": "27a6d5a595e644bbb7740b9597fd6534"
+                  },
+                  {
+                    "id": "091d6523891f4d56ae5bcb91cd2fdb66",
+                    "kind": "coincident",
+                    "a": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                    "a_point": "start",
+                    "b": "27a6d5a595e644bbb7740b9597fd6534",
+                    "b_point": "end"
+                  },
+                  {
+                    "id": "45c2f3edc87744d68b405e9a4c013506",
+                    "kind": "vertical",
+                    "a": "aa84d541a6774843a99ecdc6d4d3c6ad"
+                  },
+                  {
+                    "id": "f267a4a782834763bd068ca5ebca8cbd",
+                    "kind": "coincident",
+                    "a": "acfd2e8e268047a781b6f045cf8722a5",
+                    "a_point": "start",
+                    "b": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                    "b_point": "end"
+                  },
+                  {
+                    "id": "c099da9bbdce4666b088718b706d6eb4",
+                    "kind": "horizontal",
+                    "a": "acfd2e8e268047a781b6f045cf8722a5"
+                  },
+                  {
+                    "id": "445312747dcf42feafc0a313713e2c3d",
+                    "kind": "coincident",
+                    "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                    "a_point": "start",
+                    "b": "acfd2e8e268047a781b6f045cf8722a5",
+                    "b_point": "end"
+                  },
+                  {
+                    "id": "eebc3f4769fe456ea64ac68acaac3058",
+                    "kind": "coincident",
+                    "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                    "a_point": "end",
+                    "b": "27a6d5a595e644bbb7740b9597fd6534",
+                    "b_point": "start"
+                  },
+                  {
+                    "id": "934b693483224f4380c7d787aea51f1b",
+                    "kind": "vertical",
+                    "a": "b6dbbb0b0a5845d78405a4a6d14759fa"
+                  }
+                ],
+                "profiles": []
+              }
+            },
+            {
+              "tool": "중심·반지름 원",
+              "before": {
+                "kind": "extrusion",
+                "thickness": 8,
+                "points": [
+                  {
+                    "x": -35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": 10.0
+                  },
+                  {
+                    "x": 10.0,
+                    "y": 25.0
+                  },
+                  {
+                    "x": -35.0,
+                    "y": 25.0
+                  }
+                ],
+                "holes": [],
+                "constraints": [],
+                "sketch_mode": "entities",
+                "entities": [
+                  {
+                    "id": "27a6d5a595e644bbb7740b9597fd6534",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": -30.0,
+                      "y": -20.0
+                    },
+                    "end": {
+                      "x": 30.0,
+                      "y": -20.0
+                    }
+                  },
+                  {
+                    "id": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": 30.0,
+                      "y": -20.0
+                    },
+                    "end": {
+                      "x": 30.0,
+                      "y": 20.0
+                    }
+                  },
+                  {
+                    "id": "acfd2e8e268047a781b6f045cf8722a5",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": 30.0,
+                      "y": 20.0
+                    },
+                    "end": {
+                      "x": -30.0,
+                      "y": 20.0
+                    }
+                  },
+                  {
+                    "id": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": -30.0,
+                      "y": 20.0
+                    },
+                    "end": {
+                      "x": -30.0,
+                      "y": -20.0
+                    }
+                  }
+                ],
+                "entity_constraints": [
+                  {
+                    "id": "964c94704f0d49ac88a32440ca06837c",
+                    "kind": "horizontal",
+                    "a": "27a6d5a595e644bbb7740b9597fd6534"
+                  },
+                  {
+                    "id": "091d6523891f4d56ae5bcb91cd2fdb66",
+                    "kind": "coincident",
+                    "a": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                    "a_point": "start",
+                    "b": "27a6d5a595e644bbb7740b9597fd6534",
+                    "b_point": "end"
+                  },
+                  {
+                    "id": "45c2f3edc87744d68b405e9a4c013506",
+                    "kind": "vertical",
+                    "a": "aa84d541a6774843a99ecdc6d4d3c6ad"
+                  },
+                  {
+                    "id": "f267a4a782834763bd068ca5ebca8cbd",
+                    "kind": "coincident",
+                    "a": "acfd2e8e268047a781b6f045cf8722a5",
+                    "a_point": "start",
+                    "b": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                    "b_point": "end"
+                  },
+                  {
+                    "id": "c099da9bbdce4666b088718b706d6eb4",
+                    "kind": "horizontal",
+                    "a": "acfd2e8e268047a781b6f045cf8722a5"
+                  },
+                  {
+                    "id": "445312747dcf42feafc0a313713e2c3d",
+                    "kind": "coincident",
+                    "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                    "a_point": "start",
+                    "b": "acfd2e8e268047a781b6f045cf8722a5",
+                    "b_point": "end"
+                  },
+                  {
+                    "id": "eebc3f4769fe456ea64ac68acaac3058",
+                    "kind": "coincident",
+                    "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                    "a_point": "end",
+                    "b": "27a6d5a595e644bbb7740b9597fd6534",
+                    "b_point": "start"
+                  },
+                  {
+                    "id": "934b693483224f4380c7d787aea51f1b",
+                    "kind": "vertical",
+                    "a": "b6dbbb0b0a5845d78405a4a6d14759fa"
+                  }
+                ],
+                "profiles": []
+              },
+              "after": {
+                "kind": "extrusion",
+                "thickness": 8,
+                "points": [
+                  {
+                    "x": -35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": 10.0
+                  },
+                  {
+                    "x": 10.0,
+                    "y": 25.0
+                  },
+                  {
+                    "x": -35.0,
+                    "y": 25.0
+                  }
+                ],
+                "holes": [],
+                "constraints": [],
+                "sketch_mode": "entities",
+                "entities": [
+                  {
+                    "id": "27a6d5a595e644bbb7740b9597fd6534",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": -30.0,
+                      "y": -20.0
+                    },
+                    "end": {
+                      "x": 30.0,
+                      "y": -20.0
+                    }
+                  },
+                  {
+                    "id": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": 30.0,
+                      "y": -20.0
+                    },
+                    "end": {
+                      "x": 30.0,
+                      "y": 20.0
+                    }
+                  },
+                  {
+                    "id": "acfd2e8e268047a781b6f045cf8722a5",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": 30.0,
+                      "y": 20.0
+                    },
+                    "end": {
+                      "x": -30.0,
+                      "y": 20.0
+                    }
+                  },
+                  {
+                    "id": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                    "construction": false,
+                    "kind": "line",
+                    "start": {
+                      "x": -30.0,
+                      "y": 20.0
+                    },
+                    "end": {
+                      "x": -30.0,
+                      "y": -20.0
+                    }
+                  },
+                  {
+                    "id": "589fb1819cc44aab975f2dc5fa897055",
+                    "construction": false,
+                    "kind": "circle",
+                    "center": {
+                      "x": 0.0,
+                      "y": 0.0
+                    },
+                    "radius": 5.0
+                  }
+                ],
+                "entity_constraints": [
+                  {
+                    "id": "964c94704f0d49ac88a32440ca06837c",
+                    "kind": "horizontal",
+                    "a": "27a6d5a595e644bbb7740b9597fd6534"
+                  },
+                  {
+                    "id": "091d6523891f4d56ae5bcb91cd2fdb66",
+                    "kind": "coincident",
+                    "a": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                    "a_point": "start",
+                    "b": "27a6d5a595e644bbb7740b9597fd6534",
+                    "b_point": "end"
+                  },
+                  {
+                    "id": "45c2f3edc87744d68b405e9a4c013506",
+                    "kind": "vertical",
+                    "a": "aa84d541a6774843a99ecdc6d4d3c6ad"
+                  },
+                  {
+                    "id": "f267a4a782834763bd068ca5ebca8cbd",
+                    "kind": "coincident",
+                    "a": "acfd2e8e268047a781b6f045cf8722a5",
+                    "a_point": "start",
+                    "b": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                    "b_point": "end"
+                  },
+                  {
+                    "id": "c099da9bbdce4666b088718b706d6eb4",
+                    "kind": "horizontal",
+                    "a": "acfd2e8e268047a781b6f045cf8722a5"
+                  },
+                  {
+                    "id": "445312747dcf42feafc0a313713e2c3d",
+                    "kind": "coincident",
+                    "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                    "a_point": "start",
+                    "b": "acfd2e8e268047a781b6f045cf8722a5",
+                    "b_point": "end"
+                  },
+                  {
+                    "id": "eebc3f4769fe456ea64ac68acaac3058",
+                    "kind": "coincident",
+                    "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                    "a_point": "end",
+                    "b": "27a6d5a595e644bbb7740b9597fd6534",
+                    "b_point": "start"
+                  },
+                  {
+                    "id": "934b693483224f4380c7d787aea51f1b",
+                    "kind": "vertical",
+                    "a": "b6dbbb0b0a5845d78405a4a6d14759fa"
+                  },
+                  {
+                    "id": "72f0e0c5bd2b40b0bec772429250212d",
+                    "kind": "fixed",
+                    "a": "589fb1819cc44aab975f2dc5fa897055",
+                    "a_point": "center",
+                    "x": 0,
+                    "y": 0
+                  }
+                ],
+                "profiles": []
+              }
+            }
+          ],
+          "part_id": "part-5e4cbcc4ceaf480493ae8d9bd01c27fa",
+          "tool": "sketch",
+          "operation": "add",
+          "sketch": {
+            "kind": "extrusion",
+            "thickness": 8.0,
+            "points": [
+              {
+                "x": -35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": 10.0
+              },
+              {
+                "x": 10.0,
+                "y": 25.0
+              },
+              {
+                "x": -35.0,
+                "y": 25.0
+              }
+            ],
+            "holes": [],
+            "constraints": [],
+            "sketch_mode": "entities",
+            "entities": [
+              {
+                "id": "27a6d5a595e644bbb7740b9597fd6534",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": -30.0,
+                  "y": -20.0
+                },
+                "end": {
+                  "x": 30.0,
+                  "y": -20.0
+                }
+              },
+              {
+                "id": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": 30.0,
+                  "y": -20.0
+                },
+                "end": {
+                  "x": 30.0,
+                  "y": 20.0
+                }
+              },
+              {
+                "id": "acfd2e8e268047a781b6f045cf8722a5",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": 30.0,
+                  "y": 20.0
+                },
+                "end": {
+                  "x": -30.0,
+                  "y": 20.0
+                }
+              },
+              {
+                "id": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": -30.0,
+                  "y": 20.0
+                },
+                "end": {
+                  "x": -30.0,
+                  "y": -20.0
+                }
+              },
+              {
+                "id": "589fb1819cc44aab975f2dc5fa897055",
+                "construction": false,
+                "kind": "circle",
+                "center": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "radius": 5.0
+              }
+            ],
+            "entity_constraints": [
+              {
+                "id": "964c94704f0d49ac88a32440ca06837c",
+                "kind": "horizontal",
+                "a": "27a6d5a595e644bbb7740b9597fd6534",
+                "b": "",
+                "c": "",
+                "a_point": "start",
+                "b_point": "start",
+                "value": 0,
+                "x": 0,
+                "y": 0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "091d6523891f4d56ae5bcb91cd2fdb66",
+                "kind": "coincident",
+                "a": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                "b": "27a6d5a595e644bbb7740b9597fd6534",
+                "c": "",
+                "a_point": "start",
+                "b_point": "end",
+                "value": 0,
+                "x": 0,
+                "y": 0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "45c2f3edc87744d68b405e9a4c013506",
+                "kind": "vertical",
+                "a": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                "b": "",
+                "c": "",
+                "a_point": "start",
+                "b_point": "start",
+                "value": 0,
+                "x": 0,
+                "y": 0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "f267a4a782834763bd068ca5ebca8cbd",
+                "kind": "coincident",
+                "a": "acfd2e8e268047a781b6f045cf8722a5",
+                "b": "aa84d541a6774843a99ecdc6d4d3c6ad",
+                "c": "",
+                "a_point": "start",
+                "b_point": "end",
+                "value": 0,
+                "x": 0,
+                "y": 0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "c099da9bbdce4666b088718b706d6eb4",
+                "kind": "horizontal",
+                "a": "acfd2e8e268047a781b6f045cf8722a5",
+                "b": "",
+                "c": "",
+                "a_point": "start",
+                "b_point": "start",
+                "value": 0,
+                "x": 0,
+                "y": 0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "445312747dcf42feafc0a313713e2c3d",
+                "kind": "coincident",
+                "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                "b": "acfd2e8e268047a781b6f045cf8722a5",
+                "c": "",
+                "a_point": "start",
+                "b_point": "end",
+                "value": 0,
+                "x": 0,
+                "y": 0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "eebc3f4769fe456ea64ac68acaac3058",
+                "kind": "coincident",
+                "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                "b": "27a6d5a595e644bbb7740b9597fd6534",
+                "c": "",
+                "a_point": "end",
+                "b_point": "start",
+                "value": 0,
+                "x": 0,
+                "y": 0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "934b693483224f4380c7d787aea51f1b",
+                "kind": "vertical",
+                "a": "b6dbbb0b0a5845d78405a4a6d14759fa",
+                "b": "",
+                "c": "",
+                "a_point": "start",
+                "b_point": "start",
+                "value": 0,
+                "x": 0,
+                "y": 0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "72f0e0c5bd2b40b0bec772429250212d",
+                "kind": "fixed",
+                "a": "589fb1819cc44aab975f2dc5fa897055",
+                "b": "",
+                "c": "",
+                "a_point": "center",
+                "b_point": "start",
+                "value": 0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              }
+            ],
+            "profiles": []
+          }
+        }
+      },
+      {
+        "id": "step-ca2dd0877f77401ca93f01212d4421a7",
+        "parent": "step-0d015a9bb35944729da6f0310142d458",
+        "label": "구멍 / 포켓 절삭",
+        "created_at": "2026-09-22T16:47:27.435613+00:00",
+        "source": "manual",
+        "changes": [
+          {
+            "path": [
+              "parts",
+              0,
+              "features"
+            ],
+            "operation": "set",
+            "existed": true,
+            "before": [],
+            "after": [
+              {
+                "id": "feature-7dd80e010f1e41f8886a71aa3e394c10",
+                "name": "구멍 / 포켓 절삭 1",
+                "face": 6,
+                "support_face_count": 7,
+                "support_feature": "base",
+                "origin": [
+                  -1.1102230246251565e-15,
+                  6.384253291886696e-16,
+                  8.0
+                ],
+                "x_direction": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "normal": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "operation": "cut",
+                "sketch": {
+                  "kind": "extrusion",
+                  "thickness": 4.0,
+                  "points": [
+                    {
+                      "x": -35.0,
+                      "y": -25.0
+                    },
+                    {
+                      "x": 35.0,
+                      "y": -25.0
+                    },
+                    {
+                      "x": 35.0,
+                      "y": 10.0
+                    },
+                    {
+                      "x": 10.0,
+                      "y": 25.0
+                    },
+                    {
+                      "x": -35.0,
+                      "y": 25.0
+                    }
+                  ],
+                  "holes": [],
+                  "constraints": [],
+                  "sketch_mode": "entities",
+                  "entities": [
+                    {
+                      "id": "2ca980b000404a16920cb343f4041e28",
+                      "construction": false,
+                      "kind": "circle",
+                      "center": {
+                        "x": 15.0,
+                        "y": 0.0
+                      },
+                      "radius": 3.0
+                    }
+                  ],
+                  "entity_constraints": [],
+                  "profiles": []
+                }
+              }
+            ]
+          }
+        ],
+        "context": {
+          "part_id": "part-5e4cbcc4ceaf480493ae8d9bd01c27fa",
+          "face": {
+            "index": 6,
+            "planar": true,
+            "normal": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "origin": [
+              -1.1102230246251565e-15,
+              6.384253291886696e-16,
+              8.0
+            ],
+            "x_direction": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "outline": [
+              [
+                [
+                  -30.0,
+                  20.0
+                ],
+                [
+                  -30.0,
+                  17.894737
+                ],
+                [
+                  -30.0,
+                  15.789474
+                ],
+                [
+                  -30.0,
+                  13.684211
+                ],
+                [
+                  -30.0,
+                  11.578947
+                ],
+                [
+                  -30.0,
+                  9.473684
+                ],
+                [
+                  -30.0,
+                  7.368421
+                ],
+                [
+                  -30.0,
+                  5.263158
+                ],
+                [
+                  -30.0,
+                  3.157895
+                ],
+                [
+                  -30.0,
+                  1.052632
+                ],
+                [
+                  -30.0,
+                  -1.052632
+                ],
+                [
+                  -30.0,
+                  -3.157895
+                ],
+                [
+                  -30.0,
+                  -5.263158
+                ],
+                [
+                  -30.0,
+                  -7.368421
+                ],
+                [
+                  -30.0,
+                  -9.473684
+                ],
+                [
+                  -30.0,
+                  -11.578947
+                ],
+                [
+                  -30.0,
+                  -13.684211
+                ],
+                [
+                  -30.0,
+                  -15.789474
+                ],
+                [
+                  -30.0,
+                  -17.894737
+                ],
+                [
+                  -30.0,
+                  -20.0
+                ]
+              ],
+              [
+                [
+                  -30.0,
+                  -20.0
+                ],
+                [
+                  -26.842105,
+                  -20.0
+                ],
+                [
+                  -23.684211,
+                  -20.0
+                ],
+                [
+                  -20.526316,
+                  -20.0
+                ],
+                [
+                  -17.368421,
+                  -20.0
+                ],
+                [
+                  -14.210526,
+                  -20.0
+                ],
+                [
+                  -11.052632,
+                  -20.0
+                ],
+                [
+                  -7.894737,
+                  -20.0
+                ],
+                [
+                  -4.736842,
+                  -20.0
+                ],
+                [
+                  -1.578947,
+                  -20.0
+                ],
+                [
+                  1.578947,
+                  -20.0
+                ],
+                [
+                  4.736842,
+                  -20.0
+                ],
+                [
+                  7.894737,
+                  -20.0
+                ],
+                [
+                  11.052632,
+                  -20.0
+                ],
+                [
+                  14.210526,
+                  -20.0
+                ],
+                [
+                  17.368421,
+                  -20.0
+                ],
+                [
+                  20.526316,
+                  -20.0
+                ],
+                [
+                  23.684211,
+                  -20.0
+                ],
+                [
+                  26.842105,
+                  -20.0
+                ],
+                [
+                  30.0,
+                  -20.0
+                ]
+              ],
+              [
+                [
+                  30.0,
+                  -20.0
+                ],
+                [
+                  30.0,
+                  -17.894737
+                ],
+                [
+                  30.0,
+                  -15.789474
+                ],
+                [
+                  30.0,
+                  -13.684211
+                ],
+                [
+                  30.0,
+                  -11.578947
+                ],
+                [
+                  30.0,
+                  -9.473684
+                ],
+                [
+                  30.0,
+                  -7.368421
+                ],
+                [
+                  30.0,
+                  -5.263158
+                ],
+                [
+                  30.0,
+                  -3.157895
+                ],
+                [
+                  30.0,
+                  -1.052632
+                ],
+                [
+                  30.0,
+                  1.052632
+                ],
+                [
+                  30.0,
+                  3.157895
+                ],
+                [
+                  30.0,
+                  5.263158
+                ],
+                [
+                  30.0,
+                  7.368421
+                ],
+                [
+                  30.0,
+                  9.473684
+                ],
+                [
+                  30.0,
+                  11.578947
+                ],
+                [
+                  30.0,
+                  13.684211
+                ],
+                [
+                  30.0,
+                  15.789474
+                ],
+                [
+                  30.0,
+                  17.894737
+                ],
+                [
+                  30.0,
+                  20.0
+                ]
+              ],
+              [
+                [
+                  30.0,
+                  20.0
+                ],
+                [
+                  26.842105,
+                  20.0
+                ],
+                [
+                  23.684211,
+                  20.0
+                ],
+                [
+                  20.526316,
+                  20.0
+                ],
+                [
+                  17.368421,
+                  20.0
+                ],
+                [
+                  14.210526,
+                  20.0
+                ],
+                [
+                  11.052632,
+                  20.0
+                ],
+                [
+                  7.894737,
+                  20.0
+                ],
+                [
+                  4.736842,
+                  20.0
+                ],
+                [
+                  1.578947,
+                  20.0
+                ],
+                [
+                  -1.578947,
+                  20.0
+                ],
+                [
+                  -4.736842,
+                  20.0
+                ],
+                [
+                  -7.894737,
+                  20.0
+                ],
+                [
+                  -11.052632,
+                  20.0
+                ],
+                [
+                  -14.210526,
+                  20.0
+                ],
+                [
+                  -17.368421,
+                  20.0
+                ],
+                [
+                  -20.526316,
+                  20.0
+                ],
+                [
+                  -23.684211,
+                  20.0
+                ],
+                [
+                  -26.842105,
+                  20.0
+                ],
+                [
+                  -30.0,
+                  20.0
+                ]
+              ],
+              [
+                [
+                  5.0,
+                  -0.0
+                ],
+                [
+                  4.755283,
+                  1.545085
+                ],
+                [
+                  4.045085,
+                  2.938926
+                ],
+                [
+                  2.938926,
+                  4.045085
+                ],
+                [
+                  1.545085,
+                  4.755283
+                ],
+                [
+                  0.0,
+                  5.0
+                ],
+                [
+                  -1.545085,
+                  4.755283
+                ],
+                [
+                  -2.938926,
+                  4.045085
+                ],
+                [
+                  -4.045085,
+                  2.938926
+                ],
+                [
+                  -4.755283,
+                  1.545085
+                ],
+                [
+                  -5.0,
+                  -0.0
+                ],
+                [
+                  -4.755283,
+                  -1.545085
+                ],
+                [
+                  -4.045085,
+                  -2.938926
+                ],
+                [
+                  -2.938926,
+                  -4.045085
+                ],
+                [
+                  -1.545085,
+                  -4.755283
+                ],
+                [
+                  0.0,
+                  -5.0
+                ],
+                [
+                  1.545085,
+                  -4.755283
+                ],
+                [
+                  2.938926,
+                  -4.045085
+                ],
+                [
+                  4.045085,
+                  -2.938926
+                ],
+                [
+                  4.755283,
+                  -1.545085
+                ],
+                [
+                  5.0,
+                  -0.0
+                ]
+              ]
+            ],
+            "face_count": 7,
+            "projected_entities": [
+              {
+                "id": "edge-0",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": -30.0,
+                  "y": 20.0
+                },
+                "end": {
+                  "x": -30.0,
+                  "y": -20.0
+                }
+              },
+              {
+                "id": "edge-1",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": -30.0,
+                  "y": -20.0
+                },
+                "end": {
+                  "x": 30.0,
+                  "y": -20.0
+                }
+              },
+              {
+                "id": "edge-2",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": 30.0,
+                  "y": -20.0
+                },
+                "end": {
+                  "x": 30.0,
+                  "y": 20.0
+                }
+              },
+              {
+                "id": "edge-3",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": 30.0,
+                  "y": 20.0
+                },
+                "end": {
+                  "x": -30.0,
+                  "y": 20.0
+                }
+              },
+              {
+                "id": "edge-4",
+                "construction": false,
+                "kind": "circle",
+                "center": {
+                  "x": 1.1102230246251565e-15,
+                  "y": -6.384253291886696e-16
+                },
+                "radius": 5.0
+              }
+            ],
+            "projection_unsupported": 0
+          },
+          "support_feature": "base",
+          "title": "스케치 돌출 1 · 면 7 스케치",
+          "tool_actions": [
+            {
+              "tool": "중심·반지름 원",
+              "before": {
+                "kind": "extrusion",
+                "thickness": 8,
+                "points": [
+                  {
+                    "x": -35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": 10.0
+                  },
+                  {
+                    "x": 10.0,
+                    "y": 25.0
+                  },
+                  {
+                    "x": -35.0,
+                    "y": 25.0
+                  }
+                ],
+                "holes": [],
+                "constraints": [],
+                "sketch_mode": "entities",
+                "entities": [],
+                "entity_constraints": [],
+                "profiles": []
+              },
+              "after": {
+                "kind": "extrusion",
+                "thickness": 8,
+                "points": [
+                  {
+                    "x": -35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": -25.0
+                  },
+                  {
+                    "x": 35.0,
+                    "y": 10.0
+                  },
+                  {
+                    "x": 10.0,
+                    "y": 25.0
+                  },
+                  {
+                    "x": -35.0,
+                    "y": 25.0
+                  }
+                ],
+                "holes": [],
+                "constraints": [],
+                "sketch_mode": "entities",
+                "entities": [
+                  {
+                    "id": "2ca980b000404a16920cb343f4041e28",
+                    "construction": false,
+                    "kind": "circle",
+                    "center": {
+                      "x": 15.0,
+                      "y": 0.0
+                    },
+                    "radius": 3.0
+                  }
+                ],
+                "entity_constraints": [],
+                "profiles": []
+              }
+            }
+          ],
+          "feature_id": "feature-7dd80e010f1e41f8886a71aa3e394c10",
+          "tool": "sketch",
+          "operation": "cut",
+          "sketch": {
+            "kind": "extrusion",
+            "thickness": 4.0,
+            "points": [
+              {
+                "x": -35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": 10.0
+              },
+              {
+                "x": 10.0,
+                "y": 25.0
+              },
+              {
+                "x": -35.0,
+                "y": 25.0
+              }
+            ],
+            "holes": [],
+            "constraints": [],
+            "sketch_mode": "entities",
+            "entities": [
+              {
+                "id": "2ca980b000404a16920cb343f4041e28",
+                "construction": false,
+                "kind": "circle",
+                "center": {
+                  "x": 15.0,
+                  "y": 0.0
+                },
+                "radius": 3.0
+              }
+            ],
+            "entity_constraints": [],
+            "profiles": []
+          }
+        }
+      }
+    ],
+    "cursor": "step-ca2dd0877f77401ca93f01212d4421a7",
+    "head": "step-ca2dd0877f77401ca93f01212d4421a7"
+  }
+}
