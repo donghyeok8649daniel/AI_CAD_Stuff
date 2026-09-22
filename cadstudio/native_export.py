@@ -9,13 +9,15 @@ from .models import Project
 
 
 def conversion_package(design):
+    project=design if isinstance(design,Project) else Project(design=design)
+    design=project.design
     result=BytesIO()
     integrations=Path(__file__).resolve().parent.parent/'integrations'
     with tempfile.TemporaryDirectory(prefix='prompt-cad-convert-') as temp, ZipFile(result,'w',ZIP_DEFLATED) as archive:
         folder=Path(temp)
         step=folder/'design.step';export(design,step,'step')
         archive.write(step,'design.step')
-        archive.writestr('design.cad.json',Project(design=design).model_dump_json(indent=2))
+        archive.writestr('design.cad.json',project.model_dump_json(indent=2))
         with KERNEL_LOCK:
             for part,shape in zip(design.parts,build(design)):
                 path=folder/f'{part.id}.step'

@@ -1,6 +1,6 @@
 {
   "format": "prompt-cad-project",
-  "version": 1,
+  "version": 2,
   "design": {
     "schema_version": 1,
     "name": "L 브래킷",
@@ -34,5 +34,6 @@
     ],
     "mates": []
   },
-  "prompt": "브래킷 길이 60, 폭 40, 높이 50, 두께 5, 구멍 직경 6 mm"
+  "prompt": "브래킷 길이 60, 폭 40, 높이 50, 두께 5, 구멍 직경 6 mm",
+  "history": null
 }

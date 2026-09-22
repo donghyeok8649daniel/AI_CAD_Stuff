@@ -1,6 +1,6 @@
 {
   "format": "prompt-cad-project",
-  "version": 1,
+  "version": 2,
   "design": {
     "schema_version": 1,
     "name": "완전 구속 면 스케치 예제",
@@ -36,6 +36,9 @@
             "name": "20 x 10 돌출",
             "face": 2,
             "support_face_count": 10,
+            "support_feature": "",
+            "origin": [],
+            "x_direction": [],
             "normal": [
               0.0,
               0.0,
@@ -121,7 +124,11 @@
                   "x": 0.0,
                   "y": 0.0
                 }
-              ]
+              ],
+              "sketch_mode": "polygon",
+              "entities": [],
+              "entity_constraints": [],
+              "profiles": []
             }
           }
         ]
@@ -129,5 +136,6 @@
     ],
     "mates": []
   },
-  "prompt": ""
+  "prompt": "",
+  "history": null
 }

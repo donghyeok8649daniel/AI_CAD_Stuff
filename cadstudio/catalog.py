@@ -63,7 +63,7 @@ def catalog():
         params = []
         if kind != "robot_arm":
             for key, value in design.parts[0].geometry.model_dump().items():
-                if key in {"kind", "points", "holes", "constraints"}:
+                if key not in FIELDS:
                     continue
                 label, unit = FIELDS[key]
                 params.append({"key": key, "label": label, "unit": unit, "default": value})

@@ -1,6 +1,6 @@
 {
   "format": "prompt-cad-project",
-  "version": 1,
+  "version": 2,
   "design": {
     "schema_version": 1,
     "name": "스케치 돌출",
@@ -36,7 +36,11 @@
             }
           ],
           "holes": [],
-          "constraints": []
+          "constraints": [],
+          "sketch_mode": "polygon",
+          "entities": [],
+          "entity_constraints": [],
+          "profiles": []
         },
         "transform": {
           "x": 0.0,
@@ -53,5 +57,6 @@
     ],
     "mates": []
   },
-  "prompt": "스케치 돌출 두께 8 mm"
+  "prompt": "스케치 돌출 두께 8 mm",
+  "history": null
 }

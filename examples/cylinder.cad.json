@@ -1,6 +1,6 @@
 {
   "format": "prompt-cad-project",
-  "version": 1,
+  "version": 2,
   "design": {
     "schema_version": 1,
     "name": "원통 · 튜브",
@@ -31,5 +31,6 @@
     ],
     "mates": []
   },
-  "prompt": "튜브 직경 30, 높이 20, 내경 20 mm"
+  "prompt": "튜브 직경 30, 높이 20, 내경 20 mm",
+  "history": null
 }

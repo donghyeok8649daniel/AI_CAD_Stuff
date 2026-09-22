@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 
 class StrictModel(BaseModel):
@@ -177,15 +177,95 @@ class SketchConstraint(StrictModel):
     y: Annotated[float, Field(ge=-1000, le=1000)] = 0
 
 
+class EntityBase(StrictModel):
+    id: str = Field(min_length=1,max_length=40,pattern=r"^[a-zA-Z0-9_-]+$")
+    construction: bool = False
+
+
+class SketchLine(EntityBase):
+    kind: Literal['line'] = 'line'
+    start: Point2D
+    end: Point2D
+
+
+class SketchCircle(EntityBase):
+    kind: Literal['circle'] = 'circle'
+    center: Point2D
+    radius: Dimension
+
+
+class SketchArc(EntityBase):
+    kind: Literal['arc'] = 'arc'
+    center: Point2D
+    radius: Dimension
+    start_angle: Angle = 0
+    sweep: Annotated[float,Field(ge=-359.99,le=359.99)] = 90
+
+
+class SketchEllipse(EntityBase):
+    kind: Literal['ellipse'] = 'ellipse'
+    center: Point2D
+    radius_x: Dimension
+    radius_y: Dimension
+    rotation: Angle = 0
+
+
+class SketchSpline(EntityBase):
+    kind: Literal['spline'] = 'spline'
+    points: list[Point2D] = Field(min_length=3,max_length=24)
+    style: Literal['fit','control'] = 'fit'
+    closed: bool = False
+
+
+class SketchPoint(EntityBase):
+    kind: Literal['point'] = 'point'
+    position: Point2D
+
+
+class SketchText(EntityBase):
+    kind: Literal['text'] = 'text'
+    position: Point2D
+    text: str = Field(min_length=1,max_length=32)
+    size: Dimension = 10
+    rotation: Angle = 0
+    font: Literal['Arial','Malgun Gothic'] = 'Arial'
+
+
+SketchEntity=Annotated[Union[SketchLine,SketchCircle,SketchArc,SketchEllipse,SketchSpline,SketchPoint,SketchText],Field(discriminator='kind')]
+
+
+class EntityConstraint(StrictModel):
+    id: str = Field(min_length=1,max_length=40,pattern=r"^[a-zA-Z0-9_-]+$")
+    kind: Literal['fixed','horizontal','vertical','coincident','distance','dx','dy','angle','radius','diameter','parallel','perpendicular','equal','concentric','collinear','tangent','midpoint','symmetry','point_on','curvature']
+    a: str = Field(min_length=1,max_length=40)
+    b: str = Field(default='',max_length=40)
+    c: str = Field(default='',max_length=40)
+    a_point: Literal['start','end','center','mid','all'] = 'start'
+    b_point: Literal['start','end','center','mid','all'] = 'start'
+    value: Annotated[float,Field(ge=-4000,le=4000)] = 0
+    x: Coordinate = 0
+    y: Coordinate = 0
+    reference: list[float] = Field(default_factory=list,max_length=64)
+    mode: Literal['external','internal'] = 'external'
+
+
 class Extrusion(StrictModel):
     kind: Literal["extrusion"] = "extrusion"
     thickness: Dimension = 8
     points: list[Point2D] = Field(default_factory=lambda: [Point2D(x=-35, y=-25), Point2D(x=35, y=-25), Point2D(x=35, y=10), Point2D(x=10, y=25), Point2D(x=-35, y=25)], min_length=3, max_length=32)
     holes: list[SketchHole] = Field(default_factory=list, max_length=16)
     constraints: list[SketchConstraint] = Field(default_factory=list, max_length=48)
+    sketch_mode: Literal['polygon','entities'] = 'polygon'
+    entities: list[SketchEntity] = Field(default_factory=list,max_length=128)
+    entity_constraints: list[EntityConstraint] = Field(default_factory=list,max_length=160)
+    profiles: list[Annotated[int,Field(ge=0,le=255)]] = Field(default_factory=list,max_length=64)
 
     @model_validator(mode="after")
     def simple_polygon(self):
+        if self.sketch_mode=='entities':
+            from .sketch_engine import solve_entities
+            self.entities,_=solve_entities(self.entities,self.entity_constraints)
+            return self
         if self.constraints:
             from .constraints import solve_sketch
             solved, _ = solve_sketch(self.points, self.constraints)
@@ -234,6 +314,9 @@ class SketchFeature(StrictModel):
     name: str = Field(default="면 스케치", min_length=1, max_length=80)
     face: int = Field(ge=0, le=500)
     support_face_count: int = Field(default=0, ge=0, le=500)
+    support_feature: str = Field(default="", max_length=40)
+    origin: list[Coordinate] = Field(default_factory=list, max_length=3)
+    x_direction: list[Annotated[float, Field(ge=-1, le=1)]] = Field(default_factory=list, max_length=3)
     normal: list[Annotated[float, Field(ge=-1, le=1)]] = Field(min_length=3, max_length=3)
     operation: Literal["add", "cut"] = "add"
     sketch: Extrusion
@@ -287,11 +370,45 @@ class Design(StrictModel):
         return self
 
 
+class HistoryChange(StrictModel):
+    path: list[str | int] = Field(min_length=1, max_length=24)
+    operation: Literal["set", "remove"] = "set"
+    existed: bool = True
+    before: JsonValue = None
+    after: JsonValue = None
+
+
+class HistoryEntry(StrictModel):
+    id: str = Field(min_length=1, max_length=60, pattern=r"^[a-zA-Z0-9_-]+$")
+    parent: str | None = Field(default=None, max_length=60)
+    label: str = Field(min_length=1, max_length=160)
+    created_at: str = Field(min_length=1, max_length=40)
+    source: Literal["manual", "local", "openai", "import"] = "manual"
+    changes: list[HistoryChange] = Field(default_factory=list)
+    context: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class HistoryJournal(StrictModel):
+    version: Literal[1] = 1
+    base: Design
+    entries: list[HistoryEntry] = Field(min_length=1)
+    cursor: str = Field(max_length=60)
+    head: str = Field(max_length=60)
+
+
 class Project(StrictModel):
     format: Literal["prompt-cad-project"] = "prompt-cad-project"
-    version: Literal[1] = 1
+    version: Literal[1, 2] = 2
     design: Design
     prompt: str = Field(default="", max_length=4000)
+    history: HistoryJournal | None = None
+
+    @model_validator(mode="after")
+    def consistent_history(self):
+        if self.history:
+            from .history import validate_history
+            validate_history(self.history, self.design)
+        return self
 
 
 class DraftRequest(StrictModel):

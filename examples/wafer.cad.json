@@ -1,6 +1,6 @@
 {
   "format": "prompt-cad-project",
-  "version": 1,
+  "version": 2,
   "design": {
     "schema_version": 1,
     "name": "웨이퍼",
@@ -31,5 +31,6 @@
     ],
     "mates": []
   },
-  "prompt": "웨이퍼 직경 100 mm, 두께 525 um, 플랫 깊이 3 mm"
+  "prompt": "웨이퍼 직경 100 mm, 두께 525 um, 플랫 깊이 3 mm",
+  "history": null
 }

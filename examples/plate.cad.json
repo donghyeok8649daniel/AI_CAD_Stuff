@@ -1,6 +1,6 @@
 {
   "format": "prompt-cad-project",
-  "version": 1,
+  "version": 2,
   "design": {
     "schema_version": 1,
     "name": "구멍판",
@@ -35,5 +35,6 @@
     ],
     "mates": []
   },
-  "prompt": "구멍판 길이 80, 폭 60, 두께 6, 구멍 수 4, X 간격 56, Y 간격 36 mm"
+  "prompt": "구멍판 길이 80, 폭 60, 두께 6, 구멍 수 4, X 간격 56, Y 간격 36 mm",
+  "history": null
 }

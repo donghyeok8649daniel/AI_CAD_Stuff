@@ -1,6 +1,6 @@
 {
   "format": "prompt-cad-project",
-  "version": 1,
+  "version": 2,
   "design": {
     "schema_version": 1,
     "name": "2링크 로봇 조립",
@@ -176,5 +176,6 @@
       }
     ]
   },
-  "prompt": "2링크 로봇 조립"
+  "prompt": "2링크 로봇 조립",
+  "history": null
 }

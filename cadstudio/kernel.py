@@ -11,6 +11,7 @@ from OCP.BRepBndLib import BRepBndLib
 
 from .models import Design, Part
 from .constraints import anchors, solve_sketch, solve_assembly
+from .sketch_engine import extrude_regions, sketch_status, projected_face
 
 KERNEL_LOCK = RLock()
 
@@ -73,6 +74,11 @@ def construct(g):
             horizontal = cq.Solid.makeCylinder(g.hole_diameter/2, g.thickness+2, cq.Vector(-1, y, g.height-g.hole_inset), cq.Vector(1, 0, 0))
             obj = obj.cut(vertical).cut(horizontal)
     elif g.kind == "extrusion":
+        if g.sketch_mode == 'entities':
+            shape = extrude_regions(g)
+            if not shape.isValid() or not shape.Solids() or shape.Volume() <= 0:
+                raise ValueError('스케치에서 유효한 솔리드를 만들지 못했습니다.')
+            return shape
         obj = cq.Workplane("XY").polyline([(p.x, p.y) for p in g.points]).close().extrude(g.thickness)
         for hole in g.holes:
             cutter = cq.Solid.makeCylinder(hole.diameter/2, g.thickness, cq.Vector(hole.x, hole.y, 0))
@@ -103,7 +109,10 @@ def face_frame(face):
 def _part_cached(part_json):
     part=Part.model_validate_json(part_json)
     shape=construct(part.geometry)
+    previous_feature="base"
     for feature in part.features:
+        if feature.support_feature and feature.support_feature!=previous_feature:
+            raise ValueError("면 스케치가 참조한 이전 피처가 변경되었습니다. 기준 면을 다시 선택하세요.")
         faces=shape.Faces()
         if feature.face >= len(faces) or (feature.support_face_count and len(faces)!=feature.support_face_count):
             raise ValueError("면 스케치의 기준 면 구성이 변경되었습니다. 피처를 제거하고 면을 다시 선택하세요.")
@@ -111,17 +120,22 @@ def _part_cached(part_json):
         if (plane.zDir-cq.Vector(*feature.normal)).Length > 1e-5:
             raise ValueError("면 스케치의 기준 방향이 변경되었습니다. 면을 다시 선택하세요.")
         g=feature.sketch
-        profile=cq.Workplane(plane).polyline([(p.x,p.y) for p in g.points]).close()
-        for hole in g.holes:
-            profile=profile.moveTo(hole.x,hole.y).circle(hole.diameter/2)
-        tool=profile.extrude(g.thickness if feature.operation=="add" else -g.thickness).val()
+        if g.sketch_mode == 'entities':
+            tool = extrude_regions(g,plane,1 if feature.operation=='add' else -1)
+        else:
+            profile=cq.Workplane(plane).polyline([(p.x,p.y) for p in g.points]).close()
+            for hole in g.holes:
+                profile=profile.moveTo(hole.x,hole.y).circle(hole.diameter/2)
+            tool=profile.extrude(g.thickness if feature.operation=="add" else -g.thickness).val()
         previous=shape.Volume()
+        previous_solids=len(shape.Solids())
         shape=shape.fuse(tool).clean() if feature.operation=="add" else shape.cut(tool).clean()
         difference=shape.Volume()-previous
-        if not shape.isValid() or len(shape.Solids())!=1 or shape.Volume()<=0:
+        if not shape.isValid() or not shape.Solids() or len(shape.Solids())>previous_solids or shape.Volume()<=0:
             raise ValueError("면 스케치 피처가 분리되거나 유효하지 않은 솔리드를 만듭니다. 위치와 깊이를 확인하세요.")
         if (feature.operation=="add" and difference<=1e-7) or (feature.operation=="cut" and difference>=-1e-7):
             raise ValueError("면 스케치가 부품에 닿지 않거나 유효한 부피 변화를 만들지 않습니다.")
+        previous_feature=feature.id
     return shape
 
 
@@ -165,10 +179,12 @@ def preview(design: Design):
                         samples,_=edge.sample(20)
                         if edge.IsClosed() and samples:samples.append(samples[0])
                         wires.append([[round(plane.toLocalCoords(p).x,6),round(plane.toLocalCoords(p).y,6)] for p in samples])
-                    info.update({"normal":[round(x,8) for x in plane.zDir.toTuple()],"origin":list(plane.origin.toTuple()),"outline":wires,"face_count":len(local_faces)})
+                    info.update({"normal":[round(x,8) for x in plane.zDir.toTuple()],"origin":list(plane.origin.toTuple()),"x_direction":list(plane.xDir.toTuple()),"outline":wires,"face_count":len(local_faces)})
+                    projected,unsupported=projected_face(lf,plane)
+                    info.update(projected_entities=projected,projection_unsupported=unsupported)
                 face_info.append(info)
             bb = exact_bounds(shape)
-            sketch_info=solve_sketch(part.geometry.points,part.geometry.constraints)[1] if part.geometry.kind=="extrusion" else None
+            sketch_info=sketch_status(part.geometry) if part.geometry.kind=="extrusion" else None
             meshes.append({
                 "id": part.id, "name": part.name, "color": part.color,
                 "vertices": [round(c, 7) for v in vertices for c in v.toTuple()],

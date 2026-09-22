@@ -1,0 +1,617 @@
+{
+  "format": "prompt-cad-project",
+  "version": 2,
+  "design": {
+    "schema_version": 1,
+    "name": "슬롯과 면 구멍 · 작업 기록 예제",
+    "mode": "specimen",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "link",
+        "name": "슬롯 스케치 부품",
+        "geometry": {
+          "kind": "extrusion",
+          "thickness": 8.0,
+          "points": [
+            {
+              "x": -35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": 10.0
+            },
+            {
+              "x": 10.0,
+              "y": 25.0
+            },
+            {
+              "x": -35.0,
+              "y": 25.0
+            }
+          ],
+          "holes": [],
+          "constraints": [],
+          "sketch_mode": "entities",
+          "entities": [
+            {
+              "id": "top",
+              "construction": false,
+              "kind": "line",
+              "start": {
+                "x": -20.0,
+                "y": 10.0
+              },
+              "end": {
+                "x": 20.0,
+                "y": 10.0
+              }
+            },
+            {
+              "id": "right",
+              "construction": false,
+              "kind": "arc",
+              "center": {
+                "x": 20.0,
+                "y": 0.0
+              },
+              "radius": 10.0,
+              "start_angle": 90.0,
+              "sweep": -180.0
+            },
+            {
+              "id": "bottom",
+              "construction": false,
+              "kind": "line",
+              "start": {
+                "x": 20.0,
+                "y": -10.0
+              },
+              "end": {
+                "x": -20.0,
+                "y": -10.0
+              }
+            },
+            {
+              "id": "left",
+              "construction": false,
+              "kind": "arc",
+              "center": {
+                "x": -20.0,
+                "y": 0.0
+              },
+              "radius": 10.0,
+              "start_angle": -90.0,
+              "sweep": -180.0
+            },
+            {
+              "id": "hole-left",
+              "construction": false,
+              "kind": "circle",
+              "center": {
+                "x": -20.0,
+                "y": 0.0
+              },
+              "radius": 3.0
+            },
+            {
+              "id": "hole-right",
+              "construction": false,
+              "kind": "circle",
+              "center": {
+                "x": 20.0,
+                "y": 0.0
+              },
+              "radius": 3.0
+            }
+          ],
+          "entity_constraints": [],
+          "profiles": []
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#70aebf",
+        "fixed": false,
+        "features": [
+          {
+            "id": "pocket-cut",
+            "name": "원점 중심 구멍",
+            "face": 7,
+            "support_face_count": 8,
+            "support_feature": "base",
+            "origin": [
+              -1.2212453270876722e-15,
+              -1.387333942887111e-15,
+              8.0
+            ],
+            "x_direction": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "normal": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "operation": "cut",
+            "sketch": {
+              "kind": "extrusion",
+              "thickness": 3.0,
+              "points": [
+                {
+                  "x": -35.0,
+                  "y": -25.0
+                },
+                {
+                  "x": 35.0,
+                  "y": -25.0
+                },
+                {
+                  "x": 35.0,
+                  "y": 10.0
+                },
+                {
+                  "x": 10.0,
+                  "y": 25.0
+                },
+                {
+                  "x": -35.0,
+                  "y": 25.0
+                }
+              ],
+              "holes": [],
+              "constraints": [],
+              "sketch_mode": "entities",
+              "entities": [
+                {
+                  "id": "pocket",
+                  "construction": false,
+                  "kind": "circle",
+                  "center": {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  "radius": 4.0
+                }
+              ],
+              "entity_constraints": [
+                {
+                  "id": "origin",
+                  "kind": "fixed",
+                  "a": "pocket",
+                  "b": "",
+                  "c": "",
+                  "a_point": "center",
+                  "b_point": "start",
+                  "value": 0.0,
+                  "x": 0.0,
+                  "y": 0.0,
+                  "reference": [],
+                  "mode": "external"
+                },
+                {
+                  "id": "diameter",
+                  "kind": "diameter",
+                  "a": "pocket",
+                  "b": "",
+                  "c": "",
+                  "a_point": "start",
+                  "b_point": "start",
+                  "value": 8.0,
+                  "x": 0.0,
+                  "y": 0.0,
+                  "reference": [],
+                  "mode": "external"
+                }
+              ],
+              "profiles": []
+            }
+          }
+        ]
+      }
+    ],
+    "mates": []
+  },
+  "prompt": "스크립트로 재현하는 예제: 슬롯 스케치, 양단 관통 구멍, 상면 원점 고정 파내기",
+  "history": {
+    "version": 1,
+    "base": {
+      "schema_version": 1,
+      "name": "슬롯과 면 구멍 · 작업 기록 예제",
+      "mode": "specimen",
+      "units": "mm",
+      "parts": [
+        {
+          "id": "link",
+          "name": "슬롯 스케치 부품",
+          "geometry": {
+            "kind": "extrusion",
+            "thickness": 8.0,
+            "points": [
+              {
+                "x": -35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": 10.0
+              },
+              {
+                "x": 10.0,
+                "y": 25.0
+              },
+              {
+                "x": -35.0,
+                "y": 25.0
+              }
+            ],
+            "holes": [],
+            "constraints": [],
+            "sketch_mode": "entities",
+            "entities": [
+              {
+                "id": "top",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": -20.0,
+                  "y": 10.0
+                },
+                "end": {
+                  "x": 20.0,
+                  "y": 10.0
+                }
+              },
+              {
+                "id": "right",
+                "construction": false,
+                "kind": "arc",
+                "center": {
+                  "x": 20.0,
+                  "y": 0.0
+                },
+                "radius": 10.0,
+                "start_angle": 90.0,
+                "sweep": -180.0
+              },
+              {
+                "id": "bottom",
+                "construction": false,
+                "kind": "line",
+                "start": {
+                  "x": 20.0,
+                  "y": -10.0
+                },
+                "end": {
+                  "x": -20.0,
+                  "y": -10.0
+                }
+              },
+              {
+                "id": "left",
+                "construction": false,
+                "kind": "arc",
+                "center": {
+                  "x": -20.0,
+                  "y": 0.0
+                },
+                "radius": 10.0,
+                "start_angle": -90.0,
+                "sweep": -180.0
+              },
+              {
+                "id": "hole-left",
+                "construction": false,
+                "kind": "circle",
+                "center": {
+                  "x": -20.0,
+                  "y": 0.0
+                },
+                "radius": 3.0
+              },
+              {
+                "id": "hole-right",
+                "construction": false,
+                "kind": "circle",
+                "center": {
+                  "x": 20.0,
+                  "y": 0.0
+                },
+                "radius": 3.0
+              }
+            ],
+            "entity_constraints": [],
+            "profiles": []
+          },
+          "transform": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          "color": "#70aebf",
+          "fixed": false,
+          "features": []
+        }
+      ],
+      "mates": []
+    },
+    "entries": [
+      {
+        "id": "base",
+        "parent": null,
+        "label": "슬롯·원 스케치 예제 생성",
+        "created_at": "2026-09-22T00:00:00Z",
+        "source": "import",
+        "changes": [],
+        "context": {
+          "part_id": "link",
+          "tool_actions": [
+            {
+              "tool": "예제 스크립트 · 직선/원호/원",
+              "after": [
+                {
+                  "id": "top",
+                  "kind": "line",
+                  "start": {
+                    "x": -20,
+                    "y": 10
+                  },
+                  "end": {
+                    "x": 20,
+                    "y": 10
+                  }
+                },
+                {
+                  "id": "right",
+                  "kind": "arc",
+                  "center": {
+                    "x": 20,
+                    "y": 0
+                  },
+                  "radius": 10,
+                  "start_angle": 90,
+                  "sweep": -180
+                },
+                {
+                  "id": "bottom",
+                  "kind": "line",
+                  "start": {
+                    "x": 20,
+                    "y": -10
+                  },
+                  "end": {
+                    "x": -20,
+                    "y": -10
+                  }
+                },
+                {
+                  "id": "left",
+                  "kind": "arc",
+                  "center": {
+                    "x": -20,
+                    "y": 0
+                  },
+                  "radius": 10,
+                  "start_angle": -90,
+                  "sweep": -180
+                },
+                {
+                  "id": "hole-left",
+                  "kind": "circle",
+                  "center": {
+                    "x": -20,
+                    "y": 0
+                  },
+                  "radius": 3
+                },
+                {
+                  "id": "hole-right",
+                  "kind": "circle",
+                  "center": {
+                    "x": 20,
+                    "y": 0
+                  },
+                  "radius": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "cut",
+        "parent": "base",
+        "label": "상면 원점 구속 구멍",
+        "created_at": "2026-09-22T00:00:01Z",
+        "source": "import",
+        "changes": [
+          {
+            "path": [
+              "parts",
+              0,
+              "features"
+            ],
+            "operation": "set",
+            "existed": true,
+            "before": [],
+            "after": [
+              {
+                "id": "pocket-cut",
+                "name": "원점 중심 구멍",
+                "face": 7,
+                "support_face_count": 8,
+                "support_feature": "base",
+                "origin": [
+                  -1.2212453270876722e-15,
+                  -1.387333942887111e-15,
+                  8.0
+                ],
+                "x_direction": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "normal": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "operation": "cut",
+                "sketch": {
+                  "kind": "extrusion",
+                  "thickness": 3.0,
+                  "points": [
+                    {
+                      "x": -35.0,
+                      "y": -25.0
+                    },
+                    {
+                      "x": 35.0,
+                      "y": -25.0
+                    },
+                    {
+                      "x": 35.0,
+                      "y": 10.0
+                    },
+                    {
+                      "x": 10.0,
+                      "y": 25.0
+                    },
+                    {
+                      "x": -35.0,
+                      "y": 25.0
+                    }
+                  ],
+                  "holes": [],
+                  "constraints": [],
+                  "sketch_mode": "entities",
+                  "entities": [
+                    {
+                      "id": "pocket",
+                      "construction": false,
+                      "kind": "circle",
+                      "center": {
+                        "x": 0.0,
+                        "y": 0.0
+                      },
+                      "radius": 4.0
+                    }
+                  ],
+                  "entity_constraints": [
+                    {
+                      "id": "origin",
+                      "kind": "fixed",
+                      "a": "pocket",
+                      "b": "",
+                      "c": "",
+                      "a_point": "center",
+                      "b_point": "start",
+                      "value": 0.0,
+                      "x": 0.0,
+                      "y": 0.0,
+                      "reference": [],
+                      "mode": "external"
+                    },
+                    {
+                      "id": "diameter",
+                      "kind": "diameter",
+                      "a": "pocket",
+                      "b": "",
+                      "c": "",
+                      "a_point": "start",
+                      "b_point": "start",
+                      "value": 8.0,
+                      "x": 0.0,
+                      "y": 0.0,
+                      "reference": [],
+                      "mode": "external"
+                    }
+                  ],
+                  "profiles": []
+                }
+              }
+            ]
+          }
+        ],
+        "context": {
+          "part_id": "link",
+          "feature_id": "pocket-cut",
+          "face": {
+            "index": 7,
+            "origin": [
+              -1.2212453270876722e-15,
+              -1.387333942887111e-15,
+              8.0
+            ],
+            "normal": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "x_direction": [
+              1.0,
+              0.0,
+              0.0
+            ]
+          },
+          "tool_actions": [
+            {
+              "tool": "예제 스크립트 · 원점 고정 + 직경",
+              "constraints_after": [
+                {
+                  "id": "origin",
+                  "kind": "fixed",
+                  "a": "pocket",
+                  "b": "",
+                  "c": "",
+                  "a_point": "center",
+                  "b_point": "start",
+                  "value": 0,
+                  "x": 0.0,
+                  "y": 0.0,
+                  "reference": [],
+                  "mode": "external"
+                },
+                {
+                  "id": "diameter",
+                  "kind": "diameter",
+                  "a": "pocket",
+                  "b": "",
+                  "c": "",
+                  "a_point": "start",
+                  "b_point": "start",
+                  "value": 8.0,
+                  "x": 0,
+                  "y": 0,
+                  "reference": [],
+                  "mode": "external"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "cursor": "cut",
+    "head": "cut"
+  }
+}

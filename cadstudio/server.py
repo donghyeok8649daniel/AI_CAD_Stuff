@@ -18,9 +18,10 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import __version__
 from .catalog import catalog
-from .kernel import export, preview
+from .kernel import export, preview, KERNEL_LOCK
 from .models import Design, DraftRequest, Project, Extrusion
 from .constraints import solve_sketch
+from .sketch_engine import sketch_status, sketch_preview
 from .planner import local_draft, openai_draft
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -50,10 +51,11 @@ async def local_boundary(request: Request, call_next):
             return JSONResponse(status_code=403, content={"detail": "CAD 요청 헤더가 필요합니다."})
         # Enforce the actual streamed size, not just a client-supplied Content-Length.
         size, chunks = 0, []
+        limit=32_000_000 if request.url.path.startswith('/api/projects') or request.url.path=='/api/export/autodesk' else 1_000_000
         async for chunk in request.stream():
             size += len(chunk)
-            if size > 1_000_000:
-                return JSONResponse(status_code=413, content={"detail": "설계 파일은 1 MB 이하여야 합니다."})
+            if size > limit:
+                return JSONResponse(status_code=413, content={"detail": f"이 요청은 {limit//1_000_000} MB 이하여야 합니다. 현재 작업 기록은 삭제되지 않습니다."})
             chunks.append(chunk)
         request._body = b"".join(chunks)
     response = await call_next(request)
@@ -108,7 +110,14 @@ def build_design(design: Design):
 
 @app.post("/api/sketch/solve")
 def solve_sketch_constraints(sketch: Extrusion):
-    return {"sketch":sketch.model_dump(),"status":solve_sketch(sketch.points,sketch.constraints)[1]}
+    try:
+        with KERNEL_LOCK:
+            return {"sketch":sketch.model_dump(),"status":sketch_status(sketch),"preview":sketch_preview(sketch) if sketch.sketch_mode=='entities' else None}
+    except ValueError as exc:
+        raise HTTPException(422,str(exc)) from None
+    except Exception:
+        logging.getLogger(__name__).exception('Sketch profile failed')
+        raise HTTPException(422,'스케치 곡선이나 영역을 계산하지 못했습니다. 겹친 요소와 교차점을 확인하세요.') from None
 
 
 @app.post("/api/draft")
@@ -129,11 +138,13 @@ def draft(request: DraftRequest):
 
 
 @app.post("/api/export/{fmt}")
-def export_design(fmt: str, design: Design):
+def export_design(fmt: str, design: Design | Project):
+    project=design if isinstance(design,Project) else Project(design=design)
+    design=project.design
     if fmt == "autodesk":
         from .native_export import conversion_package
         try:
-            payload=conversion_package(design)
+            payload=conversion_package(project)
         except Exception:
             raise HTTPException(422, "변환 패키지를 만들지 못했습니다. 형상과 치수를 확인하세요.") from None
         return Response(payload, media_type="application/zip", headers={"Content-Disposition": 'attachment; filename="Autodesk-conversion.zip"'})

@@ -37,6 +37,11 @@ def main():
                 d=preset(kind);result=preview(d)
                 path=Path(folder)/f'{kind}.step';export(d,path,'step')
                 report[kind]={'valid':result['stats']['valid'],'parts':len(d.parts),'step_bytes':path.stat().st_size,'constraints':result['stats']['assembly_constraints']}
+        from cadstudio.models import Extrusion,Design,Part
+        from cadstudio.sketch_engine import sketch_preview,sketch_status
+        g=Extrusion(sketch_mode='entities',entities=[dict(id='circle',kind='circle',center=dict(x=0,y=0),radius=10)],entity_constraints=[dict(id='origin',kind='fixed',a='circle',a_point='center',x=0,y=0),dict(id='diameter',kind='diameter',a='circle',value=20)])
+        advanced=Design(name='Analytic sketch',parts=[Part(id='part',name='Circle',geometry=g)])
+        report['analytic_sketch']={'valid':preview(advanced)['stats']['valid'],'regions':len(sketch_preview(g)['regions']),'dof':sketch_status(g)['dof']}
         args.self_test.write_text(json.dumps(report,indent=2),encoding='utf-8')
         return
     import uvicorn

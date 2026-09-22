@@ -59,7 +59,7 @@ def anchors(geometry):
     if g.kind == "link": holes=[(-g.hole_spacing/2,0),(g.hole_spacing/2,0)]
     elif g.kind == "plate" and g.hole_count:
         holes=[(x,y) for x in (-g.hole_pitch_x/2,g.hole_pitch_x/2) for y in ([-g.hole_pitch_y/2,g.hole_pitch_y/2] if g.hole_count==4 else [0])]
-    elif g.kind == "extrusion": holes=[(h.x,h.y) for h in g.holes]
+    elif g.kind == "extrusion": holes=[(h.x,h.y) for h in g.holes] if g.sketch_mode=='polygon' else [(e.center.x,e.center.y) for e in g.entities if e.kind=='circle' and not e.construction]
     for i,(x,y) in enumerate(holes,1):
         out[f"hole_{i}_bottom"]=[x,y,bottom];out[f"hole_{i}_top"]=[x,y,top]
     return out

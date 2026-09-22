@@ -1,6 +1,6 @@
 {
   "format": "prompt-cad-project",
-  "version": 1,
+  "version": 2,
   "design": {
     "schema_version": 1,
     "name": "원통형 시편",
@@ -33,5 +33,6 @@
     ],
     "mates": []
   },
-  "prompt": "원통형 시편 전체 길이 100, 목 직경 8, 그립 직경 16, 평행부 길이 30, 전이 길이 15 mm"
+  "prompt": "원통형 시편 전체 길이 100, 목 직경 8, 그립 직경 16, 평행부 길이 30, 전이 길이 15 mm",
+  "history": null
 }
