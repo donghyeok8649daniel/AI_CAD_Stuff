@@ -33,7 +33,7 @@ def at(e,t):
 def anchors(e):
     k=e['kind']
     if k=='line':return [('start',e['start']),('end',e['end']),('mid',at(e,.5))]
-    if k=='arc':return [('start',at(e,0)),('end',at(e,1)),('center',e['center'])]
+    if k=='arc':return [('start',at(e,0)),('end',at(e,1)),('center',e['center']),('mid',at(e,.5))]
     if k=='spline':return [('start',e['points'][0]),('end',e['points'][-1])]
     if k in ('circle','ellipse'):return [('center',e['center'])]+[('quadrant',at(e,i/4)) for i in range(4)]
     return [('start',e['position'])]

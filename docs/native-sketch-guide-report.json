@@ -1,0 +1,26 @@
+{
+  "success": true,
+  "checks": [
+    "background sketch computation completed",
+    "tangent contact is recommended",
+    "background sketch computation completed",
+    "tangent is persisted without false overconstraint",
+    "background sketch computation completed",
+    "normal contact is recommended",
+    "background sketch computation completed",
+    "normal is persisted without false overconstraint",
+    "background sketch computation completed",
+    "background sketch computation completed",
+    "face boundary recommends a point without manual projection",
+    "background sketch computation completed",
+    "boundary point has a persistent point-on constraint",
+    "background sketch computation completed",
+    "finishing an open point sketch saves it",
+    "Shift+E reopens the selected saved sketch",
+    "background sketch computation completed",
+    "background sketch computation completed",
+    "background sketch computation completed",
+    "edited point moves along its reference boundary",
+    "sketch creation and editing retain history"
+  ]
+}

@@ -42,9 +42,8 @@ def infer(p, entities, samples, candidates, tolerance,grid_step=None):
     if close:
         best = min(close, key=lambda s: (G.dist(p, s['p']), s['type'] != '교점'))
         return dict(best)
-    if grid_step:
-        grid=grid_inference(p,entities,samples,tolerance,grid_step)
-        if grid:return grid
+    grid=grid_inference(p,entities,samples,tolerance,grid_step) if grid_step else None
+    if grid and grid['ids']:return grid
     best, distance = None, tolerance
     for e in entities:
         # Cheap bounding rejection before analytic projection of splines.
@@ -57,7 +56,7 @@ def infer(p, entities, samples, candidates, tolerance,grid_step=None):
         if q is not None and G.dist(p, q) < distance:
             distance = G.dist(p, q)
             best = dict(p=q, type='곡선 위' if e['kind'] != 'line' else '선 위', ids=[e['id']])
-    return best
+    return best or grid
 
 
 def grid_inference(p,entities,samples,tolerance,step):

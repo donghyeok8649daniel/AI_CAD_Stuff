@@ -1,0 +1,15 @@
+{
+  "version": "2.3.1",
+  "success": true,
+  "checks_by_suite": {
+    "기본 CAD": 42,
+    "추가 도구": 59,
+    "직접 조작": 28,
+    "스케치": 21,
+    "나사산": 17
+  },
+  "total": 167,
+  "python_tests": 279,
+  "python_warnings": 68,
+  "source_modules_match": 51
+}

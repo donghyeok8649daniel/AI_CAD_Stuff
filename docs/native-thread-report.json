@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "checks": [
+    "cylindrical face is pickable in the 3D viewport",
+    "selected cylinder exposes a direct thread button",
+    "T opens native Thread dialog",
+    "M10 coarse pitch is suggested",
+    "thread commit is a parametric feature",
+    "history feature exposes thread editing",
+    "native project preserves thread parameters",
+    "history stores the exact selected cylinder",
+    "modeled threads export to STEP and STL",
+    "undo removes the thread feature",
+    "redo restores the thread feature",
+    "existing thread edits without duplication",
+    "invalid length cannot be applied",
+    "inner hole selection suggests an M6 tap",
+    "internal helical thread removes real material",
+    "cancel closes while base geometry is loading",
+    "thread workers drain cleanly"
+  ]
+}

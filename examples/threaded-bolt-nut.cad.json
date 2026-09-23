@@ -1,0 +1,989 @@
+{
+  "format": "prompt-cad-project",
+  "version": 2,
+  "design": {
+    "schema_version": 1,
+    "name": "M6 볼트 · 육각 너트",
+    "mode": "robot",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "bolt",
+        "name": "M6 볼트",
+        "geometry": {
+          "kind": "cylinder",
+          "diameter": 6.0,
+          "height": 18.0,
+          "bore_diameter": 0.0
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#739cbb",
+        "fixed": false,
+        "features": [
+          {
+            "id": "head",
+            "name": "육각 머리",
+            "face": 2,
+            "support_face_count": 3,
+            "support_feature": "base",
+            "origin": [
+              4.440892098500626e-16,
+              -1.9197606467476666e-16,
+              18.0
+            ],
+            "x_direction": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "normal": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "operation": "add",
+            "sketch": {
+              "kind": "extrusion",
+              "thickness": 4.0,
+              "points": [
+                {
+                  "x": 5.5,
+                  "y": 0.0
+                },
+                {
+                  "x": 2.75,
+                  "y": 4.76313972
+                },
+                {
+                  "x": -2.75,
+                  "y": 4.76313972
+                },
+                {
+                  "x": -5.5,
+                  "y": 0.0
+                },
+                {
+                  "x": -2.75,
+                  "y": -4.76313972
+                },
+                {
+                  "x": 2.75,
+                  "y": -4.76313972
+                }
+              ],
+              "holes": [],
+              "constraints": [],
+              "sketch_mode": "polygon",
+              "entities": [],
+              "entity_constraints": [],
+              "profiles": []
+            }
+          },
+          {
+            "id": "bolt-thread",
+            "name": "수나사 M6 × 1 · 14 mm · 우",
+            "kind": "thread",
+            "cylinder": {
+              "index": 8,
+              "face_count": 10,
+              "diameter": 6.0,
+              "length": 18.0,
+              "frame": {
+                "origin": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "normal": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "x_direction": [
+                  1.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "internal": false
+            },
+            "diameter": 6.0,
+            "pitch": 1.0,
+            "length": 14.0,
+            "offset": 0.0,
+            "clearance": 0.0,
+            "handedness": "right",
+            "reverse": false,
+            "support_feature": "head"
+          }
+        ]
+      },
+      {
+        "id": "nut",
+        "name": "M6 육각 너트",
+        "geometry": {
+          "kind": "extrusion",
+          "thickness": 5.0,
+          "points": [
+            {
+              "x": 6.0,
+              "y": 0.0
+            },
+            {
+              "x": 3.0,
+              "y": 5.19615242
+            },
+            {
+              "x": -3.0,
+              "y": 5.19615242
+            },
+            {
+              "x": -6.0,
+              "y": 0.0
+            },
+            {
+              "x": -3.0,
+              "y": -5.19615242
+            },
+            {
+              "x": 3.0,
+              "y": -5.19615242
+            }
+          ],
+          "holes": [
+            {
+              "x": 0.0,
+              "y": 0.0,
+              "diameter": 5.0
+            }
+          ],
+          "constraints": [],
+          "sketch_mode": "polygon",
+          "entities": [],
+          "entity_constraints": [],
+          "profiles": []
+        },
+        "transform": {
+          "x": 20.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#d2ad65",
+        "fixed": false,
+        "features": [
+          {
+            "id": "nut-thread",
+            "name": "암나사 M6 × 1 · 5 mm · 우",
+            "kind": "thread",
+            "cylinder": {
+              "index": 8,
+              "face_count": 9,
+              "diameter": 5.0,
+              "length": 5.0,
+              "frame": {
+                "origin": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "normal": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "x_direction": [
+                  1.0,
+                  0.0,
+                  -0.0
+                ]
+              },
+              "internal": true
+            },
+            "diameter": 6.0,
+            "pitch": 1.0,
+            "length": 5.0,
+            "offset": 0.0,
+            "clearance": 0.06,
+            "handedness": "right",
+            "reverse": false,
+            "support_feature": "base"
+          }
+        ]
+      }
+    ],
+    "mates": [],
+    "sketches": [],
+    "joint_frames": [],
+    "loops": [],
+    "studies": []
+  },
+  "prompt": "",
+  "history": {
+    "version": 1,
+    "base": {
+      "schema_version": 1,
+      "name": "M6 볼트 · 육각 너트",
+      "mode": "robot",
+      "units": "mm",
+      "parts": [
+        {
+          "id": "bolt",
+          "name": "M6 볼트",
+          "geometry": {
+            "kind": "cylinder",
+            "diameter": 6.0,
+            "height": 18.0,
+            "bore_diameter": 0.0
+          },
+          "transform": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          "color": "#739cbb",
+          "fixed": false,
+          "features": []
+        }
+      ],
+      "mates": [],
+      "sketches": [],
+      "joint_frames": [],
+      "loops": [],
+      "studies": []
+    },
+    "entries": [
+      {
+        "id": "step-f6aa5ed32a4947bfbeb52f413970f939",
+        "parent": null,
+        "label": "볼트 축",
+        "created_at": "2026-09-23T07:09:51.322336+00:00",
+        "source": "manual",
+        "changes": [],
+        "context": {}
+      },
+      {
+        "id": "step-67ad24195b67492081e721ee5d702c8a",
+        "parent": "step-f6aa5ed32a4947bfbeb52f413970f939",
+        "label": "육각 머리 돌출",
+        "created_at": "2026-09-23T07:09:51.342082+00:00",
+        "source": "manual",
+        "changes": [
+          {
+            "path": [
+              "parts",
+              0,
+              "features"
+            ],
+            "operation": "set",
+            "existed": true,
+            "before": [],
+            "after": [
+              {
+                "id": "head",
+                "name": "육각 머리",
+                "face": 2,
+                "support_face_count": 3,
+                "support_feature": "base",
+                "origin": [
+                  4.440892098500626e-16,
+                  -1.9197606467476666e-16,
+                  18.0
+                ],
+                "x_direction": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "normal": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "operation": "add",
+                "sketch": {
+                  "kind": "extrusion",
+                  "thickness": 4.0,
+                  "points": [
+                    {
+                      "x": 5.5,
+                      "y": 0.0
+                    },
+                    {
+                      "x": 2.75,
+                      "y": 4.76313972
+                    },
+                    {
+                      "x": -2.75,
+                      "y": 4.76313972
+                    },
+                    {
+                      "x": -5.5,
+                      "y": 0.0
+                    },
+                    {
+                      "x": -2.75,
+                      "y": -4.76313972
+                    },
+                    {
+                      "x": 2.75,
+                      "y": -4.76313972
+                    }
+                  ],
+                  "holes": [],
+                  "constraints": [],
+                  "sketch_mode": "polygon",
+                  "entities": [],
+                  "entity_constraints": [],
+                  "profiles": []
+                }
+              }
+            ]
+          }
+        ],
+        "context": {}
+      },
+      {
+        "id": "step-47c79b0c3dae4ba2bd180b9d18328588",
+        "parent": "step-67ad24195b67492081e721ee5d702c8a",
+        "label": "M6 수나사",
+        "created_at": "2026-09-23T07:09:53.959023+00:00",
+        "source": "manual",
+        "changes": [
+          {
+            "path": [
+              "parts",
+              0,
+              "features"
+            ],
+            "operation": "set",
+            "existed": true,
+            "before": [
+              {
+                "id": "head",
+                "name": "육각 머리",
+                "face": 2,
+                "support_face_count": 3,
+                "support_feature": "base",
+                "origin": [
+                  4.440892098500626e-16,
+                  -1.9197606467476666e-16,
+                  18.0
+                ],
+                "x_direction": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "normal": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "operation": "add",
+                "sketch": {
+                  "kind": "extrusion",
+                  "thickness": 4.0,
+                  "points": [
+                    {
+                      "x": 5.5,
+                      "y": 0.0
+                    },
+                    {
+                      "x": 2.75,
+                      "y": 4.76313972
+                    },
+                    {
+                      "x": -2.75,
+                      "y": 4.76313972
+                    },
+                    {
+                      "x": -5.5,
+                      "y": 0.0
+                    },
+                    {
+                      "x": -2.75,
+                      "y": -4.76313972
+                    },
+                    {
+                      "x": 2.75,
+                      "y": -4.76313972
+                    }
+                  ],
+                  "holes": [],
+                  "constraints": [],
+                  "sketch_mode": "polygon",
+                  "entities": [],
+                  "entity_constraints": [],
+                  "profiles": []
+                }
+              }
+            ],
+            "after": [
+              {
+                "id": "head",
+                "name": "육각 머리",
+                "face": 2,
+                "support_face_count": 3,
+                "support_feature": "base",
+                "origin": [
+                  4.440892098500626e-16,
+                  -1.9197606467476666e-16,
+                  18.0
+                ],
+                "x_direction": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "normal": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "operation": "add",
+                "sketch": {
+                  "kind": "extrusion",
+                  "thickness": 4.0,
+                  "points": [
+                    {
+                      "x": 5.5,
+                      "y": 0.0
+                    },
+                    {
+                      "x": 2.75,
+                      "y": 4.76313972
+                    },
+                    {
+                      "x": -2.75,
+                      "y": 4.76313972
+                    },
+                    {
+                      "x": -5.5,
+                      "y": 0.0
+                    },
+                    {
+                      "x": -2.75,
+                      "y": -4.76313972
+                    },
+                    {
+                      "x": 2.75,
+                      "y": -4.76313972
+                    }
+                  ],
+                  "holes": [],
+                  "constraints": [],
+                  "sketch_mode": "polygon",
+                  "entities": [],
+                  "entity_constraints": [],
+                  "profiles": []
+                }
+              },
+              {
+                "id": "bolt-thread",
+                "name": "수나사 M6 × 1 · 14 mm · 우",
+                "kind": "thread",
+                "cylinder": {
+                  "index": 8,
+                  "face_count": 10,
+                  "diameter": 6.0,
+                  "length": 18.0,
+                  "frame": {
+                    "origin": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "normal": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "x_direction": [
+                      1.0,
+                      0.0,
+                      0.0
+                    ]
+                  },
+                  "internal": false
+                },
+                "diameter": 6.0,
+                "pitch": 1.0,
+                "length": 14.0,
+                "offset": 0,
+                "clearance": 0,
+                "handedness": "right",
+                "reverse": false,
+                "support_feature": "head"
+              }
+            ]
+          }
+        ],
+        "context": {
+          "feature": {
+            "id": "bolt-thread",
+            "name": "수나사 M6 × 1 · 14 mm · 우",
+            "kind": "thread",
+            "cylinder": {
+              "index": 8,
+              "face_count": 10,
+              "diameter": 6.0,
+              "length": 18.0,
+              "frame": {
+                "origin": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "normal": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "x_direction": [
+                  1.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "internal": false
+            },
+            "diameter": 6.0,
+            "pitch": 1.0,
+            "length": 14.0,
+            "offset": 0,
+            "clearance": 0,
+            "handedness": "right",
+            "reverse": false,
+            "support_feature": "head"
+          }
+        }
+      },
+      {
+        "id": "step-2ffc7a39b045499ab7cc235ea6a0cedf",
+        "parent": "step-47c79b0c3dae4ba2bd180b9d18328588",
+        "label": "너트 바탕",
+        "created_at": "2026-09-23T07:09:53.959023+00:00",
+        "source": "manual",
+        "changes": [
+          {
+            "path": [
+              "parts"
+            ],
+            "operation": "set",
+            "existed": true,
+            "before": [
+              {
+                "id": "bolt",
+                "name": "M6 볼트",
+                "geometry": {
+                  "kind": "cylinder",
+                  "diameter": 6.0,
+                  "height": 18.0,
+                  "bore_diameter": 0
+                },
+                "transform": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "rx": 0,
+                  "ry": 0,
+                  "rz": 0
+                },
+                "color": "#739cbb",
+                "fixed": false,
+                "features": [
+                  {
+                    "id": "head",
+                    "name": "육각 머리",
+                    "face": 2,
+                    "support_face_count": 3,
+                    "support_feature": "base",
+                    "origin": [
+                      4.440892098500626e-16,
+                      -1.9197606467476666e-16,
+                      18.0
+                    ],
+                    "x_direction": [
+                      1.0,
+                      0.0,
+                      0.0
+                    ],
+                    "normal": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "operation": "add",
+                    "sketch": {
+                      "kind": "extrusion",
+                      "thickness": 4.0,
+                      "points": [
+                        {
+                          "x": 5.5,
+                          "y": 0.0
+                        },
+                        {
+                          "x": 2.75,
+                          "y": 4.76313972
+                        },
+                        {
+                          "x": -2.75,
+                          "y": 4.76313972
+                        },
+                        {
+                          "x": -5.5,
+                          "y": 0.0
+                        },
+                        {
+                          "x": -2.75,
+                          "y": -4.76313972
+                        },
+                        {
+                          "x": 2.75,
+                          "y": -4.76313972
+                        }
+                      ],
+                      "holes": [],
+                      "constraints": [],
+                      "sketch_mode": "polygon",
+                      "entities": [],
+                      "entity_constraints": [],
+                      "profiles": []
+                    }
+                  },
+                  {
+                    "id": "bolt-thread",
+                    "name": "수나사 M6 × 1 · 14 mm · 우",
+                    "kind": "thread",
+                    "cylinder": {
+                      "index": 8,
+                      "face_count": 10,
+                      "diameter": 6.0,
+                      "length": 18.0,
+                      "frame": {
+                        "origin": [
+                          0.0,
+                          0.0,
+                          0.0
+                        ],
+                        "normal": [
+                          0.0,
+                          0.0,
+                          1.0
+                        ],
+                        "x_direction": [
+                          1.0,
+                          0.0,
+                          0.0
+                        ]
+                      },
+                      "internal": false
+                    },
+                    "diameter": 6.0,
+                    "pitch": 1.0,
+                    "length": 14.0,
+                    "offset": 0,
+                    "clearance": 0,
+                    "handedness": "right",
+                    "reverse": false,
+                    "support_feature": "head"
+                  }
+                ]
+              }
+            ],
+            "after": [
+              {
+                "id": "bolt",
+                "name": "M6 볼트",
+                "geometry": {
+                  "kind": "cylinder",
+                  "diameter": 6.0,
+                  "height": 18.0,
+                  "bore_diameter": 0
+                },
+                "transform": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "rx": 0,
+                  "ry": 0,
+                  "rz": 0
+                },
+                "color": "#739cbb",
+                "fixed": false,
+                "features": [
+                  {
+                    "id": "head",
+                    "name": "육각 머리",
+                    "face": 2,
+                    "support_face_count": 3,
+                    "support_feature": "base",
+                    "origin": [
+                      4.440892098500626e-16,
+                      -1.9197606467476666e-16,
+                      18.0
+                    ],
+                    "x_direction": [
+                      1.0,
+                      0.0,
+                      0.0
+                    ],
+                    "normal": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "operation": "add",
+                    "sketch": {
+                      "kind": "extrusion",
+                      "thickness": 4.0,
+                      "points": [
+                        {
+                          "x": 5.5,
+                          "y": 0.0
+                        },
+                        {
+                          "x": 2.75,
+                          "y": 4.76313972
+                        },
+                        {
+                          "x": -2.75,
+                          "y": 4.76313972
+                        },
+                        {
+                          "x": -5.5,
+                          "y": 0.0
+                        },
+                        {
+                          "x": -2.75,
+                          "y": -4.76313972
+                        },
+                        {
+                          "x": 2.75,
+                          "y": -4.76313972
+                        }
+                      ],
+                      "holes": [],
+                      "constraints": [],
+                      "sketch_mode": "polygon",
+                      "entities": [],
+                      "entity_constraints": [],
+                      "profiles": []
+                    }
+                  },
+                  {
+                    "id": "bolt-thread",
+                    "name": "수나사 M6 × 1 · 14 mm · 우",
+                    "kind": "thread",
+                    "cylinder": {
+                      "index": 8,
+                      "face_count": 10,
+                      "diameter": 6.0,
+                      "length": 18.0,
+                      "frame": {
+                        "origin": [
+                          0.0,
+                          0.0,
+                          0.0
+                        ],
+                        "normal": [
+                          0.0,
+                          0.0,
+                          1.0
+                        ],
+                        "x_direction": [
+                          1.0,
+                          0.0,
+                          0.0
+                        ]
+                      },
+                      "internal": false
+                    },
+                    "diameter": 6.0,
+                    "pitch": 1.0,
+                    "length": 14.0,
+                    "offset": 0,
+                    "clearance": 0,
+                    "handedness": "right",
+                    "reverse": false,
+                    "support_feature": "head"
+                  }
+                ]
+              },
+              {
+                "id": "nut",
+                "name": "M6 육각 너트",
+                "geometry": {
+                  "kind": "extrusion",
+                  "thickness": 5.0,
+                  "points": [
+                    {
+                      "x": 6.0,
+                      "y": 0.0
+                    },
+                    {
+                      "x": 3.0,
+                      "y": 5.19615242
+                    },
+                    {
+                      "x": -3.0,
+                      "y": 5.19615242
+                    },
+                    {
+                      "x": -6.0,
+                      "y": 0.0
+                    },
+                    {
+                      "x": -3.0,
+                      "y": -5.19615242
+                    },
+                    {
+                      "x": 3.0,
+                      "y": -5.19615242
+                    }
+                  ],
+                  "holes": [
+                    {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "diameter": 5.0
+                    }
+                  ],
+                  "constraints": [],
+                  "sketch_mode": "polygon",
+                  "entities": [],
+                  "entity_constraints": [],
+                  "profiles": []
+                },
+                "transform": {
+                  "x": 20.0,
+                  "y": 0,
+                  "z": 0,
+                  "rx": 0,
+                  "ry": 0,
+                  "rz": 0
+                },
+                "color": "#d2ad65",
+                "fixed": false,
+                "features": []
+              }
+            ]
+          }
+        ],
+        "context": {}
+      },
+      {
+        "id": "step-1bb88e0e1b2f4ebe9cc6af3d3a75a280",
+        "parent": "step-2ffc7a39b045499ab7cc235ea6a0cedf",
+        "label": "M6 암나사",
+        "created_at": "2026-09-23T07:09:56.456292+00:00",
+        "source": "manual",
+        "changes": [
+          {
+            "path": [
+              "parts",
+              1,
+              "features"
+            ],
+            "operation": "set",
+            "existed": true,
+            "before": [],
+            "after": [
+              {
+                "id": "nut-thread",
+                "name": "암나사 M6 × 1 · 5 mm · 우",
+                "kind": "thread",
+                "cylinder": {
+                  "index": 8,
+                  "face_count": 9,
+                  "diameter": 5.0,
+                  "length": 5.0,
+                  "frame": {
+                    "origin": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "normal": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "x_direction": [
+                      1.0,
+                      0.0,
+                      -0.0
+                    ]
+                  },
+                  "internal": true
+                },
+                "diameter": 6.0,
+                "pitch": 1.0,
+                "length": 5.0,
+                "offset": 0,
+                "clearance": 0.06,
+                "handedness": "right",
+                "reverse": false,
+                "support_feature": "base"
+              }
+            ]
+          }
+        ],
+        "context": {
+          "feature": {
+            "id": "nut-thread",
+            "name": "암나사 M6 × 1 · 5 mm · 우",
+            "kind": "thread",
+            "cylinder": {
+              "index": 8,
+              "face_count": 9,
+              "diameter": 5.0,
+              "length": 5.0,
+              "frame": {
+                "origin": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "normal": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "x_direction": [
+                  1.0,
+                  0.0,
+                  -0.0
+                ]
+              },
+              "internal": true
+            },
+            "diameter": 6.0,
+            "pitch": 1.0,
+            "length": 5.0,
+            "offset": 0,
+            "clearance": 0.06,
+            "handedness": "right",
+            "reverse": false,
+            "support_feature": "base"
+          }
+        }
+      }
+    ],
+    "cursor": "step-1bb88e0e1b2f4ebe9cc6af3d3a75a280",
+    "head": "step-1bb88e0e1b2f4ebe9cc6af3d3a75a280"
+  }
+}

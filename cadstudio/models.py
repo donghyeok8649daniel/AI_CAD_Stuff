@@ -236,7 +236,7 @@ SketchEntity=Annotated[Union[SketchLine,SketchCircle,SketchArc,SketchEllipse,Ske
 
 class EntityConstraint(StrictModel):
     id: str = Field(min_length=1,max_length=40,pattern=r"^[a-zA-Z0-9_-]+$")
-    kind: Literal['fixed','horizontal','vertical','coincident','distance','dx','dy','angle','radius','diameter','parallel','perpendicular','equal','concentric','collinear','tangent','midpoint','symmetry','point_on','curvature']
+    kind: Literal['fixed','horizontal','vertical','coincident','distance','dx','dy','angle','radius','diameter','parallel','perpendicular','equal','concentric','collinear','tangent','normal','midpoint','symmetry','point_on','curvature']
     a: str = Field(min_length=1,max_length=40)
     b: str = Field(default='',max_length=40)
     c: str = Field(default='',max_length=40)
@@ -248,11 +248,13 @@ class EntityConstraint(StrictModel):
     reference: list[float] = Field(default_factory=list,max_length=64)
     mode: Literal['external','internal'] = 'external'
     expression: str = Field(default='',max_length=240)
+    contact: bool = False
 
     @model_serializer(mode='wrap')
     def compatible_expression(self,handler):
         data=handler(self)
         if not self.expression:data.pop('expression',None)
+        if not self.contact:data.pop('contact',None)
         return data
 
 
@@ -408,6 +410,44 @@ class EdgeFeature(StrictModel):
     support_edge_count: int = Field(ge=1,le=2000)
 
 
+class CylinderReference(StrictModel):
+    index: int = Field(ge=0, le=2000)
+    face_count: int = Field(ge=1, le=2000)
+    diameter: Dimension
+    length: Dimension
+    frame: ModelFrame
+    internal: bool
+
+
+class ThreadFeature(StrictModel):
+    id: str = Field(pattern=r'^[a-zA-Z0-9_-]{1,40}$')
+    name: str = Field(default='나사산', max_length=80)
+    kind: Literal['thread'] = 'thread'
+    cylinder: CylinderReference
+    diameter: Dimension = 10
+    pitch: float = Field(default=1.5, ge=.25, le=12)
+    length: Dimension = 10
+    offset: Nonnegative = 0
+    clearance: float = Field(default=0, ge=0, le=1)
+    handedness: Literal['right','left'] = 'right'
+    reverse: bool = False
+    support_feature: str = Field(default='base', max_length=40)
+
+    @model_validator(mode='after')
+    def proportions(self):
+        if self.length < self.pitch or self.length/self.pitch > 32:
+            raise ValueError('나사 길이는 1~32 피치 범위여야 합니다. 긴 나사는 구간을 줄이세요.')
+        if self.offset+self.length > self.cylinder.length+1e-5:
+            raise ValueError('시작 간격과 나사 길이의 합이 선택 원통 면 길이를 초과합니다.')
+        if self.diameter-1.082532*self.pitch <= .1 or self.clearance > self.pitch/4:
+            raise ValueError('지름에 비해 피치 또는 반경 여유가 너무 큽니다.')
+        if not self.cylinder.internal and abs(self.diameter-self.cylinder.diameter)>1e-4:
+            raise ValueError('수나사 호칭 지름은 선택한 축의 지름과 같아야 합니다. 축 치수를 먼저 바꾸세요.')
+        if self.cylinder.internal and not self.diameter-1.082532*self.pitch-.15 <= self.cylinder.diameter < self.diameter-.05:
+            raise ValueError('암나사 바탕 구멍 지름이 맞지 않습니다. 권장 바탕 지름 근처로 구멍을 먼저 만드세요.')
+        return self
+
+
 class SketchFeature(StrictModel):
     id: str = Field(min_length=1, max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
     name: str = Field(default="면 스케치", min_length=1, max_length=80)
@@ -465,7 +505,7 @@ class Part(StrictModel):
     transform: Transform = Field(default_factory=Transform)
     color: str = Field(default="#70aebf", pattern=r"^#[0-9a-fA-F]{6}$")
     fixed: bool = False
-    features: list[Union[SketchFeature,EdgeFeature]] = Field(default_factory=list, max_length=16)
+    features: list[Union[SketchFeature,EdgeFeature,ThreadFeature]] = Field(default_factory=list, max_length=16)
 
 
 class SketchSupportFace(StrictModel):

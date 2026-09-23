@@ -15,7 +15,7 @@ from ..kernel import KERNEL_LOCK
 
 TOOLS={'select':('선택',0),'line':('직선 / 연속선',2),'rectangle':('2점 사각형',2),'center-rectangle':('중심 사각형',2),'rectangle-3':('3점 사각형',3),'circle':('중심·반지름 원',2),'circle-2':('2점 지름 원',2),'circle-3':('3점 원',3),'arc-3':('3점 원호',3),'arc-center':('중심 원호',3),'ellipse':('타원',3),'polygon':('외접원 다각형',2),'polygon-inscribed':('내접원 다각형',2),'slot':('중심점 슬롯',3),'center-slot':('중심 슬롯',3),'spline-fit':('맞춤점 스플라인',0),'spline-control':('제어점 스플라인',0),'point':('점',1),'text':('텍스트',1),'trim':('자르기',0),'extend':('연장',0),'split':('분할',0)}
 KINDS={'line':'직선','circle':'원','arc':'원호','ellipse':'타원','spline':'스플라인','point':'점','text':'텍스트'}
-CONSTRAINTS={'fixed':'고정','horizontal':'수평','vertical':'수직','coincident':'일치','distance':'거리','dx':'수평 거리','dy':'수직 거리','angle':'각도','radius':'반지름','diameter':'직경','parallel':'평행','perpendicular':'직각','equal':'동일','concentric':'동심','collinear':'동일 직선','tangent':'접선','midpoint':'중간점','symmetry':'대칭','point_on':'점-곡선','curvature':'곡률 연속'}
+CONSTRAINTS={'fixed':'고정','horizontal':'수평','vertical':'수직','coincident':'일치','distance':'거리','dx':'수평 거리','dy':'수직 거리','angle':'각도','radius':'반지름','diameter':'직경','parallel':'평행','perpendicular':'직각','equal':'동일','concentric':'동심','collinear':'동일 직선','tangent':'접선','normal':'법선','midpoint':'중간점','symmetry':'대칭','point_on':'점-곡선','curvature':'곡률 연속'}
 STATE_COLORS={'free':'#68a9ef','constrained':'#e5edf2','fixed':'#65c696','conflict':'#f17e83'}
 HINTS={'select':'클릭 선택 · Shift / Ctrl로 추가 선택 · 점 / 요소 드래그 · Delete 삭제','line':'시작점 → 끝점 → 다음 끝점. Enter / Esc로 연속선 종료.','rectangle':'대각선의 두 모서리를 클릭하세요.','center-rectangle':'중심 → 모서리','rectangle-3':'첫 모서리 → 둘째 모서리 → 폭','circle':'중심 → 원 위의 점','circle-2':'지름의 양 끝점','circle-3':'원 위의 세 점','arc-3':'시작점 → 지나는 점 → 끝점','arc-center':'중심 → 시작점 → 끝점','ellipse':'중심 → 첫 반축 끝점 → 둘째 반축 폭','slot':'첫 중심 → 둘째 중심 → 반폭','center-slot':'전체 중심 → 한쪽 끝의 중심 → 반폭','polygon':'중심 → 꼭짓점','polygon-inscribed':'중심 → 변의 중간점','spline-fit':'맞춤점을 클릭한 뒤 Enter로 완료','spline-control':'제어점을 클릭한 뒤 Enter로 완료','trim':'제거할 직선·원·원호 구간 클릭. 해당 요소의 구속은 해제됩니다.','extend':'경계까지 연장할 직선의 끝 쪽 클릭','split':'분할할 직선·원호의 중간 위치 클릭'}
 
@@ -33,7 +33,11 @@ class SketchCanvas(QWidget):
         p=G.pt((pos.x()-self.width()/2-self.pan.x())/self.scale,(self.height()/2+self.pan.y()-pos.y())/self.scale);self.snap=None
         if snap and self.editor.snapping.isChecked() and not self.editor.free_placement():
             step=grid_step(self.scale) if self.editor.grid_snapping.isChecked() else None
-            self.snap=infer(p,self.editor.g['entities'],self.samples,self.candidates,10/self.scale,step)
+            self.snap=infer(p,self.editor.pick_entities(),self.samples,self.candidates,10/self.scale,step)
+            if self.editor.tool=='line' and self.editor.pending:
+                from .sketch_guides import line_inference
+                hint=line_inference(p,self.editor.pending[-1],self.editor.pick_entities(),self.samples,10/self.scale,self.editor.guide_mode.currentData())
+                if hint and (not self.snap or self.snap['type'] in ('선 위','곡선 위','격자 교점') or G.dist(p,hint['p'])<=G.dist(p,self.snap['p'])+1e-7):self.snap=hint
             if self.snap:return deepcopy(self.snap['p'])
         return G.pt(round(p['x'],4),round(p['y'],4))
     def rebuild(self):
@@ -49,13 +53,13 @@ class SketchCanvas(QWidget):
             self.region_paths.append((region,path))
         self.samples={};self.candidates=[dict(p=G.pt(0,0),type='원점',ids=[])]
         exact={e['id']:e['lines'] for e in (self.editor.preview or {}).get('entities',[])}
-        for e in self.editor.g['entities']:
+        for e in self.editor.pick_entities():
             for anchor,p in G.anchors(e):self.candidates.append(dict(p=p,type={'center':'중심점','mid':'중간점','quadrant':'사분점'}.get(anchor,'끝점'),ids=[e['id']],anchor=anchor))
             if e['id'] in exact:self.samples[e['id']]=[[G.pt(*p) for p in row] for row in exact[e['id']]]
             elif e['kind'] not in ('text','point'):
                 try:self.samples[e['id']]=[[G.at(e,i/(1 if e['kind']=='line' else 80)) for i in range(2 if e['kind']=='line' else 81)]]
                 except Exception:self.samples[e['id']]=[]
-        es=self.editor.g['entities']
+        es=self.editor.pick_entities()
         for i,a in enumerate(es):
             for b in es[i+1:]:
                 for p in G.intersections(a,b):self.candidates.append(dict(p=p,type='교점',ids=[a['id'],b['id']]))
@@ -121,6 +125,10 @@ class SketchCanvas(QWidget):
                 p.setBrush(QColor(color));p.drawEllipse(self.screen(v),3 if selected else 2,3 if selected else 2)
                 if (e['id'],a) in self.editor.selection_refs:
                     p.setPen(QPen(QColor('#ffc778'),2));p.setBrush(QColor('#4b3f2e'));p.drawEllipse(self.screen(v),6,6);p.setPen(QPen(QColor(color),1.6))
+        for e in self.editor.reference_entities():
+            if e['id'] in hover_ids:
+                p.setPen(QPen(QColor('#50e2c3'),3.5,Qt.PenStyle.DashLine))
+                for row in self.samples.get(e['id'],[]):p.drawPath(self.path(row))
         pending=self.editor.pending
         if pending:
             p.setPen(QPen(QColor('#d8b27a'),1.5,Qt.PenStyle.DashLine));p.setBrush(Qt.BrushStyle.NoBrush)
@@ -250,12 +258,16 @@ class SketchEditor(QWidget):
         self.toolbar.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Fixed);self.toolbar.addAction(icon('dimension'),'치수 D',self.quick_dimension);self.toolbar.addSeparator();self.toolbar.addAction(icon('undo'),'되돌리기',self.undo);self.toolbar.addAction(icon('redo'),'다시',self.redo);self.toolbar.addAction(icon('fit'),'맞춤',lambda:self.canvas.fit())
         header=QHBoxLayout();header.setContentsMargins(12,6,12,6);self.title=label('스케치');self.title.setStyleSheet('color:#82d6c4;font-weight:600;font-size:13px;padding:7px 0;');self.title.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);header.addWidget(self.title,1);self.cancel_button=button('취소',self.cancelled.emit);header.addWidget(self.cancel_button);self.finish_button=button('스케치 종료',self.finish_sketch,True);self.finish_button.setObjectName('finishSketchButton');self.finish_button.setIcon(icon('check','#effffc'));self.finish_button.setIconSize(QSize(18,18));self.finish_button.setMinimumWidth(120);self.finish_button.setShortcut('Ctrl+Return');self.finish_button.setToolTip('스케치를 저장하고 모델링으로 돌아갑니다. 열린 선도 종료할 수 있습니다. Ctrl+Enter');header.addWidget(self.finish_button);outer.addLayout(header)
         splitter=QSplitter();outer.addWidget(splitter,1);left=QWidget();vl=QVBoxLayout(left);vl.setContentsMargins(0,0,0,0);self.hint=label('');self.hint.setStyleSheet('padding:8px 12px;color:#9cb3c5;');self.hint.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);vl.addWidget(self.hint);self.canvas=SketchCanvas(self);vl.addWidget(self.canvas,1)
-        self.selection_bar=QWidget();bar=QHBoxLayout(self.selection_bar);bar.setContentsMargins(10,5,10,5);bar.addWidget(button('돌출 E',self.prepare_extrude,True));bar.addWidget(button('치수 D',self.quick_dimension));bar.addWidget(button('구속',lambda:self.tabs.setCurrentIndex(1)));bar.addWidget(button('그룹 Ctrl+G',self.create_group));self.free=QCheckBox('자유 배치 G');self.free.setObjectName('freePlacement');self.free.setToolTip('점·선·닫힌 영역을 임의 위치에 그립니다. 스냅·자동 구속을 잠시 끄며, 기존 구속은 유지합니다. Alt를 누르는 동안에도 자유 배치됩니다.');bar.addWidget(self.free);bar.addStretch();vl.insertWidget(1,self.selection_bar)
+        self.selection_bar=QWidget();bar=QHBoxLayout(self.selection_bar);bar.setContentsMargins(10,5,10,5);bar.addWidget(button('돌출 E',self.prepare_extrude,True));bar.addWidget(button('치수 D',self.quick_dimension));self.quick_constraints=QToolButton();self.quick_constraints.setText('구속 ▾');self.quick_constraints.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup);menu=QMenu(self.quick_constraints);menu.addAction('구속 설정…',lambda:self.tabs.setCurrentIndex(1))
+        for key in ('tangent','normal','midpoint','perpendicular','parallel','horizontal','vertical','point_on','fixed'):menu.addAction(CONSTRAINTS[key],lambda k=key:self.quick_constraint(k))
+        self.quick_constraints.setMenu(menu);bar.addWidget(self.quick_constraints);bar.addWidget(button('그룹 Ctrl+G',self.create_group));self.free=QCheckBox('자유 배치 G');self.free.setObjectName('freePlacement');self.free.setToolTip('점·선·닫힌 영역을 임의 위치에 그립니다. 스냅·자동 구속을 잠시 끄며, 기존 구속은 유지합니다. Alt를 누르는 동안에도 자유 배치됩니다.');bar.addWidget(self.free);bar.addStretch();vl.insertWidget(1,self.selection_bar)
         splitter.addWidget(left)
         self.tabs=QTabWidget();self.tabs.setMinimumWidth(250);self.tabs.setMaximumWidth(350);splitter.addWidget(self.tabs);splitter.setStretchFactor(0,1);splitter.setSizes([900,330])
         props=self.page('스케치');coords=QFormLayout();self.x=number(0,-1000,1000,' mm');self.y=number(0,-1000,1000,' mm');coords.addRow('입력 X',self.x);coords.addRow('입력 Y',self.y);props.addLayout(coords);props.addWidget(button('좌표로 점 입력',lambda:self.input_point(G.pt(self.x.value(),self.y.value()))));props.addWidget(button('그리기 완료 ↵',self.finish_drawing));self.selection_label=label('선택 없음',True);self.selection_label.setObjectName('selectedPointCoordinates');props.addWidget(self.selection_label);self.snapping=QCheckBox('끝점·교점·중심·원점 스냅');self.snapping.setChecked(True);self.auto=QCheckBox('자동 구속');self.auto.setChecked(True);self.construction=QCheckBox('보조선으로 작성');props.addWidget(self.snapping);props.addWidget(self.auto);props.addWidget(self.construction)
         self.grid_snapping=QCheckBox('격자 교점 · 선과 격자의 교점 스냅');self.grid_snapping.setChecked(True);self.grid_snapping.setToolTip('현재 보이는 격자 간격에 맞춥니다. 격자 스냅은 위치 추천이며 고정 구속은 추가하지 않습니다.');props.addWidget(self.grid_snapping)
-        self.free.toggled.connect(lambda enabled:[w.setEnabled(not enabled) for w in (self.snapping,self.auto,self.grid_snapping)])
+        self.guide_mode=combo([('auto','자동 · 접선/법선/평행/수직'),('tangent','접선 추천'),('normal','법선 추천'),('parallel','평행 추천'),('perpendicular','수직 추천'),('off','방향 추천 끄기')]);props.addWidget(label('선을 그릴 때 추천'));props.addWidget(self.guide_mode)
+        self.snapping.setText('선·곡선 위 / 교점·중점·원점 스냅')
+        self.free.toggled.connect(lambda enabled:[w.setEnabled(not enabled) for w in (self.snapping,self.auto,self.grid_snapping,self.guide_mode)])
         form=QFormLayout();self.count=number(6,3,32,decimals=0);self.text=QLineEdit('CAD');self.text_size=number(10,.01,2000,' mm');self.closed=QCheckBox('닫힌 스플라인');self.clockwise=QCheckBox('시계 방향 원호');form.addRow('다각형 변 수',self.count);form.addRow('문자',self.text);form.addRow('문자 높이',self.text_size);self.options_form=form;props.addLayout(form);props.addWidget(self.closed);props.addWidget(self.clockwise)
         self.entity_list=QListWidget();self.entity_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection);self.entity_list.setMaximumHeight(165);self.entity_list.itemSelectionChanged.connect(self.list_selected);props.addWidget(label('스케치 요소'));props.addWidget(self.entity_list)
         self.property_box=QWidget();self.property_form=QFormLayout(self.property_box);props.addWidget(self.property_box);props.addWidget(button('선택 요소 속성 적용',self.apply_properties));props.addWidget(button('선택 요소 삭제',self.delete_selected));props.addWidget(button('선택 면의 모서리 투영',self.project_face));props.addStretch()
@@ -328,7 +340,25 @@ class SketchEditor(QWidget):
             if len(self.pending)<3:self.error('스플라인에는 점이 3개 이상 필요합니다.');return
             pts=deepcopy(self.pending);self.mutate(TOOLS[self.tool][0],lambda:self.add_entities(G.create(self.tool,pts,self.options()),True))
         self.set_tool('select')
+    def reference_entities(self):
+        existing={e['id'] for e in self.g.get('entities',[])};refs=[]
+        for raw in (self.context.get('face') or {}).get('projected_entities',[]):
+            e=deepcopy(raw);e['id']='ref-'+e['id'];e['construction']=True
+            if e['id'] not in existing:refs.append(e)
+        return refs
+    def pick_entities(self):return self.g.get('entities',[])+self.reference_entities()
+    def import_references(self,refs):
+        for e in refs:
+            self.g['entities'].append(deepcopy(e));self.g['entity_constraints'].append(dict(id=G.uid(),kind='fixed',a=e['id'],a_point='all',reference=values(e)))
     def add_entities(self,es,connect=False):
+        hint=deepcopy(self.canvas.snap)
+        if connect and self.auto.isChecked() and not self.free_placement():
+            from .picking import nearest_curve
+            touched=[]
+            for ref in self.reference_entities():
+                guided=hint and hint.get('constraint') and ref['id'] in hint['ids'] and any(e['kind']=='line' and G.dist(e['end'],hint['p'])<1e-7 for e in es)
+                if guided or any(any(G.dist(p,q)<1e-7 for _,q in G.anchors(ref)) or ((q:=nearest_curve(ref,p,[])) is not None and G.dist(p,q)<1e-7) for e in es for anchor,p in G.anchors(e) if anchor not in ('mid','quadrant')):touched.append(ref)
+            self.import_references(touched)
         before=deepcopy(self.g['entities']);candidates=deepcopy(self.canvas.candidates)
         for e in es:e['construction']=self.construction.isChecked()
         if connect and self.auto.isChecked() and not self.free_placement():
@@ -353,7 +383,11 @@ class SketchEditor(QWidget):
                             if snap['type']=='중간점':self.g['entity_constraints'].append(dict(id=G.uid(),kind='midpoint',a=e['id'],a_point=anchor,b=snap['ids'][0]));linked=True;break
                         inferred=None if linked else infer(p,before,self.canvas.samples,[],1e-7)
                         if inferred:self.g['entity_constraints'].append(dict(id=G.uid(),kind='point_on',a=e['id'],a_point=anchor,b=inferred['ids'][0]))
-                if e['kind']=='line':
+                if e['kind']=='line' and hint and hint.get('constraint') and G.dist(e['end'],hint['p'])<1e-7:
+                    k=hint['constraint'];target=hint['ids'][0];anchor=hint.get('contact','end')
+                    if k in ('normal','tangent'):self.g['entity_constraints']=[c for c in self.g['entity_constraints'] if not (c['kind']=='point_on' and c['a']==e['id'] and c.get('a_point')==anchor and c.get('b')==target)]
+                    self.g['entity_constraints'].append(dict(id=G.uid(),kind=k,a=e['id'],a_point=anchor,b=target,contact=k=='tangent'))
+                elif e['kind']=='line':
                     if abs(e['start']['y']-e['end']['y'])<1e-7:self.g['entity_constraints'].append(dict(id=G.uid(),kind='horizontal',a=e['id']))
                     elif abs(e['start']['x']-e['end']['x'])<1e-7:self.g['entity_constraints'].append(dict(id=G.uid(),kind='vertical',a=e['id']))
         self.g['entities'].extend(es);self.selected={e['id'] for e in es}
@@ -433,6 +467,23 @@ class SketchEditor(QWidget):
         elif ref in self.selection_refs:self.selection_refs.remove(ref)
         else:self.selection_refs.append(ref)
         self.selected={r[0] for r in self.selection_refs}
+    def quick_constraint(self,kind):
+        self.tabs.setCurrentIndex(1);self.kind.setCurrentIndex(self.kind.findData(kind))
+        chosen=self.chosen()
+        if not chosen or (kind not in ('horizontal','vertical','fixed') and len(chosen)<2):
+            self.error('요소를 선택하세요. 접선·법선·중점·수직은 Ctrl 클릭으로 두 요소를 선택합니다.');return
+        if kind=='normal' and chosen[0]['kind']!='line' and len(chosen)>1 and chosen[1]['kind']=='line':
+            self.ca.setCurrentIndex(self.ca.findData(chosen[1]['id']));self.cb.setCurrentIndex(self.cb.findData(chosen[0]['id']))
+        if kind=='midpoint' and len(chosen)>1 and chosen[1]['kind']=='point':
+            self.ca.setCurrentIndex(self.ca.findData(chosen[1]['id']));self.cb.setCurrentIndex(self.cb.findData(chosen[0]['id']));self.ap.setCurrentIndex(self.ap.findData('start'))
+        if kind=='normal':
+            from .picking import nearest_curve
+            a=next(e for e in chosen if e['id']==self.ca.currentData());b=next(e for e in chosen if e['id']==self.cb.currentData())
+            selected=next((anchor for identifier,anchor in self.selection_refs if identifier==a['id'] and anchor in ('start','end')),None)
+            if a['kind']=='line':
+                anchor=selected or min(('start','end'),key=lambda k:G.dist(a[k],nearest_curve(b,a[k],[]) or a[k]))
+                self.ap.setCurrentIndex(self.ap.findData(anchor))
+        self.add_constraint()
     def quick_dimension(self):
         self.tabs.setCurrentIndex(1);chosen=self.chosen();refs=self.selection_refs
         if not chosen:self.error('선·원 하나 또는 Ctrl 클릭으로 점 두 개를 선택한 뒤 D를 누르세요.');return
@@ -496,11 +547,9 @@ class SketchEditor(QWidget):
         if accepted:self.mutate('치수 구속 편집 · '+CONSTRAINTS[c['kind']],edit)
     def project_face(self):
         def edit():
-            es=deepcopy((self.context.get('face') or {}).get('projected_entities',[]))
-            if not es:raise ValueError('선택 면의 직선·원·원호 모서리가 없습니다.')
-            for e in es:e['id']=G.uid();e['construction']=True
-            self.g['entities'].extend(es)
-            for e in es:self.g['entity_constraints'].append(dict(id=G.uid(),kind='fixed',a=e['id'],a_point='all',reference=values(e)))
+            es=self.reference_entities()
+            if not es:raise ValueError('추가할 면 모서리가 없습니다. 이미 투영했거나 기준 면을 선택하지 않았습니다.')
+            self.import_references(es)
             self.selected={e['id'] for e in es}
         self.mutate('면 모서리 투영 · 보조선 고정',edit)
     def modify(self):

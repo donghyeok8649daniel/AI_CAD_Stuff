@@ -119,6 +119,9 @@ def _part_cached(part_json):
         if getattr(feature,'kind',None) in ('fillet','chamfer'):
             from .advanced_geometry import apply_edge_feature
             shape=apply_edge_feature(shape,feature);previous_feature=feature.id;continue
+        if getattr(feature,'kind',None)=='thread':
+            from .threads import apply_thread
+            shape=apply_thread(shape,feature);previous_feature=feature.id;continue
         if not shape.Solids():raise ValueError('곡면에는 솔리드 절삭·돌출을 적용할 수 없습니다.')
         faces=shape.Faces()
         if feature.face >= len(faces) or (feature.support_face_count and len(faces)!=feature.support_face_count):
@@ -200,6 +203,10 @@ def preview(design: Design):
                 triangles.extend(tuple(idx+start for idx in tri) for tri in ts);triangle_faces.extend([i]*len(ts))
                 lf=local_faces[i]
                 info={"index":i,"planar":lf.geomType()=="PLANE"}
+                if lf.geomType()=='CYLINDER':
+                    from .threads import cylinder_reference
+                    try:info['cylinder']=cylinder_reference(lf,i,len(local_faces)).model_dump()
+                    except ValueError:pass
                 if info["planar"]:
                     plane=face_frame(lf)
                     wires=[]

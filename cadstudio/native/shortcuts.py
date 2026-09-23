@@ -17,7 +17,9 @@ class ShortcutRouter(QObject):
         if mods==Qt.KeyboardModifier.ShiftModifier and Qt.Key.Key_1<=key<=Qt.Key.Key_6:
             w.viewport.filter.setCurrentIndex(key-Qt.Key.Key_1);w.viewport.widget.setFocus();return True
         if mods==Qt.KeyboardModifier.ControlModifier and key==Qt.Key.Key_D:w.duplicate_part();return True
+        if mods==Qt.KeyboardModifier.ShiftModifier and key==Qt.Key.Key_E:w.edit_sketch();return True
         if mods!=Qt.KeyboardModifier.NoModifier:return False
+        if key==Qt.Key.Key_T:w.thread_dialog();return True
         if Qt.Key.Key_1<=key<=Qt.Key.Key_4:w.viewport.set_view(('iso','top','front','right')[key-Qt.Key.Key_1]);return True
         commands={Qt.Key.Key_S:lambda:w.start_face_sketch() if w.viewport.face and w.viewport.face[1] and w.viewport.face[1]['planar'] else w.start_sketch(w.plane.currentData()),Qt.Key.Key_E:w.extrude_dialog,Qt.Key.Key_H:w.hole_dialog,Qt.Key.Key_I:w.measure_dialog,Qt.Key.Key_F:w.fit,Qt.Key.Key_U:w.parameter_dialog,Qt.Key.Key_A:lambda:(w.ai_dock.show(),w.ai_dock.raise_(),w.prompt.setFocus()),Qt.Key.Key_Delete:w.delete_part,Qt.Key.Key_Escape:w.viewport.clear_face}
         if key in commands:commands[key]();return True

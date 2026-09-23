@@ -76,6 +76,20 @@ def point(e,anchor):
 def line_vector(e):
     if e['kind']!='line':raise ValueError('이 구속은 직선 요소를 선택해야 합니다.')
     v=xy(e['end'])-xy(e['start']);return v/max(np.linalg.norm(v),1e-9)
+
+
+def nearest_parameter(e,p):
+    """Bounded contact parameter used by normal and free curve tangency."""
+    if e['kind']=='line':
+        v=xy(e['end'])-xy(e['start']);return float(np.clip((p-xy(e['start']))@v/max(v@v,1e-20),0,1))
+    if e['kind'] in {'circle','arc'}:
+        delta=p-xy(e['center']);angle=math.degrees(math.atan2(delta[1],delta[0]));start=e.get('start_angle',0);sweep=e.get('sweep',360)
+        t=((angle-start)%360 if sweep>0 else -((start-angle)%360))/sweep
+        return t if t<=1 else min((0,1),key=lambda u:np.linalg.norm(curve(e,u)-p))
+    samples=np.linspace(0,1,65);i=int(np.argmin([np.linalg.norm(curve(e,u)-p) for u in samples]))
+    lo,hi=samples[max(0,i-1)],samples[min(64,i+1)]
+    result=minimize_scalar(lambda t:float(np.sum((curve(e,t)-p)**2)),bounds=(lo,hi),method='bounded',options={'xatol':1e-12})
+    return min((lo,hi,result.x),key=lambda t:np.linalg.norm(curve(e,t)-p))
 def cross(a,b):return float(a[0]*b[1]-a[1]*b[0])
 def radius(e):
     if e['kind'] not in {'circle','arc'}:raise ValueError('반지름·접선 구속은 원 또는 원호를 선택하세요.')
@@ -102,6 +116,11 @@ def constraint_residual(c,entities):
         va=line_vector(a);vb=line_vector(b) if b else np.array([1.,0.]);target=rotation(c.value)@vb
         return [cross(target,va)*20,min(0,float(va@target))*20]
     if b is None:raise ValueError('이 구속에는 두 번째 요소가 필요합니다.')
+    if kind=='normal' or (kind=='tangent' and (c.contact or (a['kind']=='line' and b['kind'] in {'ellipse','spline'}) or (b['kind']=='line' and a['kind'] in {'ellipse','spline'}))):
+        if a['kind']!='line' and b['kind']=='line':a,b=b,a;pa=point(a,c.b_point)
+        if a['kind']!='line' or b['kind'] not in {'line','circle','arc','ellipse','spline'}:raise ValueError('법선은 직선 하나와 기준 곡선을 선택하세요.')
+        t=nearest_parameter(b,pa);v=curve(b,t,1);v=v/max(np.linalg.norm(v),1e-9)
+        return [*(pa-curve(b,t)),float(line_vector(a)@v)*20 if kind=='normal' else cross(line_vector(a),v)*20]
     delta=pb-pa
     if kind=='coincident':return delta
     if kind=='distance':
