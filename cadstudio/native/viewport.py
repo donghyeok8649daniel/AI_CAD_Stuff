@@ -2,7 +2,7 @@
 import math
 import numpy as np
 from PySide6.QtCore import Qt,Signal,QTimer
-from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QToolButton,QSizePolicy
+from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QToolButton,QSizePolicy,QComboBox
 import vtkmodules.qt
 vtkmodules.qt.PyQtImpl='PySide6'
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
@@ -26,25 +26,40 @@ def polydata(vertices,triangles):
     mesh=vtkPolyData();mesh.SetPoints(pts);mesh.SetPolys(cells);return mesh
 
 
+from .interaction import SelectionTools
+
+
 class CADStyle(vtkInteractorStyleTrackballCamera):
     def __init__(self,owner):
         self.owner=owner;self.down=None
         self.AddObserver('LeftButtonPressEvent',self.press)
         self.AddObserver('LeftButtonReleaseEvent',self.release)
         self.AddObserver('KeyPressEvent',self.key)
+        self.AddObserver('MouseMoveEvent',self.move)
     def press(self,caller,event):
-        self.down=self.GetInteractor().GetEventPosition();self.OnLeftButtonDown()
+        self.down=self.GetInteractor().GetEventPosition()
+        if self.owner.handle and self.owner.handle.press(self.down):return
+        self.OnLeftButtonDown()
     def release(self,caller,event):
-        pos=self.GetInteractor().GetEventPosition();self.OnLeftButtonUp()
+        pos=self.GetInteractor().GetEventPosition()
+        if self.owner.handle and self.owner.handle.release():self.down=None;return
+        self.OnLeftButtonUp()
         if self.down and math.dist(self.down,pos)<5:self.owner.pick(*pos)
         self.down=None
+    def move(self,caller,event):
+        pos=self.GetInteractor().GetEventPosition()
+        if self.owner.handle and self.owner.handle.move(pos):return
+        self.OnMouseMove()
+        if self.down is None:self.owner.hover_profile(*pos)
     def key(self,caller,event):
         key=self.GetInteractor().GetKeySym()
         if key.lower()=='f':self.owner.fit()
         elif key in ['1','2','3','4']:self.owner.set_view(['iso','top','front','right'][int(key)-1])
 
 
-class CADViewport(QWidget):
+class CADViewport(QWidget,SelectionTools):
+    profile_selected=Signal(str,int)
+    geometry_selected=Signal(str,str,object)
     point_selected=Signal(str,object)
     edge_selected=Signal(int)
     sketch_selected=Signal(str)
@@ -53,9 +68,12 @@ class CADViewport(QWidget):
     message=Signal(str)
     def __init__(self,parent=None):
         super().__init__(parent);self.setObjectName('cadViewport');self.meshes={};self.actors={};self.actor_ids={};self.hidden=set();self.selected=None;self.face=None
-        self.closed=False;self.show_edges=True;self.face_pick=False;self.result=None;self.grid_actor=None;self.highlight=None;self.sketch_actors={};self.edge_candidates={}
+        self.closed=False;self.show_edges=True;self.face_pick=False;self.result=None;self.grid_actor=None;self.highlight=None;self.sketch_actors={};self.edge_candidates={};self.pick_objects={};self.selection_mode='auto';self.profile_actors={};self.hovered_profile=None;self.handle=None
         layout=QVBoxLayout(self);layout.setContentsMargins(0,0,0,0);layout.setSpacing(0)
         bar=QHBoxLayout();bar.setContentsMargins(12,8,12,8);self.caption=QLabel('새 설계 · XY 원점');self.caption.setStyleSheet('font-weight:600;color:#afc7d6;');self.caption.setWordWrap(True);self.caption.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);layout.addWidget(self.caption);self.caption.setContentsMargins(12,7,12,0);bar.addStretch()
+        self.filter=QComboBox();self.filter.setObjectName('selectionFilter');self.filter.setToolTip('선택 대상 · Shift+1~6');
+        for key,name in [('auto','자동 선택'),('point','점 선택'),('edge','선 / 모서리'),('face','면 선택'),('body','체적 / 부품'),('sketch','스케치 영역')]:self.filter.addItem(name,key)
+        self.filter.currentIndexChanged.connect(lambda:self.set_selection_mode(self.filter.currentData()));bar.insertWidget(0,self.filter)
         for key,name in [('iso','등각 1'),('top','상면 2'),('front','정면 3'),('right','측면 4')]:
             b=QToolButton();b.setText(name);b.clicked.connect(lambda _,k=key:self.set_view(k));bar.addWidget(b)
         self.caption.setMinimumHeight(38);layout.addLayout(bar)
@@ -87,7 +105,8 @@ class CADViewport(QWidget):
         self.edge_candidates={}
         for data in self.actors.values():
             for actor in data:self.renderer.RemoveActor(actor)
-        for actor in self.sketch_actors:self.renderer.RemoveActor(actor)
+        for actor in [*self.sketch_actors,*self.profile_actors,*self.pick_objects]:self.renderer.RemoveActor(actor)
+        self.profile_actors={};self.pick_objects={};self.hovered_profile=None
         self.sketch_actors={};self.actors={};self.actor_ids={};self.meshes={};self.clear_face();self.result=result
         if result:
             for mesh in result['meshes']:
@@ -106,12 +125,17 @@ class CADViewport(QWidget):
                     lines.InsertNextCell(len(row))
                     for point in row:lines.InsertCellPoint(pts.InsertNextPoint(*point))
                 data=vtkPolyData();data.SetPoints(pts);data.SetLines(lines);mapper=vtkPolyDataMapper();mapper.SetInputData(data);actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.38,.81,.83);actor.GetProperty().SetLineWidth(2.5);self.renderer.AddActor(actor);self.sketch_actors[actor]=sketch['id']
+            for sketch in result.get('sketches',[]):
+                for region in sketch.get('regions',[]):
+                    mapper=vtkPolyDataMapper();mapper.SetInputData(polydata(region['vertices'],region['triangles']));mapper.SetResolveCoincidentTopologyToPolygonOffset();mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(-2,-2)
+                    actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.2,.85,.72);actor.GetProperty().SetOpacity(.07);self.renderer.AddActor(actor);self.profile_actors[actor]=(sketch['id'],region['index'])
             self.make_grid(max(result['stats']['bounds'])*1.2)
             s=result['stats'];self.caption.setText(f"{s['parts']}개 부품   ·   {' × '.join(f'{n:.2f}' for n in s['bounds'])} mm   ·   {s['volume']:,.2f} mm³")
             if result.get('sketches'):self.caption.setText(self.caption.text()+f"   ·   스케치 {len(result['sketches'])}개")
             if s['assembly_constraints']['mates']:self.caption.setText(self.caption.text()+f"   ·   조립 자유도 {s['assembly_constraints']['dof']}")
             if s['collisions']:self.caption.setText(self.caption.text()+f"   ·   간섭 {len(s['collisions'])}건")
         else:self.caption.setText('새 설계 · 스케치를 시작하거나 부품을 추가하세요.')
+        self.rebuild_pick_objects()
         for key in self.hidden:self.visibility(key,False,False)
         if self.selected in self.actors:self.select(self.selected,False)
         if fit:self.fit()
@@ -127,7 +151,15 @@ class CADViewport(QWidget):
             for actor in self.edge_candidates:picker.AddPickList(actor)
             if picker.Pick(x,y,0,self.renderer) and picker.GetActor() in self.edge_candidates:self.edge_selected.emit(self.edge_candidates[picker.GetActor()])
             return
-        picker=vtkCellPicker();picker.SetTolerance(.0005)
+        if self.pick_filtered(x,y):return
+        if self.selection_mode in ('auto','sketch'):
+            actor=self.profile_at(x,y)
+            if actor in self.profile_actors:
+                sid,index=self.profile_actors[actor];self.clear_face();self.profile_selected.emit(sid,index);self.message.emit(f'스케치 영역 {index+1} 선택 · E: 3D 돌출');return
+        picker=vtkCellPicker();picker.SetTolerance(.004);picker.PickFromListOn()
+        for actor in (self.sketch_actors if self.selection_mode=='sketch' else self.actor_ids):picker.AddPickList(actor)
+        if self.selection_mode=='auto':
+            for actor in self.sketch_actors:picker.AddPickList(actor)
         if not picker.Pick(x,y,0,self.renderer):self.clear_face();self.window.Render();return
         if picker.GetActor() in self.sketch_actors:
             self.sketch_selected.emit(self.sketch_actors[picker.GetActor()]);return
@@ -137,6 +169,7 @@ class CADViewport(QWidget):
         if index<0 or index>=len(mesh['triangle_faces']):return
         face_index=mesh['triangle_faces'][index];face=next((f for f in mesh['faces'] if f['index']==face_index),None)
         self.select(identifier,False);self.part_selected.emit(identifier)
+        if self.selection_mode=='body':self.clear_face();self.window.Render();self.message.emit(mesh['name']+' · 부품 선택');return
         self.highlight_face(identifier,face_index)
         self.face=(identifier,face)
         self.face_selected.emit(identifier,face)
@@ -176,6 +209,7 @@ class CADViewport(QWidget):
         else:self.hidden.add(identifier)
         if identifier in self.actors:
             actor,edge=self.actors[identifier];actor.SetVisibility(visible);edge.SetVisibility(visible and self.show_edges)
+        self.rebuild_pick_objects()
         if render:self.window.Render()
 
     def edges(self,enabled):
@@ -198,6 +232,7 @@ class CADViewport(QWidget):
     def shutdown(self):
         if self.closed:return
         self.closed=True
+        if self.handle:self.handle.close()
         # Disconnect the VTK -> Python -> QWidget cycle while the Qt window
         # still exists. Otherwise later garbage collection may release an
         # OpenGL interactor after Qt has destroyed its native HWND.

@@ -247,6 +247,13 @@ class EntityConstraint(StrictModel):
     y: Coordinate = 0
     reference: list[float] = Field(default_factory=list,max_length=64)
     mode: Literal['external','internal'] = 'external'
+    expression: str = Field(default='',max_length=240)
+
+    @model_serializer(mode='wrap')
+    def compatible_expression(self,handler):
+        data=handler(self)
+        if not self.expression:data.pop('expression',None)
+        return data
 
 
 class SketchGroup(StrictModel):
@@ -258,6 +265,8 @@ class SketchGroup(StrictModel):
 class Extrusion(StrictModel):
     kind: Literal["extrusion"] = "extrusion"
     thickness: Dimension = 8
+    thickness_expression: str = Field(default='',max_length=240)
+    direction: Literal[-1,1] = 1
     points: list[Point2D] = Field(default_factory=lambda: [Point2D(x=-35, y=-25), Point2D(x=35, y=-25), Point2D(x=35, y=10), Point2D(x=10, y=25), Point2D(x=-35, y=25)], min_length=3, max_length=32)
     holes: list[SketchHole] = Field(default_factory=list, max_length=16)
     constraints: list[SketchConstraint] = Field(default_factory=list, max_length=48)
@@ -273,6 +282,8 @@ class Extrusion(StrictModel):
         # Old history entries contain entire sketches. Do not inject a new empty
         # field into their exact before/after snapshots.
         if not self.groups:data.pop('groups',None)
+        if not self.thickness_expression:data.pop('thickness_expression',None)
+        if self.direction==1:data.pop('direction',None)
         return data
 
     @model_validator(mode="after")
@@ -505,6 +516,11 @@ class DesignStudy(StrictModel):
     settings: dict[str,JsonValue] = Field(default_factory=dict,max_length=40)
 
 
+class DimensionBinding(StrictModel):
+    path: list[str|int] = Field(min_length=3,max_length=20)
+    expression: str = Field(min_length=1,max_length=240)
+
+
 class Design(StrictModel):
     schema_version: Literal[1] = 1
     name: str = Field(default="새 설계", min_length=1, max_length=100)
@@ -516,6 +532,21 @@ class Design(StrictModel):
     joint_frames: list[JointFrames] = Field(default_factory=list, max_length=11)
     loops: list[LoopClosure] = Field(default_factory=list,max_length=4)
     studies: list[DesignStudy] = Field(default_factory=list,max_length=32)
+    parameters: dict[str,str] = Field(default_factory=dict,max_length=64)
+    dimension_bindings: list[DimensionBinding] = Field(default_factory=list,max_length=256)
+
+    @model_validator(mode='before')
+    @classmethod
+    def evaluate_dimensions(cls,data):
+        from .parameters import evaluate_design
+        return evaluate_design(data)
+
+    @model_serializer(mode='wrap')
+    def compatible_parameters(self,handler):
+        data=handler(self)
+        for key in ('parameters','dimension_bindings'):
+            if not data.get(key):data.pop(key,None)
+        return data
 
     @model_validator(mode="after")
     def unique_ids(self):

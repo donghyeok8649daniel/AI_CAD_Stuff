@@ -15,6 +15,8 @@ from .widgets import icon,number,label,button,clear_layout,Worker
 from .viewport import CADViewport
 from .sketch import SketchEditor,combo
 from .geometry import uid
+from ..parameters import parameter_values,binding_for,set_binding,remove_bindings
+from .parameters import ExpressionField
 from ..models import Design,Part,Project,DraftRequest
 from ..catalog import TITLES,FIELDS,EXAMPLES,preset,part_default
 from ..kernel import preview,export,KERNEL_LOCK
@@ -29,12 +31,15 @@ ROOT=Path(__file__).resolve().parents[2]
 class MainWindow(QMainWindow):
     def __init__(self,restore=True):
         super().__init__();self.setObjectName('nativeCADMainWindow');self.resize(1500,920);self.setMinimumSize(820,560)
-        self.document=Document();self.result=None;self.selected=None;self.selected_sketch=None;self.busy=False;self.worker=None;self.sketching=False;self.joint_picks=None;self.last_draft=None;self.ai_task=None;self.ai_stage='';self.ai_started=0;self.data_dir=DATA_DIR;self.data_dir.mkdir(parents=True,exist_ok=True);self.autosave=self.data_dir/'native-autosave.cad.json';self.operation_serial=0
-        self.stack=QStackedWidget();self.setCentralWidget(self.stack);self.viewport=CADViewport();self.editor=SketchEditor();self.stack.addWidget(self.viewport);self.stack.addWidget(self.editor);self.viewport.part_selected.connect(self.select_part);self.viewport.face_selected.connect(self.face_selected);self.viewport.message.connect(self.message);self.editor.apply_requested.connect(self.apply_sketch);self.editor.finished_requested.connect(self.finish_sketch);self.viewport.sketch_selected.connect(self.select_sketch);self.editor.cancelled.connect(self.cancel_sketch)
+        self.document=Document();self.result=None;self.selected=None;self.selected_sketch=None;self.selected_profile=None;self.busy=False;self.worker=None;self.sketching=False;self.joint_picks=None;self.last_draft=None;self.ai_task=None;self.ai_stage='';self.ai_started=0;self.data_dir=DATA_DIR;self.data_dir.mkdir(parents=True,exist_ok=True);self.autosave=self.data_dir/'native-autosave.cad.json';self.operation_serial=0
+        self.stack=QStackedWidget();self.setCentralWidget(self.stack);self.viewport=CADViewport();self.editor=SketchEditor();self.stack.addWidget(self.viewport);self.stack.addWidget(self.editor);self.viewport.part_selected.connect(self.select_part);self.viewport.face_selected.connect(self.face_selected);self.viewport.message.connect(self.message);self.editor.apply_requested.connect(self.apply_sketch);self.editor.finished_requested.connect(self.finish_sketch);self.viewport.sketch_selected.connect(self.select_sketch);self.viewport.profile_selected.connect(self.select_profile_3d);self.editor.cancelled.connect(self.cancel_sketch)
         self.actions={};brand=QLabel('PROMPT  /  CAD');brand.setStyleSheet('color:#76d5c2;font-size:11px;font-weight:600;padding:0 14px;');self.menuBar().setCornerWidget(brand,Qt.Corner.TopRightCorner);self.make_menus();self.make_toolbar();self.make_browser();self.make_properties();self.make_timeline();self.make_ai()
         self.progress=QProgressBar();self.progress.setRange(0,0);self.progress.setFixedWidth(140);self.progress.setMaximumHeight(12);self.progress.hide();self.statusBar().addPermanentWidget(self.progress);self.statusBar().addPermanentWidget(QLabel(f'  mm  ·  NATIVE {__version__}  '));self.message('새 스케치에서 시작하거나 부품을 추가하세요.');self.rebuild_tree();self.show_properties();self.title()
         self.ai_timer=QTimer(self);self.ai_timer.setInterval(500);self.ai_timer.timeout.connect(self.ai_tick)
         self.ai_status_button=button('AI 생성 취소',self.cancel_ai);self.ai_status_button.hide();self.statusBar().addPermanentWidget(self.ai_status_button)
+        from .shortcuts import ShortcutRouter
+        self.shortcut_router=ShortcutRouter(self)
+        self.provider.setCurrentIndex(self.provider.findData('ollama'));self.ai_dock.show();self.ai_dock.raise_()
         if restore and self.autosave.exists():QTimer.singleShot(120,lambda:self.open_project(self.autosave,recovery=True))
     def action(self,key,title,fn,shortcut=None,ico=None):
         a=QAction(icon(ico),title,self) if ico else QAction(title,self);a.triggered.connect(fn)
@@ -53,20 +58,21 @@ class MainWindow(QMainWindow):
         for kind,title in TITLES.items():
             if kind not in ('sweep','loft'):model.addAction(title,lambda k=kind:self.add_preset(k))
         model.addSeparator();model.addAction(self.action('sweep','스윕 편집…',lambda:self.modelling_dialog('sweep'),None,'extrude'));model.addAction(self.action('loft','로프트 편집…',lambda:self.modelling_dialog('loft'),None,'extrude'));model.addAction(self.action('surface','곡면 만들기…',lambda:self.modelling_dialog('loft',surface=True),None,'sketch'));model.addAction(self.action('edge_finish','3D 필렛 / 모따기…',self.edge_finish_dialog,None,'extrude'))
+        model.addAction(self.action('extrude','3D 돌출 / 깊이 편집 · E',self.extrude_dialog,None,'extrude'));edit.addAction(self.action('parameters','변수 / 연결 치수 · U',self.parameter_dialog,None,'dimension'))
         assembly=self.menuBar().addMenu('조립(&A)');assembly.addAction(self.action('face_joint','면으로 조인트',self.start_face_joint,None,'assembly'));self.actions['face_joint'].setCheckable(True);assembly.addAction(self.action('drive','관절 구동',self.drive_joints,None,'origin'));assembly.addAction(self.action('robot','로봇 치수',self.robot_dialog,None,'assembly'));assembly.addAction(self.action('mate','기준점으로 연결…',self.mate_dialog,None,'assembly'));model.addAction(self.action('specimen','시편 설계',self.specimen_dialog,None,'specimen'))
         assembly.addAction(self.action('loop','폐루프 연결…',self.closure_dialog,None,'assembly'));assembly.addAction(self.action('four_bar','4절 링크 추가',self.add_four_bar,None,'assembly'))
-        model.addAction(self.action('hole','구멍 뚫기…',self.hole_dialog,None,'cut'));model.addAction(self.action('measure','길이 측정…',self.measure_dialog,'I','dimension'))
+        model.addAction(self.action('hole','구멍 뚫기…',self.hole_dialog,None,'cut'));model.addAction(self.action('measure','길이 측정…',self.measure_dialog,None,'dimension'))
         engineering=self.menuBar().addMenu('도면 / 해석');engineering.addAction(self.action('drawing','정투상 도면…',lambda:self.study_dialog('drawing'),None,'file'));engineering.addAction(self.action('robot_study','로봇 도달 / 토크 / 운동…',lambda:self.study_dialog('robot'),None,'assembly'));engineering.addAction(self.action('tensile','시편 응력 / 변형…',lambda:self.study_dialog('tensile'),None,'specimen'))
         assembly.addAction(self.action('fit_tolerance','축 / 구멍 공차…',lambda:self.study_dialog('fit'),None,'dimension'));assembly.addAction(self.action('interference','간섭 검사…',self.interference_dialog,None,'assembly'));model.addAction(self.action('shaft','축 만들기',lambda:self.add_preset('cylinder'),None,'extrude'));model.addAction(self.action('color','부품 색상…',lambda:self.color_part(self.selected),None,'ai'))
         edit.addAction(self.action('search','도구 찾기…',self.command_palette,'Ctrl+K','ai'))
-        view=self.menuBar().addMenu('보기(&V)');view.addAction(self.action('fit','모델에 맞춤',self.fit,'F','fit'));self.view_menu=view;edge=view.addAction('모서리 표시');edge.setCheckable(True);edge.setChecked(True);edge.toggled.connect(self.viewport.edges)
-        help=self.menuBar().addMenu('도움말(&H)');help.addAction('사용 방법 · 지원 범위',self.help_dialog);help.addAction(self.action('update','업데이트 확인…',self.check_updates));help.addAction('이 앱 정보',lambda:QMessageBox.about(self,APP_NAME,f'Prompt CAD Studio {__version__}\nQt Widgets + VTK OpenGL + Open CASCADE\n\n브라우저와 웹 서버 없이 실행되는 Windows CAD 앱입니다.\n단위: mm\n설계 프로젝트: .cad.json\n형상 교환: STEP / STL'))
+        view=self.menuBar().addMenu('보기(&V)');view.addAction(self.action('fit','모델에 맞춤',self.fit,None,'fit'));self.view_menu=view;edge=view.addAction('모서리 표시');edge.setCheckable(True);edge.setChecked(True);edge.toggled.connect(self.viewport.edges)
+        help=self.menuBar().addMenu('도움말(&H)');help.addAction(self.action('manual','사용 방법 · 단축키 매뉴얼',self.help_dialog,'F1'));help.addAction(self.action('update','업데이트 확인…',self.check_updates));help.addAction('이 앱 정보',lambda:QMessageBox.about(self,APP_NAME,f'Prompt CAD Studio {__version__}\nQt Widgets + VTK OpenGL + Open CASCADE\n\n브라우저와 웹 서버 없이 실행되는 Windows CAD 앱입니다.\n단위: mm\n설계 프로젝트: .cad.json\n형상 교환: STEP / STL'))
     def make_toolbar(self):
         self.toolbar=QToolBar('작업 공간');self.toolbar.setObjectName('modelToolbar');self.toolbar.setMovable(False);self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.toolbar.setIconSize(QSize(25,25));self.addToolBar(self.toolbar)
         for key in ('new','open','save'):self.toolbar.addAction(self.actions[key])
         self.toolbar.addSeparator();self.workspace=combo([('model','설계'),('assembly','조립'),('specimen','시편')]);self.workspace.setMinimumWidth(95);self.workspace.setToolTip('작업 공간을 선택하면 필요한 도구가 나타납니다.');self.toolbar.addWidget(self.workspace);self.toolbar.addSeparator();self.mode_tools={'model':[],'assembly':[],'specimen':[]}
         self.plane=combo([('XY','XY 평면'),('XZ','XZ 평면'),('YZ','YZ 평면')]);self.mode_tools['model'].append(self.toolbar.addWidget(self.plane));self.mode_tools['model'].append(self.toolbar.addAction(icon('sketch'),'스케치 작성',lambda:self.start_sketch(self.plane.currentData())))
-        for key in ('face_sketch','edit_sketch'):self.add_mode_tool('model',key)
+        for key in ('extrude','face_sketch','edit_sketch'):self.add_mode_tool('model',key)
         advanced=QToolButton();advanced.setText('3D 도구');advanced.setIcon(icon('extrude'));advanced.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);advanced.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup);advanced_menu=QMenu(advanced)
         for key in ('hole','sweep','loft','surface','edge_finish'):advanced_menu.addAction(self.actions[key])
         advanced.setMenu(advanced_menu);self.mode_tools['model'].append(self.toolbar.addWidget(advanced))
@@ -75,7 +81,7 @@ class MainWindow(QMainWindow):
         b.setMenu(menu);self.add_part_action=self.toolbar.addWidget(b)
         for key in ('face_joint','drive','robot','mate'):self.add_mode_tool('assembly',key)
         self.add_mode_tool('assembly','loop');self.add_mode_tool('assembly','robot_study')
-        self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure']);self.toolbar.addAction(self.actions['color']);self.toolbar.addSeparator()
+        self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure']);self.toolbar.addAction(self.actions['color']);self.toolbar.addAction(self.actions['parameters']);self.toolbar.addSeparator()
         for key in ('undo','redo','fit'):self.toolbar.addAction(self.actions[key])
         self.toolbar.addAction(icon('ai'),'설계 명령',lambda:self.ai_dock.setVisible(not self.ai_dock.isVisible()));self.workspace.currentIndexChanged.connect(self.workspace_changed);self.workspace_changed()
     def add_mode_tool(self,mode,key):
@@ -92,6 +98,38 @@ class MainWindow(QMainWindow):
             item=item or items.currentItem()
             if item:key=item.data(Qt.ItemDataRole.UserRole);dialog.accept();QTimer.singleShot(0,self.actions[key].trigger)
         search.textChanged.connect(update);search.returnPressed.connect(activate);items.itemActivated.connect(activate);update();search.setFocus();dialog.exec()
+    def select_profile_3d(self,identifier,index):
+        self.select_sketch(identifier);self.selected_profile=(identifier,index);self.property_layout.insertWidget(1,label(f'선택 영역 {index+1} · E로 3D 돌출'))
+    def parameter_dialog(self):
+        if self.busy or self.sketching:return
+        from .parameters import ParameterDialog
+        base=self.document.design or Design(name='변수 설계',parts=[]).model_dump();dialog=ParameterDialog(self,base)
+        if dialog.exec()==QDialog.DialogCode.Accepted:self.apply_design(dialog.checked.model_dump(),'변수 / 연결 치수 편집',{'tool':'parameters'},fit=False)
+    def extrude_dialog(self,checked=False,*,sketch_id=None,feature_id=None):
+        if self.busy:return
+        if self.sketching:self.editor.prepare_extrude();return
+        if not self.document.design:return
+        from .extrude import ExtrudeDialog
+        sketch_id=sketch_id or (self.selected_sketch if not feature_id else None)
+        if sketch_id:
+            saved=next((s for s in self.document.design.get('sketches',[]) if s['id']==sketch_id),None)
+            if not saved:return
+            g=saved['geometry'];context=deepcopy(saved['context']);context['sketch_id']=sketch_id
+        else:
+            p=self.part()
+            if not p:self.message('스케치의 닫힌 영역 또는 돌출 부품을 먼저 선택하세요.');return
+            if feature_id:
+                f=next(f for f in p['features'] if f['id']==feature_id)
+                if f.get('kind') in ('fillet','chamfer'):return
+                g=f['sketch'];context=dict(part_id=p['id'],feature_id=feature_id,operation=f['operation'],support_feature=f['support_feature'],face=dict(index=f['face'],face_count=f['support_face_count'],origin=f['origin'],normal=f['normal'],x_direction=f['x_direction']))
+            elif p['geometry']['kind']=='extrusion':g=p['geometry'];context=dict(part_id=p['id'],edit_base=True)
+            else:self.message('스케치 영역을 선택하세요. 구멍은 평평한 면 선택 → H로 만들 수 있습니다.');return
+        profile=self.selected_profile[1] if self.selected_profile and self.selected_profile[0]==sketch_id else None
+        try:dialog=ExtrudeDialog(self,self.document.design,g,context,profile)
+        except Exception as exc:self.show_error(str(exc));return
+        if dialog.exec()==QDialog.DialogCode.Accepted:
+            history={**context,'tool':'extrude-3d','profiles':dialog.selected_profiles,'depth':dialog.depth.value(),'expression':dialog.depth.formula(),'operation':dialog.operation.currentData()}
+            self.apply_design(dialog.checked.model_dump(),'3D 돌출 / 깊이 편집',history,after=lambda:self.select_part(dialog.part_id))
     def measure_dialog(self):
         if self.busy or self.sketching:return
         if not self.document.design or not self.document.design['parts']:self.message('측정할 부품을 먼저 만드세요.');return
@@ -205,7 +243,7 @@ class MainWindow(QMainWindow):
         w=QWidget();v=QVBoxLayout(w);v.setContentsMargins(12,12,12,12);self.provider=combo([('local','오프라인 치수 명령 · 키 불필요'),('openai','OpenAI · API 키 필요'),('ollama','로컬 AI · Ollama')]);v.addWidget(self.provider);self.ai_info=label('형상 이름과 치수를 입력하세요. 예: 구멍판 길이 80, 폭 60, 두께 6, 구멍 수 4 mm',True);v.addWidget(self.ai_info)
         self.key=QLineEdit();self.key.setEchoMode(QLineEdit.EchoMode.Password);self.key.setPlaceholderText('API 키 · 이번 실행 동안만 사용');self.key.setVisible(False);v.addWidget(self.key);self.model=QLineEdit('gpt-4.1');self.model.setPlaceholderText('모델 이름');self.model.setVisible(False);v.addWidget(self.model);self.provider.currentIndexChanged.connect(self.provider_changed)
         from .model_picker import LocalModelPicker
-        self.ollama_models=LocalModelPicker(self);self.ollama_models.hide();v.addWidget(self.ollama_models);v.addWidget(button('로컬 AI 설치 / 모델 다운로드',self.install_local_ai))
+        self.ollama_models=LocalModelPicker(self);self.ollama_models.hide();v.addWidget(self.ollama_models);self.ai_timeout=combo([(180,'AI 최대 대기 · 3분'),(300,'AI 최대 대기 · 5분'),(600,'AI 최대 대기 · 10분'),(1200,'AI 최대 대기 · 20분')]);self.ai_timeout.setCurrentIndex(2);v.addWidget(self.ai_timeout);v.addWidget(button('로컬 AI 설치 / 모델 다운로드',self.install_local_ai))
         self.prompt=QPlainTextEdit();self.prompt.setObjectName('designPrompt');self.prompt.setPlaceholderText('만들 형상과 치수, 바꿀 부분을 입력하세요.');self.prompt.setMinimumHeight(100);self.prompt.setMaximumHeight(170);v.addWidget(self.prompt);self.generate_button=button('설계 초안 생성',self.generate_draft,True);v.addWidget(self.generate_button);self.cancel_ai_button=button('생성 취소',self.cancel_ai);self.cancel_ai_button.hide();v.addWidget(self.cancel_ai_button);self.ai_result=QPlainTextEdit();self.ai_result.setReadOnly(True);self.ai_result.setMinimumHeight(130);v.addWidget(self.ai_result);self.accept_draft=button('검증된 초안 적용',self.apply_draft,True);self.accept_draft.setEnabled(False);v.addWidget(self.accept_draft);v.addWidget(label('명령은 치수·형상 데이터로 해석됩니다. 생성된 코드를 실행하지 않습니다. 적용한 결과는 작업 기록에 남습니다.',True));v.addStretch();self.ai_scroll=QScrollArea();self.ai_scroll.setWidgetResizable(True);self.ai_scroll.setMinimumWidth(270);self.ai_scroll.setWidget(w);self.ai_dock=self.dock('설계 명령 / AI','aiDock',Qt.DockWidgetArea.RightDockWidgetArea,self.ai_scroll);self.tabifyDockWidget(self.property_dock,self.ai_dock);self.property_dock.raise_();self.ai_dock.hide()
     def message(self,text):self.statusBar().showMessage(text,15000)
     def title(self):self.setWindowTitle((self.document.design['name'] if self.document.design else '새 설계')+(' *' if self.document.dirty else '')+' — '+APP_NAME+' · Native')
@@ -296,17 +334,18 @@ class MainWindow(QMainWindow):
         elif data[0]=='study' and data[2] in ('robot','tensile','drawing','fit'):self.study_dialog(data[2],data[1])
         elif data[0]=='base' and self.part()['geometry']['kind'] in ('sweep','loft'):self.modelling_dialog(self.part()['geometry']['kind'],part_id=data[1])
     def select_part(self,identifier):
-        self.selected_sketch=None;self.selected=identifier;self.viewport.select(identifier);self.show_properties()
+        self.selected_sketch=None;self.selected_profile=None;self.selected=identifier;self.viewport.select(identifier);self.show_properties()
         if identifier and not self.sketching:self.property_dock.show();self.property_dock.raise_()
     def select_sketch(self,identifier):
-        self.selected_sketch=identifier;self.selected=None;self.viewport.select(None);self.viewport.clear_face()
+        self.selected_sketch=identifier;self.selected_profile=None;self.selected=None;self.viewport.select(None);self.viewport.clear_face()
         saved=next((s for s in (self.document.design or {}).get('sketches',[]) if s['id']==identifier),None)
         if not saved:return
-        clear_layout(self.property_layout);self.property_layout.addWidget(label(saved['name']));self.property_layout.addWidget(label(f"{len(saved['geometry']['entities'])}개 요소 · 단위 mm",True));self.property_layout.addWidget(button('스케치 편집',lambda:self.edit_saved_sketch(identifier),True));self.property_layout.addWidget(button('돌출 / 절삭',lambda:self.edit_saved_sketch(identifier,extrude=True)))
+        clear_layout(self.property_layout);self.property_layout.addWidget(label(saved['name']));self.property_layout.addWidget(label(f"{len(saved['geometry']['entities'])}개 요소 · 단위 mm",True));self.property_layout.addWidget(button('스케치 편집',lambda:self.edit_saved_sketch(identifier),True));self.property_layout.addWidget(button('3D 돌출 / 절삭 · E',lambda:self.extrude_dialog(sketch_id=identifier)))
         def remove():
-            data=deepcopy(self.document.design);data['sketches']=[s for s in data['sketches'] if s['id']!=identifier];self.selected_sketch=None;self.apply_design(data,'스케치 삭제',{'sketch_id':identifier})
-        self.property_layout.addWidget(button('스케치 삭제',remove));self.property_layout.addStretch()
+            data=deepcopy(self.document.design);data['sketches']=[s for s in data['sketches'] if s['id']!=identifier];self.selected_sketch=None;remove_bindings(data,['sketches',identifier]);self.apply_design(data,'스케치 삭제',{'sketch_id':identifier})
+        self.property_layout.addWidget(button('스케치 삭제',remove));self.property_layout.addStretch();self.property_dock.show();self.property_dock.raise_()
     def edit_saved_sketch(self,identifier,extrude=False):
+        if extrude:self.extrude_dialog(sketch_id=identifier);return
         saved=next((s for s in (self.document.design or {}).get('sketches',[]) if s['id']==identifier),None)
         if not saved:return
         context=deepcopy(saved['context']);context.update(sketch_id=identifier,title=saved['name']);self.start_sketch(g=saved['geometry'],context=context)
@@ -328,12 +367,12 @@ class MainWindow(QMainWindow):
             if key not in FIELDS:continue
             title,unit=FIELDS[key]
             if key=='hole_count':w=combo([(n,str(n)) for n in (0,2,4)]);w.setCurrentIndex(w.findData(value))
-            else:w=number(value,0 if key in ('bore_diameter','flat_depth') else .01,2000,' '+unit)
+            else:w=ExpressionField(value,0 if key in ('bore_diameter','flat_depth') else .01,2000,' '+unit,variables=parameter_values(self.document.design.get('parameters',{})),expression=binding_for(self.document.design,['parts',part['id'],'geometry',key]) or (g.get('thickness_expression','') if key=='thickness' else ''))
             inputs[key]=w;form.addRow(title,w)
         color_button=button('●  부품 색상 변경',lambda:self.color_part(part['id']));color_button.setObjectName('partColorButton');color_button.setStyleSheet(f"border-left:6px solid {part['color']};text-align:left;padding:8px;");self.property_layout.addWidget(color_button);self.property_layout.addLayout(form)
         if g['kind'] in ('round_specimen','flat_specimen','wafer'):self.property_layout.insertWidget(1,button('시편 치수 · 3D 미리보기',self.specimen_dialog,True))
         if any(m['child']==part['id'] and m['kind']!='rigid' for m in self.document.design['mates']):self.property_layout.insertWidget(1,button('관절 구동 · 간섭 확인',self.drive_joints,True))
-        if g['kind']=='extrusion':self.property_layout.addWidget(button('기본 스케치 편집',lambda:self.edit_sketch()))
+        if g['kind']=='extrusion':self.property_layout.addWidget(button('돌출 깊이 · 3D 편집 E',self.extrude_dialog,True));self.property_layout.addWidget(button('기본 스케치 편집',lambda:self.edit_sketch()))
         if g['kind'] in ('sweep','loft'):self.property_layout.insertWidget(1,button(TITLES[g['kind']]+' 단면 / 경로 편집',lambda:self.modelling_dialog(g['kind'],part_id=part['id']),True))
         self.property_layout.addWidget(label('배치 · 원점 기준'));tform=QFormLayout();trans={}
         for key,value in part['transform'].items():w=number(value,-360 if key.startswith('r') else -5000,360 if key.startswith('r') else 5000,' °' if key.startswith('r') else ' mm');trans[key]=w;tform.addRow(key.upper(),w)
@@ -345,7 +384,13 @@ class MainWindow(QMainWindow):
         def apply():
             if self.busy:return
             data=deepcopy(self.document.design);p=next(p for p in data['parts'] if p['id']==part['id']);p['name']=name.text().strip() or part['name'];p['fixed']=fixed.isChecked()
-            for key,w in inputs.items():p['geometry'][key]=w.currentData() if isinstance(w,QComboBox) else w.value()
+            try:
+                for key,w in inputs.items():
+                    p['geometry'][key]=w.currentData() if isinstance(w,QComboBox) else w.value()
+                    if isinstance(w,ExpressionField):
+                        if key=='thickness' and p['geometry']['kind']=='extrusion':p['geometry'].pop('thickness_expression',None)
+                        set_binding(data,['parts',p['id'],'geometry',key],w.formula())
+            except ValueError as exc:self.show_error(str(exc));return
             for key,w in trans.items():p['transform'][key]=w.value()
             self.apply_design(data,'부품 치수 / 배치 편집',{'part_id':part['id'],'tool':'parameters'})
         self.property_layout.addWidget(button('치수 / 배치 적용',apply,True));self.property_layout.addWidget(button('부품 복제',self.duplicate_part));self.property_layout.addWidget(button('선택 부품 삭제',self.delete_part));self.property_layout.addStretch()
@@ -360,7 +405,7 @@ class MainWindow(QMainWindow):
         f=next(f for f in self.part()['features'] if f['id']==identifier)
         if f.get('kind') in ('fillet','chamfer'):
             clear_layout(self.property_layout);self.property_layout.addWidget(label(f['name']));self.property_layout.addWidget(label(f"모서리 {len(f['edges'])}개 · {f['size']:g} mm\n기준 피처: {f['support_feature']}",True));self.property_layout.addWidget(button('모서리 / 치수 편집',lambda:self.edge_finish_dialog(identifier),True));self.property_layout.addWidget(button('이 피처와 뒤의 피처 제거',lambda:self.remove_feature(identifier)));self.property_layout.addStretch();return
-        part=self.part();f=next(f for f in part['features'] if f['id']==identifier);clear_layout(self.property_layout);self.property_layout.addWidget(label(f['name']));self.property_layout.addWidget(label(f"부품: {part['name']}\n참조 피처: {f['support_feature']}\n선택 면: {f['face']+1}\n법선: {f['normal']}\n작업: {f['operation']}\n깊이: {f['sketch']['thickness']:g} mm\n스케치 요소: {len(f['sketch']['entities'])}\n구속: {len(f['sketch']['entity_constraints'])}",True));self.property_layout.addWidget(button('스케치 / 구속 편집',lambda:self.edit_sketch(identifier),True));self.property_layout.addWidget(button('이 피처와 뒤의 피처 제거',lambda:self.remove_feature(identifier)));self.property_layout.addStretch()
+        part=self.part();f=next(f for f in part['features'] if f['id']==identifier);clear_layout(self.property_layout);self.property_layout.addWidget(label(f['name']));self.property_layout.addWidget(label(f"부품: {part['name']}\n참조 피처: {f['support_feature']}\n선택 면: {f['face']+1}\n법선: {f['normal']}\n작업: {f['operation']}\n깊이: {f['sketch']['thickness']:g} mm\n스케치 요소: {len(f['sketch']['entities'])}\n구속: {len(f['sketch']['entity_constraints'])}",True));self.property_layout.addWidget(button('돌출 깊이 · 3D 편집',lambda:self.extrude_dialog(feature_id=identifier),True));self.property_layout.addWidget(button('스케치 / 구속 편집',lambda:self.edit_sketch(identifier))); self.property_layout.addWidget(button('이 피처와 뒤의 피처 제거',lambda:self.remove_feature(identifier)));self.property_layout.addStretch()
     def show_loop(self,identifier):
         loop=next(c for c in self.document.design['loops'] if c['id']==identifier);clear_layout(self.property_layout);self.property_layout.addWidget(label(loop['name']));self.property_layout.addWidget(label(loop['parent']+' → '+loop['child']+'\n자동 계산: '+', '.join(loop['passive_joints']),True));self.property_layout.addWidget(button('폐루프 편집',lambda:self.closure_dialog(identifier),True))
         def remove():
@@ -374,7 +419,7 @@ class MainWindow(QMainWindow):
             raw=deepcopy(self.document.design);raw['studies']=[s for s in raw['studies'] if s['id']!=identifier];self.apply_design(raw,'도면 / 해석 조건 삭제',{'study_id':identifier})
         self.property_layout.addWidget(button('조건 삭제',remove));self.property_layout.addStretch()
     def remove_feature(self,identifier):
-        data=deepcopy(self.document.design);p=next(p for p in data['parts'] if p['id']==self.selected);i=next(i for i,f in enumerate(p['features']) if f['id']==identifier);removed=p['features'][i:];p['features']=p['features'][:i];self.apply_design(data,'피처 제거',{'part_id':p['id'],'removed_features':[f['id'] for f in removed]})
+        data=deepcopy(self.document.design);p=next(p for p in data['parts'] if p['id']==self.selected);i=next(i for i,f in enumerate(p['features']) if f['id']==identifier);removed=p['features'][i:];p['features']=p['features'][:i];remove_bindings(data,*[['parts',p['id'],'features',f['id']] for f in removed]);self.apply_design(data,'피처 제거',{'part_id':p['id'],'removed_features':[f['id'] for f in removed]})
     def add_preset(self,kind):
         if self.busy or self.sketching:return
         if kind=='robot_arm':self.robot_dialog();return
@@ -385,15 +430,15 @@ class MainWindow(QMainWindow):
         self.apply_design(data,TITLES[kind]+' 생성',{'tool':'primitive','kind':kind},fit=True)
     def duplicate_part(self):
         if not self.part():return
-        data=deepcopy(self.document.design);p=deepcopy(self.part());p['id']='part-'+uid();p['name']+=' 복사';p['fixed']=False;p['transform']['x']+=60;data['parts'].append(p);self.apply_design(data,'부품 복제',{'part_id':self.selected},fit=True)
+        data=deepcopy(self.document.design);p=deepcopy(self.part());p['id']='part-'+uid();p['name']+=' 복사';p['fixed']=False;p['transform']['x']+=60;data['parts'].append(p);data.setdefault('dimension_bindings',[]).extend([{**b,'path':['parts',p['id'],*b['path'][2:]]} for b in list(data.get('dimension_bindings',[])) if b['path'][:2]==['parts',self.selected]]);self.apply_design(data,'부품 복제',{'part_id':self.selected},fit=True)
     def delete_part(self):
         if not self.part() or self.busy:return
         if len(self.document.design['parts'])==1:self.show_error('마지막 부품을 없애려면 새 설계를 사용하세요. 현재 프로젝트는 저장 후 남길 수 있습니다.');return
-        data=deepcopy(self.document.design);data['parts']=[p for p in data['parts'] if p['id']!=self.selected];data['mates']=[m for m in data['mates'] if self.selected not in (m['parent'],m['child'])];data['joint_frames']=[f for f in data.get('joint_frames',[]) if f['mate_id'] in {m['id'] for m in data['mates']}];data['loops']=[c for c in data.get('loops',[]) if self.selected not in (c['parent'],c['child']) and set(c['passive_joints'])<={m['id'] for m in data['mates']}];self.apply_design(data,'부품 삭제',{'part_id':self.selected},fit=True)
+        data=deepcopy(self.document.design);data['parts']=[p for p in data['parts'] if p['id']!=self.selected];data['mates']=[m for m in data['mates'] if self.selected not in (m['parent'],m['child'])];data['joint_frames']=[f for f in data.get('joint_frames',[]) if f['mate_id'] in {m['id'] for m in data['mates']}];data['loops']=[c for c in data.get('loops',[]) if self.selected not in (c['parent'],c['child']) and set(c['passive_joints'])<={m['id'] for m in data['mates']}];remove_bindings(data,['parts',self.selected]);self.apply_design(data,'부품 삭제',{'part_id':self.selected},fit=True)
     def start_sketch(self,plane='XY',g=None,context=None):
         if self.busy or self.sketching:return
         if self.joint_picks is not None:self.cancel_joint_pick()
-        context=context or {'plane':plane,'title':f'새 스케치 · {plane} 기준 평면'};self.sketching=True;self.editor.start(g,context);self.stack.setCurrentWidget(self.editor);self.property_dock.hide();self.ai_dock.hide();self.browser_dock.hide();self.timeline_dock.hide();self.toolbar.hide();self.set_busy(False);self.editor.tabs.setCurrentIndex(0)
+        context=context or {'plane':plane,'title':f'새 스케치 · {plane} 기준 평면'};self.sketching=True;self.editor.start(g,context,parameter_values((self.document.design or {}).get('parameters',{})));self.stack.setCurrentWidget(self.editor);self.property_dock.hide();self.ai_dock.hide();self.browser_dock.hide();self.timeline_dock.hide();self.toolbar.hide();self.set_busy(False);self.editor.tabs.setCurrentIndex(0)
     def start_face_sketch(self):
         if not self.viewport.face:self.message('3D 모델의 평평한 면을 먼저 클릭하세요.');return
         identifier,face=self.viewport.face
@@ -423,10 +468,12 @@ class MainWindow(QMainWindow):
             if f.get('kind') in ('fillet','chamfer'):self.edge_finish_dialog(feature_id);return
             self.start_sketch(g=f['sketch'],context=dict(part_id=p['id'],feature_id=f['id'],operation=f['operation'],title=f['name']+' 편집'));return
         if p['geometry']['kind']!='extrusion':self.message('이 부품은 치수로 편집합니다. 새 구멍은 면을 선택해 스케치를 만드세요.');return
-        self.start_sketch(g=p['geometry'],context=dict(part_id=p['id'],edit_base=True,title=p['name']+' · 기본 스케치 편집'))
+        g=deepcopy(p['geometry']);expr=binding_for(self.document.design,['parts',p['id'],'geometry','thickness'])
+        if expr:g['thickness_expression']=expr
+        self.start_sketch(g=g,context=dict(part_id=p['id'],edit_base=True,title=p['name']+' · 기본 스케치 편집'))
     def cancel_sketch(self):
         if self.busy:return
-        self.sketching=False;self.editor.stop();self.stack.setCurrentWidget(self.viewport);self.toolbar.show();self.browser_dock.show();self.property_dock.show();self.timeline_dock.show();self.set_busy(False);self.show_properties();self.viewport.window.Render()
+        self.sketching=False;self.editor.stop();self.stack.setCurrentWidget(self.viewport);self.toolbar.show();self.ai_dock.show();self.browser_dock.show();self.property_dock.show();self.timeline_dock.show();self.set_busy(False);self.show_properties();self.viewport.window.Render()
     def finish_sketch(self,g,context,operation):
         if self.busy:return
         # Editing a solid's generating sketch still recomputes that feature.
@@ -447,7 +494,7 @@ class MainWindow(QMainWindow):
         data=deepcopy(self.document.design) if self.document.design else dict(name='스케치 설계',parts=[],mates=[]);title='스케치 돌출 생성'
         source_context=deepcopy(context)
         if context.get('edit_base'):
-            p=next(p for p in data['parts'] if p['id']==context['part_id']);p['geometry']=g;title='기본 스케치 편집'
+            p=next(p for p in data['parts'] if p['id']==context['part_id']);p['geometry']=g;remove_bindings(data,['parts',p['id'],'geometry','thickness']);title='기본 스케치 편집'
         elif context.get('feature_id'):
             p=next(p for p in data['parts'] if p['id']==context['part_id']);f=next(f for f in p['features'] if f['id']==context['feature_id']);f['sketch']=g;f['operation']=operation;title='면 스케치 피처 편집'
         elif context.get('face'):
@@ -589,14 +636,14 @@ class MainWindow(QMainWindow):
         prompt=self.prompt.toPlainText().strip()
         if not prompt:self.ai_result.setPlainText('설계 명령을 입력하세요. 예: 직경 20 mm, 높이 10 mm인 원통을 만들어줘.');self.prompt.setFocus();return
         if len(prompt)>4000:self.show_error('명령은 4,000자 이내로 입력하세요.');return
-        provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;self.last_draft=None;self.accept_draft.setEnabled(False)
+        provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
         if provider=='ollama' and not model:self.ai_result.setPlainText('Ollama 모델을 먼저 선택하세요. 새로 찾기를 누르거나 로컬 AI 설치 / 모델 다운로드를 사용하세요.');return
         def work(control,progress):
             from ..planner import local_draft,openai_draft
             if provider=='local':result=local_draft(request)
             elif provider=='ollama':
                 from .local_ai import ollama_draft
-                result=ollama_draft(request,model,control=control,progress=progress)
+                result=ollama_draft(request,model,control=control,progress=progress,deadline=deadline)
             else:
                 if not key:raise ValueError('API 키를 입력하거나 OPENAI_API_KEY 환경변수를 설정하세요.')
                 from openai import OpenAI
@@ -612,7 +659,7 @@ class MainWindow(QMainWindow):
         self.ai_started=time.monotonic();self.ai_stage='모델 연결 / 준비 중…';self.ai_controls(True);self.ai_tick();self.ai_timer.start();self.ai_task.start()
     def ai_controls(self,running):
         self.generate_button.setEnabled(not running and not self.busy and not self.sketching);self.cancel_ai_button.setVisible(running);self.ai_status_button.setVisible(running)
-        for widget in (self.provider,self.prompt,self.ollama_models,self.model,self.key):widget.setEnabled(not running)
+        for widget in (self.provider,self.prompt,self.ollama_models,self.model,self.key,self.ai_timeout):widget.setEnabled(not running)
     @Slot()
     def ai_tick(self):
         if not self.ai_task:return
@@ -648,7 +695,8 @@ class MainWindow(QMainWindow):
         if draft['serial']!=self.operation_serial:self.show_error('초안 생성 이후 설계가 변경되었습니다. 현재 설계로 초안을 다시 생성하세요.');return
         self.document.prompt=draft['prompt'];context=dict(source='openai' if draft['provider']=='openai' else 'local',provider=draft['provider'],prompt=draft['prompt'],summary=draft['response']['summary'],assumptions=draft['response'].get('assumptions',[]),tool='prompt');self.apply_design(draft['design'],'설계 명령 적용',context,fit=True);self.last_draft=None;self.accept_draft.setEnabled(False)
     def help_dialog(self):
-        d=QDialog(self);d.setWindowTitle('사용 방법 · 지원 범위');d.resize(800,650);v=QVBoxLayout(d);text=QPlainTextEdit();text.setReadOnly(True);text.setPlainText('Prompt CAD Studio · Native\n\n1. 스케치와 돌출\n상단에서 XY / XZ / YZ를 선택하고 스케치를 작성하세요. L 직선, C 원, R 사각형, D 선택 요소 치수. 좌표 입력으로 정밀하게 작성할 수도 있습니다. 상단 스케치 종료는 열린 선도 저장합니다. 설계 브라우저의 스케치를 다시 열고 돌출 탭에서 닫힌 영역과 깊이를 선택해 입체를 만드세요.\n\n2. 면 선택과 구멍\n3D 모델의 평평한 면을 클릭 → 선택 면에서 스케치 → 원 등을 작성 → 안쪽으로 파내기 → 깊이 입력. 면의 모서리는 보조선으로 투영할 수 있습니다.\n\n3. 스케치 구속\n구속 탭의 A / B / 점을 지정합니다. 원점 고정, 수평·수직, 거리·직경·각도, 일치·접선 등 20종. 자동 구속은 스냅한 원점·끝점·중간점·교점의 관계를 보존합니다. 자유도 0이면 완전 구속입니다. 파랑은 자유, 밝은 회색은 완전 구속, 초록은 전체 고정입니다. 격자와 곡선의 교점도 스냅할 수 있습니다.\n\n4. 조립\n부품을 2개 이상 만든 후 조립 구속을 추가하세요. 강체, 회전, 슬라이더, 원통 연결을 지원합니다. 기준점·오프셋·관절 값을 편집하면 자식 부품이 따라갑니다.\n\n5. 기록\n하단 기록을 클릭하면 실제 변경 필드, 도구, 면, 피처, 구속을 확인할 수 있습니다. 더블클릭으로 복원합니다. 복원 후 수정한 분기도 모두 저장합니다. 스케치 내부의 도구 작업은 스케치 완료 시 함께 저장합니다.\n\n6. 설계 AI\n오프라인 치수 명령은 키 없이 작동합니다. 자유 문장은 OpenAI API 또는 이 PC의 Ollama에 연결하세요. 로컬 AI 설치 / 모델 다운로드 버튼으로 Ollama와 모델을 설치할 수 있습니다. 초안을 검증한 후 적용하면 기록에 남습니다.\n\n7. 파일\n.cad.json은 편집 가능한 설계와 작업 기록입니다. STEP은 정확한 CAD 형상, STL은 메시입니다. .f3d / .ipt는 Autodesk 변환 패키지에 들어 있는 STEP과 스크립트를 해당 Autodesk 앱에서 실행해 변환해야 합니다. Autodesk 작업 기록을 그대로 재구성하지는 않습니다.\n\n지원 범위\nFusion과 동일한 전체 기능은 아닙니다. 평면 스케치와 돌출 / 절삭, 지정한 기본 형상, 조립 트리를 지원합니다. 3D 도구에서 스윕·로프트·쉘 곡면·3D 필렛/모따기를 사용합니다. I는 길이 측정, Ctrl+K는 도구 검색입니다. 선택 면에 구멍 도구를 바로 적용할 수 있습니다. 도면/해석 메뉴는 기본 정투상 도면, 2R 강체 동역학, 기본 인장 시편의 선형 탄성 해석을 제공합니다. 폐루프는 수동 관절의 점 연결을 풉니다. 나사·기어 전용 도구, 일반 접촉 동역학, 시험 규격 인증은 포함하지 않습니다. 최대 12부품, 부품당 16개 피처, 스케치당 128요소 / 160구속. 완료한 스케치도 프로젝트·자동 저장·기록에 포함됩니다. 편집 중인 미완료 작업은 종료 버튼을 눌러 반영하세요.\n\n마우스\n3D: 왼쪽 드래그 회전, 가운데 이동, 휠 확대, 클릭 면 선택.\n스케치: 클릭 작성, 가운데 / 오른쪽 드래그 이동, 휠 확대. Shift / Ctrl 클릭 다중 선택. Enter 그리기 완료, Ctrl+Enter 스케치 종료, Esc 선택 도구, D 치수, Ctrl+A 전체 선택, F 화면 맞춤. 빈 곳 드래그로 상자 선택. 선 위 추천점은 자동 구속이 켜져 있을 때 관계를 유지합니다.');v.addWidget(text);v.addWidget(button('닫기',d.accept));d.exec()
+        from .shortcuts import show_manual
+        show_manual(self)
     def check_updates(self):
         if self.busy or self.sketching:return
         from ..updater import latest_release,version

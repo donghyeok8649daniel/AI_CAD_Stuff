@@ -82,9 +82,9 @@ def construct(g):
             if not shape.isValid() or not shape.Solids() or shape.Volume() <= 0:
                 raise ValueError('스케치에서 유효한 솔리드를 만들지 못했습니다.')
             return shape
-        obj = cq.Workplane("XY").polyline([(p.x, p.y) for p in g.points]).close().extrude(g.thickness)
+        obj = cq.Workplane("XY").polyline([(p.x, p.y) for p in g.points]).close().extrude(g.thickness*g.direction)
         for hole in g.holes:
-            cutter = cq.Solid.makeCylinder(hole.diameter/2, g.thickness, cq.Vector(hole.x, hole.y, 0))
+            cutter = cq.Solid.makeCylinder(hole.diameter/2, g.thickness, cq.Vector(hole.x, hole.y, 0),cq.Vector(0,0,g.direction))
             obj = obj.cut(cutter)
     elif g.kind == "cylinder":
         obj = cq.Workplane("XY").circle(g.diameter/2)
@@ -213,10 +213,13 @@ def preview(design: Design):
                 face_info.append(info)
             bb = exact_bounds(shape)
             sketch_info=sketch_status(part.geometry) if part.geometry.kind=="extrusion" else None
+            from .advanced_geometry import edge_records
+            pick_edges=edge_records(shape)
             meshes.append({
                 "id": part.id, "name": part.name, "color": part.color,
                 "vertices": [round(c, 7) for v in vertices for c in v.toTuple()],
                 "triangles": [i for t in triangles for i in t],
+                "pick_edges":pick_edges,"pick_vertices":[list(v.Center().toTuple()) for v in shape.Vertices()],
                 "triangle_faces":triangle_faces,"faces":face_info,"anchors":anchors(part.geometry),"sketch_constraints":sketch_info,
                 "volume": shape.Volume() if shape.Solids() else 0, "area": shape.Area(), "valid": shape.isValid(),
                 "solid":bool(shape.Solids()),

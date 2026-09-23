@@ -3,6 +3,7 @@ import json
 import asyncio
 import threading
 import time
+from copy import deepcopy
 import httpx
 from ..planner import AIReply,SYSTEM_PROMPT,openai_draft
 from ..kernel import preview,KERNEL_LOCK
@@ -41,23 +42,55 @@ class DraftControl:
             with self.lock:self.loop=None;self.task=None
 
 
-def ollama_draft(request,model,transport=None,*,control=None,progress=None,deadline=300):
+def ollama_context(design):
+    """Rendering caches are not design instructions; keep the real dimensions."""
+    def compact(value):
+        if isinstance(value,dict):return {k:compact(v) for k,v in value.items() if v is not None and v!=[] and v!={}}
+        if isinstance(value,list):return [compact(v) for v in value]
+        return value
+    data=design.model_dump()
+    for sketch in data.get('sketches',[]):
+        face=sketch.get('context',{}).get('face')
+        if face:
+            for key in ('outline','projected_entities','projection_unsupported'):face.pop(key,None)
+    return compact(data)
+
+
+def restore_sketch_display(result,current):
+    if not current:return
+    by_id={s.id:s for s in current.sketches}
+    for sketch in result.sketches:
+        source=by_id.get(sketch.id)
+        if source is None:continue
+        old_part=next((p for p in current.parts if p.id==source.context.part_id),None)
+        new_part=next((p for p in result.parts if p.id==sketch.context.part_id),None)
+        # Display caches are reusable only while their supporting shape stays
+        # unchanged. A width edit can leave the face frame unchanged too.
+        if old_part and (new_part is None or old_part.geometry!=new_part.geometry or old_part.features!=new_part.features):continue
+        old=source.context.face;face=sketch.context.face
+        if old and face and sketch.context.part_id==source.context.part_id and sketch.context.support_feature==source.context.support_feature:
+            keys=('index','normal','origin','x_direction','face_count')
+            if all(getattr(old,k)==getattr(face,k) for k in keys):
+                face.outline=deepcopy(old.outline);face.projected_entities=deepcopy(old.projected_entities);face.projection_unsupported=old.projection_unsupported
+
+
+def ollama_draft(request,model,transport=None,*,control=None,progress=None,deadline=600):
     control=control or DraftControl();progress=progress or (lambda message:None)
     if not model or len(model)>120:raise ValueError('Ollama에 설치된 모델 이름을 입력하세요.')
     # Keep default-valued dimensions and discriminators: a cylinder's kind is
     # itself a Pydantic default, and must not disappear from an editing request.
-    def compact_data(value):
-        if isinstance(value,dict):return {k:compact_data(v) for k,v in value.items() if v is not None and v!=[] and v!={}}
-        if isinstance(value,list):return [compact_data(v) for v in value]
-        return value
-    payload={'prompt':request.prompt,'mode':request.mode,'selected_part':request.selected_part,'current_design':compact_data(request.current.model_dump()) if request.current else None}
+    payload={'prompt':request.prompt,'mode':request.mode,'selected_part':request.selected_part,'current_design':ollama_context(request.current) if request.current else None}
     compact='\nReturn COMPACT JSON, without whitespace or optional fields at their default values. Preserve existing nondefault data. Start with design, finish with a short summary and assumptions. Example: {"design":{"name":"원통","parts":[{"id":"cylinder1","name":"원통","geometry":{"kind":"cylinder","diameter":20,"height":10}}]},"summary":"원통 초안","assumptions":[]}. Do not repeat instructions or explain the JSON.'
     messages=[{'role':'system','content':SYSTEM_PROMPT+compact},{'role':'user','content':json.dumps(payload,ensure_ascii=False,separators=(',',':'))}]
-    return asyncio.run(control.execute(lambda:_ollama_reply(model,messages,transport,control,progress),deadline))
+    result=asyncio.run(control.execute(lambda:_ollama_reply(model,messages,transport,control,progress,deadline),deadline))
+    if request.current:
+        from ..models import Design
+        design=Design.model_validate(result['design']);restore_sketch_display(design,request.current);result['design']=design.model_dump()
+    return result
 
 
-async def _ollama_reply(model,messages,transport,control,progress):
-    async with httpx.AsyncClient(base_url='http://127.0.0.1:11434',timeout=httpx.Timeout(120,connect=4),trust_env=False,follow_redirects=False,transport=transport) as client:
+async def _ollama_reply(model,messages,transport,control,progress,deadline):
+    async with httpx.AsyncClient(base_url='http://127.0.0.1:11434',timeout=httpx.Timeout(deadline,connect=4),trust_env=False,follow_redirects=False,transport=transport) as client:
         for attempt in range(2):
             control.check();progress('모델 준비 / 명령 해석 중…' if not attempt else '형상 검증 실패 · 설계 수정 재시도 중…')
             try:
@@ -92,7 +125,7 @@ async def _ollama_reply(model,messages,transport,control,progress):
                 if not done:raise ValueError('로컬 AI 연결이 설계 완료 전에 끊어졌습니다. 다시 시도하세요.')
                 content=''.join(chunks)
             except httpx.ConnectError:raise ValueError('Ollama에 연결할 수 없습니다. 이 PC에서 Ollama를 실행하고 모델을 설치하세요.') from None
-            except httpx.TimeoutException:raise ValueError('로컬 AI 응답 시간이 초과되었습니다. 더 작은 모델이나 요청으로 시도하세요.') from None
+            except httpx.TimeoutException:raise ValueError('로컬 AI가 선택한 대기 시간 안에 응답하지 않았습니다. CPU에서 큰 모델은 준비 시간이 길 수 있습니다. AI 최대 대기를 늘리거나 부품 하나씩 요청하세요.') from None
             except httpx.HTTPError:raise ValueError('로컬 AI 연결에 실패했습니다.') from None
             except (json.JSONDecodeError,UnicodeDecodeError,AttributeError,TypeError):raise ValueError('Ollama에서 잘못된 응답을 받았습니다. 모델을 확인하고 다시 시도하세요.') from None
             try:

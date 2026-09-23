@@ -51,6 +51,7 @@ def anchors(geometry):
     g=geometry
     top = getattr(g,"height",getattr(g,"thickness",0))
     bottom=0
+    if g.kind == "extrusion" and g.direction<0:top,bottom=0,-g.thickness
     if g.kind == "flat_specimen": top,bottom=g.thickness/2,-g.thickness/2
     if g.kind == "round_specimen":
         return {"origin":[0,0,0],"left":[-g.length/2,0,0],"right":[g.length/2,0,0]}

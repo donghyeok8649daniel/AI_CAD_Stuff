@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "checks": [
+    "Ollama panel enabled by default",
+    "typing letters in prompt never runs shortcuts",
+    "S starts a sketch",
+    "background computation completed",
+    "free rectangle creates no automatic constraints",
+    "background computation completed",
+    "3D closed profile can be hovered and selected",
+    "background computation completed",
+    "3D extrusion handle is rendered",
+    "screen-projected arrow can be grabbed",
+    "background computation completed",
+    "drag changes the exact extrusion depth",
+    "background computation completed",
+    "background computation completed",
+    "Shift+2 enables point selection",
+    "exact CAD vertex is selectable",
+    "Shift+3 enables edge selection",
+    "background computation completed",
+    "background computation completed",
+    "background computation completed",
+    "variable changes rebuild the extrusion",
+    "expressions and full history save and reopen",
+    "background computation completed",
+    "undo restores variable and geometry together",
+    "background computation completed",
+    "background computation completed",
+    "redundant constraints display an error and block extrusion",
+    "bundled F1 manual includes free placement and shortcuts"
+  ]
+}

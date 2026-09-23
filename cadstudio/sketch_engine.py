@@ -176,14 +176,32 @@ def _solve_entities(entities,constraints):
     def residual(vector):
         data={e['id']:e for e in unpack(vector)}
         return np.array([v for c in constraints for v in constraint_residual(c,data)],dtype=float)
-    maximum=0;rank=0;solved=np.array(original);null=np.eye(len(original))
+    maximum=0;rank=0;solved=np.array(original);null=np.eye(len(original));redundant=[]
     if constraints:
         origin=np.array(original)
         result=least_squares(lambda v:np.r_[residual(v),(v-origin)*1e-7],origin,bounds=(lower,upper),max_nfev=200,ftol=1e-10,xtol=1e-10,gtol=1e-10)
         errors=residual(result.x);maximum=float(np.max(np.abs(errors))) if len(errors) else 0
-        if maximum>1e-4:raise ValueError(f'스케치 구속이 충돌하거나 해를 찾지 못했습니다 (잔차 {maximum:.4g}).')
+        blocks=[(c,len(constraint_residual(c,{e['id']:e for e in unpack(result.x)}))) for c in constraints]
+        if maximum>1e-4:
+            cursor=0;failed=[]
+            for c,n in blocks:
+                if np.max(np.abs(errors[cursor:cursor+n]),initial=0)>1e-4:failed.append(c.id)
+                cursor+=n
+            raise ValueError(f'과다 구속 / 구속 충돌 또는 해석 실패 (잔차 {maximum:.4g}). 만족하지 못한 구속: '+', '.join(failed)+'. 해당 구속을 삭제·수정하거나 실행 취소하세요.')
         _,singular,vt=np.linalg.svd(result.jac[:len(errors)],full_matrices=True)
         rank=int(np.count_nonzero(singular>1e-6));null=vt[rank:].T;solved=result.x
+        # Incremental row-space test: flag a whole redundant constraint, not
+        # the harmless dependent rows inside tangency/angle constraints.
+        basis=[];cursor=0
+        for c,n in blocks:
+            gained=0;block=result.jac[cursor:cursor+n];cursor+=n
+            for row in block:
+                v=row.copy()
+                for _ in range(2):
+                    for q in basis:v-=np.dot(v,q)*q
+                norm=np.linalg.norm(v)
+                if norm>1e-6:basis.append(v/norm);gained+=1
+            if gained==0:redundant.append(c.id)
     updated=unpack(solved)
     for e in updated:
         if e['kind']=='line' and np.linalg.norm(xy(e['end'])-xy(e['start']))<1e-5:raise ValueError('길이가 0인 선은 만들 수 없습니다.')
@@ -194,7 +212,7 @@ def _solve_entities(entities,constraints):
         rows=[j for j,(entity,_) in enumerate(mapping) if entity==i]
         block=null[rows,:]
         mobility[e['id']]=int(np.linalg.matrix_rank(block,tol=1e-6)) if block.size else 0
-    return [type(old).model_validate(data) for old,data in zip(entities,updated)],{'dof':max(0,len(original)-rank),'rank':rank,'max_error':maximum,'constraints':len(constraints),'entities':len(entities),'entity_dof':mobility}
+    return [type(old).model_validate(data) for old,data in zip(entities,updated)],{'dof':max(0,len(original)-rank),'rank':rank,'max_error':maximum,'constraints':len(constraints),'entities':len(entities),'entity_dof':mobility,'redundant_constraints':redundant}
 
 
 @lru_cache(maxsize=128)
@@ -259,7 +277,8 @@ def _regions_cached(serialized):
 def profile_regions(g):return _regions_cached(json.dumps([e.model_dump() for e in g.entities],sort_keys=True))
 
 
-def extrude_regions(g,plane=None,direction=1):
+def extrude_regions(g,plane=None,direction=None):
+    if direction is None:direction=g.direction
     import cadquery as cq
     faces=profile_regions(g);selected=g.profiles or [0]
     if not faces:raise ValueError('닫힌 스케치 영역이 없습니다. 끝점을 일치시키고 영역을 선택하세요.')
