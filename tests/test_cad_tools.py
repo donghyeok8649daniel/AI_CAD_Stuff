@@ -39,6 +39,38 @@ def test_open_box_shell_matches_analytical_volume_and_preserves_feature_referenc
     assert feature.faces[0].normal==[0,0,1] and feature.support_feature=='base'
 
 
+def test_redundant_joint_driven_placement_preserves_real_assembly_and_history():
+    from cadstudio.constraints import solve_assembly
+    from cadstudio.native.document import Document
+    reply=execute(create('cylinder',target='bushing',diameter=30,height=20,bore_diameter=10.2),
+        create('cylinder',target='shaft',diameter=10,height=20,bore_diameter=0),
+        action('joint','hinge',kind='revolute',parent='bushing',child='shaft'),
+        action('transform','shaft',z=0))
+    assert reply.tool_actions[-1]['outcome']=='already_satisfied'
+    assert solve_assembly(reply.design)==dict(mates=1,grounded=1,dof=1)
+    base,shaft=build(reply.design)
+    assert base.Volume()==pytest.approx(math.pi*(15**2-5.1**2)*20)
+    assert shaft.Volume()==pytest.approx(math.pi*5**2*20)
+    assert base.intersect(shaft).Volume()==pytest.approx(0)
+    doc=Document();doc.commit(reply.design,'AI',dict(journal_base=reply.journal_base,journal_steps=reply.journal_steps))
+    assert doc.design['mates'][0]['id']=='hinge'
+    assert len(doc.journal.path())==5
+    assert doc.journal.path()[-1]['context']['tool_actions'][0]['outcome']=='already_satisfied'
+    original=reply.design.model_dump()
+    again=execute(action('transform','shaft',x=0,y=0,z=0),current=reply.design)
+    assert again.design.model_dump()==original and again.tool_actions[0]['outcome']=='already_satisfied'
+
+
+@pytest.mark.parametrize('values',[dict(z=1),dict(rz=45),dict(x=float('nan'))])
+def test_joint_driven_actual_move_or_invalid_value_is_rejected_atomically(values):
+    current=execute(create('cylinder',target='base'),create('cylinder',target='shaft'),
+        action('joint','hinge',kind='revolute',parent='base',child='shaft',z=20)).design
+    before=current.model_dump()
+    with pytest.raises(ValueError):
+        execute(action('appearance','base',color='#112233'),action('transform','shaft',**values),current=current)
+    assert current.model_dump()==before
+
+
 def test_single_part_plan_compiles_one_base_and_features_with_individual_history():
     data=dict(summary='hollow part',base=create(),actions=[action('shell',thickness=2,open_faces=['+Z'])])
     reply=execute_plan(json.dumps(data),DraftRequest(prompt='single hollow part'),single_part=True)

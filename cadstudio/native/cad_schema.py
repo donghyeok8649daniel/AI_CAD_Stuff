@@ -2,7 +2,7 @@
 from copy import deepcopy
 
 
-def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False):
+def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,connections=(),new_parts=(),existing_parts=()):
     from .cad_tools import CADPlan
     number={'type':'number'};text={'type':'string'};boolean={'type':'boolean'}
     color={'type':'string','pattern':'^#[0-9A-Fa-f]{6}$'}
@@ -70,8 +70,23 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False):
     tool('thread',dict(diameter=number,pitch=number,length=number,internal=boolean,offset=number,
         handedness=enum('right','left'),clearance=number),('diameter','pitch','length'))
     tool('joint',dict(kind=enum('rigid','revolute','slider','cylindrical','ball','planar','pin_slot'),parent=text,child=text,
-        parent_anchor=text,child_anchor=text,limits={'type':'object'},**transform['properties']),('kind','parent','child'))
+        parent_anchor=enum('origin'),child_anchor=enum('origin'),
+        limits=obj({axis:array(number,2,2) for axis in ('x','y','z','rx','ry','rz')}),
+        **transform['properties']),('kind','parent','child'))
     tool('parameter',dict(value=text),('value',))
+    if new_parts:
+        for action in actions:
+            name=action['properties']['tool']['const']
+            if name=='create':action['properties']['target']=enum(*new_parts)
+            elif name not in ('joint','parameter'):action['properties']['target']=enum(*dict.fromkeys((*existing_parts,*new_parts)))
+    if connections:
+        joint = next(a for a in actions if a['properties']['tool']['const'] == 'joint')
+        actions.remove(joint)
+        for connection in connections:
+            constrained = deepcopy(joint)
+            for key, value in connection.items():
+                constrained['properties']['args']['properties'][key] = {'const': value}
+            actions.append(constrained)
     schema=deepcopy(CADPlan.model_json_schema())
     if allowed_tools is not None:actions=[a for a in actions if a['properties']['tool']['const'] in allowed_tools]
     if allowed_shapes is not None:shapes=[s for s in shapes if s['properties']['kind']['const'] in allowed_shapes]

@@ -3,6 +3,34 @@ import json,time,traceback
 from pathlib import Path
 
 
+def check_joint_replay(check):
+    # Replay the real-model failure: an identical placement after a joint
+    # must preserve the joint instead of rejecting the whole assembly.
+    from ..models import DraftRequest
+    from .cad_tools import execute_plan
+    from .document import Document
+    from ..constraints import solve_assembly
+    actions=[dict(tool='create',target='bushing',args=dict(name='bushing',geometry=dict(kind='cylinder',diameter=30,height=20,bore_diameter=10.2))),
+             dict(tool='create',target='shaft',args=dict(name='shaft',geometry=dict(kind='cylinder',diameter=10,height=20))),
+             dict(tool='joint',target='hinge',args=dict(kind='revolute',parent='bushing',child='shaft')),
+             dict(tool='transform',target='shaft',args=dict(z=0))]
+    replay=execute_plan(json.dumps(dict(summary="assembly replay",actions=actions)),DraftRequest(prompt='assembly replay'))
+    check(replay.tool_actions[-1]['outcome']=='already_satisfied' and solve_assembly(replay.design)['dof']==1,
+          'identical placement preserves a real revolute joint')
+    replay_doc=Document();replay_doc.commit(replay.design,'AI',dict(journal_base=replay.journal_base,journal_steps=replay.journal_steps))
+    check(len(replay_doc.journal.path())==5 and replay_doc.design['mates'][0]['id']=='hinge',
+          'redundant placement and joint remain in native CAD history')
+    from .cad_scope import Scope
+    required=dict(kind='revolute',parent='bushing',child='shaft')
+    scope=Scope.parse(json.dumps(dict(intent='assembly',tools=['create','joint'],shapes=['cylinder'],new_parts=['bushing','shaft'],connections=[required])),DraftRequest(prompt='assembly replay'))
+    check(scope.validate_result(replay) is replay,'requested motion and parent-child contract accepts matching CAD assembly')
+    wrong=replay.model_copy(deep=True);wrong.design.mates[0].kind='rigid'
+    rejected=False
+    try:scope.validate_result(wrong)
+    except ValueError:rejected=True
+    check(rejected and replay.design.mates[0].kind=='revolute','valid geometry with wrong joint motion is rejected without changing the original')
+
+
 def run(app,w,path):
     from PySide6.QtTest import QTest
     from .document import read_project
@@ -28,6 +56,7 @@ def run(app,w,path):
     try:
         app.setQuitOnLastWindowClosed(False);w.resize(1260,820);w.ai_dock.show();w.ai_dock.raise_()
         check(w.document.design is None and w.result is None,'native app starts with an empty design')
+        check_joint_replay(check)
         wait(lambda:bool(w.ollama_models.model_name()),15)
         report['model']=w.ollama_models.model_name();index=w.ai_timeout.findData(None)
         check(index>=0,'unlimited option exists in the wait menu');w.ai_timeout.setCurrentIndex(index)

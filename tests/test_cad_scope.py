@@ -142,3 +142,71 @@ def test_one_total_deadline_covers_both_phases(phase):
     with pytest.raises(ValueError, match='제한 시간'):
         ollama_draft(DraftRequest(prompt='설계'), 'test', httpx.MockTransport(handle), deadline=.5)
     assert len(calls) == (2 if phase == 'generation' else 1)
+
+
+def test_joint_grammar_constrains_native_anchor_and_limit_contract():
+    from cadstudio.native.cad_schema import plan_schema
+    schema=plan_schema(['create','joint'],['cylinder'])
+    joint=next(item for item in schema['properties']['actions']['items']['anyOf'] if item['properties']['tool']['const']=='joint')
+    args=joint['properties']['args']['properties']
+    assert args['parent_anchor']['enum']==args['child_anchor']['enum']==['origin']
+    limits=args['limits']
+    assert limits['additionalProperties'] is False
+    assert set(limits['properties'])=={'x','y','z','rx','ry','rz'}
+    assert 'min' not in limits['properties'] and 'max' not in limits['properties']
+    assert all(value['minItems']==value['maxItems']==2 and value['items']['type']=='number' for value in limits['properties'].values())
+
+
+@pytest.mark.parametrize('wrong', ['rigid', 'reversed', 'missing'])
+def test_requested_motion_and_parent_child_are_checked_and_repaired(wrong):
+    connection = dict(kind='revolute', parent='support', child='rotor')
+    generated = []
+    current = Design(parts=[])
+    before = current.model_dump()
+    def handle(request):
+        if is_scope(request):
+            selection = dict(intent='assembly', tools=['create', 'joint'], shapes=['cylinder'], new_parts=['support','rotor'], connections=[connection])
+            return httpx.Response(200, json=dict(done=True, message=dict(content=json.dumps(selection))))
+        body = json.loads(request.content); generated.append(body)
+        joint_schema = next(a for a in body['format']['properties']['actions']['items']['anyOf'] if a['properties']['tool']['const']=='joint')
+        create_schema = next(a for a in body['format']['properties']['actions']['items']['anyOf'] if a['properties']['tool']['const']=='create')
+        assert create_schema['properties']['target']['enum']==['support','rotor']
+        assert all(joint_schema['properties']['args']['properties'][k] == {'const':v} for k,v in connection.items())
+        assert 'support' in body['messages'][0]['content']
+        actions = [dict(tool='create', target=target, args=dict(name=target, geometry=dict(kind='cylinder', diameter=diameter, height=20, bore_diameter=bore)))
+                   for target, diameter, bore in [('support', 30, 10.2), ('rotor', 10, 0)]]
+        args = dict(connection)
+        if len(generated)==1:
+            if wrong=='rigid': args['kind']='rigid'
+            elif wrong=='reversed': args.update(parent='rotor', child='support')
+        if wrong!='missing' or len(generated)>1:
+            actions.append(dict(tool='joint', target='hinge', args=args))
+        return httpx.Response(200, json=dict(done=True, message=dict(content=json.dumps(dict(summary='assembly', actions=actions)))))
+    result = ollama_draft(DraftRequest(prompt='지지대는 고정하고 회전체만 회전시켜', current=current), 'test', httpx.MockTransport(handle))
+    assert result['attempts']==2 and 'Assembly requirement not met' in generated[1]['messages'][-1]['content']
+    assert result['planning']['connections']==(connection,)
+    mate=result['design']['mates'][0]
+    assert all(mate[k]==v for k,v in connection.items())
+    assert current.model_dump()==before
+    assert len(result['journal_steps'])==3
+
+
+def test_geometry_edit_does_not_invent_or_replace_existing_joint_requirements():
+    request=DraftRequest(prompt='기존 부품 길이만 변경')
+    scope=Scope.parse(json.dumps(dict(intent='edit', tools=['dimensions'], shapes=[], connections=[])), request.model_copy(update={'current':Design(parts=[Part(id='p', name='p', geometry=dict(kind='cylinder'))])}))
+    assert not scope.connections and scope.tools==('dimensions',)
+
+
+def test_planned_ids_include_unconnected_parts_and_reject_missing_components():
+    from cadstudio.native.cad_tools import execute_plan
+    request=DraftRequest(prompt='서로 떨어진 두 부품')
+    scope=Scope.parse(json.dumps(dict(intent='assembly',tools=['create'],shapes=['cylinder'],new_parts=['first','second'],connections=[])),request)
+    one=execute_plan(json.dumps(dict(summary='one only',actions=[dict(tool='create',target='first',args=dict(name='first',geometry=dict(kind='cylinder',diameter=10,height=20)))])),request)
+    with pytest.raises(ValueError,match='Missing planned parts: second'):
+        scope.validate_result(one)
+    assert scope.new_parts==('first','second') and not scope.connections
+
+
+def test_joint_selection_rejects_unknown_part_synonym_before_geometry_generation():
+    with pytest.raises(ValueError,match='Joint IDs must refer'):
+        Scope.parse(json.dumps(dict(intent='assembly',tools=['create','joint'],shapes=['cylinder'],new_parts=['housing','shaft'],connections=[dict(kind='revolute',parent='support',child='shaft')])),DraftRequest(prompt='조립'))

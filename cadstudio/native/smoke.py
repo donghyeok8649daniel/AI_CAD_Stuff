@@ -12,6 +12,12 @@ def kernel_self_test(path):
     from ..sketch_engine import sketch_status
     from .document import Document,read_project
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);report={}
+    from .ai_smoke import check_joint_replay
+    report['checks']=[]
+    def check(value,name):
+        if not value:raise AssertionError(name)
+        report['checks'].append(name)
+    check_joint_replay(check)
     for kind in ('round_specimen','extrusion','robot_arm'):
         d=preset(kind);r=preview(d);step=path.with_name(kind+'.step');export(d,step,'step');report[kind]=dict(valid=r['stats']['valid'],parts=len(d.parts),step_bytes=step.stat().st_size)
     g=Extrusion(sketch_mode='entities',entities=[dict(id='circle',kind='circle',center=dict(x=0,y=0),radius=10)],entity_constraints=[dict(id='origin',kind='fixed',a='circle',a_point='center'),dict(id='diameter',kind='diameter',a='circle',value=20)])

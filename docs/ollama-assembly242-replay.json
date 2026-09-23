@@ -1,0 +1,234 @@
+{
+  "success": true,
+  "finished": 1790202830.2730734,
+  "source": "actual-assembly241/report.json",
+  "note": "Replays recorded real model plans; no new model call.",
+  "checks": [
+    {
+      "attempt": 1,
+      "valid": true,
+      "volumes": [
+        12502.91044275666,
+        1570.7963267948965
+      ],
+      "dof": 1,
+      "history_entries": 5,
+      "outcome": "already_satisfied"
+    },
+    {
+      "attempt": 2,
+      "valid": true,
+      "volumes": [
+        12502.91044275666,
+        1570.7963267948965
+      ],
+      "dof": 1,
+      "history_entries": 5,
+      "outcome": "already_satisfied"
+    },
+    {
+      "attempt": 3,
+      "valid": true,
+      "volumes": [
+        12502.91044275666,
+        1570.7963267948965
+      ],
+      "dof": 1,
+      "history_entries": 5,
+      "outcome": "already_satisfied"
+    }
+  ],
+  "prompt": "회전 조립품을 만들어줘. 부품은 두 개: 외경 30 mm, 높이 20 mm, 중앙 관통 구멍 지름 10.2 mm인 부싱 하나와 지름 10 mm, 높이 20 mm인 축 하나. 둘 다 바닥 Z=0이고 중심축은 같은 Z축이야. 부싱을 고정하고 축이 부싱에 대해 Z축으로 회전하는 조인트 하나로 연결해. 다른 부품이나 장식은 추가하지 마.",
+  "recorded_plans": [
+    {
+      "plan": {
+        "construction": [
+          "create 부싱, cylinder, diameter 30, height 20, bore_diameter 10.2",
+          "create 축, cylinder, diameter 10, height 20",
+          "joint rigid, parent 부싱, child 축, parent_anchor origin, child_anchor origin, z 0,",
+          "transform, z 0"
+        ],
+        "summary": "부싱과 축을 Z축 회전 조인트로 연결한 회전 조립품",
+        "actions": [
+          {
+            "tool": "create",
+            "target": "_1",
+            "args": {
+              "name": "부싱",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 30,
+                "height": 20,
+                "bore_diameter": 10.2
+              }
+            }
+          },
+          {
+            "tool": "create",
+            "target": "_2",
+            "args": {
+              "name": "축",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 10,
+                "height": 20
+              }
+            }
+          },
+          {
+            "tool": "joint",
+            "target": "_3",
+            "args": {
+              "kind": "revolute",
+              "parent": "_1",
+              "child": "_2",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "z": 0
+            }
+          },
+          {
+            "tool": "transform",
+            "target": "_2",
+            "args": {
+              "z": 0
+            }
+          }
+        ],
+        "assumptions": [
+          "부싱과 축의 중심축은 Z축으로 동일하게 정렬",
+          "축은 부싱 위에 Z축으로 회전 가능하게 조립",
+          "부싱의 관통 구멍은 축의 지름보다 작음"
+        ]
+      },
+      "previous_error": "작업 4/4 [transform → _2] 실패: 관절이 위치를 구속한 부품입니다. 조인트를 편집하세요."
+    },
+    {
+      "plan": {
+        "construction": [
+          "create 부싱, cylinder, diameter 30, height 20, bore_diameter 10.2",
+          "create 축, cylinder, diameter 10, height 20",
+          "joint revolute, parent 부싱, child 축, parent_anchor origin, child_anchor origin, z",
+          "transform, z 0"
+        ],
+        "summary": "부싱과 축을 Z축 회전 조인트로 연결한 회전 조립품",
+        "actions": [
+          {
+            "tool": "create",
+            "target": "_1",
+            "args": {
+              "name": "부싱",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 30,
+                "height": 20,
+                "bore_diameter": 10.2
+              }
+            }
+          },
+          {
+            "tool": "create",
+            "target": "_2",
+            "args": {
+              "name": "축",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 10,
+                "height": 20
+              }
+            }
+          },
+          {
+            "tool": "joint",
+            "target": "_3",
+            "args": {
+              "kind": "revolute",
+              "parent": "_1",
+              "child": "_2",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "z": 0
+            }
+          },
+          {
+            "tool": "transform",
+            "target": "_2",
+            "args": {
+              "z": 0
+            }
+          }
+        ],
+        "assumptions": [
+          "부싱과 축의 중심축은 Z축으로 동일하게 정렬",
+          "축은 부싱 위에 Z축으로 회전 가능하게 조립",
+          "부싱의 관통 구멍은 축의 지름보다 작음"
+        ]
+      },
+      "previous_error": "작업 4/4 [transform → _2] 실패: 관절이 위치를 구속한 부품입니다. 조인트를 편집하세요."
+    },
+    {
+      "plan": {
+        "construction": [
+          "create 부싱, cylinder, diameter 30, height 20, bore_diameter 10.2",
+          "create 축, cylinder, diameter 10, height 20",
+          "joint revolute, parent 부싱, child 축, parent_anchor origin, child_anchor origin, z",
+          "transform, z 0"
+        ],
+        "summary": "부싱과 축을 Z축 회전 조인트로 연결한 회전 조립품",
+        "actions": [
+          {
+            "tool": "create",
+            "target": "_1",
+            "args": {
+              "name": "부싱",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 30,
+                "height": 20,
+                "bore_diameter": 10.2
+              }
+            }
+          },
+          {
+            "tool": "create",
+            "target": "_2",
+            "args": {
+              "name": "축",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 10,
+                "height": 20
+              }
+            }
+          },
+          {
+            "tool": "joint",
+            "target": "_3",
+            "args": {
+              "kind": "revolute",
+              "parent": "_1",
+              "child": "_2",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "z": 0
+            }
+          },
+          {
+            "tool": "transform",
+            "target": "_2",
+            "args": {
+              "z": 0
+            }
+          }
+        ],
+        "assumptions": [
+          "부싱과 축의 중심축은 Z축으로 동일하게 정렬",
+          "축은 부싱 위에 Z축으로 회전 가능하게 조립",
+          "부싱의 관통 구멍은 축의 지름보다 작음"
+        ]
+      },
+      "previous_error": "작업 4/4 [transform → _2] 실패: 관절이 위치를 구속한 부품입니다. 조인트를 편집하세요."
+    }
+  ],
+  "new_model_call": false
+}

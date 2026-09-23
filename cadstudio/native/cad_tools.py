@@ -54,7 +54,7 @@ For a vague request, start with a minimal useful mechanical concept, normally on
 TOOLS (only these args are accepted):
 create: {name,geometry,color?,transform?}. geometry is one of the shapes below. This adds one new editable part; target is its new ID. transform={x,y,z,rx,ry,rz}, defaults zero. Base primitives are centered in XY with bottom at Z=0. Separate independent parts using transform; leave intended assembly positions aligned.
 dimensions: {values:{dimension:value,...}}. Patch actual fields of an EXISTING part's base geometry, preserving all other fields. A new create ALREADY includes its dimensions; do not add a redundant dimensions action after create. Never invent fields such as diameter_top on a loft (its dimensions are inside sections). No kind change. Parameter-bound dimensions must be edited using parameter instead.
-transform: {x?,y?,z?,rx?,ry?,rz?}. Set absolute placement, unspecified coordinates preserved. Not allowed for joint-driven parts.
+transform: {x?,y?,z?,rx?,ry?,rz?}. Set absolute placement, unspecified coordinates preserved. Joint-driven parts accept only an already-satisfied placement; set joint offsets when creating the joint instead of moving its child afterward.
 appearance: {color?:"#RRGGBB",name?,material?:{name,density,youngs_modulus,poisson}}.
 hole: {face:"+Z",diameter,centers?:[[u,v],...],pattern?:PATTERN,depth?:number,through_all?:true,finish?:"plain"|"counterbore"|"countersink",head_diameter?,head_depth?,head_angle?}. Use centers OR pattern, never both. For symmetric repeated holes PREFER pattern; CAD computes exact positions. PATTERN is {kind:"rectangular",count_x:2,count_y:2,spacing_x:60,spacing_y:40,center:[0,0]} OR {kind:"circular",count:6,diameter:50,start_angle:0,center:[0,0]}. Rectangular pattern is CENTERED on center, spacing is between adjacent holes. Circular diameter is the bolt circle diameter. Default single center=[[0,0]], through_all=true. u,v are coordinates in the selected face frame about its CENTER. For +Z, u=X and v=Y. Other faces: u is projected X (or Y on ±X faces), v=normal cross u. Never specify face indices.
 pocket or pad: {face,profile,depth,through_all?:false}. profile is a 2D profile as below in the face frame. pad adds material outward AND AUTOMATICALLY FUSES it to the body. pocket removes material inward: a circular pocket produces a BORE, never a smaller solid outside diameter. To reduce external diameter by cutting, remove an annulus, not its inner disk. Prefer a circular pad to build a smaller solid section on top.
@@ -62,7 +62,7 @@ fillet or chamfer: {size,edges?:"all"|"+Z"|"-Z"|"+X"|"-X"|"+Y"|"-Y"}. A face dir
 shell: {thickness,open_faces?:["+Z"]}. Removes selected faces and hollows inward. Wall must be less than half the smallest dimension.
 solid: Modify an EXISTING solid ONLY when mirror/pattern/split/draft or boolean is requested. Creating a solid body (e.g. loft solid=true) does NOT require this tool. {operation:"mirror"|"linear_pattern"|"circular_pattern"|"split"|"draft"|"boolean", ...}. mirror: origin=[0,0,0],direction=[1,0,0],keep_original=true. linear_pattern: count,spacing=[dx,dy,dz],count_y=1. circular_pattern: count,angle=360,origin=[0,0,0],direction=[0,0,1]. split: origin,direction,keep_side="positive"|"negative"|"all". draft: angle,faces=["+X"],origin,direction. boolean: tool_part_id,boolean_mode="union"|"cut"|"intersect" (tool part remains as an editable reference; do not create unused tools).
 thread: {diameter,pitch,length,internal?:false,offset?:0,handedness?:"right"|"left",clearance?:0}. Selects the cylindrical face matching diameter (or internal pilot bore). Length 1..32 pitches, must fit the cylinder. Not cosmetic: creates actual thread geometry.
-joint: {kind:"rigid"|"revolute"|"slider"|"cylindrical"|"ball"|"planar"|"pin_slot",parent,child,parent_anchor?:"origin",child_anchor?:"origin",x?,y?,z?,rx?,ry?,rz?,limits?}. target=new joint ID. Parent/child are existing part IDs. Offsets relative to parent. Makes parent fixed if it has no parent joint. Do not join a part to itself.
+joint: {kind:"rigid"|"revolute"|"slider"|"cylindrical"|"ball"|"planar"|"pin_slot",parent,child,parent_anchor?:"origin",child_anchor?:"origin",x?,y?,z?,rx?,ry?,rz?,limits?:{rz:[minimum,maximum]}}. For revolute use rz limits in degrees (e.g. {rz:[-90,90]}), for slider use z limits in mm. Omit limits when no range was requested. Both anchors must be "origin"; use offsets for another location. target=new joint ID. Parent/child are existing part IDs. Offsets relative to parent. Makes parent fixed if it has no parent joint. Do not join a part to itself.
 parameter: {value:"expression"}. target=parameter name; update/add a dimension variable. Existing dimension bindings use the new value.
 
 SHAPES for create.geometry (kind and dimensions only, no tool/target inside geometry):
@@ -285,8 +285,15 @@ def _apply(raw,action):
         part['geometry']=TypeAdapter(Geometry).validate_python({**part['geometry'],**values}).model_dump();return
     if tool=='transform':
         _keys(args,Transform.model_fields)
-        if any(m['child']==target for m in raw['mates']):raise ValueError('관절이 위치를 구속한 부품입니다. 조인트를 편집하세요.')
-        part['transform']=Transform.model_validate({**part['transform'],**args}).model_dump();return
+        desired=Transform.model_validate({**part['transform'],**args}).model_dump()
+        driving=next((m for m in raw['mates'] if m['child']==target),None)
+        if driving:
+            if all(math.isclose(value,part['transform'][key],rel_tol=0,abs_tol=1e-9) for key,value in desired.items()):
+                return dict(outcome='already_satisfied',detail='조립 구속이 이미 요청한 위치를 유지합니다. 구속과 부품 위치를 보존했습니다.')
+            raise ValueError('관절이 위치를 구속한 부품입니다. '+
+                f'Joint {driving["id"]} drives {target}; current placement is {part["transform"]}. '+
+                'Remove this transform action. For a new joint, set its offsets in the joint action instead. Do not break an existing joint to reposition its child.')
+        part['transform']=desired;return
     if tool=='appearance':
         _keys(args,('name','color','material'))
         part.update(args);Part.model_validate(part);return
@@ -331,7 +338,8 @@ def _apply(raw,action):
                         limits=f'u=[{min(p.x for p in corners):g},{max(p.x for p in corners):g}], v=[{min(p.y for p in corners):g},{max(p.y for p in corners):g}]'
                         raise ValueError(f'구멍 중심 {center}가 재료에 닿지 않아 부피 변화가 없습니다. 이미 있는 구멍보다 작은 지름의 절삭도 불가능합니다. '
                                          f'Hole center {center} cuts no material. Face coordinates are CENTERED, not measured from a corner; enclosing bounds: {limits}. '
-                                         'For symmetric holes, REPLACE centers with pattern={kind:"rectangular",count_x:2,count_y:2,spacing_x:REQUESTED_X_SPACING,spacing_y:REQUESTED_Y_SPACING}. Do not repeat the failed coordinates. Preserve requested spacings.')
+                                         'First check existing base bores and previous cuts. If the requested opening already exists, REMOVE this redundant hole action; do not move it elsewhere or add a pattern. '
+                                         'Only when the ORIGINAL request explicitly asks for symmetric multiple holes, use a rectangular/circular pattern with exactly its requested count and spacings. Do not invent extra openings.')
                     if args.get('finish','plain')=='plain':existing.append(center);continue
                 retained.append(center)
             if not retained:return dict(outcome='already_satisfied',detail='같은 위치·지름·깊이의 구멍이 이미 있습니다. 실제 원통 면으로 확인했습니다.')

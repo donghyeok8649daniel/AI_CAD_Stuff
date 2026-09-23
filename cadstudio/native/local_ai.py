@@ -104,8 +104,8 @@ def ollama_draft(request,model,transport=None,*,control=None,progress=None,deadl
                 scope=Scope();progress('도구 선택을 해석하지 못해 전체 CAD 도구로 계획합니다…')
             control.check()
             result=await _ollama_reply(client,model,scope.plan_messages(request),control,progress,request.current,
-                schema=plan_schema(scope.tools,scope.shapes,single_part=scope.intent=='part'),parser=lambda content:execute_plan(content,request,check=control.check,progress=progress,single_part=scope.intent=='part'),context_size=8192)
-            result['planning']=dict(intent=scope.intent,tools=scope.tools,shapes=scope.shapes)
+                schema=plan_schema(scope.tools,scope.shapes,single_part=scope.intent=='part',connections=scope.connections,new_parts=scope.new_parts,existing_parts=[p.id for p in request.current.parts] if request.current else ()),parser=lambda content:scope.validate_result(execute_plan(content,request,check=control.check,progress=progress,single_part=scope.intent=='part')),context_size=8192)
+            result['planning']=dict(intent=scope.intent,tools=scope.tools,shapes=scope.shapes,connections=scope.connections,new_parts=scope.new_parts)
             return result
     result=asyncio.run(control.execute(generate,deadline))
     if request.current:

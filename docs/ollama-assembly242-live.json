@@ -1,0 +1,155 @@
+{
+  "model": "qwen3:8b",
+  "execution": "source provider; native EXE module equality verified separately",
+  "cases": [
+    {
+      "name": "bushing-shaft-assembly",
+      "prompt": "회전 조립품을 만들어줘. 부품은 두 개: 외경 30 mm, 높이 20 mm, 중앙 관통 구멍 지름 10.2 mm인 부싱 하나와 지름 10 mm, 높이 20 mm인 축 하나. 둘 다 바닥 Z=0이고 중심축은 같은 Z축이야. 부싱을 고정하고 축이 부싱에 대해 Z축으로 회전하는 조인트 하나로 연결해. 다른 부품이나 장식은 추가하지 마.",
+      "seconds": 222.547,
+      "checks": [
+        "two exact connected solids",
+        "requested diameters/heights",
+        "exact bore volume",
+        "no body overlap",
+        "fixed bushing and revolute shaft",
+        "one rotational DOF",
+        "45-degree solved pose"
+      ],
+      "attempts": 1,
+      "planning": {
+        "intent": "assembly",
+        "tools": [
+          "create",
+          "hole",
+          "shell",
+          "joint"
+        ],
+        "shapes": [
+          "cylinder"
+        ],
+        "connections": [
+          {
+            "kind": "revolute",
+            "parent": "bearing",
+            "child": "shaft"
+          }
+        ],
+        "new_parts": [
+          "bearing",
+          "shaft"
+        ]
+      },
+      "actions": [
+        {
+          "step": 1,
+          "tool": "create",
+          "target": "bearing",
+          "args": {
+            "name": "bushing",
+            "geometry": {
+              "kind": "cylinder",
+              "diameter": 30,
+              "height": 20,
+              "bore_diameter": 10.2
+            }
+          },
+          "validated": true
+        },
+        {
+          "step": 2,
+          "tool": "create",
+          "target": "shaft",
+          "args": {
+            "name": "shaft",
+            "geometry": {
+              "kind": "cylinder",
+              "diameter": 10,
+              "height": 20
+            }
+          },
+          "validated": true
+        },
+        {
+          "step": 3,
+          "tool": "hole",
+          "target": "bearing",
+          "args": {
+            "face": "+Z",
+            "diameter": 10.2,
+            "centers": [
+              [
+                0,
+                0
+              ]
+            ],
+            "through_all": true
+          },
+          "validated": true,
+          "outcome": "already_satisfied",
+          "detail": "같은 위치·지름·깊이의 구멍이 이미 있습니다. 실제 원통 면으로 확인했습니다."
+        },
+        {
+          "step": 4,
+          "tool": "joint",
+          "target": "joint_1",
+          "args": {
+            "kind": "revolute",
+            "parent": "bearing",
+            "child": "shaft",
+            "parent_anchor": "origin",
+            "child_anchor": "origin"
+          },
+          "validated": true
+        }
+      ]
+    },
+    {
+      "name": "edit-assembled-shaft",
+      "prompt": "현재 조립에서 축 부품 shaft의 높이만 30 mm로 바꿔. 부싱 부품 bearing의 형상과 모든 부품 ID, 부품 색상, 위치, 조립 구속은 그대로 유지해. 새 부품을 만들지 마.",
+      "seconds": 164.266,
+      "checks": [
+        "existing IDs preserved",
+        "bushing unchanged",
+        "joint preserved",
+        "color and placement preserved",
+        "shaft height 30",
+        "exact shaft volume"
+      ],
+      "attempts": 1,
+      "planning": {
+        "intent": "edit",
+        "tools": [
+          "dimensions"
+        ],
+        "shapes": [
+          "cylinder",
+          "plate",
+          "extrusion",
+          "revolve",
+          "sweep",
+          "loft",
+          "bracket",
+          "link",
+          "sheetmetal",
+          "round_specimen",
+          "flat_specimen"
+        ],
+        "connections": [],
+        "new_parts": []
+      },
+      "actions": [
+        {
+          "step": 1,
+          "tool": "dimensions",
+          "target": "shaft",
+          "args": {
+            "values": {
+              "height": 30.0
+            }
+          },
+          "validated": true
+        }
+      ]
+    }
+  ]
+}
