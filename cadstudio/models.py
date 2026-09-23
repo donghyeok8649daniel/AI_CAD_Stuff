@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator, model_serializer
 
 
 class StrictModel(BaseModel):
@@ -249,6 +249,12 @@ class EntityConstraint(StrictModel):
     mode: Literal['external','internal'] = 'external'
 
 
+class SketchGroup(StrictModel):
+    id: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
+    name: str = Field(min_length=1,max_length=80)
+    entity_ids: list[str] = Field(min_length=1,max_length=128)
+
+
 class Extrusion(StrictModel):
     kind: Literal["extrusion"] = "extrusion"
     thickness: Dimension = 8
@@ -259,9 +265,22 @@ class Extrusion(StrictModel):
     entities: list[SketchEntity] = Field(default_factory=list,max_length=128)
     entity_constraints: list[EntityConstraint] = Field(default_factory=list,max_length=160)
     profiles: list[Annotated[int,Field(ge=0,le=255)]] = Field(default_factory=list,max_length=64)
+    groups: list[SketchGroup] = Field(default_factory=list,max_length=32)
+
+    @model_serializer(mode='wrap')
+    def compatible_groups(self,handler):
+        data=handler(self)
+        # Old history entries contain entire sketches. Do not inject a new empty
+        # field into their exact before/after snapshots.
+        if not self.groups:data.pop('groups',None)
+        return data
 
     @model_validator(mode="after")
     def simple_polygon(self):
+        ids={e.id for e in self.entities}
+        if len({g.id for g in self.groups})!=len(self.groups):raise ValueError('스케치 그룹 ID가 중복됩니다.')
+        for group in self.groups:
+            if len(set(group.entity_ids))!=len(group.entity_ids) or not set(group.entity_ids)<=ids:raise ValueError('그룹이 존재하지 않거나 중복된 스케치 요소를 참조합니다.')
         if self.sketch_mode=='entities':
             from .sketch_engine import solve_entities
             self.entities,_=solve_entities(self.entities,self.entity_constraints)

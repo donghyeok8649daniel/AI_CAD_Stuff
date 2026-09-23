@@ -36,7 +36,7 @@ def test_ollama_fixed_loopback_and_structured_response():
     response={'design':preset('cylinder').model_dump(),'summary':'Cylinder','assumptions':[]};requests=[]
     def handle(request):
         requests.append(request);return httpx.Response(200,json={'done':True,'message':{'content':json.dumps(response)}})
-    result=ollama_draft(DraftRequest(prompt='원통 직경 30'), 'test-local',httpx.MockTransport(handle));assert result['provider']=='ollama';assert str(requests[0].url)=='http://127.0.0.1:11434/api/chat';payload=json.loads(requests[0].content);assert payload['format']['type']=='object' and payload['stream'] is False;assert 'authorization' not in requests[0].headers
+    result=ollama_draft(DraftRequest(prompt='원통 직경 30'), 'test-local',httpx.MockTransport(handle));assert result['provider']=='ollama';assert str(requests[0].url)=='http://127.0.0.1:11434/api/chat';payload=json.loads(requests[0].content);assert payload['format']['type']=='object' and payload['stream'] is True;assert 'authorization' not in requests[0].headers
 
 def test_ollama_invalid_design_has_one_repair_limit():
     requests=[]

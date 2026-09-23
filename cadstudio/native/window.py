@@ -4,11 +4,12 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from uuid import uuid4
-from PySide6.QtCore import Qt,QTimer,QThreadPool,QSize
+from PySide6.QtCore import Qt,QTimer,QThreadPool,QSize,Slot
 from PySide6.QtGui import QAction,QKeySequence,QColor,QIcon
-from PySide6.QtWidgets import (QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QDockWidget,QTreeWidget,QTreeWidgetItem,QListWidget,QListWidgetItem,QAbstractItemView,QStackedWidget,QScrollArea,QToolBar,QToolButton,QMenu,QLineEdit,QComboBox,QCheckBox,QPlainTextEdit,QFileDialog,QMessageBox,QDialog,QDialogButtonBox,QColorDialog,QProgressBar,QLabel,QSplitter)
+from PySide6.QtWidgets import (QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QDockWidget,QTreeWidget,QTreeWidgetItem,QListWidget,QListWidgetItem,QAbstractItemView,QStackedWidget,QScrollArea,QToolBar,QToolButton,QMenu,QLineEdit,QComboBox,QCheckBox,QPlainTextEdit,QFileDialog,QMessageBox,QDialog,QDialogButtonBox,QColorDialog,QProgressBar,QLabel,QSplitter,QInputDialog)
 from .document import Document,read_project
 from .widgets import icon,number,label,button,clear_layout,Worker
 from .viewport import CADViewport
@@ -28,10 +29,12 @@ ROOT=Path(__file__).resolve().parents[2]
 class MainWindow(QMainWindow):
     def __init__(self,restore=True):
         super().__init__();self.setObjectName('nativeCADMainWindow');self.resize(1500,920);self.setMinimumSize(820,560)
-        self.document=Document();self.result=None;self.selected=None;self.selected_sketch=None;self.busy=False;self.worker=None;self.sketching=False;self.joint_picks=None;self.last_draft=None;self.data_dir=DATA_DIR;self.data_dir.mkdir(parents=True,exist_ok=True);self.autosave=self.data_dir/'native-autosave.cad.json';self.operation_serial=0
+        self.document=Document();self.result=None;self.selected=None;self.selected_sketch=None;self.busy=False;self.worker=None;self.sketching=False;self.joint_picks=None;self.last_draft=None;self.ai_task=None;self.ai_stage='';self.ai_started=0;self.data_dir=DATA_DIR;self.data_dir.mkdir(parents=True,exist_ok=True);self.autosave=self.data_dir/'native-autosave.cad.json';self.operation_serial=0
         self.stack=QStackedWidget();self.setCentralWidget(self.stack);self.viewport=CADViewport();self.editor=SketchEditor();self.stack.addWidget(self.viewport);self.stack.addWidget(self.editor);self.viewport.part_selected.connect(self.select_part);self.viewport.face_selected.connect(self.face_selected);self.viewport.message.connect(self.message);self.editor.apply_requested.connect(self.apply_sketch);self.editor.finished_requested.connect(self.finish_sketch);self.viewport.sketch_selected.connect(self.select_sketch);self.editor.cancelled.connect(self.cancel_sketch)
         self.actions={};brand=QLabel('PROMPT  /  CAD');brand.setStyleSheet('color:#76d5c2;font-size:11px;font-weight:600;padding:0 14px;');self.menuBar().setCornerWidget(brand,Qt.Corner.TopRightCorner);self.make_menus();self.make_toolbar();self.make_browser();self.make_properties();self.make_timeline();self.make_ai()
         self.progress=QProgressBar();self.progress.setRange(0,0);self.progress.setFixedWidth(140);self.progress.setMaximumHeight(12);self.progress.hide();self.statusBar().addPermanentWidget(self.progress);self.statusBar().addPermanentWidget(QLabel(f'  mm  ·  NATIVE {__version__}  '));self.message('새 스케치에서 시작하거나 부품을 추가하세요.');self.rebuild_tree();self.show_properties();self.title()
+        self.ai_timer=QTimer(self);self.ai_timer.setInterval(500);self.ai_timer.timeout.connect(self.ai_tick)
+        self.ai_status_button=button('AI 생성 취소',self.cancel_ai);self.ai_status_button.hide();self.statusBar().addPermanentWidget(self.ai_status_button)
         if restore and self.autosave.exists():QTimer.singleShot(120,lambda:self.open_project(self.autosave,recovery=True))
     def action(self,key,title,fn,shortcut=None,ico=None):
         a=QAction(icon(ico),title,self) if ico else QAction(title,self);a.triggered.connect(fn)
@@ -72,7 +75,7 @@ class MainWindow(QMainWindow):
         b.setMenu(menu);self.add_part_action=self.toolbar.addWidget(b)
         for key in ('face_joint','drive','robot','mate'):self.add_mode_tool('assembly',key)
         self.add_mode_tool('assembly','loop');self.add_mode_tool('assembly','robot_study')
-        self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure']);self.toolbar.addSeparator()
+        self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure']);self.toolbar.addAction(self.actions['color']);self.toolbar.addSeparator()
         for key in ('undo','redo','fit'):self.toolbar.addAction(self.actions[key])
         self.toolbar.addAction(icon('ai'),'설계 명령',lambda:self.ai_dock.setVisible(not self.ai_dock.isVisible()));self.workspace.currentIndexChanged.connect(self.workspace_changed);self.workspace_changed()
     def add_mode_tool(self,mode,key):
@@ -203,11 +206,11 @@ class MainWindow(QMainWindow):
         self.key=QLineEdit();self.key.setEchoMode(QLineEdit.EchoMode.Password);self.key.setPlaceholderText('API 키 · 이번 실행 동안만 사용');self.key.setVisible(False);v.addWidget(self.key);self.model=QLineEdit('gpt-4.1');self.model.setPlaceholderText('모델 이름');self.model.setVisible(False);v.addWidget(self.model);self.provider.currentIndexChanged.connect(self.provider_changed)
         from .model_picker import LocalModelPicker
         self.ollama_models=LocalModelPicker(self);self.ollama_models.hide();v.addWidget(self.ollama_models);v.addWidget(button('로컬 AI 설치 / 모델 다운로드',self.install_local_ai))
-        self.prompt=QPlainTextEdit();self.prompt.setObjectName('designPrompt');self.prompt.setPlaceholderText('만들 형상과 치수, 바꿀 부분을 입력하세요.');self.prompt.setMinimumHeight(100);self.prompt.setMaximumHeight(170);v.addWidget(self.prompt);self.generate_button=button('설계 초안 생성',self.generate_draft,True);v.addWidget(self.generate_button);self.ai_result=QPlainTextEdit();self.ai_result.setReadOnly(True);self.ai_result.setMinimumHeight(130);v.addWidget(self.ai_result);self.accept_draft=button('검증된 초안 적용',self.apply_draft,True);self.accept_draft.setEnabled(False);v.addWidget(self.accept_draft);v.addWidget(label('명령은 치수·형상 데이터로 해석됩니다. 생성된 코드를 실행하지 않습니다. 적용한 결과는 작업 기록에 남습니다.',True));v.addStretch();self.ai_dock=self.dock('설계 명령 / AI','aiDock',Qt.DockWidgetArea.RightDockWidgetArea,w);self.tabifyDockWidget(self.property_dock,self.ai_dock);self.property_dock.raise_();self.ai_dock.hide()
+        self.prompt=QPlainTextEdit();self.prompt.setObjectName('designPrompt');self.prompt.setPlaceholderText('만들 형상과 치수, 바꿀 부분을 입력하세요.');self.prompt.setMinimumHeight(100);self.prompt.setMaximumHeight(170);v.addWidget(self.prompt);self.generate_button=button('설계 초안 생성',self.generate_draft,True);v.addWidget(self.generate_button);self.cancel_ai_button=button('생성 취소',self.cancel_ai);self.cancel_ai_button.hide();v.addWidget(self.cancel_ai_button);self.ai_result=QPlainTextEdit();self.ai_result.setReadOnly(True);self.ai_result.setMinimumHeight(130);v.addWidget(self.ai_result);self.accept_draft=button('검증된 초안 적용',self.apply_draft,True);self.accept_draft.setEnabled(False);v.addWidget(self.accept_draft);v.addWidget(label('명령은 치수·형상 데이터로 해석됩니다. 생성된 코드를 실행하지 않습니다. 적용한 결과는 작업 기록에 남습니다.',True));v.addStretch();self.ai_scroll=QScrollArea();self.ai_scroll.setWidgetResizable(True);self.ai_scroll.setMinimumWidth(270);self.ai_scroll.setWidget(w);self.ai_dock=self.dock('설계 명령 / AI','aiDock',Qt.DockWidgetArea.RightDockWidgetArea,self.ai_scroll);self.tabifyDockWidget(self.property_dock,self.ai_dock);self.property_dock.raise_();self.ai_dock.hide()
     def message(self,text):self.statusBar().showMessage(text,15000)
     def title(self):self.setWindowTitle((self.document.design['name'] if self.document.design else '새 설계')+(' *' if self.document.dirty else '')+' — '+APP_NAME+' · Native')
     def set_busy(self,busy,message=''):
-        self.busy=busy;self.progress.setVisible(busy);self.toolbar.setEnabled(not busy and not self.sketching);self.tree.setEnabled(not busy and not self.sketching);self.properties.setEnabled(not busy);self.timeline.setEnabled(not busy and not self.sketching);self.generate_button.setEnabled(not busy);self.accept_draft.setEnabled(not busy and self.last_draft is not None);self.editor.setEnabled(not busy)
+        self.busy=busy;self.progress.setVisible(busy);self.toolbar.setEnabled(not busy and not self.sketching);self.tree.setEnabled(not busy and not self.sketching);self.properties.setEnabled(not busy);self.timeline.setEnabled(not busy and not self.sketching);self.generate_button.setEnabled(not busy and not self.sketching and self.ai_task is None);self.accept_draft.setEnabled(not busy and not self.sketching and self.last_draft is not None);self.editor.setEnabled(not busy)
         for key,a in self.actions.items():a.setEnabled(not busy and (not self.sketching or key in ('undo','redo','fit')))
         if message:self.message(message)
     def run(self,fn,done,message='CAD 형상 계산 중…',failed=None):
@@ -292,7 +295,9 @@ class MainWindow(QMainWindow):
         elif data[0]=='loop':self.closure_dialog(data[1])
         elif data[0]=='study' and data[2] in ('robot','tensile','drawing','fit'):self.study_dialog(data[2],data[1])
         elif data[0]=='base' and self.part()['geometry']['kind'] in ('sweep','loft'):self.modelling_dialog(self.part()['geometry']['kind'],part_id=data[1])
-    def select_part(self,identifier):self.selected_sketch=None;self.selected=identifier;self.viewport.select(identifier);self.show_properties()
+    def select_part(self,identifier):
+        self.selected_sketch=None;self.selected=identifier;self.viewport.select(identifier);self.show_properties()
+        if identifier and not self.sketching:self.property_dock.show();self.property_dock.raise_()
     def select_sketch(self,identifier):
         self.selected_sketch=identifier;self.selected=None;self.viewport.select(None);self.viewport.clear_face()
         saved=next((s for s in (self.document.design or {}).get('sketches',[]) if s['id']==identifier),None)
@@ -313,6 +318,7 @@ class MainWindow(QMainWindow):
             self.property_layout.insertWidget(1,label(f"선택 면 {face['index']+1} · "+('평면' if face['planar'] else '곡면')))
             if face['planar']:
                 self.property_layout.insertWidget(2,button('이 면에서 스케치',self.start_face_sketch,True));self.property_layout.insertWidget(3,button('이 면에 구멍 뚫기',self.hole_dialog))
+                if self.document.design.get('sketches'):self.property_layout.insertWidget(4,button('저장 스케치 / 그룹 재사용',self.reuse_sketch_on_face))
     def show_properties(self):
         clear_layout(self.property_layout);part=self.part()
         if not part:
@@ -324,7 +330,7 @@ class MainWindow(QMainWindow):
             if key=='hole_count':w=combo([(n,str(n)) for n in (0,2,4)]);w.setCurrentIndex(w.findData(value))
             else:w=number(value,0 if key in ('bore_diameter','flat_depth') else .01,2000,' '+unit)
             inputs[key]=w;form.addRow(title,w)
-        self.property_layout.addLayout(form)
+        color_button=button('●  부품 색상 변경',lambda:self.color_part(part['id']));color_button.setObjectName('partColorButton');color_button.setStyleSheet(f"border-left:6px solid {part['color']};text-align:left;padding:8px;");self.property_layout.addWidget(color_button);self.property_layout.addLayout(form)
         if g['kind'] in ('round_specimen','flat_specimen','wafer'):self.property_layout.insertWidget(1,button('시편 치수 · 3D 미리보기',self.specimen_dialog,True))
         if any(m['child']==part['id'] and m['kind']!='rigid' for m in self.document.design['mates']):self.property_layout.insertWidget(1,button('관절 구동 · 간섭 확인',self.drive_joints,True))
         if g['kind']=='extrusion':self.property_layout.addWidget(button('기본 스케치 편집',lambda:self.edit_sketch()))
@@ -342,9 +348,10 @@ class MainWindow(QMainWindow):
             for key,w in inputs.items():p['geometry'][key]=w.currentData() if isinstance(w,QComboBox) else w.value()
             for key,w in trans.items():p['transform'][key]=w.value()
             self.apply_design(data,'부품 치수 / 배치 편집',{'part_id':part['id'],'tool':'parameters'})
-        self.property_layout.addWidget(button('치수 / 배치 적용',apply,True));self.property_layout.addWidget(button('부품 색상',lambda:self.color_part(part['id'])));self.property_layout.addWidget(button('부품 복제',self.duplicate_part));self.property_layout.addWidget(button('선택 부품 삭제',self.delete_part));self.property_layout.addStretch()
+        self.property_layout.addWidget(button('치수 / 배치 적용',apply,True));self.property_layout.addWidget(button('부품 복제',self.duplicate_part));self.property_layout.addWidget(button('선택 부품 삭제',self.delete_part));self.property_layout.addStretch()
     def color_part(self,identifier):
-        if self.busy or self.sketching or not identifier:return
+        if self.busy or self.sketching:return
+        if not identifier:self.message('색을 바꿀 부품을 화면이나 설계 브라우저에서 먼저 선택하세요.');return
         part=next((p for p in self.document.design['parts'] if p['id']==identifier),None)
         if part is None:return
         color=QColorDialog.getColor(QColor(part['color']),self,'부품 색상')
@@ -392,6 +399,20 @@ class MainWindow(QMainWindow):
         identifier,face=self.viewport.face
         if not face or not face['planar']:self.message('곡면에는 스케치를 시작할 수 없습니다. 평평한 면을 선택하세요.');return
         part=next(p for p in self.document.design['parts'] if p['id']==identifier);context={'part_id':identifier,'face':deepcopy(face),'support_feature':part['features'][-1]['id'] if part['features'] else 'base','title':f"{part['name']} · 면 {face['index']+1} 스케치"};self.start_sketch(context=context)
+    def reuse_sketch_on_face(self,sketch_id=None):
+        if self.busy or self.sketching or not self.viewport.face:return
+        identifier,face=self.viewport.face
+        if not face or not face['planar']:self.message('스케치를 재사용할 평평한 면을 선택하세요.');return
+        sketches=(self.document.design or {}).get('sketches',[])
+        if not sketches:return
+        if not isinstance(sketch_id,str):
+            names=[f"{i+1}. {s['name']} · 그룹 {len(s['geometry'].get('groups',[]))}개" for i,s in enumerate(sketches)]
+            choice,ok=QInputDialog.getItem(self,'스케치 / 그룹 재사용','선택 면에 복사할 스케치',names,0,False)
+            if not ok:return
+            sketch_id=sketches[names.index(choice)]['id']
+        saved=next(s for s in sketches if s['id']==sketch_id);part=next(p for p in self.document.design['parts'] if p['id']==identifier)
+        context=dict(part_id=identifier,face=deepcopy(face),support_feature=part['features'][-1]['id'] if part['features'] else 'base',title=saved['name']+' · 선택 면에서 재사용',source_sketch_id=sketch_id,operation='cut')
+        self.start_sketch(g=saved['geometry'],context=context);self.editor.tabs.setCurrentIndex(3);self.editor.status.setText('선택 면의 좌표계에 복사했습니다. 위치·영역·깊이를 확인하고 돌출 또는 절삭하세요.')
     def edit_sketch(self,feature_id=None):
         if isinstance(feature_id,bool):feature_id=None
         if self.selected_sketch:self.edit_saved_sketch(self.selected_sketch);return
@@ -414,7 +435,7 @@ class MainWindow(QMainWindow):
             self.apply_sketch(g,context,operation);return
         if not g['entities'] and not context.get('sketch_id'):self.cancel_sketch();return
         data=deepcopy(self.document.design) if self.document.design else dict(name='스케치 설계',parts=[],mates=[],sketches=[])
-        identifier=context.get('sketch_id') or 'sketch-'+uid();saved_context={k:deepcopy(v) for k,v in context.items() if k not in ('tool_actions','sketch_id')};saved_context['operation']=operation
+        identifier=context.get('sketch_id') or 'sketch-'+uid();saved_context={k:deepcopy(v) for k,v in context.items() if k not in ('tool_actions','sketch_id','source_sketch_id')};saved_context['operation']=operation
         old=next((s for s in data.get('sketches',[]) if s['id']==identifier),None)
         saved=dict(id=identifier,name=old['name'] if old else '스케치 '+str(len(data.get('sketches',[]))+1),geometry=g,context=saved_context)
         data['sketches']=[s for s in data.get('sketches',[]) if s['id']!=identifier]+[saved]
@@ -424,6 +445,7 @@ class MainWindow(QMainWindow):
     def apply_sketch(self,g,context,operation):
         if self.busy:return
         data=deepcopy(self.document.design) if self.document.design else dict(name='스케치 설계',parts=[],mates=[]);title='스케치 돌출 생성'
+        source_context=deepcopy(context)
         if context.get('edit_base'):
             p=next(p for p in data['parts'] if p['id']==context['part_id']);p['geometry']=g;title='기본 스케치 편집'
         elif context.get('feature_id'):
@@ -432,7 +454,11 @@ class MainWindow(QMainWindow):
             p=next(p for p in data['parts'] if p['id']==context['part_id']);face=context['face'];title='구멍 / 포켓 절삭' if operation=='cut' else '면 스케치 돌출';f=dict(id='feature-'+uid(),name=f"{title} {len(p['features'])+1}",face=face['index'],support_face_count=face['face_count'],support_feature=context['support_feature'],origin=face['origin'],normal=face['normal'],x_direction=face['x_direction'],operation=operation,sketch=g);p['features'].append(f);context['feature_id']=f['id']
         else:
             plane=context.get('plane','XY');transform={'rx':90} if plane=='XZ' else {'rx':90,'rz':90} if plane=='YZ' else {};p=Part(id='part-'+uid(),name='스케치 돌출 '+str(len(data['parts'])+1),geometry=g,transform=transform).model_dump();data['parts'].append(p);context['part_id']=p['id']
-        if context.get('sketch_id'):data['sketches']=[s for s in data.get('sketches',[]) if s['id']!=context['sketch_id']]
+        if not source_context.get('edit_base') and not source_context.get('feature_id'):
+            identifier=source_context.get('sketch_id') or 'sketch-'+uid();saved_context={k:deepcopy(v) for k,v in source_context.items() if k not in ('tool_actions','sketch_id','source_sketch_id')};saved_context['operation']=operation
+            old=next((s for s in data.get('sketches',[]) if s['id']==identifier),None)
+            saved=dict(id=identifier,name=old['name'] if old else f"스케치 {len(data.get('sketches',[]))+1}",geometry=deepcopy(g),context=saved_context)
+            data['sketches']=[s for s in data.get('sketches',[]) if s['id']!=identifier]+[saved];context['sketch_id']=identifier
         context.update(tool='sketch',operation=operation,sketch=g);self.apply_design(data,title,context,fit=True,after=self.cancel_sketch)
     def fit(self):self.editor.canvas.fit() if self.sketching else self.viewport.fit()
     def rebuild_timeline(self):
@@ -511,12 +537,14 @@ class MainWindow(QMainWindow):
         return True
     def new_document(self):
         if self.busy or self.sketching or not self.check_save():return
+        self.cancel_ai();self.operation_serial+=1;self.accept_draft.setEnabled(False)
         self.document=Document();self.result=None;self.selected=None;self.selected_sketch=None;self.last_draft=None;self.viewport.load(None);self.viewport.hidden.clear();self.rebuild_tree();self.rebuild_timeline();self.show_properties();self.title();self.autosave.unlink(missing_ok=True)
     def open_project(self,path=None,recovery=False):
         if self.busy or self.sketching:return
         if not recovery and not self.check_save():return
         if not path:path,_=QFileDialog.getOpenFileName(self,'CAD 프로젝트 열기',str(self.document.path.parent if self.document.path else ROOT/'examples'),'CAD 프로젝트 (*.cad.json *.json)')
         if not path:return
+        self.cancel_ai()
         path=Path(path)
         def work():
             with KERNEL_LOCK:project=read_project(path);r=preview(project.design);return project,r
@@ -557,18 +585,18 @@ class MainWindow(QMainWindow):
         dialog=AISetupDialog(self);dialog.exec()
         if dialog.model_name:self.ollama_models.models.setCurrentIndex(-1);self.ollama_models.preferred=dialog.model_name;self.provider.setCurrentIndex(self.provider.findData('ollama'));self.ollama_models.refresh()
     def generate_draft(self):
-        if self.busy or self.sketching:return
+        if self.busy or self.sketching or self.ai_task:return
         prompt=self.prompt.toPlainText().strip()
-        if not prompt:self.message('설계 명령을 입력하세요.');return
+        if not prompt:self.ai_result.setPlainText('설계 명령을 입력하세요. 예: 직경 20 mm, 높이 10 mm인 원통을 만들어줘.');self.prompt.setFocus();return
         if len(prompt)>4000:self.show_error('명령은 4,000자 이내로 입력하세요.');return
         provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;self.last_draft=None;self.accept_draft.setEnabled(False)
-        if provider=='ollama' and not model:self.message('설치된 Ollama 모델을 먼저 선택하세요.');return
-        def work():
+        if provider=='ollama' and not model:self.ai_result.setPlainText('Ollama 모델을 먼저 선택하세요. 새로 찾기를 누르거나 로컬 AI 설치 / 모델 다운로드를 사용하세요.');return
+        def work(control,progress):
             from ..planner import local_draft,openai_draft
             if provider=='local':result=local_draft(request)
             elif provider=='ollama':
                 from .local_ai import ollama_draft
-                result=ollama_draft(request,model)
+                result=ollama_draft(request,model,control=control,progress=progress)
             else:
                 if not key:raise ValueError('API 키를 입력하거나 OPENAI_API_KEY 환경변수를 설정하세요.')
                 from openai import OpenAI
@@ -576,14 +604,47 @@ class MainWindow(QMainWindow):
                 # Pass the chosen model without changing process-wide environment variables.
                 from .local_ai import cloud_draft
                 result=cloud_draft(request,client,model)
+            control.check();progress('생성 완료 · CAD 형상 검증 중…')
             with KERNEL_LOCK:d=Design.model_validate(result['design']);r=preview(d)
-            return result,d,r
-        def done(result):
-            response,d,r=result;self.last_draft=dict(response=response,design=d.model_dump(),preview=r,serial=serial,provider=provider,prompt=prompt);self.ai_result.setPlainText(response['summary']+'\n\n'+'\n'.join(response.get('changes',[])+response.get('assumptions',[]))+f"\n\n형상 검증: {r['stats']['parts']}개 부품 · {r['stats']['volume']:.2f} mm³");self.accept_draft.setEnabled(True);self.message('설계 초안 생성 완료 · 내용을 확인하고 적용하세요.')
-        self.run(work,done,'설계 초안 생성 · 형상 검증 중…',failed=lambda text:self.ai_result.setPlainText(text))
+            return dict(response=result,design=d.model_dump(),preview=r,serial=serial,provider=provider,prompt=prompt)
+        from .ai_task import AITask
+        self.ai_task=AITask(work,self);self.ai_task.completed.connect(self.ai_complete,Qt.ConnectionType.QueuedConnection);self.ai_task.failed.connect(self.ai_failed,Qt.ConnectionType.QueuedConnection);self.ai_task.progress.connect(self.ai_progress,Qt.ConnectionType.QueuedConnection)
+        self.ai_started=time.monotonic();self.ai_stage='모델 연결 / 준비 중…';self.ai_controls(True);self.ai_tick();self.ai_timer.start();self.ai_task.start()
+    def ai_controls(self,running):
+        self.generate_button.setEnabled(not running and not self.busy and not self.sketching);self.cancel_ai_button.setVisible(running);self.ai_status_button.setVisible(running)
+        for widget in (self.provider,self.prompt,self.ollama_models,self.model,self.key):widget.setEnabled(not running)
+    @Slot()
+    def ai_tick(self):
+        if not self.ai_task:return
+        elapsed=int(time.monotonic()-self.ai_started);text=f'{self.ai_stage}\n경과 {elapsed//60:02d}:{elapsed%60:02d}\n\n생성 중에도 CAD 작업과 저장이 가능합니다. 취소하거나 앱을 종료할 수 있습니다.'
+        if elapsed>=30:text+='\n로컬 모델은 PC 성능과 설계 크기에 따라 몇 분 걸릴 수 있습니다.'
+        self.ai_result.setPlainText(text);self.ai_status_button.setText(f'AI {elapsed//60:02d}:{elapsed%60:02d} · 취소')
+    @Slot(object)
+    def ai_progress(self,packet):
+        task,text=packet
+        if task is self.ai_task:self.ai_stage=text;self.ai_tick()
+    def finish_ai_task(self):
+        self.ai_task=None;self.ai_timer.stop();self.ai_controls(False)
+    @Slot()
+    def cancel_ai(self):
+        if self.ai_task:
+            self.ai_task.cancel();self.finish_ai_task();self.last_draft=None;self.accept_draft.setEnabled(False);self.ai_result.setPlainText('설계 초안 생성을 취소했습니다. 현재 설계는 변경되지 않았습니다.');self.message('AI 생성 취소 완료')
+    @Slot(object)
+    def ai_failed(self,packet):
+        task,text=packet
+        if task is not self.ai_task:return
+        self.finish_ai_task();self.ai_result.setPlainText('초안 생성 실패\n\n'+text[:2400]);self.message('초안 생성 실패 · AI 패널의 오류 안내를 확인하세요.')
+    @Slot(object)
+    def ai_complete(self,packet):
+        task,draft=packet
+        if task is not self.ai_task:return
+        self.finish_ai_task();response=draft['response'];r=draft['preview']
+        if draft['serial']!=self.operation_serial:
+            self.ai_result.setPlainText('초안 생성 중 현재 설계가 바뀌었습니다. 새 설계를 기준으로 다시 생성하세요.');return
+        self.last_draft=draft;self.ai_result.setPlainText(response['summary']+'\n\n'+'\n'.join(response.get('changes',[])+response.get('assumptions',[]))+f"\n\n형상 검증: {r['stats']['parts']}개 부품 · {r['stats']['volume']:.2f} mm³");self.accept_draft.setEnabled(not self.busy and not self.sketching);self.message('설계 초안 생성 완료 · 내용을 확인하고 적용하세요.')
     def apply_draft(self):
         draft=self.last_draft
-        if not draft or self.busy:return
+        if not draft or self.busy or self.sketching:return
         if draft['serial']!=self.operation_serial:self.show_error('초안 생성 이후 설계가 변경되었습니다. 현재 설계로 초안을 다시 생성하세요.');return
         self.document.prompt=draft['prompt'];context=dict(source='openai' if draft['provider']=='openai' else 'local',provider=draft['provider'],prompt=draft['prompt'],summary=draft['response']['summary'],assumptions=draft['response'].get('assumptions',[]),tool='prompt');self.apply_design(draft['design'],'설계 명령 적용',context,fit=True);self.last_draft=None;self.accept_draft.setEnabled(False)
     def help_dialog(self):
@@ -606,6 +667,7 @@ class MainWindow(QMainWindow):
             self._update_close=True;self.close()
         self.run(latest_release,checked,'최신 버전 확인 중…')
     def closeEvent(self,event):
+        self.cancel_ai()
         if self.busy:self.message('실행 중인 작업이 끝난 뒤 종료하세요.');event.ignore();return
         if self.sketching:
             answer=QMessageBox.question(self,'미완료 스케치','완료하지 않은 스케치를 버리고 종료할까요?',QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,QMessageBox.StandardButton.No)
