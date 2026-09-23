@@ -2,6 +2,8 @@
 from copy import deepcopy
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from uuid import uuid4
 from PySide6.QtCore import Qt,QTimer,QThreadPool,QSize
@@ -17,6 +19,7 @@ from ..catalog import TITLES,FIELDS,EXAMPLES,preset,part_default
 from ..kernel import preview,export,KERNEL_LOCK
 from ..constraints import anchors
 from ..native_export import conversion_package
+from .. import __version__
 
 APP_NAME='Prompt CAD Studio'
 DATA_DIR=Path(os.getenv('CADSTUDIO_DATA_DIR',str(Path(os.getenv('LOCALAPPDATA',str(Path.home()/'AppData/Local')))/'PromptCADStudio')))
@@ -47,7 +50,7 @@ class MainWindow(QMainWindow):
         for kind,title in TITLES.items():model.addAction(title,lambda k=kind:self.add_preset(k))
         assembly=self.menuBar().addMenu('조립(&A)');assembly.addAction(self.action('face_joint','면으로 조인트',self.start_face_joint,None,'assembly'));self.actions['face_joint'].setCheckable(True);assembly.addAction(self.action('drive','관절 구동',self.drive_joints,None,'origin'));assembly.addAction(self.action('robot','로봇 치수',self.robot_dialog,None,'assembly'));assembly.addAction(self.action('mate','기준점으로 연결…',self.mate_dialog,None,'assembly'));model.addAction(self.action('specimen','시편 설계',self.specimen_dialog,None,'specimen'))
         view=self.menuBar().addMenu('보기(&V)');view.addAction(self.action('fit','모델에 맞춤',self.fit,'F','fit'));self.view_menu=view;edge=view.addAction('모서리 표시');edge.setCheckable(True);edge.setChecked(True);edge.toggled.connect(self.viewport.edges)
-        help=self.menuBar().addMenu('도움말(&H)');help.addAction('사용 방법 · 지원 범위',self.help_dialog);help.addAction('이 앱 정보',lambda:QMessageBox.about(self,APP_NAME,'Prompt CAD Studio 2.1\nQt Widgets + VTK OpenGL + Open CASCADE\n\n브라우저와 웹 서버 없이 실행되는 Windows CAD 앱입니다.\n단위: mm\n설계 프로젝트: .cad.json\n형상 교환: STEP / STL'))
+        help=self.menuBar().addMenu('도움말(&H)');help.addAction('사용 방법 · 지원 범위',self.help_dialog);help.addAction(self.action('update','업데이트 확인…',self.check_updates));help.addAction('이 앱 정보',lambda:QMessageBox.about(self,APP_NAME,f'Prompt CAD Studio {__version__}\nQt Widgets + VTK OpenGL + Open CASCADE\n\n브라우저와 웹 서버 없이 실행되는 Windows CAD 앱입니다.\n단위: mm\n설계 프로젝트: .cad.json\n형상 교환: STEP / STL'))
     def make_toolbar(self):
         self.toolbar=QToolBar('작업 공간');self.toolbar.setObjectName('modelToolbar');self.toolbar.setMovable(False);self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.toolbar.setIconSize(QSize(25,25));self.addToolBar(self.toolbar)
         for key in ('new','open','save'):self.toolbar.addAction(self.actions[key])
@@ -451,11 +454,28 @@ class MainWindow(QMainWindow):
         self.document.prompt=draft['prompt'];context=dict(source='openai' if draft['provider']=='openai' else 'local',provider=draft['provider'],prompt=draft['prompt'],summary=draft['response']['summary'],assumptions=draft['response'].get('assumptions',[]),tool='prompt');self.apply_design(draft['design'],'설계 명령 적용',context,fit=True);self.last_draft=None;self.accept_draft.setEnabled(False)
     def help_dialog(self):
         d=QDialog(self);d.setWindowTitle('사용 방법 · 지원 범위');d.resize(800,650);v=QVBoxLayout(d);text=QPlainTextEdit();text.setReadOnly(True);text.setPlainText('Prompt CAD Studio · Native\n\n1. 스케치와 돌출\n상단에서 XY / XZ / YZ를 선택하고 스케치를 작성하세요. L 직선, C 원, R 사각형, D 선택 요소 치수. 좌표 입력으로 정밀하게 작성할 수도 있습니다. 상단 스케치 종료는 열린 선도 저장합니다. 설계 브라우저의 스케치를 다시 열고 돌출 탭에서 닫힌 영역과 깊이를 선택해 입체를 만드세요.\n\n2. 면 선택과 구멍\n3D 모델의 평평한 면을 클릭 → 선택 면에서 스케치 → 원 등을 작성 → 안쪽으로 파내기 → 깊이 입력. 면의 모서리는 보조선으로 투영할 수 있습니다.\n\n3. 스케치 구속\n구속 탭의 A / B / 점을 지정합니다. 원점 고정, 수평·수직, 거리·직경·각도, 일치·접선 등 20종. 자동 구속은 스냅한 원점·끝점·중간점·교점의 관계를 보존합니다. 자유도 0이면 완전 구속입니다.\n\n4. 조립\n부품을 2개 이상 만든 후 조립 구속을 추가하세요. 강체, 회전, 슬라이더, 원통 연결을 지원합니다. 기준점·오프셋·관절 값을 편집하면 자식 부품이 따라갑니다.\n\n5. 기록\n하단 기록을 클릭하면 실제 변경 필드, 도구, 면, 피처, 구속을 확인할 수 있습니다. 더블클릭으로 복원합니다. 복원 후 수정한 분기도 모두 저장합니다. 스케치 내부의 도구 작업은 스케치 완료 시 함께 저장합니다.\n\n6. 설계 AI\n오프라인 치수 명령은 키 없이 작동합니다. 자유 문장은 OpenAI API 또는 이 PC의 Ollama에 연결하세요. 초안을 검증한 후 적용하면 기록에 남습니다.\n\n7. 파일\n.cad.json은 편집 가능한 설계와 작업 기록입니다. STEP은 정확한 CAD 형상, STL은 메시입니다. .f3d / .ipt는 Autodesk 변환 패키지에 들어 있는 STEP과 스크립트를 해당 Autodesk 앱에서 실행해 변환해야 합니다. Autodesk 작업 기록을 그대로 재구성하지는 않습니다.\n\n지원 범위\nFusion과 동일한 전체 기능은 아닙니다. 평면 스케치와 돌출 / 절삭, 지정한 기본 형상, 조립 트리를 지원합니다. 스윕·로프트·곡면·3D 필렛·나사·닫힌 조립 고리·동역학은 아직 없습니다. 최대 12부품, 부품당 8개 면 피처, 스케치당 128요소 / 160구속. 완료한 스케치도 프로젝트·자동 저장·기록에 포함됩니다. 편집 중인 미완료 작업은 종료 버튼을 눌러 반영하세요.\n\n마우스\n3D: 왼쪽 드래그 회전, 가운데 이동, 휠 확대, 클릭 면 선택.\n스케치: 클릭 작성, 가운데 / 오른쪽 드래그 이동, 휠 확대. Shift / Ctrl 클릭 다중 선택. Enter 그리기 완료, Ctrl+Enter 스케치 종료, Esc 선택 도구, D 치수, Ctrl+A 전체 선택, F 화면 맞춤. 빈 곳 드래그로 상자 선택. 선 위 추천점은 자동 구속이 켜져 있을 때 관계를 유지합니다.');v.addWidget(text);v.addWidget(button('닫기',d.accept));d.exec()
+    def check_updates(self):
+        if self.busy or self.sketching:return
+        from ..updater import latest_release,version
+        if not getattr(sys,'frozen',False):
+            QMessageBox.information(self,'업데이트','소스 실행 환경입니다. 배포 EXE에서 기존 설치를 업데이트할 수 있습니다.');return
+        updater=Path(sys.executable).parent/'PromptCADStudioUpdater.exe'
+        if not updater.is_file():self.show_error('업데이트 실행 파일이 없습니다. 릴리스의 PromptCADStudioUpdater.exe를 실행하세요.');return
+        def checked(release):
+            if version(release['version'])<=version(__version__):
+                QMessageBox.information(self,'업데이트',f'현재 v{__version__} · 최신 버전입니다.');return
+            answer=QMessageBox.question(self,'업데이트',f"v{release['version']}으로 업데이트할까요?\n다운로드 {release['size']/1024**2:.0f} MB\n\n현재 앱을 종료하고 기존 설치 폴더를 갱신합니다.\n완료 후 다시 실행하며 임시 다운로드와 이전 프로그램 파일을 정리합니다.",QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No)
+            if answer!=QMessageBox.StandardButton.Yes or not self.check_save():return
+            try:
+                subprocess.Popen([str(updater),'--install-dir',str(updater.parent),'--wait-pid',str(os.getpid()),'--auto-update','--restart'],cwd=str(updater.parent),creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+            except OSError as exc:self.show_error('업데이트 실행 실패: '+str(exc));return
+            self._update_close=True;self.close()
+        self.run(latest_release,checked,'최신 버전 확인 중…')
     def closeEvent(self,event):
         if self.busy:self.message('실행 중인 작업이 끝난 뒤 종료하세요.');event.ignore();return
         if self.sketching:
             answer=QMessageBox.question(self,'미완료 스케치','완료하지 않은 스케치를 버리고 종료할까요?',QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,QMessageBox.StandardButton.No)
             if answer!=QMessageBox.StandardButton.Yes:event.ignore();return
             self.cancel_sketch()
-        if not self.check_save():event.ignore();return
+        if not getattr(self,'_update_close',False) and not self.check_save():event.ignore();return
         self.autosave_document();self.editor.stop();self.viewport.shutdown();event.accept()

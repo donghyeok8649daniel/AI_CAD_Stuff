@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import sys
 import traceback
+from cadstudio import __version__
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--open',type=Path);parser.add_argument('--no-restore',action='store_true');parser.add_argument('--smoke-test',type=Path);parser.add_argument('--self-test',type=Path);args=parser.parse_args()
@@ -16,7 +17,7 @@ def main():
     from PySide6.QtCore import Qt,QTimer
     from PySide6.QtGui import QIcon,QFont
     from PySide6.QtWidgets import QApplication,QMessageBox,QSplashScreen
-    app=QApplication(sys.argv);app.setApplicationName('Prompt CAD Studio');app.setOrganizationName('PromptCAD');app.setApplicationVersion('2.1.0');app.setFont(QFont('Malgun Gothic',9));app.setStyle('Fusion')
+    app=QApplication(sys.argv);app.setApplicationName('Prompt CAD Studio');app.setOrganizationName('PromptCAD');app.setApplicationVersion(__version__);app.setFont(QFont('Malgun Gothic',9));app.setStyle('Fusion')
     root=Path(__file__).resolve().parent;ico=root/'assets'/'app.ico'
     if not ico.exists():ico=root/'static'/'app.ico'
     app.setWindowIcon(QIcon(str(ico)))

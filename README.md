@@ -1,4 +1,4 @@
-# Prompt CAD Studio · Native 2.1
+# Prompt CAD Studio · Native 2.1.1
 
 사람이 직접 설계하고, 필요할 때 프롬프트로 도움을 받는 한국어 Windows CAD 앱입니다. **Qt Widgets + VTK OpenGL + Open CASCADE**로 실행하며 HTML, WebView, 브라우저, 내장 HTTP 서버를 사용하지 않습니다.
 
@@ -7,6 +7,12 @@ Fusion의 스케치 → 피처 → 조립 → 작업 기록 흐름을 참고했�
 ## Windows 다운로드
 
 [Windows 네이티브 앱 다운로드](https://github.com/donghyeok8649daniel/AI_CAD_Stuff/releases/latest)
+
+**기존 설치 업데이트:** 앱의 **도움말 → 업데이트 확인**을 사용하세요. 작업 저장 후 앱을 종료하고 같은 폴더를 갱신한 뒤 다시 실행합니다. 2.1.0 이전 버전은 릴리스의 작은 `PromptCADStudioUpdater.exe`만 받아 실행하세요. 바탕화면 바로가기의 설치 위치를 찾으며, 필요하면 `PromptCADStudio.exe`와 `_internal`이 있는 기존 폴더를 선택할 수 있습니다. 새 버전마다 ZIP을 다시 풀어 별도 설치 폴더를 만들 필요가 없습니다.
+
+업데이트는 GitHub 배포 SHA256과 파일별 해시를 검증하고 변경된 파일만 교체합니다. 성공하면 임시 ZIP·교체용 백업과 목록에서 빠진 원본 프로그램 파일을 지웁니다. 사용자 프로젝트와 자동 복구 데이터는 보존합니다. 편집한 예제·문서는 덮어쓰지 않습니다. 중단된 교체는 다음 실행에서 복구하며, 임시 다운로드와 교체 파일을 위한 여유 공간은 필요합니다. 예전에 사용자가 따로 풀어 둔 다른 설치 폴더는 자동 삭제하지 않습니다.
+
+**처음 설치할 때:**
 
 1. ZIP 전체를 풀고 `PromptCADStudio.exe`를 실행합니다. `_internal` 폴더도 함께 있어야 합니다.
 2. Python, Node, WebView2를 따로 설치할 필요가 없습니다. Windows 10/11 64비트와 OpenGL을 지원하는 그래픽 드라이버가 필요합니다.
@@ -129,6 +135,8 @@ python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements-native.txt
 .venv\Scripts\python.exe native_desktop.py
 .venv\Scripts\python.exe -m PyInstaller NativeCAD.spec
+.venv\Scripts\python.exe -m PyInstaller Updater.spec
+.venv\Scripts\python.exe scripts\package_windows.py dist\PromptCADStudio PromptCADStudio-Windows-x64-v2.1.1.zip --updater dist\PromptCADStudioUpdater.exe
 ```
 
 `desktop.py`, `Start CAD.vbs`, `setup.ps1`도 네이티브 앱을 실행·설치합니다. 이전 웹 클라이언트는 별도 개발용 `launch.py`와 `requirements.txt`로 남겨 두었으며 Windows 앱에는 포함하지 않습니다.
