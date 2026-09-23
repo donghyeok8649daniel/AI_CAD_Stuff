@@ -1,3 +1,4 @@
+from ai_transport import cad_transport
 from copy import deepcopy
 import json,math,time
 import pytest
@@ -117,9 +118,10 @@ def test_ai_context_omits_only_display_caches_restores_them_and_honors_deadline(
     compact=ollama_context(d);assert 'outline' not in compact['sketches'][0]['context']['face']
     def handle(request):
         assert request.extensions['timeout']['read']==900
-        assert json.loads(json.loads(request.content)['messages'][1]['content'])['current_design']==compact
-        return httpx.Response(200,json=dict(done=True,message=dict(content=json.dumps(dict(design=compact,summary='유지',assumptions=[])))))
-    result=ollama_draft(DraftRequest(prompt='설계 유지',current=d),'test',httpx.MockTransport(handle),deadline=900)
+        from cadstudio.native.cad_tools import context
+        assert json.loads(json.loads(request.content)['messages'][1]['content'])['current_design']==context(d)
+        return httpx.Response(200,json=dict(done=True,message=dict(content=json.dumps(dict(summary='색상',actions=[dict(tool='appearance',target=d.parts[0].id,args=dict(color='#112233'))])))))
+    result=ollama_draft(DraftRequest(prompt='색상 변경',current=d),'test',cad_transport(handle),deadline=900)
     assert result['design']['sketches'][0]['context']['face']['outline']==face['outline']
     from cadstudio.native.local_ai import restore_sketch_display
     changed=Design.model_validate(compact);changed.parts[0].geometry.width+=1;restore_sketch_display(changed,d)

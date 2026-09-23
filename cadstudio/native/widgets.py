@@ -94,8 +94,12 @@ def button(text,callback=None,primary=False):
 def clear_layout(layout):
     while layout.count():
         item=layout.takeAt(0)
-        if item.widget():item.widget().deleteLater()
-        elif item.layout():clear_layout(item.layout())
+        if item.widget():
+            # Deferred destruction must not leave obsolete controls visible or
+            # clickable over the new property editor until the next event turn.
+            widget=item.widget();widget.hide();widget.setParent(None);widget.deleteLater()
+        elif item.layout():
+            child=item.layout();clear_layout(child);child.deleteLater()
 
 
 class WorkerSignals(QObject):

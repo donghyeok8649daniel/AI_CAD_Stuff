@@ -78,10 +78,31 @@ class Document:
 
     def commit(self,design,label,context=None,cursor=None):
         data=design.model_dump() if isinstance(design,Design) else deepcopy(design)
+        if not cursor and context and context.get('journal_steps'):
+            self.commit_steps(data,context);return
         if not self.journal:self.journal=Journal(data,label,context=context)
         elif cursor:self.journal.move(cursor)
         else:self.journal.append(self.design,data,label,context)
         self.design=data;self.dirty=True
+
+    def commit_steps(self,data,context):
+        """Install a verified AI transaction with independently restorable steps."""
+        from .cad_tools import TOOL_LABELS
+        common={k:deepcopy(v) for k,v in context.items() if k not in ('journal_steps','journal_base','tool_actions')}
+        before=deepcopy(self.design if self.design is not None else context.get('journal_base'))
+        if before is None:raise ValueError('AI 작업 기록의 시작 설계가 없습니다.')
+        Design.model_validate(before)
+        journal=Journal(data=self.journal.data) if self.journal else Journal(before,'AI 설계 시작',context=common)
+        for row in context['journal_steps']:
+            action=row['action'];changes=[HistoryChange.model_validate(c) for c in row['changes']]
+            after=apply_changes(before,changes)
+            Design.model_validate(after)
+            title='AI '+TOOL_LABELS.get(action['tool'],action['tool'])+' · '+action['target']
+            journal.append(before,after,title,{**common,'tool_actions':[action],'part_id':action['target']})
+            before=after
+        if before!=data:raise ValueError('AI 작업 기록과 최종 설계가 다릅니다. 다시 생성하세요.')
+        # No mutation before the entire sequence and final snapshot match.
+        self.journal=journal;self.design=deepcopy(data);self.dirty=True
 
     def load(self,project,path=None):
         project=project if isinstance(project,Project) else Project.model_validate(project)

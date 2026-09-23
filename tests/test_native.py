@@ -1,3 +1,4 @@
+from ai_transport import cad_transport
 from copy import deepcopy
 import json
 import math
@@ -33,26 +34,26 @@ def test_native_history_branches_survive_disk(tmp_path):
     d=Document();base=preset('cylinder');d.commit(base,'start');root=d.journal.data['cursor'];raw=base.model_dump();raw['parts'][0]['geometry']['height']=35;d.commit(Design.model_validate(raw),'height');abandoned=d.journal.data['cursor'];d.commit(d.journal.at(root),'undo',cursor=root);raw=base.model_dump();raw['parts'][0]['geometry']['diameter']=22;d.commit(Design.model_validate(raw),'branch');path=tmp_path/'native.cad.json';d.write(path);p=read_project(path);assert len(p.history.entries)==3;assert d.journal.at(abandoned)['parts'][0]['geometry']['height']==35;other=Document();other.load(p,path);assert other.design==d.design
 
 def test_ollama_fixed_loopback_and_structured_response():
-    response={'design':preset('cylinder').model_dump(),'summary':'Cylinder','assumptions':[]};requests=[]
+    response={'summary':'Cylinder','actions':[dict(tool='create',target='cylinder',args=dict(name='원통',geometry=dict(kind='cylinder',diameter=30,height=20)))]};requests=[]
     def handle(request):
         requests.append(request);return httpx.Response(200,json={'done':True,'message':{'content':json.dumps(response)}})
-    result=ollama_draft(DraftRequest(prompt='원통 직경 30'), 'test-local',httpx.MockTransport(handle));assert result['provider']=='ollama';assert str(requests[0].url)=='http://127.0.0.1:11434/api/chat';payload=json.loads(requests[0].content);assert payload['format']['type']=='object' and payload['stream'] is True;assert 'authorization' not in requests[0].headers
+    result=ollama_draft(DraftRequest(prompt='원통 직경 30'), 'test-local',cad_transport(handle));assert result['provider']=='ollama';assert str(requests[0].url)=='http://127.0.0.1:11434/api/chat';payload=json.loads(requests[0].content);assert payload['format']['type']=='object' and payload['stream'] is True;assert 'authorization' not in requests[0].headers
 
-def test_ollama_invalid_design_has_one_repair_limit():
+def test_ollama_invalid_design_has_two_repair_limit():
     requests=[]
     def handle(request):requests.append(request);return httpx.Response(200,json={'done':True,'message':{'content':'{"exec":"not allowed"}'}})
-    with pytest.raises(ValueError,match='두 차례'):ollama_draft(DraftRequest(prompt='test'),'test-local',httpx.MockTransport(handle))
-    assert len(requests)==2
+    with pytest.raises(ValueError,match='3차례'):ollama_draft(DraftRequest(prompt='test'),'test-local',cad_transport(handle))
+    assert len(requests)==3
 
 def test_ollama_does_not_follow_remote_redirect():
     requests=[]
     def handle(request):requests.append(request);return httpx.Response(307,headers={'location':'https://example.com'})
-    with pytest.raises(ValueError,match='요청에 실패'):ollama_draft(DraftRequest(prompt='test'),'test-local',httpx.MockTransport(handle))
+    with pytest.raises(ValueError,match='요청에 실패'):ollama_draft(DraftRequest(prompt='test'),'test-local',cad_transport(handle))
     assert len(requests)==1
 
 
 def test_qwen3_skips_thinking_for_cad_output():
     def handle(request):
         body=json.loads(request.content);assert body['think'] is False
-        return httpx.Response(200,json={'done':True,'message':{'content':json.dumps({'design':preset('cylinder').model_dump(),'summary':'OK','assumptions':[]})}})
-    ollama_draft(DraftRequest(prompt='Cylinder'),'qwen3:8b',httpx.MockTransport(handle))
+        return httpx.Response(200,json={'done':True,'message':{'content':json.dumps({'summary':'OK','actions':[dict(tool='create',target='cylinder',args=dict(name='원통',geometry=dict(kind='cylinder',diameter=30,height=20)))]})}})
+    ollama_draft(DraftRequest(prompt='Cylinder'),'qwen3:8b',cad_transport(handle))

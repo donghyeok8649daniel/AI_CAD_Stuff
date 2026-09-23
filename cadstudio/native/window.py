@@ -30,7 +30,7 @@ DATA_DIR=Path(os.getenv('CADSTUDIO_DATA_DIR',str(Path(os.getenv('LOCALAPPDATA',s
 ROOT=Path(__file__).resolve().parents[2]
 
 class MainWindow(QMainWindow):
-    def __init__(self,restore=True):
+    def __init__(self,restore=False):
         super().__init__();self.setObjectName('nativeCADMainWindow');self.resize(1500,920);self.setMinimumSize(820,560)
         self.document=Document();self.result=None;self.selected=None;self.selected_sketch=None;self.selected_profile=None;self.busy=False;self.worker=None;self.sketching=False;self.joint_picks=None;self.last_draft=None;self.ai_task=None;self.ai_stage='';self.ai_started=0;self.data_dir=DATA_DIR;self.data_dir.mkdir(parents=True,exist_ok=True);self.autosave=self.data_dir/'native-autosave.cad.json';self.operation_serial=0
         self.stack=QStackedWidget();self.setCentralWidget(self.stack);self.viewport=CADViewport();self.editor=SketchEditor();self.stack.addWidget(self.viewport);self.stack.addWidget(self.editor);self.viewport.part_selected.connect(self.select_part);self.viewport.face_selected.connect(self.face_selected);self.viewport.message.connect(self.message);self.editor.apply_requested.connect(self.apply_sketch);self.editor.finished_requested.connect(self.finish_sketch);self.viewport.sketch_selected.connect(self.select_sketch);self.viewport.profile_selected.connect(self.select_profile_3d);self.editor.cancelled.connect(self.cancel_sketch)
@@ -48,6 +48,7 @@ class MainWindow(QMainWindow):
         self.actions[key]=a;return a
     def make_menus(self):
         file=self.menuBar().addMenu('파일(&F)');file.addAction(self.action('new','새 설계',self.new_document,'Ctrl+N','file'));file.addAction(self.action('open','열기…',lambda:self.open_project(),'Ctrl+O','open'));file.addAction(self.action('save','저장',self.save,'Ctrl+S','save'));file.addAction(self.action('save_as','다른 이름으로 저장…',lambda:self.save(True),'Ctrl+Shift+S'));file.addSeparator()
+        file.addAction(self.action('recover','최근 자동저장 복구…',self.recover_autosave,None,'history'))
         export_menu=file.addMenu('내보내기')
         file.addAction(self.action('import_model','CAD 부품 가져오기 · STEP / IGES / STL…',self.import_model,'Ctrl+Shift+I','open'))
         for fmt,title in [('step','STEP · CAD 교환'),('stl','STL · 메시'),('f3d','F3D · Fusion 변환'),('ipt','IPT · Inventor 부품 변환'),('zip','Fusion / Inventor 변환 패키지')]:export_menu.addAction(title,lambda f=fmt:self.export_file(f))
@@ -336,8 +337,17 @@ class MainWindow(QMainWindow):
         w=QWidget();v=QVBoxLayout(w);v.setContentsMargins(12,12,12,12);self.provider=combo([('local','오프라인 치수 명령 · 키 불필요'),('openai','OpenAI · API 키 필요'),('ollama','로컬 AI · Ollama')]);v.addWidget(self.provider);self.ai_info=label('형상 이름과 치수를 입력하세요. 예: 구멍판 길이 80, 폭 60, 두께 6, 구멍 수 4 mm',True);v.addWidget(self.ai_info)
         self.key=QLineEdit();self.key.setEchoMode(QLineEdit.EchoMode.Password);self.key.setPlaceholderText('API 키 · 이번 실행 동안만 사용');self.key.setVisible(False);v.addWidget(self.key);self.model=QLineEdit('gpt-4.1');self.model.setPlaceholderText('모델 이름');self.model.setVisible(False);v.addWidget(self.model);self.provider.currentIndexChanged.connect(self.provider_changed)
         from .model_picker import LocalModelPicker
-        self.ollama_models=LocalModelPicker(self);self.ollama_models.hide();v.addWidget(self.ollama_models);self.ai_timeout=combo([(180,'AI 최대 대기 · 3분'),(300,'AI 최대 대기 · 5분'),(600,'AI 최대 대기 · 10분'),(1200,'AI 최대 대기 · 20분')]);self.ai_timeout.setCurrentIndex(2);v.addWidget(self.ai_timeout);v.addWidget(button('로컬 AI 설치 / 모델 다운로드',self.install_local_ai))
-        self.prompt=QPlainTextEdit();self.prompt.setObjectName('designPrompt');self.prompt.setPlaceholderText('만들 형상과 치수, 바꿀 부분을 입력하세요.');self.prompt.setMinimumHeight(100);self.prompt.setMaximumHeight(170);v.addWidget(self.prompt);self.generate_button=button('설계 초안 생성',self.generate_draft,True);v.addWidget(self.generate_button);self.cancel_ai_button=button('생성 취소',self.cancel_ai);self.cancel_ai_button.hide();v.addWidget(self.cancel_ai_button);self.ai_result=QPlainTextEdit();self.ai_result.setReadOnly(True);self.ai_result.setMinimumHeight(130);v.addWidget(self.ai_result);self.accept_draft=button('검증된 초안 적용',self.apply_draft,True);self.accept_draft.setEnabled(False);v.addWidget(self.accept_draft);v.addWidget(label('명령은 치수·형상 데이터로 해석됩니다. 생성된 코드를 실행하지 않습니다. 적용한 결과는 작업 기록에 남습니다.',True));v.addStretch();self.ai_scroll=QScrollArea();self.ai_scroll.setWidgetResizable(True);self.ai_scroll.setMinimumWidth(270);self.ai_scroll.setWidget(w);self.ai_dock=self.dock('설계 명령 / AI','aiDock',Qt.DockWidgetArea.RightDockWidgetArea,self.ai_scroll);self.tabifyDockWidget(self.property_dock,self.ai_dock);self.property_dock.raise_();self.ai_dock.hide()
+        self.ollama_models=LocalModelPicker(self);self.ollama_models.hide();v.addWidget(self.ollama_models);self.ai_timeout=combo([(180,'AI 최대 대기 · 3분'),(300,'AI 최대 대기 · 5분'),(600,'AI 최대 대기 · 10분'),(1200,'AI 최대 대기 · 20분'),(None,'AI 최대 대기 · 무제한 (취소 가능)')]);self.ai_timeout.setCurrentIndex(2);v.addWidget(self.ai_timeout);v.addWidget(button('로컬 AI 설치 / 모델 다운로드',self.install_local_ai))
+        self.prompt=QPlainTextEdit();self.prompt.setObjectName('designPrompt');self.prompt.setPlaceholderText('만들 형상과 치수, 바꿀 부분을 입력하세요.');self.prompt.setMinimumHeight(84);self.prompt.setMaximumHeight(120);v.addWidget(self.prompt)
+        self.ai_result=QPlainTextEdit();self.ai_result.setReadOnly(True);self.ai_result.setMinimumHeight(130);v.addWidget(self.ai_result);v.addStretch()
+        self.ai_scroll=QScrollArea();self.ai_scroll.setWidgetResizable(True);self.ai_scroll.setMinimumWidth(270);self.ai_scroll.setWidget(w)
+        # Keep the actions reachable while settings, prompts and results scroll.
+        panel=QWidget();layout=QVBoxLayout(panel);layout.setContentsMargins(0,0,0,0);layout.addWidget(self.ai_scroll,1)
+        footer=QWidget();actions=QVBoxLayout(footer);actions.setContentsMargins(10,6,10,10);row=QHBoxLayout()
+        self.generate_button=button('설계 초안 생성',self.generate_draft,True);row.addWidget(self.generate_button)
+        self.cancel_ai_button=button('생성 취소',self.cancel_ai);self.cancel_ai_button.hide();row.addWidget(self.cancel_ai_button);actions.addLayout(row)
+        self.accept_draft=button('검증된 초안 적용',self.apply_draft,True);self.accept_draft.setEnabled(False);actions.addWidget(self.accept_draft);layout.addWidget(footer)
+        self.ai_dock=self.dock('설계 명령 / AI','aiDock',Qt.DockWidgetArea.RightDockWidgetArea,panel);self.tabifyDockWidget(self.property_dock,self.ai_dock);self.property_dock.raise_();self.ai_dock.hide()
     def message(self,text):self.statusBar().showMessage(text,15000)
     def title(self):self.setWindowTitle((self.document.design['name'] if self.document.design else '새 설계')+(' *' if self.document.dirty else '')+' — '+APP_NAME+' · Native')
     def set_busy(self,busy,message=''):
@@ -643,7 +653,9 @@ class MainWindow(QMainWindow):
         c=entry['context'];lines=[entry['label'],entry['created_at'],f"작업 출처: {entry['source']}",f"변경 필드: {len(entry['changes'])}"]
         if c.get('part_id'):lines.append('부품: '+c['part_id'])
         if c.get('face'):lines.append('선택 면: '+str(c['face']['index']+1)+'\n법선: '+str(c['face']['normal'])+'\n기준 피처: '+c.get('support_feature',''))
-        if c.get('tool_actions'):lines.append('스케치 도구: '+' → '.join(a['tool'] for a in c['tool_actions']))
+        if c.get('tool_actions'):
+            from .cad_tools import TOOL_LABELS
+            lines.append(('AI 작업: ' if c.get('tool')=='prompt' else '스케치 도구: ')+' → '.join(TOOL_LABELS.get(a['tool'],a['tool']) for a in c['tool_actions']))
         if c.get('sketch'):lines.append('구속: '+', '.join(f"{x['kind']}({x['a'][:7]})" for x in c['sketch'].get('entity_constraints',[])))
         return '\n'.join(lines)+'\n\n'+json.dumps(entry,ensure_ascii=False,indent=2)
     def history_clicked(self,item):
@@ -709,7 +721,12 @@ class MainWindow(QMainWindow):
     def new_document(self):
         if self.busy or self.sketching or not self.check_save():return
         self.cancel_ai();self.operation_serial+=1;self.accept_draft.setEnabled(False)
-        self.document=Document();self.result=None;self.selected=None;self.selected_sketch=None;self.last_draft=None;self.viewport.load(None);self.viewport.hidden.clear();self.rebuild_tree();self.rebuild_timeline();self.show_properties();self.title();self.autosave.unlink(missing_ok=True)
+        self.document=Document();self.result=None;self.selected=None;self.selected_sketch=None;self.selected_profile=None;self.last_draft=None;self.viewport.load(None);self.viewport.hidden.clear();self.rebuild_tree();self.rebuild_timeline();self.show_properties();self.title()
+    def recover_autosave(self):
+        if self.busy or self.sketching:return
+        if not self.autosave.exists():self.message('복구할 자동저장 파일이 없습니다.');return
+        if not self.check_save():return
+        self.open_project(self.autosave,recovery=True)
     def open_project(self,path=None,recovery=False):
         if self.busy or self.sketching:return
         if not recovery and not self.check_save():return
@@ -787,7 +804,7 @@ class MainWindow(QMainWindow):
     @Slot()
     def ai_tick(self):
         if not self.ai_task:return
-        elapsed=int(time.monotonic()-self.ai_started);text=f'{self.ai_stage}\n경과 {elapsed//60:02d}:{elapsed%60:02d}\n\n생성 중에도 CAD 작업과 저장이 가능합니다. 취소하거나 앱을 종료할 수 있습니다.'
+        elapsed=int(time.monotonic()-self.ai_started);policy=' · 대기 무제한' if self.provider.currentData()=='ollama' and self.ai_timeout.currentData() is None else '';text=f'{self.ai_stage}\n경과 {elapsed//60:02d}:{elapsed%60:02d}{policy}\n\n생성 중에도 CAD 작업과 저장이 가능합니다. 취소하거나 앱을 종료할 수 있습니다.'
         if elapsed>=30:text+='\n로컬 모델은 PC 성능과 설계 크기에 따라 몇 분 걸릴 수 있습니다.'
         self.ai_result.setPlainText(text);self.ai_status_button.setText(f'AI {elapsed//60:02d}:{elapsed%60:02d} · 취소')
     @Slot(object)
@@ -810,14 +827,17 @@ class MainWindow(QMainWindow):
         task,draft=packet
         if task is not self.ai_task:return
         self.finish_ai_task();response=draft['response'];r=draft['preview']
+        if draft['provider']=='ollama':self.ollama_models.refresh()
         if draft['serial']!=self.operation_serial:
             self.ai_result.setPlainText('초안 생성 중 현재 설계가 바뀌었습니다. 새 설계를 기준으로 다시 생성하세요.');return
-        self.last_draft=draft;self.ai_result.setPlainText(response['summary']+'\n\n'+'\n'.join(response.get('changes',[])+response.get('assumptions',[]))+f"\n\n형상 검증: {r['stats']['parts']}개 부품 · {r['stats']['volume']:.2f} mm³");self.accept_draft.setEnabled(not self.busy and not self.sketching);self.message('설계 초안 생성 완료 · 내용을 확인하고 적용하세요.')
+        from .draft_summary import draft_summary
+        self.last_draft=draft;self.ai_result.setPlainText(draft_summary(response,r));self.accept_draft.setEnabled(not self.busy and not self.sketching);self.message('설계 초안 생성 완료 · 내용을 확인하고 적용하세요.')
+        self.ai_scroll.ensureWidgetVisible(self.ai_result,0,8)
     def apply_draft(self):
         draft=self.last_draft
         if not draft or self.busy or self.sketching:return
         if draft['serial']!=self.operation_serial:self.show_error('초안 생성 이후 설계가 변경되었습니다. 현재 설계로 초안을 다시 생성하세요.');return
-        self.document.prompt=draft['prompt'];context=dict(source='openai' if draft['provider']=='openai' else 'local',provider=draft['provider'],prompt=draft['prompt'],summary=draft['response']['summary'],assumptions=draft['response'].get('assumptions',[]),tool='prompt');self.apply_design(draft['design'],'설계 명령 적용',context,fit=True);self.last_draft=None;self.accept_draft.setEnabled(False)
+        self.document.prompt=draft['prompt'];context=dict(source='openai' if draft['provider']=='openai' else 'local',provider=draft['provider'],prompt=draft['prompt'],summary=draft['response']['summary'],assumptions=draft['response'].get('assumptions',[]),tool='prompt',tool_actions=draft['response'].get('tool_actions',[]),journal_base=draft['response'].get('journal_base'),journal_steps=draft['response'].get('journal_steps',[]));self.apply_design(draft['design'],'설계 명령 적용',context,fit=True);self.last_draft=None;self.accept_draft.setEnabled(False)
     def help_dialog(self):
         from .shortcuts import show_manual
         show_manual(self)

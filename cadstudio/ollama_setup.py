@@ -29,6 +29,22 @@ def installed_models():
     except (httpx.HTTPError,ValueError):return []
 
 
+def loaded_model_status():
+    """Report actual processor allocation, without loading/unloading any model."""
+    try:
+        with httpx.Client(trust_env=False,timeout=2,follow_redirects=False) as client:
+            response=client.get('http://127.0.0.1:11434/api/ps');response.raise_for_status()
+            result={}
+            for model in response.json().get('models',[]):
+                name=model.get('name') or model.get('model');size=model.get('size');vram=model.get('size_vram')
+                if not isinstance(name,str) or not isinstance(size,(int,float)) or not isinstance(vram,(int,float)):continue
+                if size<=0 or vram<0:continue
+                ratio=min(100,max(0,round(100*vram/size)))
+                result[name]=f'GPU {ratio}%' if ratio>=99 else f'CPU + GPU {ratio}%' if vram else 'CPU 실행 · 큰 모델은 응답이 느릴 수 있습니다'
+            return result
+    except (httpx.HTTPError,ValueError,TypeError,AttributeError):return {}
+
+
 def discover_models():
     """Start an existing installation if needed; never install or pull implicitly."""
     with httpx.Client(trust_env=False,timeout=2,follow_redirects=False) as client:

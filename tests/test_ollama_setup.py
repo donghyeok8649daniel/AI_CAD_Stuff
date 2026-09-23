@@ -41,3 +41,21 @@ def test_discovery_starts_existing_server_only(monkeypatch):
         return httpx.Response(200,json={'models':[{'name':'local-model'}]})
     client=httpx.Client(transport=httpx.MockTransport(request));monkeypatch.setattr(setup.httpx,'Client',lambda **kwargs:client);monkeypatch.setattr(setup,'executable',lambda:Path('ollama.exe'));monkeypatch.setattr(setup.subprocess,'Popen',lambda args,**kwargs:process.append((args,kwargs)));monkeypatch.setattr(setup.time,'sleep',lambda _:None)
     assert setup.discover_models()==['local-model'];assert process[0][0]==['ollama.exe','serve'];assert process[0][1]['env']['OLLAMA_HOST']=='127.0.0.1:11434'
+
+
+def test_processor_status_reports_allocation_without_starting_inference(monkeypatch):
+    calls=[]
+    def request(req):
+        calls.append((req.method,req.url.path))
+        return httpx.Response(200,json={'models':[{'name':'cpu','size':100,'size_vram':0},
+            {'name':'mixed','size':100,'size_vram':40},{'name':'gpu','size':100,'size_vram':100}]})
+    client=httpx.Client(transport=httpx.MockTransport(request));monkeypatch.setattr(setup.httpx,'Client',lambda **kwargs:client)
+    result=setup.loaded_model_status()
+    assert result['cpu'].startswith('CPU 실행') and result['mixed']=='CPU + GPU 40%' and result['gpu']=='GPU 100%'
+    assert calls==[('GET','/api/ps')]
+
+
+def test_empty_processor_list_does_not_assume_cpu(monkeypatch):
+    client=httpx.Client(transport=httpx.MockTransport(lambda request:httpx.Response(200,json={'models':[]})))
+    monkeypatch.setattr(setup.httpx,'Client',lambda **kwargs:client)
+    assert setup.loaded_model_status()=={}

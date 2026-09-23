@@ -31,6 +31,10 @@ def run_smoke(app,window,path):
         report['checks'].append(message)
     def render_frame(name,view=None,host=None):
         view=view or window.viewport;host=host or window
+        # Settle new controls without reentering the next smoke stage.
+        blocked=timer.blockSignals(True)
+        try:app.processEvents();QTest.qWait(50)
+        finally:timer.blockSignals(blocked)
         from vtkmodules.vtkRenderingCore import vtkWindowToImageFilter
         from vtkmodules.vtkIOImage import vtkPNGWriter
         from vtkmodules.util.numpy_support import vtk_to_numpy

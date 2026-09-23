@@ -1,0 +1,359 @@
+[
+  {
+    "case": "box",
+    "name": "열린 상자",
+    "prompt": "가로 80 mm 세로 50 mm 높이 25 mm이고 벽과 바닥 두께 2 mm인 위가 열린 상자 하나 만들어줘.",
+    "seconds": 189.53,
+    "attempts": 1,
+    "volumes": [
+      19592.0
+    ],
+    "bounds": [
+      {
+        "x": 80.0,
+        "y": 50.0,
+        "z": 25.0
+      }
+    ],
+    "planning": {
+      "intent": "part",
+      "tools": [
+        "create",
+        "shell"
+      ],
+      "shapes": [
+        "plate"
+      ]
+    },
+    "actions": [
+      {
+        "step": 1,
+        "tool": "create",
+        "target": "box",
+        "args": {
+          "name": "box",
+          "geometry": {
+            "kind": "plate",
+            "length": 80,
+            "width": 50,
+            "thickness": 25
+          }
+        },
+        "validated": true
+      },
+      {
+        "step": 2,
+        "tool": "shell",
+        "target": "box",
+        "args": {
+          "thickness": 2,
+          "open_faces": [
+            "+Z"
+          ]
+        },
+        "validated": true
+      }
+    ]
+  },
+  {
+    "case": "mount",
+    "name": "구멍 패턴 고정판",
+    "prompt": "80 x 60 x 5 mm 모터 고정판 만들어줘. 지름 5 mm 관통 구멍 4개를 X 간격 60 mm, Y 간격 40 mm로 대칭 배치해.",
+    "seconds": 298.66,
+    "attempts": 2,
+    "volumes": [
+      23607.300918301273
+    ],
+    "bounds": [
+      {
+        "x": 80.0,
+        "y": 60.0,
+        "z": 5.0
+      }
+    ],
+    "planning": {
+      "intent": "part",
+      "tools": [
+        "create",
+        "hole",
+        "transform"
+      ],
+      "shapes": [
+        "plate"
+      ]
+    },
+    "actions": [
+      {
+        "step": 1,
+        "tool": "create",
+        "target": "plate",
+        "args": {
+          "name": "plate",
+          "geometry": {
+            "kind": "plate",
+            "length": 80,
+            "width": 60,
+            "thickness": 5
+          }
+        },
+        "validated": true
+      },
+      {
+        "step": 2,
+        "tool": "hole",
+        "target": "plate",
+        "args": {
+          "face": "+Z",
+          "diameter": 5,
+          "pattern": {
+            "kind": "rectangular",
+            "count_x": 2,
+            "count_y": 2,
+            "spacing_x": 60,
+            "spacing_y": 40,
+            "center": [
+              0,
+              0
+            ]
+          },
+          "depth": 5,
+          "through_all": true
+        },
+        "validated": true
+      }
+    ]
+  },
+  {
+    "case": "shaft",
+    "name": "계단축",
+    "prompt": "전체 길이 50 mm 단차축을 만들어줘. 아래 30 mm 구간의 지름은 20 mm, 위 20 mm 구간의 지름은 12 mm. 하나의 연결된 부품이어야 해.",
+    "seconds": 188.77,
+    "attempts": 1,
+    "volumes": [
+      11686.724671354032
+    ],
+    "bounds": [
+      {
+        "x": 20.0,
+        "y": 20.0,
+        "z": 50.0
+      }
+    ],
+    "planning": {
+      "intent": "part",
+      "tools": [
+        "create",
+        "shell"
+      ],
+      "shapes": [
+        "revolve"
+      ]
+    },
+    "actions": [
+      {
+        "step": 1,
+        "tool": "create",
+        "target": "shaft",
+        "args": {
+          "name": "shaft",
+          "geometry": {
+            "kind": "revolve",
+            "segments": [
+              {
+                "length": 30,
+                "diameter": 20
+              },
+              {
+                "length": 20,
+                "diameter": 12
+              }
+            ],
+            "angle": 360
+          }
+        },
+        "validated": true
+      }
+    ]
+  },
+  {
+    "case": "outline",
+    "name": "임의 L자 단면",
+    "prompt": "XY 스케치에서 꼭짓점 (0,0),(40,0),(40,10),(15,10),(15,35),(0,35)를 순서대로 이은 L자 단면을 6 mm 돌출한 부품 하나 만들어줘. 구멍은 없어.",
+    "seconds": 186.53,
+    "attempts": 1,
+    "volumes": [
+      4650.0
+    ],
+    "bounds": [
+      {
+        "x": 40.0,
+        "y": 35.0,
+        "z": 6.0
+      }
+    ],
+    "planning": {
+      "intent": "part",
+      "tools": [
+        "create",
+        "pad"
+      ],
+      "shapes": [
+        "extrusion"
+      ]
+    },
+    "actions": [
+      {
+        "step": 1,
+        "tool": "create",
+        "target": "part1",
+        "args": {
+          "name": "L자 단면 부품",
+          "geometry": {
+            "kind": "extrusion",
+            "thickness": 6,
+            "profile": {
+              "points": [
+                {
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "x": 40,
+                  "y": 0
+                },
+                {
+                  "x": 40,
+                  "y": 10
+                },
+                {
+                  "x": 15,
+                  "y": 10
+                },
+                {
+                  "x": 15,
+                  "y": 35
+                },
+                {
+                  "x": 0,
+                  "y": 35
+                }
+              ]
+            }
+          }
+        },
+        "validated": true
+      }
+    ]
+  },
+  {
+    "case": "loft",
+    "name": "원형 단면 로프트",
+    "prompt": "아래 원 지름 40 mm, 위 원 지름 20 mm, 높이 50 mm인 로프트 솔리드 하나 만들어줘. 두 원은 같은 Z축에 놓아.",
+    "seconds": 482.02,
+    "attempts": 2,
+    "volumes": [
+      36651.91429188092
+    ],
+    "bounds": [
+      {
+        "x": 40.0000002,
+        "y": 40.0000002,
+        "z": 50.0000002
+      }
+    ],
+    "planning": {
+      "intent": "part",
+      "tools": [
+        "create",
+        "solid"
+      ],
+      "shapes": [
+        "loft"
+      ]
+    },
+    "actions": [
+      {
+        "step": 1,
+        "tool": "create",
+        "target": "loft_part",
+        "args": {
+          "name": "loft_part",
+          "geometry": {
+            "kind": "loft",
+            "sections": [
+              {
+                "sketch": {
+                  "sketch_mode": "entities",
+                  "entities": [
+                    {
+                      "id": "bottom_circle",
+                      "kind": "circle",
+                      "center": {
+                        "x": 0,
+                        "y": 0
+                      },
+                      "radius": 20
+                    }
+                  ]
+                },
+                "frame": {
+                  "origin": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "normal": [
+                    0,
+                    0,
+                    1
+                  ],
+                  "x_direction": [
+                    1,
+                    0,
+                    0
+                  ]
+                }
+              },
+              {
+                "sketch": {
+                  "sketch_mode": "entities",
+                  "entities": [
+                    {
+                      "id": "top_circle",
+                      "kind": "circle",
+                      "center": {
+                        "x": 0,
+                        "y": 0
+                      },
+                      "radius": 10
+                    }
+                  ]
+                },
+                "frame": {
+                  "origin": [
+                    0,
+                    0,
+                    50
+                  ],
+                  "normal": [
+                    0,
+                    0,
+                    1
+                  ],
+                  "x_direction": [
+                    1,
+                    0,
+                    0
+                  ]
+                }
+              }
+            ],
+            "solid": true,
+            "ruled": false
+          }
+        },
+        "validated": true
+      }
+    ]
+  }
+]

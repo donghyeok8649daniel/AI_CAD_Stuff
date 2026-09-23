@@ -8,7 +8,7 @@ vtkmodules.qt.PyQtImpl='PySide6'
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 from vtkmodules.vtkCommonCore import vtkPoints,vtkIdList
 from vtkmodules.vtkCommonDataModel import vtkPolyData,vtkCellArray
-from vtkmodules.vtkRenderingCore import vtkRenderer,vtkActor,vtkPolyDataMapper,vtkCellPicker,vtkTextActor
+from vtkmodules.vtkRenderingCore import vtkRenderer,vtkActor,vtkPolyDataMapper,vtkCellPicker,vtkTextActor,vtkLightKit
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
 from vtkmodules.vtkInteractionWidgets import vtkOrientationMarkerWidget
 from vtkmodules.vtkRenderingAnnotation import vtkAxesActor
@@ -79,6 +79,12 @@ class CADViewport(QWidget,SelectionTools):
         self.caption.setMinimumHeight(38);layout.addLayout(bar)
         self.widget=QVTKRenderWindowInteractor(self);self.widget.setObjectName('nativeOpenGLViewport');self.widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus);layout.addWidget(self.widget,1)
         self.renderer=vtkRenderer();self.renderer.SetBackground(.07,.105,.15);self.renderer.SetBackground2(.16,.22,.28);self.renderer.GradientBackgroundOn()
+        # A single headlight gives perpendicular faces the same brightness in
+        # an isometric view, hiding pockets and hollow interiors. Camera-relative
+        # key/fill lights preserve depth cues through orbiting without shadows.
+        self.renderer.AutomaticLightCreationOff();self.light_kit=vtkLightKit()
+        for role in ('Key','Fill','Back','Head'):getattr(self.light_kit,'Set'+role+'LightWarmth')(.5)
+        self.light_kit.SetKeyLightIntensity(.8);self.light_kit.AddLightsToRenderer(self.renderer)
         self.window=self.widget.GetRenderWindow();self.window.AddRenderer(self.renderer);self.window.SetMultiSamples(4)
         self.interactor=self.window.GetInteractor();self.style=CADStyle(self);self.style.SetDefaultRenderer(self.renderer);self.interactor.SetInteractorStyle(self.style)
         self.axes=vtkAxesActor();self.axes.SetShaftTypeToCylinder();self.axes_widget=vtkOrientationMarkerWidget();self.axes_widget.SetOrientationMarker(self.axes);self.axes_widget.SetInteractor(self.interactor);self.axes_widget.SetViewport(0,0,.13,.19)
