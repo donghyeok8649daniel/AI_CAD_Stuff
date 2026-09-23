@@ -16,10 +16,12 @@ def ollama_draft(request,model,transport=None):
     if not model or len(model)>120:raise ValueError('Ollama에 설치된 모델 이름을 입력하세요.')
     payload={'prompt':request.prompt,'mode':request.mode,'selected_part':request.selected_part,'current_design':request.current.model_dump() if request.current else None}
     messages=[{'role':'system','content':SYSTEM_PROMPT},{'role':'user','content':json.dumps(payload,ensure_ascii=False)}]
-    with httpx.Client(base_url='http://127.0.0.1:11434',timeout=httpx.Timeout(180,connect=4),trust_env=False,follow_redirects=False,transport=transport) as client:
+    with httpx.Client(base_url='http://127.0.0.1:11434',timeout=httpx.Timeout(600,connect=4),trust_env=False,follow_redirects=False,transport=transport) as client:
         for attempt in range(2):
             try:
-                with client.stream('POST','/api/chat',json={'model':model,'messages':messages,'stream':False,'format':AIReply.model_json_schema(),'options':{'temperature':0,'num_predict':7000}}) as response:
+                body={'model':model,'messages':messages,'stream':False,'format':AIReply.model_json_schema(),'options':{'temperature':0,'num_predict':7000,'num_ctx':16384}}
+                if model.split(':')[0].split('/')[-1]=='qwen3':body['think']=False
+                with client.stream('POST','/api/chat',json=body) as response:
                     if response.status_code==404:raise ValueError('Ollama에서 모델을 찾지 못했습니다. 설치한 모델 이름을 확인하세요.')
                     if response.status_code!=200:raise ValueError('Ollama 요청에 실패했습니다. 실행 상태와 모델을 확인하세요.')
                     chunks=[];size=0

@@ -8,7 +8,7 @@ import traceback
 from cadstudio import __version__
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--open',type=Path);parser.add_argument('--no-restore',action='store_true');parser.add_argument('--smoke-test',type=Path);parser.add_argument('--self-test',type=Path);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--open',type=Path);parser.add_argument('--no-restore',action='store_true');parser.add_argument('--smoke-test',type=Path);parser.add_argument('--self-test',type=Path);parser.add_argument('--setup-ai',action='store_true');parser.add_argument('--advanced-smoke',type=Path);args=parser.parse_args()
     data=Path(os.getenv('CADSTUDIO_DATA_DIR',str(Path(os.getenv('LOCALAPPDATA',str(Path.home()/'AppData/Local')))/'PromptCADStudio')));data.mkdir(parents=True,exist_ok=True);os.environ['CADSTUDIO_DATA_DIR']=str(data)
     log=(data/'native-desktop.log').open('a',encoding='utf-8',buffering=1)
     if sys.stdout is None:sys.stdout=log
@@ -25,14 +25,20 @@ def main():
     apply_theme(app)
     def report_exception(kind,value,tb):
         text=''.join(traceback.format_exception(kind,value,tb));log.write(text);log.flush()
-        if args.smoke_test:args.smoke_test.with_suffix('.error.txt').write_text(text,encoding='utf-8');app.exit(1)
+        if args.smoke_test or args.advanced_smoke:(args.smoke_test or args.advanced_smoke).with_suffix('.error.txt').write_text(text,encoding='utf-8');app.exit(1)
         else:QMessageBox.warning(None,'작업 오류',str(value)[:1500])
     sys.excepthook=report_exception
+    if args.setup_ai:
+        from cadstudio.native.ai_setup import AISetupDialog
+        dialog=AISetupDialog();dialog.show();return app.exec()
     if args.self_test:
         from cadstudio.native.smoke import kernel_self_test
         kernel_self_test(args.self_test);return 0
     from cadstudio.native.window import MainWindow
-    window=MainWindow(restore=not (args.no_restore or args.open or args.smoke_test));window.show()
+    window=MainWindow(restore=not (args.no_restore or args.open or args.smoke_test or args.advanced_smoke));window.show()
+    if args.advanced_smoke:
+        from cadstudio.native.advanced_smoke import run
+        QTimer.singleShot(300,lambda:run(app,window,args.advanced_smoke))
     if args.open:QTimer.singleShot(100,lambda:window.open_project(args.open))
     if args.smoke_test:
         from cadstudio.native.smoke import run_smoke

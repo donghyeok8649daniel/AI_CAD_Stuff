@@ -14,3 +14,5 @@ The native Windows package uses unmodified upstream libraries. The portable layo
 The optional legacy web source includes **Three.js 0.180.0** (MIT), FastAPI and Uvicorn. Three.js is in `static/vendor`; OrbitControls only changes its import to the local vendored module. These web assets and pywebview are not included in the native executable.
 
 No Autodesk source code, artwork, logos or proprietary assets are included. This is an independent application.
+
+The optional local AI setup downloads Ollama from its official release and Qwen3 from the Ollama model library. These installer/model payloads are not redistributed inside the CAD ZIP; they retain their upstream licenses. The native exporter integration uses the installed Autodesk application API and includes no proprietary Autodesk binaries.

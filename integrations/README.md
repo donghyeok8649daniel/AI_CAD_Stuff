@@ -2,6 +2,14 @@
 
 이 패키지는 실제 솔리드 STEP과 변환 도구입니다. F3D/IPT 파일 자체는 Autodesk 프로그램에서 생성합니다. 확장자만 바꾸지 않습니다.
 
+## 앱의 내보내기 메뉴
+
+**파일 → 내보내기 → STEP / STL / F3D / IPT**에서 선택합니다. STEP·STL은 앱에서 바로 저장합니다. IPT는 부품을 선택하고 저장 경로를 지정합니다. 설치된 Inventor가 감지되면 공식 COM API로 변환합니다. 감지되지 않으면 변환 준비 파일을 보존합니다.
+
+F3D는 지정한 경로를 기억하는 `PromptCADImport` 스크립트 폴더를 준비합니다. Fusion에서 이 폴더를 등록하고 실행하면 STEP 선택과 출력 위치를 다시 입력하지 않아도 됩니다. 준비 폴더에는 STEP과 원본 CAD 프로젝트가 함께 있습니다. `job.json`이 있는 스크립트는 기존 F3D/IPT 파일을 덮어쓰지 않습니다. 다른 PC로 이동했다면 job.json의 source/target을 해당 PC의 절대 경로로 수정하세요.
+
+단일 IPT 준비 폴더는 `powershell -ExecutionPolicy Bypass -File .\ConvertSingleToIpt.ps1`을 실행합니다. 아래의 ZIP 변환 패키지는 여러 부품을 일괄 변환하는 기존 방식도 제공합니다.
+
 ## Fusion → .f3d
 
 1. ZIP을 풀고 Autodesk Fusion을 실행합니다.

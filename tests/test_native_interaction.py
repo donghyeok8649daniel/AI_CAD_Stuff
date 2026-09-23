@@ -65,7 +65,7 @@ def test_click_endpoints_retains_exact_anchor_and_two_points_on_same_line(editor
 
 
 def test_hover_projects_point_and_auto_constraint_survives_solve(editor):
-    line=G.line(G.pt(-30,-10),G.pt(30,20));load(editor,[line]);editor.set_tool('point')
+    line=G.line(G.pt(-30,-10),G.pt(30,20));load(editor,[line]);editor.grid_snapping.setChecked(False);editor.set_tool('point')
     target=G.at(line,.27);near=editor.canvas.screen(target)+QPointF(1,3)
     # Deliver to our test widget directly. QTest.mouseMove uses the desktop
     # cursor on Windows and may instead hit an unrelated foreground window.

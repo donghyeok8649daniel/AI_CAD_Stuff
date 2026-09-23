@@ -49,3 +49,10 @@ def test_ollama_does_not_follow_remote_redirect():
     def handle(request):requests.append(request);return httpx.Response(307,headers={'location':'https://example.com'})
     with pytest.raises(ValueError,match='요청에 실패'):ollama_draft(DraftRequest(prompt='test'),'test-local',httpx.MockTransport(handle))
     assert len(requests)==1
+
+
+def test_qwen3_skips_thinking_for_cad_output():
+    def handle(request):
+        body=json.loads(request.content);assert body['think'] is False
+        return httpx.Response(200,json={'done':True,'message':{'content':json.dumps({'design':preset('cylinder').model_dump(),'summary':'OK','assumptions':[]})}})
+    ollama_draft(DraftRequest(prompt='Cylinder'),'qwen3:8b',httpx.MockTransport(handle))

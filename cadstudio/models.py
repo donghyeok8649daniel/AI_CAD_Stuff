@@ -306,7 +306,76 @@ class Extrusion(StrictModel):
         return self
 
 
-Geometry = Annotated[Union[RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, Extrusion], Field(discriminator="kind")]
+class ModelFrame(StrictModel):
+    origin: list[Coordinate] = Field(default_factory=lambda:[0,0,0],min_length=3,max_length=3)
+    normal: list[float] = Field(default_factory=lambda:[0,0,1],min_length=3,max_length=3)
+    x_direction: list[float] = Field(default_factory=lambda:[1,0,0],min_length=3,max_length=3)
+
+    @model_validator(mode='after')
+    def orthogonal(self):
+        if abs(sum(x*x for x in self.normal)-1)>1e-5 or abs(sum(x*x for x in self.x_direction)-1)>1e-5 or abs(sum(a*b for a,b in zip(self.normal,self.x_direction)))>1e-5:
+            raise ValueError('모델링 기준 축은 서로 수직인 단위 벡터여야 합니다.')
+        return self
+
+
+def circle_profile(radius=5):
+    return Extrusion(sketch_mode='entities',entities=[dict(id='profile-circle',kind='circle',center=dict(x=0,y=0),radius=radius)])
+
+
+class ModelSection(StrictModel):
+    sketch: Extrusion = Field(default_factory=circle_profile)
+    frame: ModelFrame = Field(default_factory=ModelFrame)
+    sketch_id: str = Field(default='',max_length=40)
+
+
+class SweepPath(StrictModel):
+    points: list[list[Coordinate]] = Field(default_factory=lambda:[[0,0,0],[0,0,40],[30,0,65]],min_length=2,max_length=64)
+    smooth: bool = True
+    sketch: Extrusion | None = None
+    frame: ModelFrame = Field(default_factory=ModelFrame)
+    sketch_id: str = Field(default='',max_length=40)
+
+    @model_validator(mode='after')
+    def valid_points(self):
+        if any(len(p)!=3 for p in self.points) or any(math.dist(a,b)<.01 for a,b in zip(self.points,self.points[1:])):
+            raise ValueError('경로에는 서로 다른 XYZ 점이 필요합니다.')
+        return self
+
+
+class SweepGeometry(StrictModel):
+    kind: Literal['sweep'] = 'sweep'
+    profile: ModelSection = Field(default_factory=ModelSection)
+    path: SweepPath = Field(default_factory=SweepPath)
+    solid: bool = True
+    align_profile: bool = True
+    frenet: bool = False
+
+
+class LoftGeometry(StrictModel):
+    kind: Literal['loft'] = 'loft'
+    sections: list[ModelSection] = Field(default_factory=lambda:[ModelSection(sketch=circle_profile(20)),ModelSection(sketch=circle_profile(10),frame=ModelFrame(origin=[0,0,50]))],min_length=2,max_length=8)
+    solid: bool = True
+    ruled: bool = False
+
+
+Geometry = Annotated[Union[RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, Extrusion, SweepGeometry, LoftGeometry], Field(discriminator="kind")]
+
+
+class EdgeReference(StrictModel):
+    index: int = Field(ge=0,le=2000)
+    length: float = Field(ge=0,le=1000000)
+    center: list[Coordinate] = Field(min_length=3,max_length=3)
+    curve: str = Field(max_length=40)
+
+
+class EdgeFeature(StrictModel):
+    id: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
+    name: str = Field(default='3D 필렛',min_length=1,max_length=80)
+    kind: Literal['fillet','chamfer'] = 'fillet'
+    size: Dimension = 2
+    edges: list[EdgeReference] = Field(min_length=1,max_length=64)
+    support_feature: str = Field(default='base',max_length=40)
+    support_edge_count: int = Field(ge=1,le=2000)
 
 
 class SketchFeature(StrictModel):
@@ -366,7 +435,7 @@ class Part(StrictModel):
     transform: Transform = Field(default_factory=Transform)
     color: str = Field(default="#70aebf", pattern=r"^#[0-9a-fA-F]{6}$")
     fixed: bool = False
-    features: list[SketchFeature] = Field(default_factory=list, max_length=8)
+    features: list[Union[SketchFeature,EdgeFeature]] = Field(default_factory=list, max_length=16)
 
 
 class SketchSupportFace(StrictModel):
@@ -398,6 +467,25 @@ class SavedSketch(StrictModel):
     context: SavedSketchContext = Field(default_factory=SavedSketchContext)
 
 
+class LoopClosure(StrictModel):
+    id: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
+    name: str = Field(default='폐루프 연결',max_length=80)
+    parent: str = Field(min_length=1,max_length=40)
+    child: str = Field(min_length=1,max_length=40)
+    parent_anchor: str = Field(default='origin',max_length=40)
+    child_anchor: str = Field(default='origin',max_length=40)
+    passive_joints: list[str] = Field(min_length=1,max_length=6)
+    planar: bool = True
+    offset: list[Coordinate] = Field(default_factory=lambda:[0,0,0],min_length=3,max_length=3)
+
+
+class DesignStudy(StrictModel):
+    id: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
+    kind: Literal['robot','tensile','drawing','specimen-rule','fit']
+    name: str = Field(min_length=1,max_length=100)
+    settings: dict[str,JsonValue] = Field(default_factory=dict,max_length=40)
+
+
 class Design(StrictModel):
     schema_version: Literal[1] = 1
     name: str = Field(default="새 설계", min_length=1, max_length=100)
@@ -407,9 +495,12 @@ class Design(StrictModel):
     mates: list[AssemblyMate] = Field(default_factory=list, max_length=11)
     sketches: list[SavedSketch] = Field(default_factory=list, max_length=64)
     joint_frames: list[JointFrames] = Field(default_factory=list, max_length=11)
+    loops: list[LoopClosure] = Field(default_factory=list,max_length=4)
+    studies: list[DesignStudy] = Field(default_factory=list,max_length=32)
 
     @model_validator(mode="after")
     def unique_ids(self):
+        if len({s.id for s in self.studies})!=len(self.studies):raise ValueError('해석 / 도면 ID가 중복됩니다.')
         if len({s.id for s in self.sketches}) != len(self.sketches):
             raise ValueError("스케치 ID는 중복될 수 없습니다.")
         ids = [p.id for p in self.parts]
@@ -476,4 +567,4 @@ class DraftRequest(StrictModel):
     selected_part: str | None = Field(default=None, max_length=40)
 
 
-GEOMETRY_TYPES = {c.model_fields["kind"].default: c for c in (RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, Extrusion)}
+GEOMETRY_TYPES = {c.model_fields["kind"].default: c for c in (RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, Extrusion, SweepGeometry, LoftGeometry)}

@@ -45,13 +45,15 @@ class CADStyle(vtkInteractorStyleTrackballCamera):
 
 
 class CADViewport(QWidget):
+    point_selected=Signal(str,object)
+    edge_selected=Signal(int)
     sketch_selected=Signal(str)
     part_selected=Signal(str)
     face_selected=Signal(str,object)
     message=Signal(str)
     def __init__(self,parent=None):
         super().__init__(parent);self.setObjectName('cadViewport');self.meshes={};self.actors={};self.actor_ids={};self.hidden=set();self.selected=None;self.face=None
-        self.closed=False;self.show_edges=True;self.face_pick=False;self.result=None;self.grid_actor=None;self.highlight=None;self.sketch_actors={}
+        self.closed=False;self.show_edges=True;self.face_pick=False;self.result=None;self.grid_actor=None;self.highlight=None;self.sketch_actors={};self.edge_candidates={}
         layout=QVBoxLayout(self);layout.setContentsMargins(0,0,0,0);layout.setSpacing(0)
         bar=QHBoxLayout();bar.setContentsMargins(12,8,12,8);self.caption=QLabel('새 설계 · XY 원점');self.caption.setStyleSheet('font-weight:600;color:#afc7d6;');self.caption.setWordWrap(True);self.caption.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);layout.addWidget(self.caption);self.caption.setContentsMargins(12,7,12,0);bar.addStretch()
         for key,name in [('iso','등각 1'),('top','상면 2'),('front','정면 3'),('right','측면 4')]:
@@ -72,15 +74,17 @@ class CADViewport(QWidget):
 
     def make_grid(self,extent):
         if self.grid_actor:self.renderer.RemoveActor(self.grid_actor)
-        extent=max(50,float(extent));step=10**math.floor(math.log10(extent/10));extent=math.ceil(extent/step)*step
+        extent=max(50,float(extent));step=10**math.ceil(math.log10(extent/10));extent=math.ceil(extent/step)*step
         pts=vtkPoints();lines=vtkCellArray()
         for i in range(-int(extent/step),int(extent/step)+1):
             v=i*step
             for a,b in [((-extent,v,-.02),(extent,v,-.02)),((v,-extent,-.02),(v,extent,-.02))]:
                 start=pts.InsertNextPoint(*a);end=pts.InsertNextPoint(*b);lines.InsertNextCell(2);lines.InsertCellPoint(start);lines.InsertCellPoint(end)
-        mesh=vtkPolyData();mesh.SetPoints(pts);mesh.SetLines(lines);mapper=vtkPolyDataMapper();mapper.SetInputData(mesh);self.grid_actor=vtkActor();self.grid_actor.SetMapper(mapper);self.grid_actor.GetProperty().SetColor(.35,.49,.56);self.grid_actor.GetProperty().SetOpacity(.22);self.grid_actor.PickableOff();self.renderer.AddActor(self.grid_actor)
+        mesh=vtkPolyData();mesh.SetPoints(pts);mesh.SetLines(lines);mapper=vtkPolyDataMapper();mapper.SetInputData(mesh);self.grid_actor=vtkActor();self.grid_actor.SetMapper(mapper);self.grid_actor.GetProperty().SetColor(.35,.49,.56);self.grid_actor.GetProperty().SetOpacity(.15);self.grid_actor.PickableOff();self.renderer.AddActor(self.grid_actor)
 
     def load(self,result,fit=True):
+        for actor in self.edge_candidates:self.renderer.RemoveActor(actor)
+        self.edge_candidates={}
         for data in self.actors.values():
             for actor in data:self.renderer.RemoveActor(actor)
         for actor in self.sketch_actors:self.renderer.RemoveActor(actor)
@@ -118,6 +122,11 @@ class CADViewport(QWidget):
         self.face=None
 
     def pick(self,x,y):
+        if self.edge_candidates:
+            picker=vtkCellPicker();picker.SetTolerance(.008);picker.PickFromListOn()
+            for actor in self.edge_candidates:picker.AddPickList(actor)
+            if picker.Pick(x,y,0,self.renderer) and picker.GetActor() in self.edge_candidates:self.edge_selected.emit(self.edge_candidates[picker.GetActor()])
+            return
         picker=vtkCellPicker();picker.SetTolerance(.0005)
         if not picker.Pick(x,y,0,self.renderer):self.clear_face();self.window.Render();return
         if picker.GetActor() in self.sketch_actors:
@@ -131,7 +140,26 @@ class CADViewport(QWidget):
         self.highlight_face(identifier,face_index)
         self.face=(identifier,face)
         self.face_selected.emit(identifier,face)
+        self.point_selected.emit(identifier,list(picker.GetPickPosition()))
         self.message.emit(f"{mesh['name']} · 면 {face_index+1} · {'평면 스케치 가능' if face and face['planar'] else '곡면'}")
+
+    def set_edge_candidates(self,records):
+        for actor in self.edge_candidates:self.renderer.RemoveActor(actor)
+        self.edge_candidates={}
+        for ref in records:
+            points=vtkPoints();cells=vtkCellArray();cells.InsertNextCell(len(ref['points']))
+            for p in ref['points']:cells.InsertCellPoint(points.InsertNextPoint(*p))
+            mesh=vtkPolyData();mesh.SetPoints(points)
+            if len(ref['points'])==1:mesh.SetVerts(cells)
+            else:mesh.SetLines(cells)
+            mapper=vtkPolyDataMapper();mapper.SetInputData(mesh);mapper.SetResolveCoincidentTopologyToPolygonOffset();mapper.SetRelativeCoincidentTopologyLineOffsetParameters(-2,-2)
+            actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.55,.7,.76);actor.GetProperty().SetLineWidth(2);actor.GetProperty().SetPointSize(10);actor.GetProperty().RenderPointsAsSpheresOn();self.renderer.AddActor(actor);self.edge_candidates[actor]=ref['index']
+        self.footer.setText('모서리 클릭: 선택 / 해제 · 드래그: 회전 · 휠: 확대');self.window.Render()
+
+    def highlight_edges(self,selected):
+        for actor,index in self.edge_candidates.items():
+            actor.GetProperty().SetColor(*((.35,.95,.7) if index in selected else (.55,.7,.76)));actor.GetProperty().SetLineWidth(4 if index in selected else 2)
+        self.window.Render()
 
     def highlight_face(self,identifier,face_index):
         self.clear_face();mesh=self.meshes[identifier];triangles=np.asarray(mesh['triangles']).reshape(-1,3);mask=np.asarray(mesh['triangle_faces'])==face_index
@@ -170,4 +198,9 @@ class CADViewport(QWidget):
     def shutdown(self):
         if self.closed:return
         self.closed=True
-        self.axes_widget.SetEnabled(0);self.widget.Finalize()
+        # Disconnect the VTK -> Python -> QWidget cycle while the Qt window
+        # still exists. Otherwise later garbage collection may release an
+        # OpenGL interactor after Qt has destroyed its native HWND.
+        self.axes_widget.SetEnabled(0);self.axes_widget.SetInteractor(None)
+        self.style.RemoveAllObservers();self.style.owner=None;self.interactor.SetInteractorStyle(None);self.interactor.Disable()
+        self.widget._Timer.stop();self.interactor.RemoveAllObservers();self.window.RemoveAllObservers();self.renderer.RemoveAllViewProps();self.widget.Finalize()

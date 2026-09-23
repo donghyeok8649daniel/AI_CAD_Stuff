@@ -69,7 +69,8 @@ def run_smoke(app,window,path):
     def undone():
         check(len(window.part()['features'])==0,'undo restores prior feature state');window.redo()
     def redone():
-        check(len(window.part()['features'])==1,'redo restores face feature');window.add_preset('robot_arm')
+        from ..catalog import preset
+        check(len(window.part()['features'])==1,'redo restores face feature');window.apply_design(preset('robot_arm').model_dump(),'로봇 검증 장면',{'tool':'robot'},fit=True)
     def assembly():
         check(len(window.document.design['mates'])==4,'native assembly with four joints');check(window.result['stats']['valid'],'assembly geometry valid');window.viewport.set_view('iso');window.grab().save(str(path.with_name(path.stem+'-assembly.png')))
         from .workflows import JointDriveDialog

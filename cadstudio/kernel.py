@@ -42,6 +42,9 @@ def neck_profile(g, flat=False):
 
 
 def construct(g):
+    if g.kind in ('sweep','loft'):
+        from .advanced_geometry import construct_sweep,construct_loft
+        return construct_sweep(g) if g.kind=='sweep' else construct_loft(g)
     if g.kind == "round_specimen":
         obj = neck_profile(g).revolve(360, (0, 0), (1, 0))
     elif g.kind == "flat_specimen":
@@ -113,6 +116,10 @@ def _part_cached(part_json):
     for feature in part.features:
         if feature.support_feature and feature.support_feature!=previous_feature:
             raise ValueError("면 스케치가 참조한 이전 피처가 변경되었습니다. 기준 면을 다시 선택하세요.")
+        if getattr(feature,'kind',None) in ('fillet','chamfer'):
+            from .advanced_geometry import apply_edge_feature
+            shape=apply_edge_feature(shape,feature);previous_feature=feature.id;continue
+        if not shape.Solids():raise ValueError('곡면에는 솔리드 절삭·돌출을 적용할 수 없습니다.')
         faces=shape.Faces()
         if feature.face >= len(faces) or (feature.support_face_count and len(faces)!=feature.support_face_count):
             raise ValueError("면 스케치의 기준 면 구성이 변경되었습니다. 피처를 제거하고 면을 다시 선택하세요.")
@@ -139,12 +146,19 @@ def _part_cached(part_json):
     return shape
 
 
+def local_shape(design,part):
+    if part.geometry.kind in ('sweep','loft'):
+        from .advanced_geometry import resolved_geometry
+        part=part.model_copy(update={'geometry':resolved_geometry(design,part)})
+    return _part_cached(part.model_dump_json())
+
+
 @lru_cache(maxsize=8)
 def _build_cached(canonical_json):
     design = Design.model_validate_json(canonical_json)
     shapes = []
     for p in design.parts:
-        s = _part_cached(p.model_dump_json())
+        s = local_shape(design,p)
         t = p.transform
         for angle, axis in [(t.rx, (1, 0, 0)), (t.ry, (0, 1, 0)), (t.rz, (0, 0, 1))]:
             if angle:
@@ -161,7 +175,7 @@ def build(design: Design):
         for binding in design.joint_frames:
             mate=mates[binding.mate_id]
             for identifier,frame in ((mate.parent,binding.parent),(mate.child,binding.child)):
-                part=parts[identifier];shape=_part_cached(part.model_dump_json());faces=shape.Faces();support=part.features[-1].id if part.features else 'base'
+                part=parts[identifier];shape=local_shape(design,part);faces=shape.Faces();support=part.features[-1].id if part.features else 'base'
                 if len(faces)!=frame.face_count or frame.face>=len(faces) or support!=frame.support_feature:
                     raise ValueError('면 조인트가 참조한 피처/면 구성이 변경되었습니다. 기준 면을 다시 선택하세요.')
                 plane=face_frame(faces[frame.face])
@@ -178,7 +192,7 @@ def preview(design: Design):
         meshes = []
         for part, shape in zip(design.parts, shapes):
             vertices,triangles,triangle_faces,face_info=[],[],[],[]
-            local=_part_cached(part.model_dump_json())
+            local=local_shape(design,part)
             local_faces=local.Faces()
             for i,face in enumerate(shape.Faces()):
                 vs,ts=face.tessellate(.04,.12)
@@ -204,7 +218,8 @@ def preview(design: Design):
                 "vertices": [round(c, 7) for v in vertices for c in v.toTuple()],
                 "triangles": [i for t in triangles for i in t],
                 "triangle_faces":triangle_faces,"faces":face_info,"anchors":anchors(part.geometry),"sketch_constraints":sketch_info,
-                "volume": shape.Volume(), "area": shape.Area(), "valid": shape.isValid(),
+                "volume": shape.Volume() if shape.Solids() else 0, "area": shape.Area(), "valid": shape.isValid(),
+                "solid":bool(shape.Solids()),
                 "bounds": [bb.xlen, bb.ylen, bb.zlen],
             })
         from .native.saved_sketches import preview_sketches
@@ -224,7 +239,7 @@ def preview(design: Design):
                 b = shapes[j]
                 bc = exact_bounds(b)
                 overlap = all(min(getattr(ba, axis+"max"), getattr(bc, axis+"max")) - max(getattr(ba, axis+"min"), getattr(bc, axis+"min")) > 1e-5 for axis in "xyz")
-                if overlap:
+                if overlap and a.Solids() and b.Solids():
                     volume = a.intersect(b).Volume()
                     if volume > 1e-5:
                         collisions.append({"a": design.parts[i].id, "b": design.parts[j].id, "volume": volume})

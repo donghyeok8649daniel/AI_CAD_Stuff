@@ -69,7 +69,7 @@ def transform_matrix(t):
     return Rotation.from_euler("xyz",[t.rx,t.ry,t.rz],degrees=True).as_matrix()
 
 
-def solve_assembly(design):
+def solve_assembly(design,solve_loops=True):
     parts={p.id:p for p in design.parts}; driving={}; frames={f.mate_id:f for f in design.joint_frames}
     for mate in design.mates:
         if mate.parent not in parts or mate.child not in parts or mate.parent==mate.child:
@@ -108,4 +108,8 @@ def solve_assembly(design):
             child.transform=type(child.transform).model_validate(values)
         visiting.remove(identifier);completed.add(identifier)
     for identifier in parts:resolve(identifier)
-    return {"mates":len(driving),"grounded":sum(p.fixed for p in parts.values()),"dof":sum((0 if p.fixed else 6) if p.id not in driving else {"rigid":0,"revolute":1,"slider":1,"cylindrical":2}[driving[p.id].kind] for p in parts.values())}
+    report={"mates":len(driving),"grounded":sum(p.fixed for p in parts.values()),"dof":sum((0 if p.fixed else 6) if p.id not in driving else {"rigid":0,"revolute":1,"slider":1,"cylindrical":2}[driving[p.id].kind] for p in parts.values())}
+    if solve_loops and design.loops:
+        from .mechanisms import solve_closures
+        details=solve_closures(design);report.update(details);report['dof']=max(0,report['dof']-details['closure_rank'])
+    return report

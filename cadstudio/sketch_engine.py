@@ -176,19 +176,25 @@ def _solve_entities(entities,constraints):
     def residual(vector):
         data={e['id']:e for e in unpack(vector)}
         return np.array([v for c in constraints for v in constraint_residual(c,data)],dtype=float)
-    maximum=0;rank=0;solved=np.array(original)
+    maximum=0;rank=0;solved=np.array(original);null=np.eye(len(original))
     if constraints:
         origin=np.array(original)
         result=least_squares(lambda v:np.r_[residual(v),(v-origin)*1e-7],origin,bounds=(lower,upper),max_nfev=200,ftol=1e-10,xtol=1e-10,gtol=1e-10)
         errors=residual(result.x);maximum=float(np.max(np.abs(errors))) if len(errors) else 0
         if maximum>1e-4:raise ValueError(f'스케치 구속이 충돌하거나 해를 찾지 못했습니다 (잔차 {maximum:.4g}).')
-        rank=int(np.linalg.matrix_rank(result.jac[:len(errors)],tol=1e-6));solved=result.x
+        _,singular,vt=np.linalg.svd(result.jac[:len(errors)],full_matrices=True)
+        rank=int(np.count_nonzero(singular>1e-6));null=vt[rank:].T;solved=result.x
     updated=unpack(solved)
     for e in updated:
         if e['kind']=='line' and np.linalg.norm(xy(e['end'])-xy(e['start']))<1e-5:raise ValueError('길이가 0인 선은 만들 수 없습니다.')
         if e['kind']=='arc' and abs(e['sweep'])<.001:raise ValueError('원호의 각도가 너무 작습니다.')
         if e['kind']=='spline':spline(e)
-    return [type(old).model_validate(data) for old,data in zip(entities,updated)],{'dof':max(0,len(original)-rank),'rank':rank,'max_error':maximum,'constraints':len(constraints),'entities':len(entities)}
+    mobility={}
+    for i,e in enumerate(raw):
+        rows=[j for j,(entity,_) in enumerate(mapping) if entity==i]
+        block=null[rows,:]
+        mobility[e['id']]=int(np.linalg.matrix_rank(block,tol=1e-6)) if block.size else 0
+    return [type(old).model_validate(data) for old,data in zip(entities,updated)],{'dof':max(0,len(original)-rank),'rank':rank,'max_error':maximum,'constraints':len(constraints),'entities':len(entities),'entity_dof':mobility}
 
 
 @lru_cache(maxsize=128)
@@ -202,7 +208,7 @@ def _solve_cached(serialized):
 
 def solve_entities(entities,constraints):
     solved,status=_solve_cached(json.dumps([[e.model_dump() for e in entities],[c.model_dump() for c in constraints]],sort_keys=True))
-    return [e.model_copy(deep=True) for e in solved],dict(status)
+    return [e.model_copy(deep=True) for e in solved],deepcopy(status)
 
 
 def edges_for_entity(e):
@@ -286,7 +292,13 @@ def sketch_preview(g):
         outlines=[]
         for wire in [face.outerWire(),*face.innerWires()]:
             pts,_=wire.sample(max(80,len(wire.Edges())*12));outlines.append([[p.x,p.y] for p in pts])
-        regions.append({'index':i,'area':face.Area(),'outline':outlines})
+        # Associate exact entity edges with region boundaries, including edges
+        # split by intersections. This enables line-to-profile selection.
+        boundary=cq.Compound.makeCompound(face.Edges());members=[]
+        for e,edges in edge_sets:
+            if e['construction']:continue
+            if any(boundary.distance(cq.Vertex.makeVertex(*edge.positionAt(t).toTuple()))<1e-5 for edge in edges for t in (.25,.5,.75)):members.append(e['id'])
+        regions.append({'index':i,'area':face.Area(),'outline':outlines,'entity_ids':members})
     intersections=[]
     for i,(a,ea) in enumerate(edge_sets):
         if a['kind'] in {'point','text'}:continue

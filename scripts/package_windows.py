@@ -27,6 +27,7 @@ $cadShortcut.IconLocation = "$cadExe,0"
 $cadShortcut.Description = 'Prompt CAD Studio'
 $cadShortcut.Save()
 ''',encoding='utf-8-sig')
+(args.bundle/'Local AI Setup.ps1').write_text("Start-Process -FilePath (Join-Path $PSScriptRoot 'PromptCADStudio.exe') -ArgumentList '--setup-ai' -WindowStyle Hidden\n",encoding='utf-8-sig')
 make_manifest(args.bundle,__version__)
 with ZipFile(args.zip,'w',ZIP_DEFLATED,compresslevel=6) as archive:
     for path in args.bundle.rglob('*'):

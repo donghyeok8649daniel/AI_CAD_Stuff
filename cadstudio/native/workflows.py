@@ -16,6 +16,7 @@ from ..constraints import anchors,transform_matrix
 def choice(items):
     c=QComboBox()
     for value,title in items:c.addItem(title,value)
+    c.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon);c.setMinimumContentsLength(10)
     return c
 
 
@@ -83,6 +84,10 @@ class SpecimenDialog(PreviewDialog):
         self.kind=choice([(k,TITLES[k]) for k in ('round_specimen','flat_specimen','wafer')]);self.name=QLineEdit(self.original['name'] if self.original else '원통형 시편');self.controls.addWidget(self.kind);self.controls.addWidget(self.name);self.diagram=SpecimenDiagram();self.controls.addWidget(self.diagram);self.form=QFormLayout();self.controls.addLayout(self.form);self.metrics=label('',True);self.controls.addWidget(self.metrics);self.controls.addStretch();self.inputs={}
         if self.original:self.kind.setCurrentIndex(self.kind.findData(self.original['geometry']['kind']))
         self.kind.currentIndexChanged.connect(self.rebuild);self.name.textChanged.connect(self.schedule);self.rebuild()
+        saved=next((s for s in self.base.get('studies',[]) if s['kind']=='specimen-rule' and s['settings'].get('part_id')==self.part_id),None)
+        self.rule_id=saved['id'] if saved else 'rule-'+uid();self.rule=choice([('custom','사용자 표점 길이'),('E8-4D','ASTM E8 · 원통 4D 표점'),('E8M-5D','ASTM E8M · 원통 5D 표점')]);self.mark=number(25,.01,2000,' mm');self.controls.insertWidget(self.controls.count()-1,label('표점 길이 L₀ · 평행부 길이와 별개'));self.controls.insertWidget(self.controls.count()-1,self.rule);self.controls.insertWidget(self.controls.count()-1,self.mark);self.rule_result=label('',True);self.controls.insertWidget(self.controls.count()-1,self.rule_result)
+        if saved:self.rule.setCurrentIndex(max(0,self.rule.findData(saved['settings']['rule'])));self.mark.setValue(saved['settings']['mark_length'])
+        self.rule.currentIndexChanged.connect(self.schedule);self.mark.valueChanged.connect(self.schedule)
     def rebuild(self):
         clear_layout(self.form);kind=self.kind.currentData();g=self.original['geometry'] if self.original and self.original['geometry']['kind']==kind else part_default(kind).geometry.model_dump();self.inputs={}
         if not self.original:self.name.setText(TITLES[kind])
@@ -97,7 +102,12 @@ class SpecimenDialog(PreviewDialog):
             p=part_default(g['kind'],self.part_id).model_dump();p['geometry']=g
             if raw['parts']:p['transform']['x']=max(q['transform']['x']+max(q['geometry'].get('length',0),q['geometry'].get('diameter',0),q['geometry'].get('width',0),100) for q in raw['parts'])+max(g.get('length',0),g.get('diameter',0))/2+25
             raw['parts'].append(p)
-        p['name']=self.name.text().strip() or TITLES[g['kind']];return raw
+        p['name']=self.name.text().strip() or TITLES[g['kind']]
+        if hasattr(self,'rule') and g['kind']!='wafer':
+            from ..tensile import specimen_rule
+            from ..models import GEOMETRY_TYPES
+            report=specimen_rule(GEOMETRY_TYPES[g['kind']].model_validate(g),self.rule.currentData(),self.mark.value());self.rule_result.setText(f"L₀ {report['mark_length']:g} mm · "+('평행부 안에 들어갑니다.' if report['fits'] else '평행부보다 깁니다. 평행부 길이를 늘리세요.')+'\n'+report['note']);self.mark.setEnabled(self.rule.currentData()=='custom');raw['studies']=[s for s in raw.get('studies',[]) if s['id']!=self.rule_id]+[dict(id=self.rule_id,kind='specimen-rule',name='시편 표점 길이 검사',settings=dict(part_id=self.part_id,**report))]
+        return raw
     def compute(self,raw):
         with KERNEL_LOCK:
             d=Design.model_validate(raw);preview(d)
@@ -152,6 +162,7 @@ class JointDriveDialog(PreviewDialog):
     def __init__(self,parent,design):
         super().__init__(parent,'관절 구동 · 간섭 확인','각도 또는 이동량을 조절하세요. 연결된 부품과 하위 부품이 함께 움직입니다. 적용한 자세는 작업 기록에 남습니다.')
         self.base=deepcopy(design);self.inputs={};names={p['id']:p['name'] for p in design['parts']}
+        self.passive={j for c in design.get('loops',[]) for j in c['passive_joints']};self.sliders={}
         for mate in design['mates']:
             if mate['kind']=='rigid':continue
             title=label(names[mate['parent']]+' → '+names[mate['child']]);title.setStyleSheet('font-weight:600;color:#8ed5c6;');self.controls.addWidget(title)
@@ -159,6 +170,8 @@ class JointDriveDialog(PreviewDialog):
                 row=QHBoxLayout();w=number(mate[key],-360 if key=='rz' else -500,360 if key=='rz' else 500,' °' if key=='rz' else ' mm',decimals=2);row.addWidget(QLabel('회전' if key=='rz' else '이동'));row.addWidget(w);self.controls.addLayout(row);slider=QSlider(Qt.Orientation.Horizontal);slider.setRange(int(w.minimum()*10),int(w.maximum()*10));slider.setValue(round(w.value()*10));self.controls.addWidget(slider);slider.valueChanged.connect(lambda v,spin=w:spin.setValue(v/10))
                 def changed(v,s=slider):s.blockSignals(True);s.setValue(round(v*10));s.blockSignals(False);self.schedule()
                 w.valueChanged.connect(changed);self.inputs[(mate['id'],key)]=w
+                self.sliders[(mate['id'],key)]=slider
+                if mate['id'] in self.passive:w.setEnabled(False);slider.setEnabled(False);w.setToolTip('폐루프를 닫기 위해 자동으로 계산되는 수동 관절입니다.')
         self.collisions=label('',True);self.controls.addWidget(self.collisions);self.controls.addStretch();self.schedule()
     def candidate(self):
         raw=deepcopy(self.base)
@@ -168,6 +181,13 @@ class JointDriveDialog(PreviewDialog):
         return raw
     def present(self):
         super().present();names={p.id:p.name for p in self.checked.parts};collisions=self.result['stats']['collisions'];self.collisions.setText('체적 간섭 없음' if not collisions else '간섭 부품\n'+'\n'.join(f"{names[c['a']]} ↔ {names[c['b']]}\n{c['volume']:.3f} mm³" for c in collisions));self.collisions.setStyleSheet('color:#f3ac97;' if collisions else 'color:#89d6c0;')
+        for mate in self.checked.mates:
+            if mate.id in self.passive:
+                for key in ('rz','z'):
+                    if (mate.id,key) in self.inputs:
+                        w=self.inputs[(mate.id,key)];w.blockSignals(True);w.setValue(getattr(mate,key));w.blockSignals(False);s=self.sliders[(mate.id,key)];s.blockSignals(True);s.setValue(round(getattr(mate,key)*10));s.blockSignals(False)
+        stats=self.result['stats']['assembly_constraints']
+        if stats.get('loops'):self.status.setText(self.status.text()+f" · 폐루프 오차 {stats['closure_error_mm']:.2g} mm · 자유도 {stats['dof']}")
         for collision in collisions:
             for identifier in (collision['a'],collision['b']):self.viewport.actors[identifier][0].GetProperty().SetColor(.83,.30,.20)
         self.viewport.window.Render()

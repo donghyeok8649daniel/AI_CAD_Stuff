@@ -7,6 +7,7 @@ TITLES = {
     "round_specimen": "원통형 시편", "flat_specimen": "평판형 시편", "wafer": "웨이퍼",
     "link": "양단 링크", "plate": "구멍판", "bracket": "L 브래킷", "cylinder": "원통 · 튜브",
     "robot_arm": "2링크 조립", "extrusion": "스케치 돌출",
+    "sweep":"스윕", "loft":"로프트",
 }
 FIELDS = {
     "length": ("전체 길이", "mm"), "gauge_length": ("평행부 길이", "mm"),
@@ -28,6 +29,7 @@ EXAMPLES = {
     "plate": "구멍판 길이 80, 폭 60, 두께 6, 구멍 수 4, X 간격 56, Y 간격 36 mm",
     "cylinder": "튜브 직경 30, 높이 20, 내경 20 mm",
     "robot_arm": "2링크 로봇 조립", "extrusion": "스케치 돌출 두께 8 mm",
+    "sweep":"원형 단면 경로 스윕", "loft":"두 단면 사이 로프트",
 }
 
 
