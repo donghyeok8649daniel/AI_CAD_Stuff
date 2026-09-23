@@ -193,7 +193,7 @@ def show_window(args):
 
     def check():
         try:
-            messages.put(('release', latest_release()))
+            messages.put(('release', {'version':'99.0.0','size':100} if args.gui_smoke else latest_release()))
         except Exception as exc:
             messages.put(('error', '업데이트 확인에 실패했습니다. 인터넷 연결 후 다시 실행하세요.\n' + str(exc)))
 
@@ -236,6 +236,17 @@ def show_window(args):
     root.protocol('WM_DELETE_WINDOW', close)
     threading.Thread(target=check, daemon=True).start()
     root.after(100, poll)
+    if args.gui_smoke:
+        def verify_window():
+            try:
+                root.update_idletasks()
+                assert root.winfo_ismapped() and root.winfo_width() >= 580
+                assert state['release'] is not None and not state['running']
+                assert str(action['state']) == 'normal'
+                args.gui_smoke.write_text(json.dumps({'window_visible':True,'tk_version':root.tk.call('info','patchlevel'),'button':str(action['text']),'install_dir':folder_value.get(),'network_used':False}),encoding='utf-8')
+            finally:
+                root.destroy()
+        root.after(800, verify_window)
     root.mainloop()
 
 
@@ -250,7 +261,9 @@ def main():
     parser.add_argument('--apply-archive', type=Path)
     parser.add_argument('--sha256')
     parser.add_argument('--report', type=Path)
+    parser.add_argument('--gui-smoke', type=Path)
     args = parser.parse_args()
+    if args.gui_smoke:args.auto_update=False;args.restart=False
     if not args.install_dir:
         args.install_dir = detect_install()
     if args.install_dir and relocate_if_needed(args):

@@ -1,4 +1,4 @@
-# Prompt CAD Studio · Native 2.1.1
+# Prompt CAD Studio · Native 2.1.2
 
 사람이 직접 설계하고, 필요할 때 프롬프트로 도움을 받는 한국어 Windows CAD 앱입니다. **Qt Widgets + VTK OpenGL + Open CASCADE**로 실행하며 HTML, WebView, 브라우저, 내장 HTTP 서버를 사용하지 않습니다.
 
@@ -7,6 +7,8 @@ Fusion의 스케치 → 피처 → 조립 → 작업 기록 흐름을 참고했�
 ## Windows 다운로드
 
 [Windows 네이티브 앱 다운로드](https://github.com/donghyeok8649daniel/AI_CAD_Stuff/releases/latest)
+
+2.1.2는 업데이트 실행 파일에서 `No module named tkinter`가 발생한 배포 오류를 수정합니다. 수정본에는 Tcl/Tk 화면 라이브러리를 함께 포함하며 Python을 별도로 설치할 필요가 없습니다.
 
 **기존 설치 업데이트:** 앱의 **도움말 → 업데이트 확인**을 사용하세요. 작업 저장 후 앱을 종료하고 같은 폴더를 갱신한 뒤 다시 실행합니다. 2.1.0 이전 버전은 릴리스의 작은 `PromptCADStudioUpdater.exe`만 받아 실행하세요. 바탕화면 바로가기의 설치 위치를 찾으며, 필요하면 `PromptCADStudio.exe`와 `_internal`이 있는 기존 폴더를 선택할 수 있습니다. 새 버전마다 ZIP을 다시 풀어 별도 설치 폴더를 만들 필요가 없습니다.
 
@@ -136,7 +138,7 @@ python -m venv .venv
 .venv\Scripts\python.exe native_desktop.py
 .venv\Scripts\python.exe -m PyInstaller NativeCAD.spec
 .venv\Scripts\python.exe -m PyInstaller Updater.spec
-.venv\Scripts\python.exe scripts\package_windows.py dist\PromptCADStudio PromptCADStudio-Windows-x64-v2.1.1.zip --updater dist\PromptCADStudioUpdater.exe
+.venv\Scripts\python.exe scripts\package_windows.py dist\PromptCADStudio PromptCADStudio-Windows-x64-v2.1.2.zip --updater dist\PromptCADStudioUpdater.exe
 ```
 
 `desktop.py`, `Start CAD.vbs`, `setup.ps1`도 네이티브 앱을 실행·설치합니다. 이전 웹 클라이언트는 별도 개발용 `launch.py`와 `requirements.txt`로 남겨 두었으며 Windows 앱에는 포함하지 않습니다.
