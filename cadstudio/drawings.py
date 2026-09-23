@@ -3,7 +3,8 @@ from html import escape
 from pathlib import Path
 import numpy as np
 from pydantic import Field
-from .models import StrictModel
+from .models import StrictModel,Coordinate
+from typing import Literal
 
 
 class DrawingSettings(StrictModel):
@@ -15,6 +16,14 @@ class DrawingSettings(StrictModel):
     scale: float = Field(default=0,ge=0,le=100) # 0 = fit
     hidden: bool = True
     dimensions: bool = True
+    extra_view: Literal['none','section','detail'] = 'none'
+    section_axis: Literal['X','Y','Z'] = 'Y'
+    section_offset: Coordinate = 0
+    detail_center: list[Coordinate] = Field(default_factory=lambda:[0,0],min_length=2,max_length=2)
+    detail_radius: float = Field(default=10,ge=.01,le=2000)
+    detail_factor: float = Field(default=2,ge=1,le=20)
+    all_parts: bool = False
+    notes: str = Field(default='',max_length=800)
 
 
 def projected_lines(shape,normal,x_direction):
@@ -55,8 +64,12 @@ def sheet(design,settings):
     views=[]
     for name,normal,xd,col,row in [('TOP · XY',(0,0,1),(1,0,0),0,0),('FRONT · XZ',(0,-1,0),(1,0,0),0,1),('RIGHT · YZ',(1,0,0),(0,1,0),1,1)]:
         lines=projected_lines(shape,normal,xd);points=np.array([p for line in lines for p in line['points']]);low=points.min(axis=0);high=points.max(axis=0)
-        views.append(dict(name=name,lines=lines,low=low,high=high,center=np.array([20+col*(cellw+18)+cellw/2,17+row*(cellh+12)+cellh/2])))
-    fit=min(min((cellw-22)/max(v['high'][0]-v['low'][0],.001),(cellh-22)/max(v['high'][1]-v['low'][1],.001)) for v in views)
+        views.append(dict(name=name,lines=lines,low=low,high=high,factor=1,center=np.array([20+col*(cellw+18)+cellw/2,17+row*(cellh+12)+cellh/2])))
+    if settings.extra_view!='none':
+        lines,name,factor=extra_view(shape,settings);points=np.array([p for line in lines for p in line['points']])
+        if not len(points):raise ValueError('상세 / 단면 범위에 형상이 없습니다.')
+        views.append(dict(name=name,lines=lines,low=points.min(axis=0),high=points.max(axis=0),factor=factor,center=np.array([20+(cellw+18)+cellw/2,17+cellh/2])))
+    fit=min(min((cellw-22)/max(v['high'][0]-v['low'][0],.001),(cellh-22)/max(v['high'][1]-v['low'][1],.001))/v['factor'] for v in views)
     scale=settings.scale or min(1,fit)
     if scale>fit+1e-9:raise ValueError(f'축척이 용지보다 큽니다. {fit:.3g} 이하 또는 자동 맞춤을 사용하세요.')
     paths=[];texts=[]
@@ -64,7 +77,7 @@ def sheet(design,settings):
     def text(x,y,value,size=3):texts.append(dict(x=x,y=y,text=value,size=size))
     for view in views:
         middle=(view['low']+view['high'])/2
-        def project(p):return (view['center']+(np.array(p)-middle)*[scale,-scale]).tolist()
+        def project(p):return (view['center']+(np.array(p)-middle)*[scale*view['factor'],-scale*view['factor']]).tolist()
         for item in view['lines']:
             if not item['hidden'] or settings.hidden:line([project(p) for p in item['points']],item['hidden'])
         low,high=view['low'],view['high'];left,top=project([low[0],high[1]]);right,bottom=project([high[0],low[1]])
@@ -82,7 +95,7 @@ def sheet(design,settings):
         record=calculate_fit(design,FitSettings.model_validate(study.settings))
         if settings.part_id and settings.part_id not in (record['shaft']['part'],record['hole']['part']):continue
         fits.append(record)
-    if fits:
+    if fits and settings.extra_view=='none':
         x=width*.74;text(x,22,'DIAMETER LIMITS · mm',3)
         for i,r in enumerate(fits[:4]):
             y=31+i*13
@@ -95,7 +108,69 @@ def sheet(design,settings):
     text(13,height-19,settings.title,4);text(13,height-11,'mm · Third angle · Overall dimensions',2.5)
     text(width-52,height-19,f'{settings.number} / Rev {settings.revision}',3)
     text(width-52,height-11,f'Scale {scale:.4g}:1 · {settings.page}',2.7)
+    if settings.notes:
+        for i,row in enumerate(settings.notes.splitlines()[:4]):text(13,height-36-i*3.3,row[:110],2.4)
     return dict(width=width,height=height,scale=scale,paths=paths,texts=texts)
+
+
+def extra_view(shape,settings):
+    import cadquery as cq
+    if settings.extra_view=='detail':
+        center=np.array(settings.detail_center);radius=settings.detail_radius;lines=[]
+        for row in projected_lines(shape,(0,0,1),(1,0,0)):
+            for p,q in zip(row['points'],row['points'][1:]):
+                a=np.array(p)-center;delta=np.array(q)-np.array(p);length=delta@delta
+                if length<1e-18:continue
+                b=2*(a@delta);c=a@a-radius**2;disc=b*b-4*length*c
+                if disc<0:continue
+                low=max(0,(-b-np.sqrt(disc))/(2*length));high=min(1,(-b+np.sqrt(disc))/(2*length))
+                if high>low:lines.append(dict(points=[(center+a+delta*t).tolist() for t in (low,high)],hidden=row['hidden']))
+        if not lines:raise ValueError('확대할 상면 상세 범위에 선이 없습니다.')
+        lines.append(dict(points=[(center+radius*np.array([np.cos(a),np.sin(a)])).tolist() for a in np.linspace(0,2*np.pi,129)],hidden=False))
+        return lines,f'DETAIL A · TOP ×{settings.detail_factor:g}',settings.detail_factor
+    from .inspection import section
+    axis='XYZ'.index(settings.section_axis);normal=[int(i==axis) for i in range(3)];origin=[v*settings.section_offset for v in normal];xd=[0,1,0] if axis==0 else [1,0,0];cut=section(shape,origin,normal);lines=projected_lines(cut,normal,xd);plane=cq.Plane(origin=origin,normal=normal,xDir=xd)
+    samples=[plane.toLocalCoords(p) for edge in cut.Edges() for p in edge.sample(24)[0]];x0=min(p.x for p in samples);x1=max(p.x for p in samples);y0=min(p.y for p in samples);y1=max(p.y for p in samples);span=max(x1-x0,y1-y0,1)
+    for start in np.arange(x0-span,x1+span,span/25):
+        edge=cq.Edge.makeLine(plane.toWorldCoords((start,y0-1)),plane.toWorldCoords((start+y1-y0+2,y1+1)))
+        for piece in cut.intersect(edge).Edges():
+            points=[plane.toLocalCoords(p) for p in (piece.startPoint(),piece.endPoint())];lines.append(dict(points=[[p.x,p.y] for p in points],hidden=False))
+    return lines,f'SECTION A-A · {settings.section_axis}={settings.section_offset:g} mm',1
+
+
+def drawing_book(design,settings):
+    from copy import deepcopy
+    first=sheet(design,settings);pages=[first]
+    if settings.all_parts:
+        for i,part in enumerate(design.parts):
+            if part.id==settings.part_id:continue
+            page=sheet(design,settings.model_copy(update={'part_id':part.id,'title':part.name,'number':settings.number+'-'+str(i+1),'extra_view':'none','all_parts':False}));pages.append(page)
+    for i,page in enumerate(pages):page['texts'].append(dict(x=page['width']-13,y=12,text=f'{i+1}/{len(pages)}',size=2.5))
+    return pages
+
+
+def export_book(pages,path):
+    from PySide6.QtCore import QByteArray,QRectF,QSizeF,QMarginsF
+    from PySide6.QtGui import QPdfWriter,QPainter,QPageSize,QPageLayout
+    from PySide6.QtSvg import QSvgRenderer
+    writer=QPdfWriter(str(path));writer.setResolution(300);writer.setPageSize(QPageSize(QSizeF(pages[0]['width'],pages[0]['height']),QPageSize.Unit.Millimeter));writer.setPageMargins(QMarginsF(0,0,0,0),QPageLayout.Unit.Millimeter);painter=QPainter(writer)
+    try:
+        for i,page in enumerate(pages):
+            if i:writer.newPage()
+            QSvgRenderer(QByteArray(svg(page).encode())).render(painter,QRectF(0,0,writer.width(),writer.height()))
+    finally:painter.end()
+
+
+def export_bom(design,path):
+    import csv
+    from .kernel import local_shape
+    from .inspection import mass_properties
+    rows=[]
+    for part in design.parts:
+        shape=local_shape(design,part);mass=mass_properties(shape,part.material.density)['mass_kg'] if part.material and shape.Solids() else ''
+        rows.append([part.id,part.name,part.source_part_id or part.id,1,part.material.name if part.material else '',mass,shape.Volume() if shape.Solids() else '',part.color])
+    with Path(path).open('w',newline='',encoding='utf-8-sig') as stream:
+        writer=csv.writer(stream);writer.writerow(['Part ID','Name','Source ID','Quantity','Material','Mass kg','Volume mm3','Color']);writer.writerows(rows)
 
 
 def svg(sheet):

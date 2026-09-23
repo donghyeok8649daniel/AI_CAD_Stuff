@@ -1,0 +1,12 @@
+{
+  "model": "qwen3:8b",
+  "seconds": 71.64,
+  "attempts": 1,
+  "geometry": {
+    "kind": "cylinder",
+    "diameter": 12.0,
+    "height": 8.0,
+    "bore_diameter": 0.0
+  },
+  "validated": true
+}

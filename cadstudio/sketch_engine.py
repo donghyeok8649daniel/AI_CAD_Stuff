@@ -299,10 +299,27 @@ def profile_regions(g):return _regions_cached(json.dumps([e.model_dump() for e i
 def extrude_regions(g,plane=None,direction=None):
     if direction is None:direction=g.direction
     import cadquery as cq
-    faces=profile_regions(g);selected=g.profiles or [0]
+    if g.sketch_mode=='polygon':
+        outer=cq.Workplane('XY').polyline([(p.x,p.y) for p in g.points]).close().val()
+        inners=[cq.Wire.makeCircle(h.diameter/2,cq.Vector(h.x,h.y,0),cq.Vector(0,0,1)) for h in g.holes]
+        faces=[cq.Face.makeFromWires(outer,inners)]
+    else:faces=profile_regions(g)
+    selected=g.profiles or [0]
     if not faces:raise ValueError('닫힌 스케치 영역이 없습니다. 끝점을 일치시키고 영역을 선택하세요.')
     if len(set(selected))!=len(selected) or any(i>=len(faces) for i in selected):raise ValueError('선택한 스케치 영역이 변경되었습니다. 영역을 다시 선택하세요.')
-    solids=[cq.Solid.extrudeLinear(faces[i].outerWire(),faces[i].innerWires(),(0,0,g.thickness*direction)) for i in selected]
+    forward=g.thickness/2 if g.symmetric else g.thickness
+    back=g.thickness/2 if g.symmetric else g.reverse_depth
+    solids=[]
+    for i in selected:
+        face=faces[i]
+        if g.taper and face.innerWires():raise ValueError('테이퍼 돌출은 내부 구멍 없는 영역을 사용하세요. 구멍은 뒤에서 절삭할 수 있습니다.')
+        solid=cq.Solid.extrudeLinear(face.outerWire(),face.innerWires(),(0,0,forward*direction),g.taper)
+        if back:solid=solid.fuse(cq.Solid.extrudeLinear(face.outerWire(),face.innerWires(),(0,0,-back*direction),g.taper)).clean()
+        if g.thin_wall:
+            if face.innerWires():raise ValueError('얇은 벽 돌출은 내부 구멍 없는 닫힌 단면을 선택하세요.')
+            caps=[f for f in solid.Faces() if f.geomType()=='PLANE' and abs(f.normalAt().z)>.99999]
+            solid=cq.Workplane().newObject([solid]).newObject(caps).shell(-g.thin_wall).val()
+        solids.append(solid)
     shape=solids[0].fuse(*solids[1:]).clean() if len(solids)>1 else solids[0]
     return shape.moved(cq.Location(plane)) if plane else shape
 

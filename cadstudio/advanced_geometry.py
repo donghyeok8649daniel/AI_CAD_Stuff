@@ -89,19 +89,25 @@ def validate_shape(shape,solid):
 
 def edge_records(shape):
     records=[]
+    from .kernel import exact_bounds
+    box=exact_bounds(shape);low=(box.xmin,box.ymin,box.zmin);sizes=(box.xlen,box.ylen,box.zlen)
     for i,edge in enumerate(shape.Edges()):
         samples,_=edge.sample(40)
         if edge.IsClosed() and samples:samples.append(samples[0])
-        records.append(dict(index=i,length=edge.Length(),center=list(edge.Center().toTuple()),curve=edge.geomType(),points=[list(p.toTuple()) for p in samples]))
+        center=list(edge.Center().toTuple())
+        records.append(dict(index=i,length=edge.Length(),center=center,curve=edge.geomType(),points=[list(p.toTuple()) for p in samples],relative_center=[(v-a)/max(d,1e-9) for v,a,d in zip(center,low,sizes)],tangent=list(edge.tangentAt(.5).toTuple())))
     return records
 
 
 def apply_edge_feature(shape,feature):
     if not shape.Solids():raise ValueError('3D 필렛·모따기는 솔리드에서 사용하세요.')
     edges=shape.Edges()
-    if len(edges)!=feature.support_edge_count:raise ValueError('참조한 모서리 구성이 바뀌었습니다. 모서리를 다시 선택하세요.')
+    if len(edges)!=feature.support_edge_count and not all(r.relative_center for r in feature.edges):raise ValueError('참조한 모서리 구성이 바뀌었습니다. 모서리를 다시 선택하세요.')
     selected=[]
     for ref in feature.edges:
+        if ref.relative_center:
+            from .topology import resolve_edge
+            selected.append(resolve_edge(shape,ref)[1]);continue
         if ref.index>=len(edges):raise ValueError('선택한 모서리가 없습니다.')
         edge=edges[ref.index]
         if edge.geomType()!=ref.curve or abs(edge.Length()-ref.length)>1e-4 or math.dist(edge.Center().toTuple(),ref.center)>1e-4:
@@ -135,7 +141,7 @@ def section_from_saved(design,saved):
 def resolved_geometry(design,part):
     """Follow saved sketch references, retaining the original inputs in history."""
     geometry=part.geometry.model_copy(deep=True)
-    sections=[geometry.profile] if geometry.kind=='sweep' else geometry.sections if geometry.kind=='loft' else []
+    sections=[geometry.profile] if geometry.kind in ('sweep','revolve') else geometry.sections if geometry.kind=='loft' else []
     saved={s.id:s for s in design.sketches}
     for section in sections:
         if section.sketch_id:

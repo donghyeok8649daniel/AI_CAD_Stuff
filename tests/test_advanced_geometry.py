@@ -46,6 +46,10 @@ def test_edge_fillet_exact_removed_volume_and_history(tmp_path):
     reloaded=read_project(path).design
     assert local_shape(reloaded,reloaded.parts[0]).Volume()==pytest.approx(rounded.Volume())
     d.parts[0].geometry.length=50
+    grown=local_shape(d,d.parts[0]);assert grown.Volume()==pytest.approx(50*30*20-20*4*(1-math.pi/4))
+    # Legacy references have no normalized location and still require reselection.
+    old={k:v for k,v in ref.items() if k not in ('relative_center','tangent')}
+    d.parts[0].features=[EdgeFeature(id='legacy',size=2,edges=[old],support_edge_count=len(refs))]
     with pytest.raises(ValueError,match='모서리'):
         local_shape(d,d.parts[0])
 

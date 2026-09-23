@@ -1,0 +1,1173 @@
+{
+  "format": "prompt-cad-project",
+  "version": 2,
+  "design": {
+    "schema_version": 1,
+    "name": "연결 스케치 · 구성표 · 셸",
+    "mode": "specimen",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "cup",
+        "name": "셸 원본",
+        "geometry": {
+          "kind": "extrusion",
+          "thickness": 16.0,
+          "points": [
+            {
+              "x": -35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": 10.0
+            },
+            {
+              "x": 10.0,
+              "y": 25.0
+            },
+            {
+              "x": -35.0,
+              "y": 25.0
+            }
+          ],
+          "holes": [],
+          "constraints": [],
+          "sketch_mode": "entities",
+          "entities": [
+            {
+              "id": "outline",
+              "construction": false,
+              "kind": "circle",
+              "center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "radius": 12.0
+            }
+          ],
+          "entity_constraints": [
+            {
+              "id": "center",
+              "kind": "fixed",
+              "a": "outline",
+              "b": "",
+              "c": "",
+              "a_point": "center",
+              "b_point": "start",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            },
+            {
+              "id": "diameter",
+              "kind": "diameter",
+              "a": "outline",
+              "b": "",
+              "c": "",
+              "a_point": "start",
+              "b_point": "start",
+              "value": 24.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external",
+              "expression": "D"
+            }
+          ],
+          "profiles": []
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#70aebf",
+        "fixed": false,
+        "features": [
+          {
+            "id": "shell",
+            "name": "솔리드 작업",
+            "kind": "solid",
+            "operation": "shell",
+            "support_feature": "base",
+            "faces": [
+              {
+                "index": 2,
+                "surface": "PLANE",
+                "center": [
+                  5.329070518200751e-15,
+                  -8.172475042379623e-16,
+                  16.0
+                ],
+                "relative_center": [
+                  0.5000000000000002,
+                  0.5,
+                  1.0
+                ],
+                "normal": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "area": 452.3893421169303
+              }
+            ],
+            "size": 1.5,
+            "angle": 360.0,
+            "origin": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "direction": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "tool_part_id": "",
+            "boolean_mode": "union",
+            "count": 2,
+            "count_y": 1,
+            "spacing": [
+              30.0,
+              30.0,
+              0.0
+            ],
+            "keep_original": true,
+            "keep_side": "all"
+          }
+        ],
+        "profile_sketch_id": "profile",
+        "material": {
+          "name": "입력 예시 · 밀도 2700",
+          "density": 2700.0,
+          "youngs_modulus": 69000.0,
+          "poisson": 0.33
+        }
+      },
+      {
+        "id": "cup-copy",
+        "name": "연결 복제",
+        "geometry": {
+          "kind": "extrusion",
+          "thickness": 16.0,
+          "points": [
+            {
+              "x": -35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": 10.0
+            },
+            {
+              "x": 10.0,
+              "y": 25.0
+            },
+            {
+              "x": -35.0,
+              "y": 25.0
+            }
+          ],
+          "holes": [],
+          "constraints": [],
+          "sketch_mode": "entities",
+          "entities": [
+            {
+              "id": "outline",
+              "construction": false,
+              "kind": "circle",
+              "center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "radius": 12.0
+            }
+          ],
+          "entity_constraints": [
+            {
+              "id": "center",
+              "kind": "fixed",
+              "a": "outline",
+              "b": "",
+              "c": "",
+              "a_point": "center",
+              "b_point": "start",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            },
+            {
+              "id": "diameter",
+              "kind": "diameter",
+              "a": "outline",
+              "b": "",
+              "c": "",
+              "a_point": "start",
+              "b_point": "start",
+              "value": 24.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external",
+              "expression": "D"
+            }
+          ],
+          "profiles": []
+        },
+        "transform": {
+          "x": 50.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#e8b36b",
+        "fixed": false,
+        "features": [
+          {
+            "id": "shell",
+            "name": "솔리드 작업",
+            "kind": "solid",
+            "operation": "shell",
+            "support_feature": "base",
+            "faces": [
+              {
+                "index": 2,
+                "surface": "PLANE",
+                "center": [
+                  5.329070518200751e-15,
+                  -8.172475042379623e-16,
+                  16.0
+                ],
+                "relative_center": [
+                  0.5000000000000002,
+                  0.5,
+                  1.0
+                ],
+                "normal": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "area": 452.3893421169303
+              }
+            ],
+            "size": 1.5,
+            "angle": 360.0,
+            "origin": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "direction": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "tool_part_id": "",
+            "boolean_mode": "union",
+            "count": 2,
+            "count_y": 1,
+            "spacing": [
+              30.0,
+              30.0,
+              0.0
+            ],
+            "keep_original": true,
+            "keep_side": "all"
+          }
+        ],
+        "profile_sketch_id": "profile",
+        "source_part_id": "cup",
+        "material": {
+          "name": "입력 예시 · 밀도 7850",
+          "density": 7850.0,
+          "youngs_modulus": 69000.0,
+          "poisson": 0.33
+        }
+      }
+    ],
+    "mates": [],
+    "sketches": [
+      {
+        "id": "profile",
+        "name": "공통 원형 스케치",
+        "geometry": {
+          "kind": "extrusion",
+          "thickness": 16.0,
+          "points": [
+            {
+              "x": -35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": -25.0
+            },
+            {
+              "x": 35.0,
+              "y": 10.0
+            },
+            {
+              "x": 10.0,
+              "y": 25.0
+            },
+            {
+              "x": -35.0,
+              "y": 25.0
+            }
+          ],
+          "holes": [],
+          "constraints": [],
+          "sketch_mode": "entities",
+          "entities": [
+            {
+              "id": "outline",
+              "construction": false,
+              "kind": "circle",
+              "center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "radius": 12.0
+            }
+          ],
+          "entity_constraints": [
+            {
+              "id": "center",
+              "kind": "fixed",
+              "a": "outline",
+              "b": "",
+              "c": "",
+              "a_point": "center",
+              "b_point": "start",
+              "value": 0.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external"
+            },
+            {
+              "id": "diameter",
+              "kind": "diameter",
+              "a": "outline",
+              "b": "",
+              "c": "",
+              "a_point": "start",
+              "b_point": "start",
+              "value": 24.0,
+              "x": 0.0,
+              "y": 0.0,
+              "reference": [],
+              "mode": "external",
+              "expression": "D"
+            }
+          ],
+          "profiles": []
+        },
+        "context": {
+          "plane": "XY",
+          "title": "스케치",
+          "part_id": "",
+          "support_feature": "",
+          "operation": "add",
+          "face": null
+        }
+      }
+    ],
+    "joint_frames": [],
+    "loops": [],
+    "studies": [],
+    "parameters": {
+      "D": "24"
+    },
+    "configurations": {
+      "소형": {
+        "D": "24"
+      },
+      "대형": {
+        "D": "36"
+      }
+    }
+  },
+  "prompt": "",
+  "history": {
+    "version": 1,
+    "base": {
+      "schema_version": 1,
+      "name": "연결 스케치 · 구성표 · 셸",
+      "mode": "specimen",
+      "units": "mm",
+      "parts": [
+        {
+          "id": "cup",
+          "name": "셸 원본",
+          "geometry": {
+            "kind": "extrusion",
+            "thickness": 16.0,
+            "points": [
+              {
+                "x": -35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": 10.0
+              },
+              {
+                "x": 10.0,
+                "y": 25.0
+              },
+              {
+                "x": -35.0,
+                "y": 25.0
+              }
+            ],
+            "holes": [],
+            "constraints": [],
+            "sketch_mode": "entities",
+            "entities": [
+              {
+                "id": "outline",
+                "construction": false,
+                "kind": "circle",
+                "center": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "radius": 12.0
+              }
+            ],
+            "entity_constraints": [
+              {
+                "id": "center",
+                "kind": "fixed",
+                "a": "outline",
+                "b": "",
+                "c": "",
+                "a_point": "center",
+                "b_point": "start",
+                "value": 0.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "diameter",
+                "kind": "diameter",
+                "a": "outline",
+                "b": "",
+                "c": "",
+                "a_point": "start",
+                "b_point": "start",
+                "value": 24.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external",
+                "expression": "D"
+              }
+            ],
+            "profiles": []
+          },
+          "transform": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          "color": "#70aebf",
+          "fixed": false,
+          "features": [],
+          "profile_sketch_id": "profile",
+          "material": {
+            "name": "입력 예시 · 밀도 2700",
+            "density": 2700.0,
+            "youngs_modulus": 69000.0,
+            "poisson": 0.33
+          }
+        }
+      ],
+      "mates": [],
+      "sketches": [
+        {
+          "id": "profile",
+          "name": "공통 원형 스케치",
+          "geometry": {
+            "kind": "extrusion",
+            "thickness": 16.0,
+            "points": [
+              {
+                "x": -35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": -25.0
+              },
+              {
+                "x": 35.0,
+                "y": 10.0
+              },
+              {
+                "x": 10.0,
+                "y": 25.0
+              },
+              {
+                "x": -35.0,
+                "y": 25.0
+              }
+            ],
+            "holes": [],
+            "constraints": [],
+            "sketch_mode": "entities",
+            "entities": [
+              {
+                "id": "outline",
+                "construction": false,
+                "kind": "circle",
+                "center": {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "radius": 12.0
+              }
+            ],
+            "entity_constraints": [
+              {
+                "id": "center",
+                "kind": "fixed",
+                "a": "outline",
+                "b": "",
+                "c": "",
+                "a_point": "center",
+                "b_point": "start",
+                "value": 0.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external"
+              },
+              {
+                "id": "diameter",
+                "kind": "diameter",
+                "a": "outline",
+                "b": "",
+                "c": "",
+                "a_point": "start",
+                "b_point": "start",
+                "value": 24.0,
+                "x": 0.0,
+                "y": 0.0,
+                "reference": [],
+                "mode": "external",
+                "expression": "D"
+              }
+            ],
+            "profiles": []
+          },
+          "context": {
+            "plane": "XY",
+            "title": "스케치",
+            "part_id": "",
+            "support_feature": "",
+            "operation": "add",
+            "face": null
+          }
+        }
+      ],
+      "joint_frames": [],
+      "loops": [],
+      "studies": [],
+      "parameters": {
+        "D": "24"
+      },
+      "configurations": {
+        "소형": {
+          "D": "24"
+        },
+        "대형": {
+          "D": "36"
+        }
+      }
+    },
+    "entries": [
+      {
+        "id": "step-bd9f2244027a443daed0ba8281f00131",
+        "parent": null,
+        "label": "스케치 / 변수 / 원본 돌출",
+        "created_at": "2026-09-23T16:07:11.869982+00:00",
+        "source": "manual",
+        "changes": [],
+        "context": {}
+      },
+      {
+        "id": "step-50483242f4b34f9e9aaaed8a834acd74",
+        "parent": "step-bd9f2244027a443daed0ba8281f00131",
+        "label": "셸 벽 두께 1.5 mm",
+        "created_at": "2026-09-23T16:07:11.879935+00:00",
+        "source": "manual",
+        "changes": [
+          {
+            "path": [
+              "parts",
+              0,
+              "features"
+            ],
+            "operation": "set",
+            "existed": true,
+            "before": [],
+            "after": [
+              {
+                "id": "shell",
+                "name": "솔리드 작업",
+                "kind": "solid",
+                "operation": "shell",
+                "support_feature": "base",
+                "faces": [
+                  {
+                    "index": 2,
+                    "surface": "PLANE",
+                    "center": [
+                      5.329070518200751e-15,
+                      -8.172475042379623e-16,
+                      16.0
+                    ],
+                    "relative_center": [
+                      0.5000000000000002,
+                      0.5,
+                      1.0
+                    ],
+                    "normal": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "area": 452.3893421169303
+                  }
+                ],
+                "size": 1.5,
+                "angle": 360.0,
+                "origin": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "direction": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "tool_part_id": "",
+                "boolean_mode": "union",
+                "count": 2,
+                "count_y": 1,
+                "spacing": [
+                  30.0,
+                  30.0,
+                  0.0
+                ],
+                "keep_original": true,
+                "keep_side": "all"
+              }
+            ]
+          }
+        ],
+        "context": {}
+      },
+      {
+        "id": "step-2d004667232146b290e9c447cf5f93ff",
+        "parent": "step-50483242f4b34f9e9aaaed8a834acd74",
+        "label": "연결 복제 · 재질/배치 별도",
+        "created_at": "2026-09-23T16:07:11.967585+00:00",
+        "source": "manual",
+        "changes": [
+          {
+            "path": [
+              "parts"
+            ],
+            "operation": "set",
+            "existed": true,
+            "before": [
+              {
+                "id": "cup",
+                "name": "셸 원본",
+                "geometry": {
+                  "kind": "extrusion",
+                  "thickness": 16.0,
+                  "points": [
+                    {
+                      "x": -35.0,
+                      "y": -25.0
+                    },
+                    {
+                      "x": 35.0,
+                      "y": -25.0
+                    },
+                    {
+                      "x": 35.0,
+                      "y": 10.0
+                    },
+                    {
+                      "x": 10.0,
+                      "y": 25.0
+                    },
+                    {
+                      "x": -35.0,
+                      "y": 25.0
+                    }
+                  ],
+                  "holes": [],
+                  "constraints": [],
+                  "sketch_mode": "entities",
+                  "entities": [
+                    {
+                      "id": "outline",
+                      "construction": false,
+                      "kind": "circle",
+                      "center": {
+                        "x": 0.0,
+                        "y": 0.0
+                      },
+                      "radius": 12.0
+                    }
+                  ],
+                  "entity_constraints": [
+                    {
+                      "id": "center",
+                      "kind": "fixed",
+                      "a": "outline",
+                      "b": "",
+                      "c": "",
+                      "a_point": "center",
+                      "b_point": "start",
+                      "value": 0.0,
+                      "x": 0.0,
+                      "y": 0.0,
+                      "reference": [],
+                      "mode": "external"
+                    },
+                    {
+                      "id": "diameter",
+                      "kind": "diameter",
+                      "a": "outline",
+                      "b": "",
+                      "c": "",
+                      "a_point": "start",
+                      "b_point": "start",
+                      "value": 24.0,
+                      "x": 0.0,
+                      "y": 0.0,
+                      "reference": [],
+                      "mode": "external",
+                      "expression": "D"
+                    }
+                  ],
+                  "profiles": []
+                },
+                "transform": {
+                  "x": 0.0,
+                  "y": 0.0,
+                  "z": 0.0,
+                  "rx": 0.0,
+                  "ry": 0.0,
+                  "rz": 0.0
+                },
+                "color": "#70aebf",
+                "fixed": false,
+                "features": [
+                  {
+                    "id": "shell",
+                    "name": "솔리드 작업",
+                    "kind": "solid",
+                    "operation": "shell",
+                    "support_feature": "base",
+                    "faces": [
+                      {
+                        "index": 2,
+                        "surface": "PLANE",
+                        "center": [
+                          5.329070518200751e-15,
+                          -8.172475042379623e-16,
+                          16.0
+                        ],
+                        "relative_center": [
+                          0.5000000000000002,
+                          0.5,
+                          1.0
+                        ],
+                        "normal": [
+                          0.0,
+                          0.0,
+                          1.0
+                        ],
+                        "area": 452.3893421169303
+                      }
+                    ],
+                    "size": 1.5,
+                    "angle": 360.0,
+                    "origin": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "direction": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "tool_part_id": "",
+                    "boolean_mode": "union",
+                    "count": 2,
+                    "count_y": 1,
+                    "spacing": [
+                      30.0,
+                      30.0,
+                      0.0
+                    ],
+                    "keep_original": true,
+                    "keep_side": "all"
+                  }
+                ],
+                "profile_sketch_id": "profile",
+                "material": {
+                  "name": "입력 예시 · 밀도 2700",
+                  "density": 2700.0,
+                  "youngs_modulus": 69000.0,
+                  "poisson": 0.33
+                }
+              }
+            ],
+            "after": [
+              {
+                "id": "cup",
+                "name": "셸 원본",
+                "geometry": {
+                  "kind": "extrusion",
+                  "thickness": 16.0,
+                  "points": [
+                    {
+                      "x": -35.0,
+                      "y": -25.0
+                    },
+                    {
+                      "x": 35.0,
+                      "y": -25.0
+                    },
+                    {
+                      "x": 35.0,
+                      "y": 10.0
+                    },
+                    {
+                      "x": 10.0,
+                      "y": 25.0
+                    },
+                    {
+                      "x": -35.0,
+                      "y": 25.0
+                    }
+                  ],
+                  "holes": [],
+                  "constraints": [],
+                  "sketch_mode": "entities",
+                  "entities": [
+                    {
+                      "id": "outline",
+                      "construction": false,
+                      "kind": "circle",
+                      "center": {
+                        "x": 0.0,
+                        "y": 0.0
+                      },
+                      "radius": 12.0
+                    }
+                  ],
+                  "entity_constraints": [
+                    {
+                      "id": "center",
+                      "kind": "fixed",
+                      "a": "outline",
+                      "b": "",
+                      "c": "",
+                      "a_point": "center",
+                      "b_point": "start",
+                      "value": 0.0,
+                      "x": 0.0,
+                      "y": 0.0,
+                      "reference": [],
+                      "mode": "external"
+                    },
+                    {
+                      "id": "diameter",
+                      "kind": "diameter",
+                      "a": "outline",
+                      "b": "",
+                      "c": "",
+                      "a_point": "start",
+                      "b_point": "start",
+                      "value": 24.0,
+                      "x": 0.0,
+                      "y": 0.0,
+                      "reference": [],
+                      "mode": "external",
+                      "expression": "D"
+                    }
+                  ],
+                  "profiles": []
+                },
+                "transform": {
+                  "x": 0.0,
+                  "y": 0.0,
+                  "z": 0.0,
+                  "rx": 0.0,
+                  "ry": 0.0,
+                  "rz": 0.0
+                },
+                "color": "#70aebf",
+                "fixed": false,
+                "features": [
+                  {
+                    "id": "shell",
+                    "name": "솔리드 작업",
+                    "kind": "solid",
+                    "operation": "shell",
+                    "support_feature": "base",
+                    "faces": [
+                      {
+                        "index": 2,
+                        "surface": "PLANE",
+                        "center": [
+                          5.329070518200751e-15,
+                          -8.172475042379623e-16,
+                          16.0
+                        ],
+                        "relative_center": [
+                          0.5000000000000002,
+                          0.5,
+                          1.0
+                        ],
+                        "normal": [
+                          0.0,
+                          0.0,
+                          1.0
+                        ],
+                        "area": 452.3893421169303
+                      }
+                    ],
+                    "size": 1.5,
+                    "angle": 360.0,
+                    "origin": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "direction": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "tool_part_id": "",
+                    "boolean_mode": "union",
+                    "count": 2,
+                    "count_y": 1,
+                    "spacing": [
+                      30.0,
+                      30.0,
+                      0.0
+                    ],
+                    "keep_original": true,
+                    "keep_side": "all"
+                  }
+                ],
+                "profile_sketch_id": "profile",
+                "material": {
+                  "name": "입력 예시 · 밀도 2700",
+                  "density": 2700.0,
+                  "youngs_modulus": 69000.0,
+                  "poisson": 0.33
+                }
+              },
+              {
+                "id": "cup-copy",
+                "name": "연결 복제",
+                "geometry": {
+                  "kind": "extrusion",
+                  "thickness": 16.0,
+                  "points": [
+                    {
+                      "x": -35.0,
+                      "y": -25.0
+                    },
+                    {
+                      "x": 35.0,
+                      "y": -25.0
+                    },
+                    {
+                      "x": 35.0,
+                      "y": 10.0
+                    },
+                    {
+                      "x": 10.0,
+                      "y": 25.0
+                    },
+                    {
+                      "x": -35.0,
+                      "y": 25.0
+                    }
+                  ],
+                  "holes": [],
+                  "constraints": [],
+                  "sketch_mode": "entities",
+                  "entities": [
+                    {
+                      "id": "outline",
+                      "construction": false,
+                      "kind": "circle",
+                      "center": {
+                        "x": 0.0,
+                        "y": 0.0
+                      },
+                      "radius": 12.0
+                    }
+                  ],
+                  "entity_constraints": [
+                    {
+                      "id": "center",
+                      "kind": "fixed",
+                      "a": "outline",
+                      "b": "",
+                      "c": "",
+                      "a_point": "center",
+                      "b_point": "start",
+                      "value": 0.0,
+                      "x": 0.0,
+                      "y": 0.0,
+                      "reference": [],
+                      "mode": "external"
+                    },
+                    {
+                      "id": "diameter",
+                      "kind": "diameter",
+                      "a": "outline",
+                      "b": "",
+                      "c": "",
+                      "a_point": "start",
+                      "b_point": "start",
+                      "value": 24.0,
+                      "x": 0.0,
+                      "y": 0.0,
+                      "reference": [],
+                      "mode": "external",
+                      "expression": "D"
+                    }
+                  ],
+                  "profiles": []
+                },
+                "transform": {
+                  "x": 50.0,
+                  "y": 0.0,
+                  "z": 0.0,
+                  "rx": 0.0,
+                  "ry": 0.0,
+                  "rz": 0.0
+                },
+                "color": "#e8b36b",
+                "fixed": false,
+                "features": [
+                  {
+                    "id": "shell",
+                    "name": "솔리드 작업",
+                    "kind": "solid",
+                    "operation": "shell",
+                    "support_feature": "base",
+                    "faces": [
+                      {
+                        "index": 2,
+                        "surface": "PLANE",
+                        "center": [
+                          5.329070518200751e-15,
+                          -8.172475042379623e-16,
+                          16.0
+                        ],
+                        "relative_center": [
+                          0.5000000000000002,
+                          0.5,
+                          1.0
+                        ],
+                        "normal": [
+                          0.0,
+                          0.0,
+                          1.0
+                        ],
+                        "area": 452.3893421169303
+                      }
+                    ],
+                    "size": 1.5,
+                    "angle": 360.0,
+                    "origin": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "direction": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "tool_part_id": "",
+                    "boolean_mode": "union",
+                    "count": 2,
+                    "count_y": 1,
+                    "spacing": [
+                      30.0,
+                      30.0,
+                      0.0
+                    ],
+                    "keep_original": true,
+                    "keep_side": "all"
+                  }
+                ],
+                "profile_sketch_id": "profile",
+                "source_part_id": "cup",
+                "material": {
+                  "name": "입력 예시 · 밀도 7850",
+                  "density": 7850.0,
+                  "youngs_modulus": 69000.0,
+                  "poisson": 0.33
+                }
+              }
+            ]
+          }
+        ],
+        "context": {}
+      }
+    ],
+    "cursor": "step-2d004667232146b290e9c447cf5f93ff",
+    "head": "step-2d004667232146b290e9c447cf5f93ff"
+  }
+}

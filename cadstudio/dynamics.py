@@ -106,10 +106,11 @@ def cad_robot(design,settings):
         for identifier in group:
             p=parts[identifier];shape=local_shape(design,p)
             if not shape.Solids():raise ValueError('동역학에는 체적을 갖는 솔리드가 필요합니다.')
-            prop=GProp_GProps();BRepGProp.VolumeProperties_s(shape.wrapped,prop);volume=prop.Mass();mass=volume*settings.density*1e-9
+            density=p.material.density if p.material else settings.density
+            prop=GProp_GProps();BRepGProp.VolumeProperties_s(shape.wrapped,prop);volume=prop.Mass();mass=volume*density*1e-9
             com=prop.CentreOfMass();local=np.array([com.X(),com.Y(),com.Z()]);rp=transform_matrix(p.transform);relative=rotation.T@rp
             center=(rotation.T@(rp@local+np.array([p.transform.x,p.transform.y,p.transform.z])-rootpos)-pivot)/1000
-            tensor=prop.MatrixOfInertia();imat=np.array([[tensor.Value(i+1,j+1) for j in range(3)] for i in range(3)])*settings.density*1e-15
+            tensor=prop.MatrixOfInertia();imat=np.array([[tensor.Value(i+1,j+1) for j in range(3)] for i in range(3)])*density*1e-15
             records.append((mass,center,float((relative@imat@relative.T)[2,2])))
         total=sum(m for m,_,_ in records);center=sum(m*c for m,c,_ in records)/total
         inertia=sum(i+m*np.sum((c[:2]-center[:2])**2) for m,c,i in records)

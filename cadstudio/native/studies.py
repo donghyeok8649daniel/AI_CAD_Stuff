@@ -77,7 +77,7 @@ class RobotStudy(StudyDialog):
         self.chain=choice([(a.id,f'{a.id} → {b.id}') for a,b in chains(self.base)]);self.form.addRow('관절 체인',self.chain)
         if s.shoulder:self.chain.setCurrentIndex(self.chain.findData(s.shoulder))
         self.mode=choice([('inverse','목표 자세 → 필요한 토크'),('forward','일정 토크 → 운동')]);self.mode.setCurrentIndex(self.mode.findData(s.mode));self.form.addRow('해석',self.mode);self.inputs={}
-        for key,title,value,lo,hi,suffix in [('density','이동 부품 공통 밀도',s.density,1,30000,' kg/m³'),('payload','끝단 하중 질량',s.payload,0,1000,' kg'),('duration','동작 시간',s.duration,.02,20,' s'),('damping','관절 점성 감쇠',s.damping,0,100,' N·m·s/rad')]:
+        for key,title,value,lo,hi,suffix in [('density','재질 미지정 부품 밀도',s.density,1,30000,' kg/m³'),('payload','끝단 하중 질량',s.payload,0,1000,' kg'),('duration','동작 시간',s.duration,.02,20,' s'),('damping','관절 점성 감쇠',s.damping,0,100,' N·m·s/rad')]:
             w=number(value,lo,hi,suffix);self.form.addRow(title,w);self.inputs[key]=w;self.bind(w)
         self.gravity=QCheckBox('수직 운동 평면 · 중력 -Y');self.gravity.setChecked(s.gravity);self.controls.addWidget(self.gravity)
         self.controls.addWidget(label('해제: 수평 XY 운동, 중력에 의한 회전 토크 0',True));self.target=[];self.torque=[];self.velocity=[]
@@ -184,16 +184,39 @@ class DrawingDialog(StudyDialog):
         super().__init__(parent,design,'도면 · 정투상 / 치수 / 내보내기',identifier);s=DrawingSettings.model_validate(self.existing.settings if self.existing else {'part_id':part_id or '', 'title':self.base.name});self.part=choice([('','전체 조립'),*[(p.id,p.name) for p in self.base.parts]]);self.part.setCurrentIndex(max(0,self.part.findData(s.part_id)));self.page=choice([('A4','A4 가로'),('A3','A3 가로')]);self.page.setCurrentIndex(self.page.findData(s.page));self.scale=number(s.scale,0,100,' : 1',decimals=4);self.title=QLineEdit(s.title);self.number=QLineEdit(s.number);self.rev=QLineEdit(s.revision);self.hidden=QCheckBox('숨은선');self.hidden.setChecked(s.hidden);self.dimensions=QCheckBox('외형 치수');self.dimensions.setChecked(s.dimensions)
         for title,w in [('대상',self.part),('용지',self.page),('축척 · 0 = 자동',self.scale),('도면명',self.title),('도면 번호',self.number),('개정',self.rev)]:self.form.addRow(title,w);self.bind(w)
         for w in (self.hidden,self.dimensions):self.controls.addWidget(w);self.bind(w)
-        self.svg_widget=QSvgWidget();self.visual_layout.addWidget(self.svg_widget,1)
+        self.extra=choice([('none','기본 3면도'),('section','단면도 A-A 추가'),('detail','상면 확대 상세도 A 추가')]);self.extra.setCurrentIndex(self.extra.findData(s.extra_view));self.section_axis=choice([(k,k+' 법선') for k in 'XYZ']);self.section_axis.setCurrentIndex(self.section_axis.findData(s.section_axis));self.section_offset=number(s.section_offset,-5000,5000,' mm');self.detail_x=number(s.detail_center[0],-5000,5000,' mm');self.detail_y=number(s.detail_center[1],-5000,5000,' mm');self.detail_radius=number(s.detail_radius,.01,2000,' mm');self.detail_factor=number(s.detail_factor,1,20,' 배')
+        for title,w in [('보조 도면',self.extra),('단면 방향',self.section_axis),('단면 위치',self.section_offset),('상세 중심 X',self.detail_x),('상세 중심 Y',self.detail_y),('상세 반지름',self.detail_radius),('상세 확대율',self.detail_factor)]:self.form.addRow(title,w);self.bind(w)
+        self.all_parts=QCheckBox('부품별 시트 포함 · 다중 PDF');self.all_parts.setChecked(s.all_parts);self.controls.addWidget(self.all_parts);self.bind(self.all_parts);self.notes=QLineEdit(s.notes);self.form.addRow('제작 메모',self.notes);self.bind(self.notes)
+        self.sheet_selector=choice([]);self.visual_layout.addWidget(self.sheet_selector);self.sheet_selector.currentIndexChanged.connect(self.show_page);self.svg_widget=QSvgWidget();self.visual_layout.addWidget(self.svg_widget,1);self.controls.addWidget(button('부품표 CSV 내보내기',self.bom))
         for fmt in ('svg','dxf','pdf'):self.controls.addWidget(button(fmt.upper()+' 내보내기',lambda _,f=fmt:self.export(f)))
         self.controls.addWidget(label('제3각법 상면·정면·우측면과 외형 치수입니다. 형상 변경 후 갱신하면 도면이 다시 생성됩니다. 선은 CAD 숨은선 계산 결과를 폴리라인으로 근사합니다.',True));self.controls.addStretch()
-    def settings(self):return DrawingSettings(part_id=self.part.currentData(),title=self.title.text(),number=self.number.text(),revision=self.rev.text(),page=self.page.currentData(),scale=self.scale.value(),hidden=self.hidden.isChecked(),dimensions=self.dimensions.isChecked())
+    def settings(self):return DrawingSettings(part_id=self.part.currentData(),title=self.title.text(),number=self.number.text(),revision=self.rev.text(),page=self.page.currentData(),scale=self.scale.value(),hidden=self.hidden.isChecked(),dimensions=self.dimensions.isChecked(),extra_view=self.extra.currentData(),section_axis=self.section_axis.currentData(),section_offset=self.section_offset.value(),detail_center=[self.detail_x.value(),self.detail_y.value()],detail_radius=self.detail_radius.value(),detail_factor=self.detail_factor.value(),all_parts=self.all_parts.isChecked(),notes=self.notes.text())
     def compute(self,settings):
-        with KERNEL_LOCK:return sheet(self.base,settings)
-    def present(self):self.svg_widget.load(QByteArray(svg(self.output).encode()));self.svg_widget.renderer().setAspectRatioMode(Qt.AspectRatioMode.KeepAspectRatio);self.status.setText(f"도면 갱신 완료 · mm · 축척 {self.output['scale']:.4g}:1")
+        from ..drawings import drawing_book
+        with KERNEL_LOCK:
+            pages=drawing_book(self.base,settings);return {**pages[0],'pages':pages}
+    def present(self):
+        self.sheet_selector.blockSignals(True);self.sheet_selector.clear()
+        for i,page in enumerate(self.output['pages']):self.sheet_selector.addItem('시트 '+str(i+1),i)
+        self.sheet_selector.blockSignals(False);self.show_page();self.status.setText(f"도면 갱신 완료 · {len(self.output['pages'])}개 시트 · mm")
+    def show_page(self,*args):
+        if not self.output:return
+        page=self.output['pages'][max(0,self.sheet_selector.currentIndex())];self.svg_widget.load(QByteArray(svg(page).encode()));self.svg_widget.renderer().setAspectRatioMode(Qt.AspectRatioMode.KeepAspectRatio)
+    def bom(self):
+        from ..drawings import export_bom
+        path,_=QFileDialog.getSaveFileName(self,'부품표 저장','bom.csv','CSV (*.csv)')
+        if path:
+            try:
+                with KERNEL_LOCK:export_bom(self.base,path)
+                self.status.setText('부품표 저장: '+path)
+            except Exception as exc:self.status.setText(str(exc))
     def export(self,fmt):
         if self.checked is None:self.status.setText('먼저 계산 / 갱신을 누르세요.');return
         path,_=QFileDialog.getSaveFileName(self,'도면 저장','drawing.'+fmt,f'{fmt.upper()} (*.{fmt})')
         if path:
-            try:export_sheet(self.output,path);self.status.setText('도면 저장: '+path)
+            try:
+                from ..drawings import export_book
+                if fmt=='pdf':export_book(self.output['pages'],path)
+                else:export_sheet(self.output['pages'][max(0,self.sheet_selector.currentIndex())],path)
+                self.status.setText('도면 저장: '+path)
             except Exception as exc:self.status.setText(str(exc))

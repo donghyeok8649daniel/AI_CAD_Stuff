@@ -8,6 +8,7 @@ TITLES = {
     "link": "양단 링크", "plate": "구멍판", "bracket": "L 브래킷", "cylinder": "원통 · 튜브",
     "robot_arm": "2링크 조립", "extrusion": "스케치 돌출",
     "sweep":"스윕", "loft":"로프트",
+    "revolve":"회전", "imported":"가져온 부품",
 }
 FIELDS = {
     "length": ("전체 길이", "mm"), "gauge_length": ("평행부 길이", "mm"),
@@ -71,3 +72,5 @@ def catalog():
                 params.append({"key": key, "label": label, "unit": unit, "default": value})
         items.append({"kind": kind, "title": TITLES[kind], "mode": design.mode, "fields": params, "example": EXAMPLES[kind], "design": design.model_dump()})
     return items
+
+TITLES['sheetmetal']='판금 · 단일 절곡'

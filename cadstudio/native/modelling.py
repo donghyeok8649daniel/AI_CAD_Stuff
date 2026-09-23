@@ -141,7 +141,8 @@ class EdgeFinishDialog(PreviewDialog):
         form=QFormLayout();self.kind=choice([('fillet','3D 필렛'),('chamfer','모따기')]);self.size=number(existing['size'] if existing else 2,.01,2000,' mm');form.addRow('종류',self.kind);form.addRow('반경 / 거리',self.size);self.controls.addLayout(form)
         if existing:self.kind.setCurrentIndex(self.kind.findData(existing['kind']))
         self.edges=QListWidget();self.edges.setMinimumHeight(280);self.controls.addWidget(self.edges)
-        selected={r['index'] for r in existing['edges']} if existing else set()
+        from ..topology import resolve_edge
+        selected={resolve_edge(shape,r)[0] if r.get('relative_center') else r['index'] for r in existing['edges']} if existing else set()
         for ref in self.refs:
             item=QListWidgetItem(f"{ref['index']+1} · {ref['curve']} · {ref['length']:.2f} mm");item.setFlags(item.flags()|Qt.ItemFlag.ItemIsUserCheckable);item.setCheckState(Qt.CheckState.Checked if ref['index'] in selected else Qt.CheckState.Unchecked);self.edges.addItem(item)
         self.selector.edge_selected.connect(self.toggle_edge);self.edges.itemChanged.connect(self.selection_changed);self.kind.currentIndexChanged.connect(self.schedule);self.size.valueChanged.connect(self.schedule);self.controls.addStretch();self.selection_changed()

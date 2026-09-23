@@ -277,6 +277,10 @@ class Extrusion(StrictModel):
     entity_constraints: list[EntityConstraint] = Field(default_factory=list,max_length=160)
     profiles: list[Annotated[int,Field(ge=0,le=255)]] = Field(default_factory=list,max_length=64)
     groups: list[SketchGroup] = Field(default_factory=list,max_length=32)
+    symmetric: bool = False
+    reverse_depth: Nonnegative = 0
+    taper: float = Field(default=0,ge=-60,le=60)
+    thin_wall: Nonnegative = 0
 
     @model_serializer(mode='wrap')
     def compatible_groups(self,handler):
@@ -286,6 +290,8 @@ class Extrusion(StrictModel):
         if not self.groups:data.pop('groups',None)
         if not self.thickness_expression:data.pop('thickness_expression',None)
         if self.direction==1:data.pop('direction',None)
+        for key in ('symmetric','reverse_depth','taper','thin_wall'):
+            if not data.get(key):data.pop(key,None)
         return data
 
     @model_validator(mode="after")
@@ -390,24 +396,103 @@ class LoftGeometry(StrictModel):
     ruled: bool = False
 
 
-Geometry = Annotated[Union[RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, Extrusion, SweepGeometry, LoftGeometry], Field(discriminator="kind")]
+class RevolveGeometry(StrictModel):
+    kind: Literal['revolve'] = 'revolve'
+    profile: ModelSection
+    axis_start: list[Coordinate] = Field(default_factory=lambda:[0,0,0],min_length=3,max_length=3)
+    axis_direction: list[float] = Field(default_factory=lambda:[0,1,0],min_length=3,max_length=3)
+    angle: float = Field(default=360,gt=0,le=360)
+
+class ImportedGeometry(StrictModel):
+    kind: Literal['imported'] = 'imported'
+    asset_id: str = Field(min_length=1,max_length=80)
+
+class SheetMetalGeometry(StrictModel):
+    kind: Literal['sheetmetal'] = 'sheetmetal'
+    length: Dimension = 60
+    width: Dimension = 40
+    flange_length: Dimension = 25
+    thickness: Dimension = 2
+    bend_radius: Dimension = 3
+    bend_angle: float = Field(default=90,ge=1,le=175)
+    k_factor: float = Field(default=.5,gt=0,le=.5)
+    flat: bool = False
+
+class ShapeAsset(StrictModel):
+    name: str = Field(max_length=200)
+    format: Literal['step','iges','stl','brep']
+    data: str = Field(min_length=1,max_length=24_000_000)
+    sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
+
+Geometry = Annotated[Union[RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, Extrusion, SweepGeometry, LoftGeometry,RevolveGeometry,ImportedGeometry,SheetMetalGeometry], Field(discriminator="kind")]
+
+class FaceReference(StrictModel):
+    index: int = Field(ge=0,le=100000)
+    surface: str = Field(max_length=40)
+    center: list[float] = Field(min_length=3,max_length=3)
+    relative_center: list[float] = Field(min_length=3,max_length=3)
+    normal: list[float] = Field(default_factory=list,max_length=3)
+    area: float = Field(gt=0)
+
+class FeatureState(StrictModel):
+    suppressed: bool = False
+
+    @model_serializer(mode='wrap')
+    def compatible_state(self,handler):
+        data=handler(self)
+        if not self.suppressed:data.pop('suppressed',None)
+        return data
+
+class SolidFeature(FeatureState):
+    id: str = Field(min_length=1,max_length=40)
+    name: str = Field(default='솔리드 작업',max_length=80)
+    kind: Literal['solid'] = 'solid'
+    operation: Literal['shell','draft','boolean','split','mirror','linear_pattern','circular_pattern']
+    support_feature: str = Field(default='base',max_length=40)
+    faces: list[FaceReference] = Field(default_factory=list,max_length=128)
+    size: float = Field(default=2,ge=-2000,le=2000)
+    angle: float = Field(default=360,ge=-360,le=360)
+    origin: list[Coordinate] = Field(default_factory=lambda:[0,0,0],min_length=3,max_length=3)
+    direction: list[float] = Field(default_factory=lambda:[0,0,1],min_length=3,max_length=3)
+    tool_part_id: str = Field(default='',max_length=40)
+    boolean_mode: Literal['union','cut','intersect'] = 'union'
+    count: int = Field(default=2,ge=2,le=64)
+    count_y: int = Field(default=1,ge=1,le=64)
+    spacing: list[Coordinate] = Field(default_factory=lambda:[30,30,0],min_length=3,max_length=3)
+    keep_original: bool = True
+    keep_side: Literal['all','positive','negative'] = 'all'
+
+    @model_validator(mode='after')
+    def valid_direction(self):
+        if sum(v*v for v in self.direction)<1e-12:raise ValueError('기준 방향은 0 벡터가 될 수 없습니다.')
+        if self.count*self.count_y>256:raise ValueError('한 패턴은 최대 256개입니다.')
+        return self
 
 
 class EdgeReference(StrictModel):
-    index: int = Field(ge=0,le=2000)
+    index: int = Field(ge=0,le=100000)
     length: float = Field(ge=0,le=1000000)
     center: list[Coordinate] = Field(min_length=3,max_length=3)
     curve: str = Field(max_length=40)
+    relative_center: list[float] = Field(default_factory=list,max_length=3)
+    tangent: list[float] = Field(default_factory=list,max_length=3)
+
+    @model_serializer(mode='wrap')
+    def compatible_reference(self,handler):
+        data=handler(self)
+        for key in ('relative_center','tangent'):
+            if not data[key]:data.pop(key,None)
+        return data
 
 
-class EdgeFeature(StrictModel):
+class EdgeFeature(FeatureState):
     id: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
     name: str = Field(default='3D 필렛',min_length=1,max_length=80)
     kind: Literal['fillet','chamfer'] = 'fillet'
     size: Dimension = 2
     edges: list[EdgeReference] = Field(min_length=1,max_length=64)
     support_feature: str = Field(default='base',max_length=40)
-    support_edge_count: int = Field(ge=1,le=2000)
+    support_edge_count: int = Field(ge=1,le=100000)
 
 
 class CylinderReference(StrictModel):
@@ -419,7 +504,7 @@ class CylinderReference(StrictModel):
     internal: bool
 
 
-class ThreadFeature(StrictModel):
+class ThreadFeature(FeatureState):
     id: str = Field(pattern=r'^[a-zA-Z0-9_-]{1,40}$')
     name: str = Field(default='나사산', max_length=80)
     kind: Literal['thread'] = 'thread'
@@ -448,22 +533,42 @@ class ThreadFeature(StrictModel):
         return self
 
 
-class SketchFeature(StrictModel):
+class SketchFeature(FeatureState):
     id: str = Field(min_length=1, max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
     name: str = Field(default="면 스케치", min_length=1, max_length=80)
-    face: int = Field(ge=0, le=500)
-    support_face_count: int = Field(default=0, ge=0, le=500)
+    face: int = Field(ge=0, le=100000)
+    support_face_count: int = Field(default=0, ge=0, le=100000)
     support_feature: str = Field(default="", max_length=40)
     origin: list[Coordinate] = Field(default_factory=list, max_length=3)
     x_direction: list[Annotated[float, Field(ge=-1, le=1)]] = Field(default_factory=list, max_length=3)
     normal: list[Annotated[float, Field(ge=-1, le=1)]] = Field(min_length=3, max_length=3)
     operation: Literal["add", "cut"] = "add"
     sketch: Extrusion
+    sketch_id: str = Field(default='',max_length=40)
+    reference: FaceReference | None = None
+    through_all: bool = False
+    end_face: FaceReference | None = None
+    hole_finish: Literal['plain','counterbore','countersink'] = 'plain'
+    head_diameter: Dimension = 10
+    head_depth: Dimension = 3
+    head_angle: float = Field(default=90,ge=10,le=170)
+
+    @model_serializer(mode='wrap')
+    def compatible_link(self,handler):
+        data=handler(self)
+        if not self.sketch_id:data.pop('sketch_id',None)
+        if not self.reference:data.pop('reference',None)
+        if not self.suppressed:data.pop('suppressed',None)
+        if not self.through_all:data.pop('through_all',None)
+        if self.end_face is None:data.pop('end_face',None)
+        if self.hole_finish=='plain':
+            for key in ('hole_finish','head_diameter','head_depth','head_angle'):data.pop(key,None)
+        return data
 
 
 class AssemblyMate(StrictModel):
     id: str = Field(min_length=1, max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
-    kind: Literal["rigid", "revolute", "slider", "cylindrical"] = "rigid"
+    kind: Literal["rigid", "revolute", "slider", "cylindrical",'pin_slot','planar','ball'] = "rigid"
     parent: str = Field(min_length=1, max_length=40)
     child: str = Field(min_length=1, max_length=40)
     parent_anchor: str = Field(default="origin", max_length=40)
@@ -474,15 +579,46 @@ class AssemblyMate(StrictModel):
     rx: Angle = 0
     ry: Angle = 0
     rz: Angle = 0
+    limits: dict[Literal['x','y','z','rx','ry','rz'],list[float]] = Field(default_factory=dict,max_length=3)
+
+    @model_validator(mode='after')
+    def valid_limits(self):
+        from .assembly_motion import JOINT_AXES
+        for key,bounds in self.limits.items():
+            maximum=360 if key.startswith('r') else 5000
+            if key not in JOINT_AXES[self.kind] or len(bounds)!=2 or not -maximum<=bounds[0]<=bounds[1]<=maximum:raise ValueError('관절 운동 한계의 축 또는 최솟값/최댓값을 확인하세요.')
+        return self
+
+    @model_serializer(mode='wrap')
+    def compatible_limits(self,handler):
+        data=handler(self)
+        if not self.limits:data.pop('limits',None)
+        return data
+
+class MotionLink(StrictModel):
+    id: str = Field(min_length=1,max_length=40)
+    driver: str = Field(min_length=1,max_length=40)
+    driver_axis: Literal['x','y','z','rx','ry','rz'] = 'rz'
+    driven: str = Field(min_length=1,max_length=40)
+    driven_axis: Literal['x','y','z','rx','ry','rz'] = 'rz'
+    ratio: float = Field(default=1,ge=-10000,le=10000)
+    offset: Coordinate = 0
 
 
 class JointAnchorFrame(StrictModel):
-    face: int = Field(ge=0, le=500)
-    face_count: int = Field(ge=1, le=500)
+    face: int = Field(ge=0, le=100000)
+    face_count: int = Field(ge=1, le=100000)
     support_feature: str = Field(default='base', max_length=40)
     origin: list[Coordinate] = Field(min_length=3, max_length=3)
     normal: list[float] = Field(min_length=3, max_length=3)
     x_direction: list[float] = Field(min_length=3, max_length=3)
+    reference: FaceReference | None = None
+
+    @model_serializer(mode='wrap')
+    def compatible_reference(self,handler):
+        data=handler(self)
+        if self.reference is None:data.pop('reference',None)
+        return data
 
     @model_validator(mode='after')
     def orthogonal_frame(self):
@@ -498,6 +634,13 @@ class JointFrames(StrictModel):
     flipped: bool = True
 
 
+class Material(StrictModel):
+    name: str = Field(default='사용자 재질',min_length=1,max_length=80)
+    density: float = Field(default=2700,gt=0,le=30000)
+    youngs_modulus: float = Field(default=69000,gt=0,le=1000000)
+    poisson: float = Field(default=.33,gt=-1,lt=.5)
+
+
 class Part(StrictModel):
     id: str = Field(min_length=1, max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
     name: str = Field(min_length=1, max_length=80)
@@ -505,19 +648,37 @@ class Part(StrictModel):
     transform: Transform = Field(default_factory=Transform)
     color: str = Field(default="#70aebf", pattern=r"^#[0-9a-fA-F]{6}$")
     fixed: bool = False
-    features: list[Union[SketchFeature,EdgeFeature,ThreadFeature]] = Field(default_factory=list, max_length=16)
+    features: list[Union[SketchFeature,EdgeFeature,ThreadFeature,SolidFeature]] = Field(default_factory=list, max_length=128)
+    profile_sketch_id: str = Field(default='',max_length=40)
+    source_part_id: str = Field(default='',max_length=40)
+    material: Material | None = None
+
+    @model_serializer(mode='wrap')
+    def compatible_profile(self,handler):
+        data=handler(self)
+        if not self.profile_sketch_id:data.pop('profile_sketch_id',None)
+        if not self.source_part_id:data.pop('source_part_id',None)
+        if self.material is None:data.pop('material',None)
+        return data
 
 
 class SketchSupportFace(StrictModel):
-    index: int = Field(ge=0, le=500)
+    index: int = Field(ge=0, le=100000)
     planar: Literal[True] = True
     normal: list[float] = Field(min_length=3, max_length=3)
     origin: list[Coordinate] = Field(min_length=3, max_length=3)
     x_direction: list[float] = Field(min_length=3, max_length=3)
     outline: list[list[list[float]]] = Field(default_factory=list)
-    face_count: int = Field(ge=1, le=500)
+    face_count: int = Field(ge=1, le=100000)
     projected_entities: list[SketchEntity] = Field(default_factory=list)
     projection_unsupported: int = Field(default=0, ge=0)
+    reference: FaceReference | None = None
+
+    @model_serializer(mode='wrap')
+    def compatible_reference(self,handler):
+        data=handler(self)
+        if not self.reference:data.pop('reference',None)
+        return data
 
 
 class SavedSketchContext(StrictModel):
@@ -566,30 +727,39 @@ class Design(StrictModel):
     name: str = Field(default="새 설계", min_length=1, max_length=100)
     mode: Literal["specimen", "robot"] = "specimen"
     units: Literal["mm"] = "mm"
-    parts: list[Part] = Field(default_factory=list, max_length=12)
-    mates: list[AssemblyMate] = Field(default_factory=list, max_length=11)
+    parts: list[Part] = Field(default_factory=list, max_length=256)
+    mates: list[AssemblyMate] = Field(default_factory=list, max_length=255)
     sketches: list[SavedSketch] = Field(default_factory=list, max_length=64)
-    joint_frames: list[JointFrames] = Field(default_factory=list, max_length=11)
+    joint_frames: list[JointFrames] = Field(default_factory=list, max_length=255)
     loops: list[LoopClosure] = Field(default_factory=list,max_length=4)
     studies: list[DesignStudy] = Field(default_factory=list,max_length=32)
     parameters: dict[str,str] = Field(default_factory=dict,max_length=64)
     dimension_bindings: list[DimensionBinding] = Field(default_factory=list,max_length=256)
+    assets: dict[str,ShapeAsset] = Field(default_factory=dict,max_length=256)
+    motion_links: list[MotionLink] = Field(default_factory=list,max_length=128)
+    configurations: dict[str,dict[str,str]] = Field(default_factory=dict,max_length=64)
 
     @model_validator(mode='before')
     @classmethod
     def evaluate_dimensions(cls,data):
         from .parameters import evaluate_design
-        return evaluate_design(data)
+        from .associativity import resolve_profiles
+        return resolve_profiles(evaluate_design(data))
 
     @model_serializer(mode='wrap')
     def compatible_parameters(self,handler):
         data=handler(self)
-        for key in ('parameters','dimension_bindings'):
+        for key in ('parameters','dimension_bindings','assets','motion_links','configurations'):
             if not data.get(key):data.pop(key,None)
         return data
 
     @model_validator(mode="after")
     def unique_ids(self):
+        from .parameters import parameter_values
+        for name,values in self.configurations.items():
+            if not name.strip() or len(name)>80:raise ValueError('설계 구성 이름은 1~80자로 입력하세요.')
+            if not set(values)<=set(self.parameters):raise ValueError('설계 구성표가 삭제된 변수를 참조합니다.')
+            parameter_values({**self.parameters,**values})
         if len({s.id for s in self.studies})!=len(self.studies):raise ValueError('해석 / 도면 ID가 중복됩니다.')
         if len({s.id for s in self.sketches}) != len(self.sketches):
             raise ValueError("스케치 ID는 중복될 수 없습니다.")

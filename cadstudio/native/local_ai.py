@@ -5,7 +5,7 @@ import threading
 import time
 from copy import deepcopy
 import httpx
-from ..planner import AIReply,SYSTEM_PROMPT,openai_draft
+from ..planner import AIReply,SYSTEM_PROMPT,openai_draft,ai_design_context,parse_ai_reply
 from ..kernel import preview,KERNEL_LOCK
 
 def cloud_draft(request,client,model):
@@ -48,7 +48,7 @@ def ollama_context(design):
         if isinstance(value,dict):return {k:compact(v) for k,v in value.items() if v is not None and v!=[] and v!={}}
         if isinstance(value,list):return [compact(v) for v in value]
         return value
-    data=design.model_dump()
+    data=ai_design_context(design)
     for sketch in data.get('sketches',[]):
         face=sketch.get('context',{}).get('face')
         if face:
@@ -82,14 +82,14 @@ def ollama_draft(request,model,transport=None,*,control=None,progress=None,deadl
     payload={'prompt':request.prompt,'mode':request.mode,'selected_part':request.selected_part,'current_design':ollama_context(request.current) if request.current else None}
     compact='\nReturn COMPACT JSON, without whitespace or optional fields at their default values. Preserve existing nondefault data. Start with design, finish with a short summary and assumptions. Example: {"design":{"name":"원통","parts":[{"id":"cylinder1","name":"원통","geometry":{"kind":"cylinder","diameter":20,"height":10}}]},"summary":"원통 초안","assumptions":[]}. Do not repeat instructions or explain the JSON.'
     messages=[{'role':'system','content':SYSTEM_PROMPT+compact},{'role':'user','content':json.dumps(payload,ensure_ascii=False,separators=(',',':'))}]
-    result=asyncio.run(control.execute(lambda:_ollama_reply(model,messages,transport,control,progress,deadline),deadline))
+    result=asyncio.run(control.execute(lambda:_ollama_reply(model,messages,transport,control,progress,deadline,request.current),deadline))
     if request.current:
         from ..models import Design
         design=Design.model_validate(result['design']);restore_sketch_display(design,request.current);result['design']=design.model_dump()
     return result
 
 
-async def _ollama_reply(model,messages,transport,control,progress,deadline):
+async def _ollama_reply(model,messages,transport,control,progress,deadline,current=None):
     async with httpx.AsyncClient(base_url='http://127.0.0.1:11434',timeout=httpx.Timeout(deadline,connect=4),trust_env=False,follow_redirects=False,transport=transport) as client:
         for attempt in range(2):
             control.check();progress('모델 준비 / 명령 해석 중…' if not attempt else '형상 검증 실패 · 설계 수정 재시도 중…')
@@ -130,7 +130,7 @@ async def _ollama_reply(model,messages,transport,control,progress,deadline):
             except (json.JSONDecodeError,UnicodeDecodeError,AttributeError,TypeError):raise ValueError('Ollama에서 잘못된 응답을 받았습니다. 모델을 확인하고 다시 시도하세요.') from None
             try:
                 control.check();progress('생성 완료 · 치수와 실제 CAD 형상 검증 중…')
-                with KERNEL_LOCK:result=AIReply.model_validate_json(content);verified=preview(result.design)
+                with KERNEL_LOCK:result=parse_ai_reply(content,current);verified=preview(result.design)
                 control.check()
                 if verified['stats']['collisions']:result.assumptions.append('부품 사이의 체적 간섭이 있습니다. 배치를 확인하세요.')
                 return {**result.model_dump(),'changes':[],'provider':'ollama','attempts':attempt+1}

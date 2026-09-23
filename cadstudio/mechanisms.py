@@ -17,9 +17,10 @@ def solve_closures(design):
         if loop.planar and any(abs(getattr(parts[p].transform,k))>1e-6 for p in (loop.parent,loop.child) for k in ('rx','ry')):
             raise ValueError('평면 폐루프는 XY 평면에 평행한 부품에서 사용하세요.')
     attributes=['rz' if mates[j].kind=='revolute' else 'z' for j in identifiers]
-    initial=np.array([getattr(mates[j],key) for j,key in zip(identifiers,attributes)])
-    limits=np.array([359.999999 if key=='rz' else 4999.999999 for key in attributes])
-    initial=np.clip(initial,-limits,limits)
+    bounds=[mates[j].limits.get(key,[-360,360] if key=='rz' else [-5000,5000]) for j,key in zip(identifiers,attributes)]
+    if any(high-low<1e-9 for low,high in bounds):raise ValueError('폐루프 수동 관절의 운동 한계에는 움직일 수 있는 범위가 필요합니다.')
+    lower=np.array([b[0] for b in bounds]);upper=np.array([b[1] for b in bounds])
+    initial=np.clip([getattr(mates[j],key) for j,key in zip(identifiers,attributes)],lower,upper)
     def point(identifier,anchor):
         p=parts[identifier]
         return transform_matrix(p.transform)@np.array(anchors(p.geometry)[anchor])+[p.transform.x,p.transform.y,p.transform.z]
@@ -31,7 +32,7 @@ def solve_closures(design):
             error=point(loop.child,loop.child_anchor)-point(loop.parent,loop.parent_anchor)-loop.offset
             rows.extend(error[:2] if loop.planar else error)
         return np.array(rows)
-    result=least_squares(residual,initial,bounds=(-limits,limits),xtol=1e-11,ftol=1e-11,gtol=1e-11,max_nfev=250)
+    result=least_squares(residual,initial,bounds=(lower,upper),xtol=1e-11,ftol=1e-11,gtol=1e-11,max_nfev=250)
     error=float(np.max(np.abs(residual(result.x))))
     if not result.success or error>1e-4:
         residual(initial)

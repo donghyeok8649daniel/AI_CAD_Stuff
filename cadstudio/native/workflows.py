@@ -163,27 +163,30 @@ class JointDriveDialog(PreviewDialog):
         super().__init__(parent,'관절 구동 · 간섭 확인','각도 또는 이동량을 조절하세요. 연결된 부품과 하위 부품이 함께 움직입니다. 적용한 자세는 작업 기록에 남습니다.')
         self.base=deepcopy(design);self.inputs={};names={p['id']:p['name'] for p in design['parts']}
         self.passive={j for c in design.get('loops',[]) for j in c['passive_joints']};self.sliders={}
+        from ..assembly_motion import JOINT_AXES
+        self.linked_axes={(l['driven'],l['driven_axis']) for l in design.get('motion_links',[])}
         for mate in design['mates']:
             if mate['kind']=='rigid':continue
             title=label(names[mate['parent']]+' → '+names[mate['child']]);title.setStyleSheet('font-weight:600;color:#8ed5c6;');self.controls.addWidget(title)
-            for key in (['rz'] if mate['kind']=='revolute' else ['z'] if mate['kind']=='slider' else ['rz','z']):
-                row=QHBoxLayout();w=number(mate[key],-360 if key=='rz' else -500,360 if key=='rz' else 500,' °' if key=='rz' else ' mm',decimals=2);row.addWidget(QLabel('회전' if key=='rz' else '이동'));row.addWidget(w);self.controls.addLayout(row);slider=QSlider(Qt.Orientation.Horizontal);slider.setRange(int(w.minimum()*10),int(w.maximum()*10));slider.setValue(round(w.value()*10));self.controls.addWidget(slider);slider.valueChanged.connect(lambda v,spin=w:spin.setValue(v/10))
+            for key in JOINT_AXES[mate['kind']]:
+                lo,hi=mate.get('limits',{}).get(key,[-360,360] if key.startswith('r') else [-500,500])
+                row=QHBoxLayout();w=number(mate[key],lo,hi,' °' if key.startswith('r') else ' mm',decimals=2);row.addWidget(QLabel(key.upper()));row.addWidget(w);self.controls.addLayout(row);slider=QSlider(Qt.Orientation.Horizontal);slider.setRange(int(w.minimum()*10),int(w.maximum()*10));slider.setValue(round(w.value()*10));self.controls.addWidget(slider);slider.valueChanged.connect(lambda v,spin=w:spin.setValue(v/10))
                 def changed(v,s=slider):s.blockSignals(True);s.setValue(round(v*10));s.blockSignals(False);self.schedule()
                 w.valueChanged.connect(changed);self.inputs[(mate['id'],key)]=w
                 self.sliders[(mate['id'],key)]=slider
-                if mate['id'] in self.passive:w.setEnabled(False);slider.setEnabled(False);w.setToolTip('폐루프를 닫기 위해 자동으로 계산되는 수동 관절입니다.')
+                if mate['id'] in self.passive or (mate['id'],key) in self.linked_axes:w.setEnabled(False);slider.setEnabled(False);w.setToolTip('폐루프 또는 모션 연결이 계산하는 관절입니다.')
         self.collisions=label('',True);self.controls.addWidget(self.collisions);self.controls.addStretch();self.schedule()
     def candidate(self):
         raw=deepcopy(self.base)
         for mate in raw['mates']:
-            for key in ('rz','z'):
+            for key in ('x','y','z','rx','ry','rz'):
                 if (mate['id'],key) in self.inputs:mate[key]=self.inputs[(mate['id'],key)].value()
         return raw
     def present(self):
         super().present();names={p.id:p.name for p in self.checked.parts};collisions=self.result['stats']['collisions'];self.collisions.setText('체적 간섭 없음' if not collisions else '간섭 부품\n'+'\n'.join(f"{names[c['a']]} ↔ {names[c['b']]}\n{c['volume']:.3f} mm³" for c in collisions));self.collisions.setStyleSheet('color:#f3ac97;' if collisions else 'color:#89d6c0;')
         for mate in self.checked.mates:
-            if mate.id in self.passive:
-                for key in ('rz','z'):
+            if mate.id in self.passive or any(mate.id==j for j,k in self.linked_axes):
+                for key in ('x','y','z','rx','ry','rz'):
                     if (mate.id,key) in self.inputs:
                         w=self.inputs[(mate.id,key)];w.blockSignals(True);w.setValue(getattr(mate,key));w.blockSignals(False);s=self.sliders[(mate.id,key)];s.blockSignals(True);s.setValue(round(getattr(mate,key)*10));s.blockSignals(False)
         stats=self.result['stats']['assembly_constraints']
@@ -194,13 +197,15 @@ class JointDriveDialog(PreviewDialog):
 
 
 def frame_record(part,face):
-    return dict(face=face['index'],face_count=face['face_count'],support_feature=part['features'][-1]['id'] if part['features'] else 'base',origin=face['origin'],normal=face['normal'],x_direction=face['x_direction'])
+    record=dict(face=face['index'],face_count=face['face_count'],support_feature=part['features'][-1]['id'] if part['features'] else 'base',origin=face['origin'],normal=face['normal'],x_direction=face['x_direction'])
+    if face.get('reference'):record['reference']=face['reference']
+    return record
 
 
 class FaceJointDialog(PreviewDialog):
     def __init__(self,parent,design,first,second):
         super().__init__(parent,'면으로 조인트 만들기','먼저 고른 면이 기준입니다. 두 번째 부품을 맞추고 회전·이동 자유도를 지정하세요.')
-        self.base=deepcopy(design);self.first=deepcopy(first);self.second=deepcopy(second);self.mate_id='mate-'+uid();parts={p['id']:p for p in design['parts']};self.controls.addWidget(label(parts[first[0]]['name']+' → '+parts[second[0]]['name']));self.kind=choice([('revolute','회전 관절 · 1 자유도'),('rigid','강체 고정 · 0 자유도'),('slider','직선 이동 · 1 자유도'),('cylindrical','회전 + 직선 이동 · 2 자유도')]);form=QFormLayout();form.addRow('조인트',self.kind);self.gap=number(0,-500,500,' mm');self.angle=number(0,-360,360,' °');form.addRow('면 사이 간격',self.gap);form.addRow('축 주위 각도',self.angle);self.controls.addLayout(form);self.flip=QCheckBox('두 면을 서로 마주 보게 연결');self.flip.setChecked(True);self.controls.addWidget(self.flip);self.controls.addWidget(label('평면 중심과 법선이 조인트 축입니다. 다른 구멍 중심을 쓰려면 기존 조립 구속의 기준점 선택을 이용하세요.',True));self.controls.addStretch()
+        self.base=deepcopy(design);self.first=deepcopy(first);self.second=deepcopy(second);self.mate_id='mate-'+uid();parts={p['id']:p for p in design['parts']};self.controls.addWidget(label(parts[first[0]]['name']+' → '+parts[second[0]]['name']));self.kind=choice([('revolute','회전 관절 · 1 자유도'),('rigid','강체 고정 · 0 자유도'),('slider','직선 이동 · 1 자유도'),('cylindrical','회전 + 직선 이동 · 2 자유도'),('pin_slot','핀 슬롯 · 2 자유도'),('planar','평면 · 3 자유도'),('ball','볼 · 3 자유도')]);form=QFormLayout();form.addRow('조인트',self.kind);self.gap=number(0,-500,500,' mm');self.angle=number(0,-360,360,' °');form.addRow('면 사이 간격',self.gap);form.addRow('축 주위 각도',self.angle);self.controls.addLayout(form);self.flip=QCheckBox('두 면을 서로 마주 보게 연결');self.flip.setChecked(True);self.controls.addWidget(self.flip);self.controls.addWidget(label('평면 중심과 법선이 조인트 축입니다. 다른 구멍 중심을 쓰려면 기존 조립 구속의 기준점 선택을 이용하세요.',True));self.controls.addStretch()
         for w in (self.gap,self.angle):w.valueChanged.connect(self.schedule)
         self.kind.currentIndexChanged.connect(self.schedule);self.flip.toggled.connect(self.schedule);self.schedule()
     def candidate(self):

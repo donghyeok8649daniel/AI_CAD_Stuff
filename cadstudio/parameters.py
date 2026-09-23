@@ -80,7 +80,12 @@ def numeric_node(data,path):
 
 def evaluate_design(data):
     if not isinstance(data,dict):return data
-    raw=deepcopy(data);values=parameter_values(raw.get('parameters',{}));seen=set()
+    raw=deepcopy(data)
+    for key in ('parts','sketches'):
+        if key in raw:
+            if not isinstance(raw[key],list):raise ValueError('부품과 스케치는 목록이어야 합니다.')
+            raw[key]=[item.model_dump() if hasattr(item,'model_dump') else item for item in raw[key]]
+    values=parameter_values(raw.get('parameters',{}));seen=set()
     def sketch_expressions(node):
         if isinstance(node,list):
             for child in node:sketch_expressions(child)

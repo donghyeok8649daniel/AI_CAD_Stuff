@@ -42,6 +42,12 @@ def neck_profile(g, flat=False):
 
 
 def construct(g):
+    if g.kind=='sheetmetal':
+        from .sheetmetal import construct_sheet
+        return construct_sheet(g)
+    if g.kind=='revolve':
+        from .solid_tools import revolve
+        return revolve(g)
     if g.kind in ('sweep','loft'):
         from .advanced_geometry import construct_sweep,construct_loft
         return construct_sweep(g) if g.kind=='sweep' else construct_loft(g)
@@ -77,7 +83,7 @@ def construct(g):
             horizontal = cq.Solid.makeCylinder(g.hole_diameter/2, g.thickness+2, cq.Vector(-1, y, g.height-g.hole_inset), cq.Vector(1, 0, 0))
             obj = obj.cut(vertical).cut(horizontal)
     elif g.kind == "extrusion":
-        if g.sketch_mode == 'entities':
+        if g.sketch_mode == 'entities' or g.symmetric or g.reverse_depth or g.taper or g.thin_wall:
             shape = extrude_regions(g)
             if not shape.isValid() or not shape.Solids() or shape.Volume() <= 0:
                 raise ValueError('스케치에서 유효한 솔리드를 만들지 못했습니다.')
@@ -109,11 +115,17 @@ def face_frame(face):
 
 
 @lru_cache(maxsize=32)
-def _part_cached(part_json):
+def _part_cached(part_json,asset=None,tools=()):
     part=Part.model_validate_json(part_json)
-    shape=construct(part.geometry)
+    if part.geometry.kind=='imported':
+        from .imported import decode_shape
+        if not asset:raise ValueError('가져온 부품 데이터가 없습니다.')
+        shape=decode_shape(*asset)
+    else:shape=construct(part.geometry)
+    tools=dict(tools)
     previous_feature="base"
     for feature in part.features:
+        if feature.suppressed:previous_feature=feature.id;continue
         if feature.support_feature and feature.support_feature!=previous_feature:
             raise ValueError("면 스케치가 참조한 이전 피처가 변경되었습니다. 기준 면을 다시 선택하세요.")
         if getattr(feature,'kind',None) in ('fillet','chamfer'):
@@ -122,21 +134,45 @@ def _part_cached(part_json):
         if getattr(feature,'kind',None)=='thread':
             from .threads import apply_thread
             shape=apply_thread(shape,feature);previous_feature=feature.id;continue
+        if getattr(feature,'kind',None)=='solid':
+            from .solid_tools import apply_operation
+            from .imported import decode_shape
+            tool=decode_shape(*tools[feature.id]) if feature.id in tools else None
+            shape=apply_operation(shape,feature,tool);previous_feature=feature.id;continue
         if not shape.Solids():raise ValueError('곡면에는 솔리드 절삭·돌출을 적용할 수 없습니다.')
         faces=shape.Faces()
-        if feature.face >= len(faces) or (feature.support_face_count and len(faces)!=feature.support_face_count):
+        if feature.reference:
+            from .topology import resolve_face
+            _,face=resolve_face(shape,feature.reference)
+        elif feature.face >= len(faces) or (feature.support_face_count and len(faces)!=feature.support_face_count):
             raise ValueError("면 스케치의 기준 면 구성이 변경되었습니다. 피처를 제거하고 면을 다시 선택하세요.")
-        face=faces[feature.face];plane=face_frame(face)
+        else:face=faces[feature.face]
+        plane=face_frame(face)
         if (plane.zDir-cq.Vector(*feature.normal)).Length > 1e-5:
             raise ValueError("면 스케치의 기준 방향이 변경되었습니다. 면을 다시 선택하세요.")
         g=feature.sketch
-        if g.sketch_mode == 'entities':
+        if feature.end_face:
+            from .topology import resolve_face
+            target=resolve_face(shape,feature.end_face)[1]
+            if target.geomType()!='PLANE' or abs(abs(target.normalAt().dot(plane.zDir))-1)>1e-6:raise ValueError('면까지 돌출은 기준 스케치와 평행한 평면을 선택하세요.')
+            depth=(target.Center()-plane.origin).dot(plane.zDir)*(1 if feature.operation=='add' else -1)
+            if depth<.01:raise ValueError('목표 면이 돌출 방향 앞에 없습니다. 방향이나 목표 면을 바꾸세요.')
+            g=g.model_copy(update={'thickness':depth,'symmetric':False,'reverse_depth':0})
+        if feature.through_all:
+            if feature.operation!='cut':raise ValueError('전체 관통은 절삭에서만 사용할 수 있습니다.')
+            bounds=exact_bounds(shape)
+            depth=max(-(cq.Vector(x,y,z)-plane.origin).dot(plane.zDir) for x in (bounds.xmin,bounds.xmax) for y in (bounds.ymin,bounds.ymax) for z in (bounds.zmin,bounds.zmax))+.1
+            g=g.model_copy(update={'thickness':max(.01,depth),'symmetric':False,'reverse_depth':0})
+        if g.sketch_mode == 'entities' or g.symmetric or g.reverse_depth or g.taper or g.thin_wall:
             tool = extrude_regions(g,plane,1 if feature.operation=='add' else -1)
         else:
             profile=cq.Workplane(plane).polyline([(p.x,p.y) for p in g.points]).close()
             for hole in g.holes:
                 profile=profile.moveTo(hole.x,hole.y).circle(hole.diameter/2)
             tool=profile.extrude(g.thickness if feature.operation=="add" else -g.thickness).val()
+        if feature.hole_finish!='plain':
+            from .holes import finish_tool
+            tool=tool.fuse(finish_tool(feature,g,plane)).clean()
         previous=shape.Volume()
         previous_solids=len(shape.Solids())
         shape=shape.fuse(tool).clean() if feature.operation=="add" else shape.cut(tool).clean()
@@ -149,11 +185,33 @@ def _part_cached(part_json):
     return shape
 
 
-def local_shape(design,part):
-    if part.geometry.kind in ('sweep','loft'):
+def local_shape(design,part,_stack=()):
+    if part.id in _stack:raise ValueError('부품 참조가 순환합니다.')
+    if part.source_part_id:
+        source=next(p for p in design.parts if p.id==part.source_part_id)
+        return local_shape(design,source,(*_stack,part.id))
+    if part.geometry.kind in ('sweep','loft','revolve'):
         from .advanced_geometry import resolved_geometry
         part=part.model_copy(update={'geometry':resolved_geometry(design,part)})
-    return _part_cached(part.model_dump_json())
+    asset=None
+    if part.geometry.kind=='imported':
+        source=design.assets.get(part.geometry.asset_id)
+        if source is None:raise ValueError('가져온 부품의 원본 데이터를 찾을 수 없습니다.')
+        asset=(source.data,source.sha256)
+    tools=[]
+    for f in part.features:
+        if getattr(f,'kind',None)!='solid' or f.operation!='boolean' or f.suppressed:continue
+        other=next((p for p in design.parts if p.id==f.tool_part_id),None)
+        if other is None:raise ValueError('불리언 작업의 도구 부품이 삭제됐습니다.')
+        tool=local_shape(design,other,(*_stack,part.id));t=other.transform
+        for angle,axis in [(t.rx,(1,0,0)),(t.ry,(0,1,0)),(t.rz,(0,0,1))]:
+            if angle:tool=tool.rotate((0,0,0),axis,angle)
+        t2=part.transform;tool=tool.translate((t.x-t2.x,t.y-t2.y,t.z-t2.z))
+        for angle,axis in [(t2.rz,(0,0,1)),(t2.ry,(0,1,0)),(t2.rx,(1,0,0))]:
+            if angle:tool=tool.rotate((0,0,0),axis,-angle)
+        from .imported import encode_shape
+        encoded=encode_shape(tool,'tool');tools.append((f.id,(encoded.data,encoded.sha256)))
+    return _part_cached(part.model_dump_json(),asset,tuple(tools))
 
 
 @lru_cache(maxsize=8)
@@ -179,9 +237,12 @@ def build(design: Design):
             mate=mates[binding.mate_id]
             for identifier,frame in ((mate.parent,binding.parent),(mate.child,binding.child)):
                 part=parts[identifier];shape=local_shape(design,part);faces=shape.Faces();support=part.features[-1].id if part.features else 'base'
-                if len(faces)!=frame.face_count or frame.face>=len(faces) or support!=frame.support_feature:
-                    raise ValueError('면 조인트가 참조한 피처/면 구성이 변경되었습니다. 기준 면을 다시 선택하세요.')
-                plane=face_frame(faces[frame.face])
+                if frame.reference:
+                    from .topology import resolve_face
+                    index,face=resolve_face(shape,frame.reference);plane=face_frame(face)
+                else:
+                    if len(faces)!=frame.face_count or frame.face>=len(faces) or support!=frame.support_feature:raise ValueError('면 조인트가 참조한 피처/면 구성이 변경되었습니다. 기준 면을 다시 선택하세요.')
+                    plane=face_frame(faces[frame.face])
                 if (plane.zDir-cq.Vector(*frame.normal)).Length>1e-5:
                     raise ValueError('면 조인트의 기준 방향이 변경되었습니다. 기준 면을 다시 선택하세요.')
                 frame.origin=list(plane.origin.toTuple());frame.x_direction=list(plane.xDir.toTuple())
@@ -197,12 +258,15 @@ def preview(design: Design):
             vertices,triangles,triangle_faces,face_info=[],[],[],[]
             local=local_shape(design,part)
             local_faces=local.Faces()
+            local_bounds=exact_bounds(local)
             for i,face in enumerate(shape.Faces()):
                 vs,ts=face.tessellate(.04,.12)
                 start=len(vertices);vertices.extend(vs)
                 triangles.extend(tuple(idx+start for idx in tri) for tri in ts);triangle_faces.extend([i]*len(ts))
                 lf=local_faces[i]
                 info={"index":i,"planar":lf.geomType()=="PLANE"}
+                from .topology import face_reference
+                info['reference']=face_reference(local,i,local_bounds,local_faces).model_dump()
                 if lf.geomType()=='CYLINDER':
                     from .threads import cylinder_reference
                     try:info['cylinder']=cylinder_reference(lf,i,len(local_faces)).model_dump()
@@ -242,12 +306,12 @@ def preview(design: Design):
         if not points: points = [[-25,-25,0],[25,25,0]]
         minimum = [min(p[i] for p in points) for i in range(3)]
         maximum = [max(p[i] for p in points) for i in range(3)]
-        collisions = []
+        collisions = [];collision_bounds=[exact_bounds(s) for s in shapes]
         for i, a in enumerate(shapes):
-            ba = exact_bounds(a)
+            ba = collision_bounds[i]
             for j in range(i+1, len(shapes)):
                 b = shapes[j]
-                bc = exact_bounds(b)
+                bc = collision_bounds[j]
                 overlap = all(min(getattr(ba, axis+"max"), getattr(bc, axis+"max")) - max(getattr(ba, axis+"min"), getattr(bc, axis+"min")) > 1e-5 for axis in "xyz")
                 if overlap and a.Solids() and b.Solids():
                     volume = a.intersect(b).Volume()
