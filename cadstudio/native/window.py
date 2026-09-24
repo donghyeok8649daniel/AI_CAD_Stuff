@@ -345,14 +345,23 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def make_timeline(self):
         w=QWidget();v=QVBoxLayout(w);v.setContentsMargins(10,8,10,8);row=QHBoxLayout();row.addWidget(label('작업 기록 · 클릭: 상세 · 더블클릭: 해당 단계로 복원',True));row.addStretch();row.addWidget(button('모든 분기 / 상세',self.history_dialog));v.addLayout(row);self.timeline=QListWidget();self.timeline.setObjectName('featureTimeline');self.timeline.setFlow(QListWidget.Flow.LeftToRight);self.timeline.setWrapping(False);self.timeline.setFixedHeight(66);self.timeline.setIconSize(QSize(24,24));self.timeline.itemClicked.connect(self.history_clicked);self.timeline.itemDoubleClicked.connect(lambda item:self.restore_history(item.data(Qt.ItemDataRole.UserRole)));v.addWidget(self.timeline);self.timeline_dock=self.dock('피처 / 작업 타임라인','historyDock',Qt.DockWidgetArea.BottomDockWidgetArea,w)
     def make_ai(self):
-        w=QWidget();v=QVBoxLayout(w);v.setContentsMargins(12,12,12,12);self.provider=combo([('local','오프라인 치수 명령 · 키 불필요'),('openai','OpenAI · API 키 필요'),('ollama','로컬 AI · Ollama')]);v.addWidget(self.provider);self.ai_info=label('형상 이름과 치수를 입력하세요. 예: 구멍판 길이 80, 폭 60, 두께 6, 구멍 수 4 mm',True);v.addWidget(self.ai_info)
-        self.key=QLineEdit();self.key.setEchoMode(QLineEdit.EchoMode.Password);self.key.setPlaceholderText('API 키 · 이번 실행 동안만 사용');self.key.setVisible(False);v.addWidget(self.key);self.model=QLineEdit('gpt-4.1');self.model.setPlaceholderText('모델 이름');self.model.setVisible(False);v.addWidget(self.model);self.provider.currentIndexChanged.connect(self.provider_changed)
-        self.astra_button=button('Astra 모델 선택',lambda:self.model.setText('gpt-6-astra'));self.astra_button.hide();v.addWidget(self.astra_button)
-        self.cloud_effort=combo([('low','추론 · 빠르게'),('medium','추론 · 균형'),('high','추론 · 깊게')]);self.cloud_effort.setCurrentIndex(1);self.cloud_effort.hide();v.addWidget(self.cloud_effort)
+        w=QWidget();v=QVBoxLayout(w);v.setContentsMargins(12,12,12,12)
+        self.prompt=QPlainTextEdit();self.prompt.setObjectName('designPrompt');self.prompt.setPlaceholderText('만들 형상과 치수, 바꿀 부분을 입력하세요.\n예: 선택한 구멍을 지름 6 mm로 줄여줘.');self.prompt.setMinimumHeight(84);self.prompt.setMaximumHeight(110);v.addWidget(self.prompt)
+        self.provider=combo([('local','오프라인 치수 명령 · 키 불필요'),('openai','OpenAI · 유료 API'),('ollama','로컬 AI · Ollama')]);v.addWidget(self.provider)
+        self.ai_info=label('',True);v.addWidget(self.ai_info)
+        self.ai_result=QPlainTextEdit();self.ai_result.setReadOnly(True);self.ai_result.setPlaceholderText('생성 진행과 검증 결과가 여기에 표시됩니다.');self.ai_result.setMinimumHeight(100)
+        self.ai_settings_toggle=button('모델 · 대기 설정',lambda:None);self.ai_settings_toggle.setCheckable(True);self.ai_settings_toggle.setToolTip('모델 선택, 최대 대기 시간, API 키 설정');header=QHBoxLayout();header.addWidget(label('설계 요청'));header.addStretch();header.addWidget(self.ai_settings_toggle);v.insertLayout(0,header)
+        self.ai_settings=QWidget();settings=QVBoxLayout(self.ai_settings);settings.setContentsMargins(0,0,0,0);v.addWidget(self.ai_settings);self.ai_settings.hide()
+        self.ai_settings_toggle.toggled.connect(self.ai_settings.setVisible)
+        self.key=QLineEdit();self.key.setEchoMode(QLineEdit.EchoMode.Password);self.key.setPlaceholderText('API 키 · 이번 실행 동안만 사용');self.key.setVisible(False);settings.addWidget(self.key)
+        self.model=QLineEdit('gpt-4.1');self.model.setPlaceholderText('모델 이름');self.model.setVisible(False);settings.addWidget(self.model);self.provider.currentIndexChanged.connect(self.provider_changed)
+        self.astra_button=button('Astra 모델 선택',lambda:self.model.setText('gpt-6-astra'));self.astra_button.hide();settings.addWidget(self.astra_button)
+        self.cloud_effort=combo([('low','추론 · 빠르게'),('medium','추론 · 균형'),('high','추론 · 깊게')]);self.cloud_effort.setCurrentIndex(1);self.cloud_effort.hide();settings.addWidget(self.cloud_effort)
         from .model_picker import LocalModelPicker
-        self.ollama_models=LocalModelPicker(self);self.ollama_models.hide();v.addWidget(self.ollama_models);self.ai_timeout=combo([(180,'AI 최대 대기 · 3분'),(300,'AI 최대 대기 · 5분'),(600,'AI 최대 대기 · 10분'),(1200,'AI 최대 대기 · 20분'),(None,'AI 최대 대기 · 무제한 (취소 가능)')]);self.ai_timeout.setCurrentIndex(2);v.addWidget(self.ai_timeout);v.addWidget(button('로컬 AI 설치 / 모델 다운로드',self.install_local_ai))
-        self.prompt=QPlainTextEdit();self.prompt.setObjectName('designPrompt');self.prompt.setPlaceholderText('만들 형상과 치수, 바꿀 부분을 입력하세요.');self.prompt.setMinimumHeight(84);self.prompt.setMaximumHeight(120);v.addWidget(self.prompt)
-        self.ai_result=QPlainTextEdit();self.ai_result.setReadOnly(True);self.ai_result.setMinimumHeight(130);v.addWidget(self.ai_result);v.addStretch()
+        self.ollama_models=LocalModelPicker(self);self.ollama_models.hide();settings.addWidget(self.ollama_models)
+        self.ai_timeout=combo([(180,'AI 최대 대기 · 3분'),(300,'AI 최대 대기 · 5분'),(600,'AI 최대 대기 · 10분'),(1200,'AI 최대 대기 · 20분'),(None,'AI 최대 대기 · 무제한 (취소 가능)')]);self.ai_timeout.setCurrentIndex(2);settings.addWidget(self.ai_timeout)
+        settings.addWidget(button('로컬 AI 설치 / 모델 다운로드',self.install_local_ai))
+        v.addWidget(self.ai_result,1)
         self.ai_scroll=QScrollArea();self.ai_scroll.setWidgetResizable(True);self.ai_scroll.setMinimumWidth(270);self.ai_scroll.setWidget(w)
         # Keep the actions reachable while settings, prompts and results scroll.
         panel=QWidget();layout=QVBoxLayout(panel);layout.setContentsMargins(0,0,0,0);layout.addWidget(self.ai_scroll,1)
@@ -374,7 +383,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         elif part:text=part['name']
         elif self.selected_sketch:text='스케치 · 원본 편집은 스케치 편집 도구를 사용하세요'
         else:text='없음 · 새 형상 또는 전체 설계 명령'
-        self.ai_target.setText('현재 선택: '+text);self.ai_target.setToolTip(text)
+        self.ai_target.setText('현재 선택: '+(text if len(text)<=65 else text[:62]+'…'));self.ai_target.setToolTip(text)
     def message(self,text):self.statusBar().showMessage(text,15000)
     def title(self):self.setWindowTitle((self.document.design['name'] if self.document.design else '새 설계')+(' *' if self.document.dirty else '')+' — '+APP_NAME+' · Native')
     def set_busy(self,busy,message=''):
@@ -504,7 +513,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if len(self.selected_parts)>1:self.selection_properties();return
         if not part:
             self.property_layout.addWidget(label('사람이 설계하고, 필요할 때 AI를 사용하세요.'));self.property_layout.addWidget(label('① 기준 평면 선택\n② 스케치 작성\n③ 닫힌 영역 돌출\n④ 면 선택 → 스케치 → 구멍 / 돌출',True));self.property_layout.addWidget(button('XY 평면에 스케치',lambda:self.start_sketch('XY'),True));self.property_layout.addWidget(button('시편 치수 설계',self.specimen_dialog));self.property_layout.addWidget(button('로봇 조립 설계',self.robot_dialog));self.property_layout.addStretch();return
-        heading=label(part['name']);heading.setStyleSheet('font-size:17px;font-weight:600;');self.property_layout.addWidget(heading);form=QFormLayout();name=QLineEdit(part['name']);form.addRow('부품 이름',name);inputs={};g=part['geometry']
+        heading=label(part['name']);heading.setStyleSheet('font-size:17px;font-weight:600;');self.property_layout.addWidget(heading);form=QFormLayout();name=QLineEdit(part['name']);name.setObjectName('partName');form.addRow('부품 이름',name);inputs={};g=part['geometry'];changed_dimensions=set()
         group=next((g for g in self.document.design.get('part_groups',[]) if part['id'] in g['part_ids']),None)
         if group:
             self.property_layout.addWidget(button(group['name']+' · 그룹 전체 선택',lambda:self.select_parts(group['part_ids'])))
@@ -514,7 +523,9 @@ class MainWindow(QMainWindow,PartSelectionUI):
             title,unit=FIELDS[key]
             if key=='hole_count':w=combo([(n,str(n)) for n in (0,2,4)]);w.setCurrentIndex(w.findData(value))
             else:w=ExpressionField(value,0 if key in ('bore_diameter','flat_depth') else .01,2000,' '+unit,variables=parameter_values(self.document.design.get('parameters',{})),expression=binding_for(self.document.design,['parts',part['id'],'geometry',key]) or (g.get('thickness_expression','') if key=='thickness' else ''))
-            inputs[key]=w;form.addRow(title,w)
+            inputs[key]=w;w.setObjectName('partDimension_'+key);form.addRow(title,w)
+            signal=w.currentIndexChanged if isinstance(w,QComboBox) else w.valueChanged
+            signal.connect(lambda *args,field=key:changed_dimensions.add(field))
         self.property_layout.addWidget(button('이동 / 회전 · M',self.move_parts))
         color_button=button('●  부품 색상 변경',lambda:self.color_part(part['id']));color_button.setObjectName('partColorButton');color_button.setStyleSheet(f"border-left:6px solid {part['color']};text-align:left;padding:8px;");self.property_layout.addWidget(color_button);self.property_layout.addWidget(button('재질 / 물성',self.material_dialog));self.property_layout.addLayout(form)
         if part.get('source_part_id'):
@@ -527,8 +538,11 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if g['kind']=='sheetmetal':self.property_layout.addWidget(button('판금 치수 / 전개 편집',lambda:self.sheetmetal_dialog(part_id=part['id']),True))
         if g['kind']=='revolve':self.property_layout.insertWidget(1,button('회전 단면 / 축 편집',lambda:self.revolve_dialog(part_id=part['id']),True))
         if g['kind']=='imported':self.property_layout.addWidget(label('가져온 형상은 프로젝트 안에 보관됩니다. 원본 파일 없이 다시 열 수 있습니다.',True))
-        self.property_layout.addWidget(label('배치 · 원점 기준'));tform=QFormLayout();trans={}
-        for key,value in part['transform'].items():w=number(value,-360 if key.startswith('r') else -5000,360 if key.startswith('r') else 5000,' °' if key.startswith('r') else ' mm');trans[key]=w;tform.addRow(key.upper(),w)
+        self.property_layout.addWidget(label('배치 · 원점 기준'));tform=QFormLayout();trans={};changed_transform=set()
+        for key,value in part['transform'].items():
+            limit=360 if key.startswith('r') else 5000
+            w=ExpressionField(value,-limit,limit,' °' if key.startswith('r') else ' mm',variables=parameter_values(self.document.design.get('parameters',{})),expression=binding_for(self.document.design,['parts',part['id'],'transform',key]))
+            w.setObjectName('partPlacement_'+key);trans[key]=w;tform.addRow(key.upper(),w);w.valueChanged.connect(lambda *args,axis=key:changed_transform.add(axis))
         bound=next((m for m in self.document.design['mates'] if m['child']==part['id']),None)
         if bound:
             for w in trans.values():w.setEnabled(False);w.setToolTip('조인트로 배치된 부품입니다. 관절 구동 또는 조인트 오프셋을 편집하세요.')
@@ -539,14 +553,16 @@ class MainWindow(QMainWindow,PartSelectionUI):
             data=deepcopy(self.document.design);p=next(p for p in data['parts'] if p['id']==part['id']);p['name']=name.text().strip() or part['name'];p['fixed']=fixed.isChecked()
             try:
                 for key,w in inputs.items():
+                    if key not in changed_dimensions:continue
                     p['geometry'][key]=w.currentData() if isinstance(w,QComboBox) else w.value()
                     if isinstance(w,ExpressionField):
                         if key=='thickness' and p['geometry']['kind']=='extrusion':p['geometry'].pop('thickness_expression',None)
                         set_binding(data,['parts',p['id'],'geometry',key],w.formula())
+                for key in changed_transform:
+                    w=trans[key];p['transform'][key]=w.value();set_binding(data,['parts',p['id'],'transform',key],w.formula())
             except ValueError as exc:self.show_error(str(exc));return
-            for key,w in trans.items():p['transform'][key]=w.value()
             self.apply_design(data,'부품 치수 / 배치 편집',{'part_id':part['id'],'tool':'parameters'})
-        self.property_layout.addWidget(button('치수 / 배치 적용',apply,True));self.property_layout.addWidget(button('부품 복제',self.duplicate_part));self.property_layout.addWidget(button('선택 부품 삭제',self.delete_part));self.property_layout.addStretch()
+        apply_button=button('치수 / 배치 적용',apply,True);apply_button.setObjectName('applyPartProperties');self.property_layout.addWidget(apply_button);self.property_layout.addWidget(button('부품 복제',self.duplicate_part));self.property_layout.addWidget(button('선택 부품 삭제',self.delete_part));self.property_layout.addStretch()
     def color_part(self,identifier):
         if self.busy or self.sketching:return
         if not identifier:self.message('색을 바꿀 부품을 화면이나 설계 브라우저에서 먼저 선택하세요.');return
@@ -811,7 +827,11 @@ class MainWindow(QMainWindow,PartSelectionUI):
             return target
         self.run(work,lambda p:self.message('내보내기 완료: '+str(p)),'형상 내보내는 중…')
     def provider_changed(self):
-        provider=self.provider.currentData();self.astra_button.setVisible(provider=='openai');self.cloud_effort.setVisible(provider=='openai');self.key.setVisible(provider=='openai');self.model.setVisible(provider=='openai');self.ollama_models.setVisible(provider=='ollama');self.ai_info.setText({'local':'인터넷·API 키 없이 형상 이름과 치수를 해석합니다. 자유로운 문장을 이해하는 AI 모델은 아닙니다.','openai':'프롬프트와 현재 설계를 OpenAI API로 보냅니다. API 사용료가 발생합니다. 최대 4회 요청으로 계획과 형상을 검증합니다. 취소 전 사용량은 청구될 수 있습니다. 키는 저장하지 않습니다.','ollama':'이 PC의 Ollama (127.0.0.1:11434)에 연결합니다. 설치된 모델을 자동으로 찾아 표시합니다. 인터넷 API 키 없이 자유로운 프롬프트를 처리합니다.'}[provider]);self.last_draft=None;self.accept_draft.setEnabled(False)
+        provider=self.provider.currentData();self.astra_button.setVisible(provider=='openai');self.cloud_effort.setVisible(provider=='openai');self.key.setVisible(provider=='openai');self.model.setVisible(provider=='openai');self.ollama_models.setVisible(provider=='ollama')
+        self.ai_info.setText({'local':'이름·치수를 해석하는 오프라인 명령입니다. 자유로운 문장용 AI는 아닙니다.','openai':'유료 API · 프롬프트와 설계를 OpenAI로 전송합니다. 키는 저장하지 않습니다.','ollama':'이 PC의 모델로 실행 · API 키 불필요. 설치된 모델을 자동으로 찾습니다.'}[provider])
+        self.ai_info.setToolTip('OpenAI 초안 생성은 최대 4회 요청으로 계획과 형상을 검증합니다. 취소 전 사용량은 청구될 수 있습니다.' if provider=='openai' else self.ai_info.text())
+        if provider=='openai':self.ai_settings_toggle.setChecked(True)
+        self.last_draft=None;self.accept_draft.setEnabled(False)
         if provider=='ollama':self.ollama_models.refresh()
     def install_local_ai(self):
         from .ai_setup import AISetupDialog
@@ -823,7 +843,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if not prompt:self.ai_result.setPlainText('설계 명령을 입력하세요. 예: 직경 20 mm, 높이 10 mm인 원통을 만들어줘.');self.prompt.setFocus();return
         if len(prompt)>4000:self.show_error('명령은 4,000자 이내로 입력하세요.');return
         provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,selected_feature=getattr(self,'selected_feature',None),selected_joint=getattr(self,'selected_joint',None),mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();effort=self.cloud_effort.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
-        if provider=='ollama' and not model:self.ai_result.setPlainText('Ollama 모델을 먼저 선택하세요. 새로 찾기를 누르거나 로컬 AI 설치 / 모델 다운로드를 사용하세요.');return
+        if provider=='ollama' and not model:self.ai_settings_toggle.setChecked(True);self.ai_result.setPlainText('Ollama 모델을 먼저 선택하세요. 설정에서 새로 찾기 또는 로컬 AI 설치 / 모델 다운로드를 사용하세요.');self.ai_scroll.ensureWidgetVisible(self.ollama_models);return
         def work(control,progress):
             from ..planner import local_draft
             if provider=='local':result=local_draft(request)

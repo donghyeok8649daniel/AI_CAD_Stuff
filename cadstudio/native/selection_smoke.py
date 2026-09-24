@@ -104,7 +104,12 @@ def run(app,w,path):
         from .workflows import JointDriveDialog
         w.show_mate('ab');w.ai_dock.show();w.ai_dock.raise_();app.processEvents()
         check(w.selected_joint=='ab' and 'ab' in w.ai_target.text(),'selected joint is identified visibly in AI panel')
+        w.ai_scroll.verticalScrollBar().setValue(0);app.processEvents()
+        check(w.prompt.visibleRegion().contains(w.prompt.rect()) and not w.ai_settings.isVisible(),'AI prompt is immediately visible with settings collapsed')
         snapshot('joint260-ai-target')
+        w.resize(820,560);app.processEvents();w.ai_scroll.verticalScrollBar().setValue(0);app.processEvents();snapshot('ai260-compact')
+        check(w.prompt.visibleRegion().contains(w.prompt.rect()),'AI prompt remains fully visible at minimum window size')
+        w.resize(1180,780);app.processEvents()
         original_drive=JointDriveDialog.exec;before_drive=deepcopy(w.document.design)
         def automatic_drive(dialog):
             dialog.resize(820,600);dialog.show();wait(lambda:dialog.checked is not None)
@@ -133,6 +138,14 @@ def run(app,w,path):
         check(abs(build(reply.design)[0].Volume()-(20*20*12-3.141592653589793*9*12))<1e-5,'offline AI feature edit shrinks existing hole to exact requested volume')
         check(len(reply.design.parts[0].features)==1 and reply.design.parts[0].features[0].id==feature,'hole edit retains original feature identity')
         key(Qt.Key.Key_Z);check(w.document.design==before_hole_edit,'undo restores pre-edit hole and assembly')
+        from PySide6.QtWidgets import QLineEdit,QPushButton
+        precise=deepcopy(w.document.design);precise['parts'][0]['transform']['x']=25.1234567890123;precise['parts'][0]['transform']['rz']=90.1234567890123
+        apply(precise);w.select_parts(['a']);app.processEvents();before_properties=deepcopy(w.document.design)
+        w.properties.findChild(QLineEdit,'partName').setText('정밀 배치 유지')
+        w.properties.findChild(QPushButton,'applyPartProperties').click();wait(lambda:not w.busy)
+        check(w.document.design['parts'][0]['transform']==before_properties['parts'][0]['transform'],'renaming preserves untouched full precision placement')
+        check(w.document.design['parts'][0]['geometry']==before_properties['parts'][0]['geometry'],'renaming preserves untouched geometry and feature settings')
+        key(Qt.Key.Key_Z);check(w.document.design==before_properties,'undo property edit restores original name and precise pose')
         w.start_sketch(g=Extrusion(sketch_mode='entities',entities=[G.line(G.pt(0,0),G.pt(20,0)),G.line(G.pt(20,0),G.pt(20,20))]).model_dump());e=w.editor;wait(lambda:e.preview is not None);e.canvas.setFocus();e.selected={i['id'] for i in e.g['entities']};QTest.keyClick(e.canvas,Qt.Key.Key_C,Qt.KeyboardModifier.ControlModifier);QTest.keyClick(e.canvas,Qt.Key.Key_V,Qt.KeyboardModifier.ControlModifier);check(len(e.g['entities'])==4,'sketch Ctrl C V duplicates selected geometry');e.create_group('스케치 그룹');e.canvas.setFocus();QTest.keyClick(e.canvas,Qt.Key.Key_G,Qt.KeyboardModifier.ControlModifier|Qt.KeyboardModifier.ShiftModifier);check(not e.g.get('groups'),'sketch Ctrl Shift G ungroups selected elements');QTest.keyClick(e.canvas,Qt.Key.Key_X,Qt.KeyboardModifier.ControlModifier);check(len(e.g['entities'])==2,'sketch Ctrl X removes selected geometry');w.cancel_sketch()
         check(not errors,'no CAD/UI errors');w.document.dirty=False;w.close();path.write_text(json.dumps(dict(success=True,checks=checks),ensure_ascii=False,indent=2),encoding='utf-8');app.quit()
     except Exception:

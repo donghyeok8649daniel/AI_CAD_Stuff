@@ -99,14 +99,26 @@ def evaluate_design(data):
     sketch_expressions(raw.get('parts',[]));sketch_expressions(raw.get('sketches',[]))
     for binding in raw.get('dimension_bindings',[]):
         if hasattr(binding,'model_dump'):binding=binding.model_dump()
-        path=binding['path'];signature=tuple(path)
+        path=binding['path'];node,key=numeric_node(raw,path);signature=(id(node),key)
         if signature in seen:raise ValueError('같은 치수에 변수 식을 두 번 연결할 수 없습니다.')
-        seen.add(signature);node,key=numeric_node(raw,path);node[key]=expression_value(binding['expression'],values)
+        seen.add(signature);node[key]=expression_value(binding['expression'],values)
     return raw
 
 
+def _binding_target(data,path):
+    try:return numeric_node(data,path)
+    except ValueError:return None
+
+
+def _same_target(data,path,other,target):
+    if path==other:return True
+    found=_binding_target(data,other)
+    return target is not None and found is not None and target[0] is found[0] and target[1]==found[1]
+
+
 def set_binding(data,path,expression):
-    bindings=[b for b in data.get('dimension_bindings',[]) if b['path']!=path]
+    target=_binding_target(data,path)
+    bindings=[b for b in data.get('dimension_bindings',[]) if not _same_target(data,path,b['path'],target)]
     if expression:
         value=expression_value(expression,parameter_values(data.get('parameters',{})))
         node,key=numeric_node(data,path);node[key]=value;bindings.append(dict(path=path,expression=expression))
@@ -114,7 +126,9 @@ def set_binding(data,path,expression):
     else:data.pop('dimension_bindings',None)
 
 
-def binding_for(data,path):return next((b['expression'] for b in data.get('dimension_bindings',[]) if b['path']==path),'')
+def binding_for(data,path):
+    target=_binding_target(data,path)
+    return next((b['expression'] for b in data.get('dimension_bindings',[]) if _same_target(data,path,b['path'],target)),'')
 
 
 def remove_bindings(data,*prefixes):
