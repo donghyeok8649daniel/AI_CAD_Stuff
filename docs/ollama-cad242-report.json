@@ -1,0 +1,140 @@
+{
+  "version": "2.4.2",
+  "release_commit": "60b1686b4aece73cb74680661b41b4370250e3b3",
+  "archive_sha256": "c29968299db136dab0c400d9261a8fba9d2498941a2c93f256fe871e2d8fad60",
+  "manifest_files_verified": 1127,
+  "execution": "Published executable, real installed Ollama, isolated native test profile",
+  "model": "qwen3:8b",
+  "device": "CPU",
+  "checks": [
+    "native app starts with an empty design",
+    "identical placement preserves a real revolute joint",
+    "redundant placement and joint remain in native CAD history",
+    "requested motion and parent-child contract accepts matching CAD assembly",
+    "valid geometry with wrong joint motion is rejected without changing the original",
+    "native operation completes",
+    "unlimited option exists in the wait menu",
+    "unlimited wait is selectable",
+    "CAD remains editable during local AI",
+    "native operation completes",
+    "CAD 계산 결과\n전체 크기 (X × Y × Z): 80.00 × 50.00 × 25.00 mm\n1개 부품 · 체적 19,592.00 mm³\n• open_box: 80.00 × 50.00 × 25.00 mm · 색상 #70aebf\n\nAI 설명 · 추정과 설명은 실제 형상과 다를 수 있습니다.\n위가 열린 상자, 80x50x25mm, 벽과 바닥 두께 2mm\n1. 부품 생성 · open_box\n2. 셸 · open_box\n상자 크기 80x50x25mm\n벽과 바닥 두께 2mm\n위가 열린 구조로 설계\n기본 프레임은 plate로 생성",
+    "real model creates an open box with exact wall and floor dimensions",
+    "exact solid has a floor below and an opening above",
+    "actual measurements precede model prose in the draft panel",
+    "draft shows a validated multi-step CAD plan",
+    "native operation completes",
+    "CAD remains editable during local AI",
+    "native operation completes",
+    "CAD 계산 결과\n전체 크기 (X × Y × Z): 80.00 × 50.00 × 25.00 mm\n1개 부품 · 체적 19,592.00 mm³\n• open_box: 80.00 × 50.00 × 25.00 mm · 색상 #2266CC\n\nAI 설명 · 추정과 설명은 실제 형상과 다를 수 있습니다.\nopen_box 색상 변경 및 위치 조정\n1. 색상·재질 · open_box\n2. 이동·회전 · open_box",
+    "AI edit preserves validated geometry and features",
+    "real AI respects requested appearance and placement",
+    "native operation completes",
+    "AI creation and edit history save and reopen",
+    "per-step tools and arguments remain in saved history",
+    "native operation completes",
+    "unlimited generation cancels and permits retry",
+    "closing the app interrupts unlimited AI",
+    "native operation completes"
+  ],
+  "timing_seconds": {
+    "create_seconds": 141.344,
+    "edit_seconds": 168.828,
+    "cancel_seconds": 0.36,
+    "close_seconds": 0.125
+  },
+  "drafts": [
+    {
+      "summary": "위가 열린 상자, 80x50x25mm, 벽과 바닥 두께 2mm",
+      "planning": {
+        "intent": "part",
+        "tools": [
+          "create",
+          "shell"
+        ],
+        "shapes": [
+          "plate"
+        ],
+        "connections": [],
+        "new_parts": [
+          "open_box"
+        ]
+      },
+      "attempts": 1,
+      "tool_actions": [
+        {
+          "step": 1,
+          "tool": "create",
+          "target": "open_box",
+          "args": {
+            "name": "open_box",
+            "geometry": {
+              "kind": "plate",
+              "length": 80,
+              "width": 50,
+              "thickness": 25
+            }
+          },
+          "validated": true
+        },
+        {
+          "step": 2,
+          "tool": "shell",
+          "target": "open_box",
+          "args": {
+            "thickness": 2,
+            "open_faces": [
+              "+Z"
+            ]
+          },
+          "validated": true
+        }
+      ]
+    },
+    {
+      "summary": "open_box 색상 변경 및 위치 조정",
+      "planning": {
+        "intent": "edit",
+        "tools": [
+          "appearance",
+          "transform"
+        ],
+        "shapes": [
+          "cylinder",
+          "plate",
+          "extrusion",
+          "revolve",
+          "sweep",
+          "loft",
+          "bracket",
+          "link",
+          "sheetmetal",
+          "round_specimen",
+          "flat_specimen"
+        ],
+        "connections": [],
+        "new_parts": []
+      },
+      "attempts": 1,
+      "tool_actions": [
+        {
+          "step": 1,
+          "tool": "appearance",
+          "target": "open_box",
+          "args": {
+            "color": "#2266CC"
+          },
+          "validated": true
+        },
+        {
+          "step": 2,
+          "tool": "transform",
+          "target": "open_box",
+          "args": {
+            "x": 100.0
+          },
+          "validated": true
+        }
+      ]
+    }
+  ]
+}
