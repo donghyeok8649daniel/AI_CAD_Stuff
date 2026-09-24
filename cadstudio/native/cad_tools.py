@@ -12,7 +12,7 @@ from ..planner import AIReply
 
 class CADAction(StrictModel):
     tool: Literal['create','dimensions','transform','appearance','hole','pocket','pad',
-                  'fillet','chamfer','shell','solid','thread','joint','parameter']
+                  'fillet','chamfer','shell','solid','thread','joint','parameter','edit_feature']
     target: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
     args: dict[str,Any] = Field(default_factory=dict,max_length=24)
 
@@ -45,7 +45,7 @@ class ToolReply(AIReply):
 
 TOOL_LABELS={'create':'부품 생성','dimensions':'치수 변경','transform':'이동·회전','appearance':'색상·재질',
              'hole':'구멍','pocket':'포켓 절삭','pad':'돌출','fillet':'필렛','chamfer':'모따기',
-             'shell':'셸','solid':'솔리드 작업','thread':'나사산','joint':'조립 구속','parameter':'변수'}
+             'shell':'셸','solid':'솔리드 작업','thread':'나사산','joint':'조립 구속','parameter':'변수','edit_feature':'기존 피처 편집'}
 
 
 CATALOG = '''You design CAD models by composing tools, for ANY object the user describes. Return only one compact JSON plan. Never return a complete design file, Python, or a catalogue of unrelated parts. Choose only the operations needed by this request. All lengths are mm, all angles degrees. Respect explicit dimensions. If dimensions are missing choose practical dimensions and list these assumptions in Korean. Existing parts stay untouched unless the user asks to edit them. New IDs must be unique ASCII letters/digits/hyphens. The target is a part ID except joint/parameter where it is their ID/name. Each action has tool,target,args. Execute in listed order. At most 32 actions.
@@ -54,6 +54,7 @@ For a vague request, start with a minimal useful mechanical concept, normally on
 TOOLS (only these args are accepted):
 create: {name,geometry,color?,transform?}. geometry is one of the shapes below. This adds one new editable part; target is its new ID. transform={x,y,z,rx,ry,rz}, defaults zero. Base primitives are centered in XY with bottom at Z=0. Separate independent parts using transform; leave intended assembly positions aligned.
 dimensions: {values:{dimension:value,...}}. Patch actual fields of an EXISTING part's base geometry, preserving all other fields. A new create ALREADY includes its dimensions; do not add a redundant dimensions action after create. Never invent fields such as diameter_top on a loft (its dimensions are inside sections). No kind change. Parameter-bound dimensions must be edited using parameter instead.
+edit_feature: {feature_id,...changed_fields}. Edit an EXISTING feature, keeping its ID, support faces and downstream history. Use its actual editable fields and dimensions from current_design. depth edits sketch extrusion/cut depth; for a blind hole specify through_all=false AND depth. diameter edits a circular sketch profile; entity_id is mandatory when there is more than one circle, use one action per circle. This can SHRINK an existing hole by rebuilding its original cut; do not add a new hole on top. size is edge radius/chamfer distance or shell thickness; thread uses pitch,length,offset,clearance,handedness,reverse. Pattern uses count,count_y,spacing or angle as listed in editable. suppressed=true disables a feature reversibly, false restores it; dependent features must remain valid. name renames it. Do not change IDs, support references or operation types. A variable-driven field needs parameter instead; a linked profile needs its original sketch edited manually. Do not guess which feature when the request is ambiguous; selected_feature identifies the user's current feature selection.
 transform: {x?,y?,z?,rx?,ry?,rz?}. Set absolute placement, unspecified coordinates preserved. Joint-driven parts accept only an already-satisfied placement; set joint offsets when creating the joint instead of moving its child afterward.
 appearance: {color?:"#RRGGBB",name?,material?:{name,density,youngs_modulus,poisson}}.
 hole: {face:"+Z",diameter,centers?:[[u,v],...],pattern?:PATTERN,depth?:number,through_all?:true,finish?:"plain"|"counterbore"|"countersink",head_diameter?,head_depth?,head_angle?}. Use centers OR pattern, never both. For symmetric repeated holes PREFER pattern; CAD computes exact positions. PATTERN is {kind:"rectangular",count_x:2,count_y:2,spacing_x:60,spacing_y:40,center:[0,0]} OR {kind:"circular",count:6,diameter:50,start_angle:0,center:[0,0]}. Rectangular pattern is CENTERED on center, spacing is between adjacent holes. Circular diameter is the bolt circle diameter. Default single center=[[0,0]], through_all=true. u,v are coordinates in the selected face frame about its CENTER. For +Z, u=X and v=Y. Other faces: u is projected X (or Y on ±X faces), v=normal cross u. Never specify face indices.
@@ -89,11 +90,12 @@ Short generic construction examples (adapt ALL dimensions to the request):
 
 def context(design):
     if not design:return None
+    from .cad_feature_edits import summary
     # Never include imported binary assets, display meshes, history or the full schema.
     return dict(name=design.name,parameters=design.parameters,
                 parts=[dict(id=p.id,name=p.name,geometry=p.geometry.model_dump(exclude_none=True),
                             kind=p.geometry.kind,transform=p.transform.model_dump(),
-                            features=[dict(id=f.id,kind=getattr(f,'kind','sketch'),name=f.name) for f in p.features],
+                            features=[summary(f) for f in p.features],
                             source_part_id=p.source_part_id) for p in design.parts],
                 mates=[m.model_dump(exclude_defaults=True) for m in design.mates],
                 dimension_bindings=[b.model_dump() for b in design.dimension_bindings])
@@ -101,7 +103,7 @@ def context(design):
 
 def messages(request):
     return [dict(role='system',content=CATALOG),dict(role='user',content=json.dumps(
-        dict(prompt=request.prompt,selected_part=request.selected_part,current_design=context(request.current)),
+        dict(prompt=request.prompt,selected_part=request.selected_part,selected_feature=request.selected_feature,current_design=context(request.current)),
         ensure_ascii=False,separators=(',',':')))]
 
 
@@ -279,9 +281,8 @@ def _apply(raw,action):
         if part.get('source_part_id') or part.get('profile_sketch_id'):raise ValueError('연결된 부품은 원본 부품 또는 스케치에서 치수를 수정해야 합니다.')
         forbidden=set(values)-set(part['geometry'])|({'kind'}&set(values))
         if forbidden:raise ValueError('수정할 수 없는 치수: '+', '.join(sorted(forbidden))+'. Available geometry fields: '+', '.join(sorted(set(part['geometry'])-{'kind'}))+'. Do not invent fields. Omit redundant dimensions already included in create.')
-        for binding in raw.get('dimension_bindings',[]):
-            path=binding['path']
-            if path[:3]==['parts',target,'geometry'] and path[3] in values:raise ValueError('변수와 연결된 치수입니다. parameter로 원래 변수를 수정하세요.')
+        from .cad_feature_edits import check_replacement_bindings
+        check_replacement_bindings(raw,part['geometry'],values)
         part['geometry']=TypeAdapter(Geometry).validate_python({**part['geometry'],**values}).model_dump();return
     if tool=='transform':
         _keys(args,Transform.model_fields)
@@ -298,6 +299,9 @@ def _apply(raw,action):
         _keys(args,('name','color','material'))
         part.update(args);Part.model_validate(part);return
     if part.get('source_part_id'):raise ValueError('연결 복제의 피처는 원본 부품에서 수정하세요.')
+    if tool=='edit_feature':
+        from .cad_feature_edits import apply
+        return apply(raw,part,args)
     shape=_shape(raw,target);identifier=_feature_id(part)
     support=part['features'][-1]['id'] if part['features'] else 'base'
     common=dict(id=identifier,support_feature=support)

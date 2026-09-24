@@ -51,6 +51,8 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
             args=obj(fields,required)),('tool','target','args')))
     tool('create',dict(name=text,geometry=ref('Geometry'),color=color,transform=ref('Transform')),('name','geometry'))
     tool('dimensions',dict(values={'type':'object','additionalProperties':{}}),('values',))
+    from .cad_feature_edits import schema_fields
+    tool('edit_feature',schema_fields(),('feature_id',))
     tool('transform',transform['properties'])
     tool('appearance',dict(name=text,color=color,material=obj(dict(name=text,density=number,youngs_modulus=number,poisson=number))))
     pattern={'anyOf':[obj(dict(kind={'const':'rectangular'},count_x={'type':'integer'},count_y={'type':'integer'},

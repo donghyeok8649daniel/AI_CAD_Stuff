@@ -457,6 +457,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def select_part(self,identifier):
         self.select_clicked_parts([identifier] if identifier else [])
     def select_sketch(self,identifier):
+        self.selected_feature=None
         self.selected_sketch=identifier;self.selected_profile=None;self.selected=None;self.selected_parts=[];self.viewport.select(None);self.viewport.clear_face();self.sync_tree_selection()
         saved=next((s for s in (self.document.design or {}).get('sketches',[]) if s['id']==identifier),None)
         if not saved:return
@@ -481,6 +482,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
                 self.property_layout.insertWidget(2,button('이 면에서 스케치',self.start_face_sketch,True));self.property_layout.insertWidget(3,button('이 면에 구멍 뚫기',self.hole_dialog))
                 if self.document.design.get('sketches'):self.property_layout.insertWidget(4,button('저장 스케치 / 그룹 재사용',self.reuse_sketch_on_face))
     def show_properties(self):
+        self.selected_feature=None
         clear_layout(self.property_layout);part=self.part()
         if len(self.selected_parts)>1:self.selection_properties();return
         if not part:
@@ -536,6 +538,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         color=QColorDialog.getColor(QColor(part['color']),self,'부품 색상')
         if color.isValid():data=deepcopy(self.document.design);next(p for p in data['parts'] if p['id']==identifier)['color']=color.name();self.apply_design(data,'부품 색상 변경',{'part_id':identifier})
     def show_feature(self,identifier):
+        self.selected_feature=identifier
         f=next(f for f in self.part()['features'] if f['id']==identifier)
         if f.get('kind')=='solid':
             clear_layout(self.property_layout);self.property_layout.addWidget(label(f['name']));self.property_layout.addWidget(button('작업 / 치수 편집',lambda:self.solid_dialog(feature_id=identifier),True));self.property_layout.addWidget(button('이 피처와 뒤의 피처 제거',lambda:self.remove_feature(identifier)));self.property_layout.addStretch();return
@@ -800,7 +803,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         prompt=self.prompt.toPlainText().strip()
         if not prompt:self.ai_result.setPlainText('설계 명령을 입력하세요. 예: 직경 20 mm, 높이 10 mm인 원통을 만들어줘.');self.prompt.setFocus();return
         if len(prompt)>4000:self.show_error('명령은 4,000자 이내로 입력하세요.');return
-        provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();effort=self.cloud_effort.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
+        provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,selected_feature=getattr(self,'selected_feature',None),mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();effort=self.cloud_effort.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
         if provider=='ollama' and not model:self.ai_result.setPlainText('Ollama 모델을 먼저 선택하세요. 새로 찾기를 누르거나 로컬 AI 설치 / 모델 다운로드를 사용하세요.');return
         def work(control,progress):
             from ..planner import local_draft

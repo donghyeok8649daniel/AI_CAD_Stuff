@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from .cad_tools import CATALOG, context, messages
 
 TOOLS = ('create', 'dimensions', 'transform', 'appearance', 'hole', 'pocket',
-         'pad', 'fillet', 'chamfer', 'shell', 'solid', 'thread', 'joint', 'parameter')
+         'pad', 'fillet', 'chamfer', 'shell', 'solid', 'thread', 'joint', 'parameter', 'edit_feature')
 SHAPES = ('cylinder', 'plate', 'extrusion', 'revolve', 'sweep', 'loft', 'bracket',
           'link', 'sheetmetal', 'round_specimen', 'flat_specimen')
 JOINTS = ('rigid', 'revolute', 'slider', 'cylindrical', 'ball', 'planar', 'pin_slot')
@@ -17,6 +17,7 @@ Tools: create=new body including all its dimensions; dimensions=edit an existing
 Shapes: cylinder=constant OUTSIDE diameter along Z, optional bore. revolve=OUTSIDE diameter changing along Z, including stepped or tapered rotational forms, specified by height/diameter segments, automatically ONE solid. plate=rectangular block. extrusion=arbitrary planar boundary extruded. loft=transition BETWEEN profiles at different heights, all sections in ONE body. sweep=profile along a bent path. bracket=simple L; link=rounded flat bar; sheetmetal=one bend; round_specimen/flat_specimen=tensile test.
 Select the minimal set. A new shape uses create only unless extra features are requested. Uniform walls and an open top use create+shell, not separate plates/pads. Repeated holes use hole with a pattern. A constant cross-section uses create/extrusion only, not another pad. Never choose dimensions just to state dimensions of a NEW body. Cutting a smaller center circle makes a bore, NOT a smaller solid external diameter. Use actual IDs and geometry in current_design to understand edits. Shapes may be empty for edits without create.'''
 SYSTEM += '''
+edit_feature edits an EXISTING hole, pad, pocket, fillet, chamfer, shell, pattern or thread. Use it for changing an existing feature's dimensions or suppression instead of creating another cut or body. dimensions edits only BASE geometry. parameter edits dimensions driven by variables. Current features include IDs, editable fields and dimensions; selected_feature identifies the user's selected feature.
 new_parts: list descriptive ASCII IDs for ALL parts to create, one for a single part, multiple for an assembly, [] for edits that create nothing. These are the exact IDs used by create and by every later operation. Include unconnected components too. Existing IDs are already available; do not include them in new_parts.
 connections: extract the assembly relationships required by the ORIGINAL request, before generating geometry. Each entry is {kind,parent,child}. parent is the supporting/reference component; child is the component moving relative to it. Use descriptive ASCII part IDs and preserve existing IDs for edits. These IDs will be mandatory in the later plan. revolute=rotation only (회전), slider=translation only, cylindrical=rotation AND translation, rigid=NO relative motion (고정 결합). Fixing the parent to ground does NOT make its moving child's joint rigid. Include new joints only; for geometry/appearance edits preserve existing joints and return connections=[]. For a single part or no assembly relationships return []. Never interchange parent and child.'''
 
@@ -37,7 +38,7 @@ def scope_schema():
 
 def scope_messages(request):
     return [dict(role='system', content=SYSTEM), dict(role='user', content=json.dumps(
-        dict(prompt=request.prompt, selected_part=request.selected_part, current_design=context(request.current)),
+        dict(prompt=request.prompt, selected_part=request.selected_part, selected_feature=request.selected_feature, current_design=context(request.current)),
         ensure_ascii=False, separators=(',', ':')))]
 
 

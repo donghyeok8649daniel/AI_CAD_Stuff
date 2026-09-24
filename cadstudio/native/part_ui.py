@@ -100,6 +100,10 @@ class PartSelectionUI:
             if data[0] in ('part','base','feature'):ids.append(data[1])
             elif data[0]=='group':ids.extend(groups.get(data[1],[]))
         self.select_parts(ids,sync=False)
+        selected=self.tree.selectedItems()
+        if len(selected)==1 and len(self.selected_parts)==1:
+            data=selected[0].data(0,Qt.ItemDataRole.UserRole)
+            if data and data[0]=='feature':self.show_feature(data[2])
 
     def group_parts(self):
         if self.busy or self.sketching:return
