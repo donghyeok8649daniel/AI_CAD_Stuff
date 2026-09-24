@@ -33,6 +33,7 @@ ROOT=Path(__file__).resolve().parents[2]
 class MainWindow(QMainWindow,PartSelectionUI):
     def __init__(self,restore=False):
         super().__init__();self.setObjectName('nativeCADMainWindow');self.resize(1500,920);self.setMinimumSize(820,560)
+        self.selected_joint=None;self.selected_feature=None
         self.document=Document();self.result=None;self.selected=None;self.selected_parts=[];self.selected_sketch=None;self.selected_profile=None;self.busy=False;self.worker=None;self.sketching=False;self.joint_picks=None;self.last_draft=None;self.ai_task=None;self.ai_stage='';self.ai_started=0;self.data_dir=DATA_DIR;self.data_dir.mkdir(parents=True,exist_ok=True);self.autosave=self.data_dir/'native-autosave.cad.json';self.operation_serial=0
         self.stack=QStackedWidget();self.setCentralWidget(self.stack);self.viewport=CADViewport();self.editor=SketchEditor();self.stack.addWidget(self.viewport);self.stack.addWidget(self.editor);self.viewport.part_selected.connect(self.select_part);self.viewport.face_selected.connect(self.face_selected);self.viewport.message.connect(self.message);self.editor.apply_requested.connect(self.apply_sketch);self.editor.finished_requested.connect(self.finish_sketch);self.viewport.sketch_selected.connect(self.select_sketch);self.viewport.profile_selected.connect(self.select_profile_3d);self.editor.cancelled.connect(self.cancel_sketch)
         self.actions={};brand=QLabel('PROMPT  /  CAD');brand.setStyleSheet('color:#76d5c2;font-size:11px;font-weight:600;padding:0 14px;');self.menuBar().setCornerWidget(brand,Qt.Corner.TopRightCorner);self.make_menus();self.make_toolbar();self.make_browser();self.make_properties();self.make_timeline();self.make_ai()
@@ -315,8 +316,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if self.busy or self.sketching:return
         if not self.document.design or not any(m['kind']!='rigid' for m in self.document.design['mates']):self.message('회전·슬라이더·원통 조인트를 먼저 만들거나 로봇 조립을 추가하세요.');return
         from .workflows import JointDriveDialog
-        dialog=JointDriveDialog(self,self.document.design)
-        if dialog.exec()==QDialog.DialogCode.Accepted:self.apply_design(dialog.checked.model_dump(),'관절 자세 적용',{'tool':'joint-drive','joint_values':[{'mate_id':k[0],'axis':k[1],'value':w.value()} for k,w in dialog.inputs.items()]})
+        dialog=JointDriveDialog(self,self.document.design,getattr(self,'selected_joint',None))
+        if dialog.exec()==QDialog.DialogCode.Accepted:self.apply_design(dialog.checked.model_dump(),'관절 자세 적용',{'tool':'joint-drive','joint_values':[{'mate_id':k[0],'axis':k[1],'value':dialog.inputs[k].value()} for k in sorted(dialog.changed_axes)]})
     def start_face_joint(self):
         if self.busy or self.sketching:return
         if self.joint_picks is not None:self.cancel_joint_pick();return
@@ -356,10 +357,24 @@ class MainWindow(QMainWindow,PartSelectionUI):
         # Keep the actions reachable while settings, prompts and results scroll.
         panel=QWidget();layout=QVBoxLayout(panel);layout.setContentsMargins(0,0,0,0);layout.addWidget(self.ai_scroll,1)
         footer=QWidget();actions=QVBoxLayout(footer);actions.setContentsMargins(10,6,10,10);row=QHBoxLayout()
+        self.ai_target=label('현재 선택: 없음 · 새 형상 또는 전체 설계 명령',True);self.ai_target.setObjectName('aiSelectionTarget');actions.addWidget(self.ai_target)
         self.generate_button=button('설계 초안 생성',self.generate_draft,True);row.addWidget(self.generate_button)
         self.cancel_ai_button=button('생성 취소',self.cancel_ai);self.cancel_ai_button.hide();row.addWidget(self.cancel_ai_button);actions.addLayout(row)
         self.accept_draft=button('검증된 초안 적용',self.apply_draft,True);self.accept_draft.setEnabled(False);actions.addWidget(self.accept_draft);layout.addWidget(footer)
         self.ai_dock=self.dock('설계 명령 / AI','aiDock',Qt.DockWidgetArea.RightDockWidgetArea,panel);self.tabifyDockWidget(self.property_dock,self.ai_dock);self.property_dock.raise_();self.ai_dock.hide()
+    def refresh_ai_target(self):
+        if not hasattr(self,'ai_target'):return
+        raw=self.document.design or {};names={p['id']:p['name'] for p in raw.get('parts',[])}
+        mate=next((m for m in raw.get('mates',[]) if m['id']==getattr(self,'selected_joint',None)),None)
+        part=next((p for p in raw.get('parts',[]) if p['id']==self.selected),None)
+        feature=next((f for f in (part or {}).get('features',[]) if f['id']==getattr(self,'selected_feature',None)),None)
+        if mate:text='관절 '+mate['id']+' · '+names[mate['parent']]+' → '+names[mate['child']]
+        elif feature:text=part['name']+' / '+feature['name']
+        elif len(self.selected_parts)>1:text=f'부품 {len(self.selected_parts)}개 · 명령에 바꿀 부품을 지정하세요'
+        elif part:text=part['name']
+        elif self.selected_sketch:text='스케치 · 원본 편집은 스케치 편집 도구를 사용하세요'
+        else:text='없음 · 새 형상 또는 전체 설계 명령'
+        self.ai_target.setText('현재 선택: '+text);self.ai_target.setToolTip(text)
     def message(self,text):self.statusBar().showMessage(text,15000)
     def title(self):self.setWindowTitle((self.document.design['name'] if self.document.design else '새 설계')+(' *' if self.document.dirty else '')+' — '+APP_NAME+' · Native')
     def set_busy(self,busy,message=''):
@@ -458,8 +473,9 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.select_clicked_parts([identifier] if identifier else [])
     def select_sketch(self,identifier):
         self.selected_feature=None
+        self.selected_joint=None
         self.selected_sketch=identifier;self.selected_profile=None;self.selected=None;self.selected_parts=[];self.viewport.select(None);self.viewport.clear_face();self.sync_tree_selection()
-        saved=next((s for s in (self.document.design or {}).get('sketches',[]) if s['id']==identifier),None)
+        self.refresh_ai_target();saved=next((s for s in (self.document.design or {}).get('sketches',[]) if s['id']==identifier),None)
         if not saved:return
         clear_layout(self.property_layout);self.property_layout.addWidget(label(saved['name']));self.property_layout.addWidget(label(f"{len(saved['geometry']['entities'])}개 요소 · 단위 mm",True));self.property_layout.addWidget(button('스케치 편집',lambda:self.edit_saved_sketch(identifier),True));self.property_layout.addWidget(button('3D 돌출 / 절삭 · E',lambda:self.extrude_dialog(sketch_id=identifier)))
         def remove():
@@ -483,6 +499,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
                 if self.document.design.get('sketches'):self.property_layout.insertWidget(4,button('저장 스케치 / 그룹 재사용',self.reuse_sketch_on_face))
     def show_properties(self):
         self.selected_feature=None
+        self.selected_joint=None;self.refresh_ai_target()
         clear_layout(self.property_layout);part=self.part()
         if len(self.selected_parts)>1:self.selection_properties();return
         if not part:
@@ -539,6 +556,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if color.isValid():data=deepcopy(self.document.design);next(p for p in data['parts'] if p['id']==identifier)['color']=color.name();self.apply_design(data,'부품 색상 변경',{'part_id':identifier})
     def show_feature(self,identifier):
         self.selected_feature=identifier
+        self.selected_joint=None;self.refresh_ai_target()
         f=next(f for f in self.part()['features'] if f['id']==identifier)
         if f.get('kind')=='solid':
             clear_layout(self.property_layout);self.property_layout.addWidget(label(f['name']));self.property_layout.addWidget(button('작업 / 치수 편집',lambda:self.solid_dialog(feature_id=identifier),True));self.property_layout.addWidget(button('이 피처와 뒤의 피처 제거',lambda:self.remove_feature(identifier)));self.property_layout.addStretch();return
@@ -711,6 +729,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             j=self.document.journal;path=j.path();i=next(i for i,e in enumerate(path) if e['id']==j.data['cursor'])
             if i+1<len(path):self.restore_history(path[i+1]['id'])
     def show_mate(self,identifier):
+        self.selected_joint=identifier;self.selected_feature=None;self.refresh_ai_target()
         from ..assembly_motion import JOINT_TITLES,JOINT_AXES
         mate=next(m for m in self.document.design['mates'] if m['id']==identifier);names={p['id']:p['name'] for p in self.document.design['parts']};clear_layout(self.property_layout);self.property_layout.addWidget(label('조립 구속 · '+JOINT_TITLES[mate['kind']]));self.property_layout.addWidget(label(names[mate['parent']]+' → '+names[mate['child']]));self.property_layout.addWidget(label('운동 축: '+(', '.join(a.upper() for a in JOINT_AXES[mate['kind']]) or '없음 · 강체 연결')+'\n이동 XYZ: '+', '.join(f"{mate[k]:g}" for k in ('x','y','z'))+' mm\n회전 XYZ: '+', '.join(f"{mate[k]:g}" for k in ('rx','ry','rz'))+' °',True));self.property_layout.addWidget(button('연결된 부품 선택',lambda:self.select_parts([mate['parent'],mate['child']])));self.property_layout.addWidget(button('관절 구동 · 간섭 확인',self.drive_joints,True));self.property_layout.addWidget(button('고급 구속 / 오프셋 편집',lambda:self.mate_dialog(identifier)))
         def remove():data=deepcopy(self.document.design);data['mates']=[m for m in data['mates'] if m['id']!=identifier];data['joint_frames']=[f for f in data.get('joint_frames',[]) if f['mate_id']!=identifier];prune_joint_references(data);self.apply_design(data,'조립 구속 삭제',{'mate_id':identifier})
@@ -803,7 +822,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         prompt=self.prompt.toPlainText().strip()
         if not prompt:self.ai_result.setPlainText('설계 명령을 입력하세요. 예: 직경 20 mm, 높이 10 mm인 원통을 만들어줘.');self.prompt.setFocus();return
         if len(prompt)>4000:self.show_error('명령은 4,000자 이내로 입력하세요.');return
-        provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,selected_feature=getattr(self,'selected_feature',None),mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();effort=self.cloud_effort.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
+        provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,selected_feature=getattr(self,'selected_feature',None),selected_joint=getattr(self,'selected_joint',None),mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();effort=self.cloud_effort.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
         if provider=='ollama' and not model:self.ai_result.setPlainText('Ollama 모델을 먼저 선택하세요. 새로 찾기를 누르거나 로컬 AI 설치 / 모델 다운로드를 사용하세요.');return
         def work(control,progress):
             from ..planner import local_draft

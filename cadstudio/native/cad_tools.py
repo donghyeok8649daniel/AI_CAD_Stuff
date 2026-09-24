@@ -12,7 +12,7 @@ from ..planner import AIReply
 
 class CADAction(StrictModel):
     tool: Literal['create','dimensions','transform','appearance','hole','pocket','pad',
-                  'fillet','chamfer','shell','solid','thread','joint','parameter','edit_feature']
+                  'fillet','chamfer','shell','solid','thread','joint','parameter','edit_feature','edit_joint']
     target: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
     args: dict[str,Any] = Field(default_factory=dict,max_length=24)
 
@@ -45,10 +45,10 @@ class ToolReply(AIReply):
 
 TOOL_LABELS={'create':'부품 생성','dimensions':'치수 변경','transform':'이동·회전','appearance':'색상·재질',
              'hole':'구멍','pocket':'포켓 절삭','pad':'돌출','fillet':'필렛','chamfer':'모따기',
-             'shell':'셸','solid':'솔리드 작업','thread':'나사산','joint':'조립 구속','parameter':'변수','edit_feature':'기존 피처 편집'}
+             'shell':'셸','solid':'솔리드 작업','thread':'나사산','joint':'조립 구속','parameter':'변수','edit_feature':'기존 피처 편집','edit_joint':'관절 자세 편집'}
 
 
-CATALOG = '''You design CAD models by composing tools, for ANY object the user describes. Return only one compact JSON plan. Never return a complete design file, Python, or a catalogue of unrelated parts. Choose only the operations needed by this request. All lengths are mm, all angles degrees. Respect explicit dimensions. If dimensions are missing choose practical dimensions and list these assumptions in Korean. Existing parts stay untouched unless the user asks to edit them. New IDs must be unique ASCII letters/digits/hyphens. The target is a part ID except joint/parameter where it is their ID/name. Each action has tool,target,args. Execute in listed order. At most 32 actions.
+CATALOG = '''You design CAD models by composing tools, for ANY object the user describes. Return only one compact JSON plan. Never return a complete design file, Python, or a catalogue of unrelated parts. Choose only the operations needed by this request. All lengths are mm, all angles degrees. Respect explicit dimensions. If dimensions are missing choose practical dimensions and list these assumptions in Korean. Existing parts stay untouched unless the user asks to edit them. New IDs must be unique ASCII letters/digits/hyphens. The target is a part ID except joint/edit_joint (joint ID) and parameter (variable name). Each action has tool,target,args. Execute in listed order. At most 32 actions.
 For a vague request, start with a minimal useful mechanical concept, normally one body and 1..6 actions. Do not invent decorative details, fillets, spokes or repeated features unless needed or requested. State the chosen dimensions and omitted functional details briefly; the user can refine them. Explicit requested features always take priority over this simplicity preference. construction contains at most 4 short technical fragments, each at most 80 characters. No paragraphs or repeated explanation. summary is at most 160 characters. assumptions contains only necessary choices, at most 4 short items of 120 characters each. The actual dimensions belong in actions, not extended narration.
 
 TOOLS (only these args are accepted):
@@ -64,6 +64,7 @@ shell: {thickness,open_faces?:["+Z"]}. Removes selected faces and hollows inward
 solid: Modify an EXISTING solid ONLY when mirror/pattern/split/draft or boolean is requested. Creating a solid body (e.g. loft solid=true) does NOT require this tool. {operation:"mirror"|"linear_pattern"|"circular_pattern"|"split"|"draft"|"boolean", ...}. mirror: origin=[0,0,0],direction=[1,0,0],keep_original=true. linear_pattern: count,spacing=[dx,dy,dz],count_y=1. circular_pattern: count,angle=360,origin=[0,0,0],direction=[0,0,1]. split: origin,direction,keep_side="positive"|"negative"|"all". draft: angle,faces=["+X"],origin,direction. boolean: tool_part_id,boolean_mode="union"|"cut"|"intersect" (tool part remains as an editable reference; do not create unused tools).
 thread: {diameter,pitch,length,internal?:false,offset?:0,handedness?:"right"|"left",clearance?:0}. Selects the cylindrical face matching diameter (or internal pilot bore). Length 1..32 pitches, must fit the cylinder. Not cosmetic: creates actual thread geometry.
 joint: {kind:"rigid"|"revolute"|"slider"|"cylindrical"|"ball"|"planar"|"pin_slot",parent,child,parent_anchor?:"origin",child_anchor?:"origin",x?,y?,z?,rx?,ry?,rz?,limits?:{rz:[minimum,maximum]}}. For revolute use rz limits in degrees (e.g. {rz:[-90,90]}), for slider use z limits in mm. Omit limits when no range was requested. Both anchors must be "origin"; use offsets for another location. target=new joint ID. Parent/child are existing part IDs. Offsets relative to parent. Makes parent fixed if it has no parent joint. Do not join a part to itself.
+edit_joint: {x?,y?,z?,rx?,ry?,rz?}. target=EXISTING JOINT ID, never a part ID. Set absolute joint coordinates ONLY on its independent motion_axes, with mm or degrees as listed. For 'increase by' add to the current value first. Frame is the existing joint coordinate frame, not global XYZ. Existing limits, face frames, anchors, motion links and parent/child are preserved. Never transform a joint-driven child to move its joint. An axis marked driven_by must be moved using its driving joint instead; passive loop joints are solved automatically. Cannot alter connection kind or limits. selected_joint identifies the user's selected joint; when only selected_part is given find its parent joint by child ID. Do not claim a collision-free motion path; validation checks the final pose only.
 parameter: {value:"expression"}. target=parameter name; update/add a dimension variable. Existing dimension bindings use the new value.
 
 SHAPES for create.geometry (kind and dimensions only, no tool/target inside geometry):
@@ -91,19 +92,21 @@ Short generic construction examples (adapt ALL dimensions to the request):
 def context(design):
     if not design:return None
     from .cad_feature_edits import summary
+    from ..assembly_motion import motion_controls
+    raw=dict(mates=[m.model_dump() for m in design.mates],loops=[m.model_dump() for m in design.loops],motion_links=[m.model_dump() for m in design.motion_links])
     # Never include imported binary assets, display meshes, history or the full schema.
     return dict(name=design.name,parameters=design.parameters,
                 parts=[dict(id=p.id,name=p.name,geometry=p.geometry.model_dump(exclude_none=True),
                             kind=p.geometry.kind,transform=p.transform.model_dump(),
                             features=[summary(f) for f in p.features],
                             source_part_id=p.source_part_id) for p in design.parts],
-                mates=[m.model_dump(exclude_defaults=True) for m in design.mates],
+                mates=[dict(**m.model_dump(exclude_defaults=True),motion_axes=motion_controls(raw,m.id)) for m in design.mates],
                 dimension_bindings=[b.model_dump() for b in design.dimension_bindings])
 
 
 def messages(request):
     return [dict(role='system',content=CATALOG),dict(role='user',content=json.dumps(
-        dict(prompt=request.prompt,selected_part=request.selected_part,selected_feature=request.selected_feature,current_design=context(request.current)),
+        dict(prompt=request.prompt,selected_part=request.selected_part,selected_feature=request.selected_feature,selected_joint=request.selected_joint,current_design=context(request.current)),
         ensure_ascii=False,separators=(',',':')))]
 
 
@@ -256,6 +259,9 @@ def hole_centers(args):
 
 def _apply(raw,action):
     tool=action.tool;args=deepcopy(action.args);target=action.target
+    if tool=='edit_joint':
+        from ..assembly_motion import set_joint_motion
+        set_joint_motion(raw,target,args);return
     if tool=='create':
         _keys(args,('name','geometry','color','transform'),('name','geometry'))
         if any(p['id']==target for p in raw['parts']):raise ValueError('새 부품 ID가 이미 존재합니다. 수정은 dimensions를 사용하세요.')
@@ -395,7 +401,7 @@ def execute_plan(content,request,*,check=lambda:None,progress=lambda text:None,s
     if single_part:
         base=payload.pop('base',None);features=payload.get('actions',[])
         if not isinstance(base,dict) or base.get('tool')!='create':raise ValueError('Single-part output requires ONE base create object, followed by feature actions. Do not create separate walls or sections.')
-        if not isinstance(features,list) or any(not isinstance(a,dict) or a.get('tool') in ('create','joint') or (a.get('target')!=base.get('target') and a.get('tool')!='parameter') for a in features):
+        if not isinstance(features,list) or any(not isinstance(a,dict) or a.get('tool') in ('create','joint','edit_joint') or (a.get('target')!=base.get('target') and a.get('tool')!='parameter') for a in features):
             raise ValueError('Single-part actions must modify the SAME base target; no separate creates or joints. Use shell/pocket to remove material, pad to fuse material.')
         payload['actions']=[base]+features
     plan=CADPlan.model_validate(payload)

@@ -101,6 +101,38 @@ def run(app,w,path):
         check(len(w.selected_parts)==3 and w.document.design['parts'][0]['fixed'],'M moves whole assembly and preserves grounding')
         check(abs(w.document.design['parts'][0]['transform']['x']-25)<1e-6 and abs(w.document.design['parts'][0]['transform']['y']+45)<1e-6,'move uses world pivot and exact entered coordinates')
         after_move=deepcopy(w.document.design);key(Qt.Key.Key_Z);check(w.document.design==before_move,'undo restores complete assembly placement');key(Qt.Key.Key_Y);check(w.document.design==after_move,'redo restores moved assembly')
+        from .workflows import JointDriveDialog
+        w.show_mate('ab');w.ai_dock.show();w.ai_dock.raise_();app.processEvents()
+        check(w.selected_joint=='ab' and 'ab' in w.ai_target.text(),'selected joint is identified visibly in AI panel')
+        snapshot('joint260-ai-target')
+        original_drive=JointDriveDialog.exec;before_drive=deepcopy(w.document.design)
+        def automatic_drive(dialog):
+            dialog.resize(820,600);dialog.show();wait(lambda:dialog.checked is not None)
+            check(dialog.joint_filter.currentData()=='ab' and not dialog.apply_button.isEnabled(),'joint drive focuses selection without changing original pose')
+            dialog.inputs[('ab','rz')].setValue(30.123456);wait(lambda:dialog.checked is not None)
+            check(dialog.checked.mates[0].rz==30.123456,'joint drive keeps entered precision')
+            check(dialog.apply_button.visibleRegion().contains(dialog.apply_button.rect()),'joint drive apply remains reachable in compact layout')
+            snapshot('joint260-drive-preview',dialog);dialog.accept();return 1
+        JointDriveDialog.exec=automatic_drive
+        try:w.drive_joints();wait(lambda:not w.busy)
+        finally:JointDriveDialog.exec=original_drive
+        check(w.document.design['mates'][0]['x']==before_drive['mates'][0]['x'] and w.document.design['parts'][0]==before_drive['parts'][0],'joint motion preserves fixed parent and joint offsets')
+        check(len(w.document.journal.path()[-1]['context']['joint_values'])==1,'joint history records only changed motion values')
+        key(Qt.Key.Key_Z);check(w.document.design==before_drive,'undo restores original joint pose')
+        from .cad_tools import execute_plan
+        from ..models import DraftRequest
+        from ..kernel import build
+        def replay(actions):
+            reply=execute_plan(json.dumps(dict(summary='offline CAD tool verification',actions=actions)),DraftRequest(prompt='offline native verification',current=w.document.design))
+            w.apply_design(reply.design.model_dump(),'검증된 CAD 작업',{'journal_steps':reply.journal_steps});wait(lambda:not w.busy);return reply
+        reply=replay([dict(tool='edit_joint',target='ab',args=dict(rz=45))])
+        check(reply.design.mates[0].rz==45 and len(reply.design.mates)==2,'offline AI joint action preserves assembly relationships')
+        replay([dict(tool='hole',target='a',args=dict(face='+Z',diameter=8))]);before_hole_edit=deepcopy(w.document.design)
+        feature=w.document.design['parts'][0]['features'][-1]['id']
+        reply=replay([dict(tool='edit_feature',target='a',args=dict(feature_id=feature,diameter=6))])
+        check(abs(build(reply.design)[0].Volume()-(20*20*12-3.141592653589793*9*12))<1e-5,'offline AI feature edit shrinks existing hole to exact requested volume')
+        check(len(reply.design.parts[0].features)==1 and reply.design.parts[0].features[0].id==feature,'hole edit retains original feature identity')
+        key(Qt.Key.Key_Z);check(w.document.design==before_hole_edit,'undo restores pre-edit hole and assembly')
         w.start_sketch(g=Extrusion(sketch_mode='entities',entities=[G.line(G.pt(0,0),G.pt(20,0)),G.line(G.pt(20,0),G.pt(20,20))]).model_dump());e=w.editor;wait(lambda:e.preview is not None);e.canvas.setFocus();e.selected={i['id'] for i in e.g['entities']};QTest.keyClick(e.canvas,Qt.Key.Key_C,Qt.KeyboardModifier.ControlModifier);QTest.keyClick(e.canvas,Qt.Key.Key_V,Qt.KeyboardModifier.ControlModifier);check(len(e.g['entities'])==4,'sketch Ctrl C V duplicates selected geometry');e.create_group('스케치 그룹');e.canvas.setFocus();QTest.keyClick(e.canvas,Qt.Key.Key_G,Qt.KeyboardModifier.ControlModifier|Qt.KeyboardModifier.ShiftModifier);check(not e.g.get('groups'),'sketch Ctrl Shift G ungroups selected elements');QTest.keyClick(e.canvas,Qt.Key.Key_X,Qt.KeyboardModifier.ControlModifier);check(len(e.g['entities'])==2,'sketch Ctrl X removes selected geometry');w.cancel_sketch()
         check(not errors,'no CAD/UI errors');w.document.dirty=False;w.close();path.write_text(json.dumps(dict(success=True,checks=checks),ensure_ascii=False,indent=2),encoding='utf-8');app.quit()
     except Exception:

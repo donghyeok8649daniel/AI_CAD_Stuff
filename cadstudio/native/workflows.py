@@ -159,31 +159,43 @@ class RobotDialog(PreviewDialog):
 
 
 class JointDriveDialog(PreviewDialog):
-    def __init__(self,parent,design):
+    def __init__(self,parent,design,selected_joint=None):
         super().__init__(parent,'관절 구동 · 간섭 확인','각도 또는 이동량을 조절하세요. 연결된 부품과 하위 부품이 함께 움직입니다. 적용한 자세는 작업 기록에 남습니다.')
-        self.base=deepcopy(design);self.inputs={};names={p['id']:p['name'] for p in design['parts']}
+        self.base=deepcopy(design);self.inputs={};self.changed_axes=set();self.groups={};names={p['id']:p['name'] for p in design['parts']}
         self.passive={j for c in design.get('loops',[]) for j in c['passive_joints']};self.sliders={}
         from ..assembly_motion import JOINT_AXES
         self.linked_axes={(l['driven'],l['driven_axis']) for l in design.get('motion_links',[])}
+        self.joint_filter=choice([('', '전체 관절')]+[(m['id'],m['id']+' · '+names[m['child']]) for m in design['mates'] if m['kind']!='rigid'])
+        self.controls.addWidget(label('조작할 관절'));self.controls.addWidget(self.joint_filter)
         for mate in design['mates']:
             if mate['kind']=='rigid':continue
-            title=label(names[mate['parent']]+' → '+names[mate['child']]);title.setStyleSheet('font-weight:600;color:#8ed5c6;');self.controls.addWidget(title)
+            group=QWidget();group_layout=QVBoxLayout(group);group_layout.setContentsMargins(0,0,0,0);self.groups[mate['id']]=group;self.controls.addWidget(group)
+            title=label(names[mate['parent']]+' → '+names[mate['child']]);title.setStyleSheet('font-weight:600;color:#8ed5c6;');group_layout.addWidget(title)
             for key in JOINT_AXES[mate['kind']]:
-                lo,hi=mate.get('limits',{}).get(key,[-360,360] if key.startswith('r') else [-500,500])
-                row=QHBoxLayout();w=number(mate[key],lo,hi,' °' if key.startswith('r') else ' mm',decimals=2);row.addWidget(QLabel(key.upper()));row.addWidget(w);self.controls.addLayout(row);slider=QSlider(Qt.Orientation.Horizontal);slider.setRange(int(w.minimum()*10),int(w.maximum()*10));slider.setValue(round(w.value()*10));self.controls.addWidget(slider);slider.valueChanged.connect(lambda v,spin=w:spin.setValue(v/10))
-                def changed(v,s=slider):s.blockSignals(True);s.setValue(round(v*10));s.blockSignals(False);self.schedule()
+                lo,hi=mate.get('limits',{}).get(key,[-360,360] if key.startswith('r') else [-5000,5000])
+                row=QHBoxLayout();w=number(mate[key],lo,hi,' °' if key.startswith('r') else ' mm',decimals=6);row.addWidget(QLabel(key.upper()));row.addWidget(w);group_layout.addLayout(row);slider=QSlider(Qt.Orientation.Horizontal);slider.setRange(math.ceil(w.minimum()*10),math.floor(w.maximum()*10));slider.setValue(round(w.value()*10));group_layout.addWidget(slider);slider.valueChanged.connect(lambda v,spin=w:spin.setValue(v/10))
+                slider.setEnabled(slider.minimum()<slider.maximum())
+                def changed(v,s=slider,axis=(mate['id'],key)):
+                    self.changed_axes.add(axis);s.blockSignals(True);s.setValue(round(v*10));s.blockSignals(False);self.schedule()
                 w.valueChanged.connect(changed);self.inputs[(mate['id'],key)]=w
                 self.sliders[(mate['id'],key)]=slider
                 if mate['id'] in self.passive or (mate['id'],key) in self.linked_axes:w.setEnabled(False);slider.setEnabled(False);w.setToolTip('폐루프 또는 모션 연결이 계산하는 관절입니다.')
+        def filter_joints():
+            selected=self.joint_filter.currentData()
+            for identifier,group in self.groups.items():group.setVisible(not selected or selected==identifier)
+        self.joint_filter.currentIndexChanged.connect(filter_joints)
+        self.joint_filter.setCurrentIndex(max(0,self.joint_filter.findData(selected_joint)));filter_joints()
         self.collisions=label('',True);self.controls.addWidget(self.collisions);self.controls.addStretch();self.schedule()
     def candidate(self):
+        from ..assembly_motion import set_joint_motion
         raw=deepcopy(self.base)
         for mate in raw['mates']:
-            for key in ('x','y','z','rx','ry','rz'):
-                if (mate['id'],key) in self.inputs:mate[key]=self.inputs[(mate['id'],key)].value()
+            values={key:self.inputs[(mate['id'],key)].value() for mid,key in self.changed_axes if mid==mate['id']}
+            if values:set_joint_motion(raw,mate['id'],values)
         return raw
     def present(self):
         super().present();names={p.id:p.name for p in self.checked.parts};collisions=self.result['stats']['collisions'];self.collisions.setText('체적 간섭 없음' if not collisions else '간섭 부품\n'+'\n'.join(f"{names[c['a']]} ↔ {names[c['b']]}\n{c['volume']:.3f} mm³" for c in collisions));self.collisions.setStyleSheet('color:#f3ac97;' if collisions else 'color:#89d6c0;')
+        self.apply_button.setEnabled(any(self.inputs[(mid,key)].value()!=next(m for m in self.base['mates'] if m['id']==mid)[key] for mid,key in self.changed_axes))
         for mate in self.checked.mates:
             if mate.id in self.passive or any(mate.id==j for j,k in self.linked_axes):
                 for key in ('x','y','z','rx','ry','rz'):

@@ -839,6 +839,7 @@ class DraftRequest(StrictModel):
     current: Design | None = None
     selected_part: str | None = Field(default=None, max_length=40)
     selected_feature: str | None = Field(default=None, max_length=40)
+    selected_joint: str | None = Field(default=None, max_length=40)
 
 
 GEOMETRY_TYPES = {c.model_fields["kind"].default: c for c in (RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, Extrusion, SweepGeometry, LoftGeometry)}

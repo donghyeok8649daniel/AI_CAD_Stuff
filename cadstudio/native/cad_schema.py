@@ -54,6 +54,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
     from .cad_feature_edits import schema_fields
     tool('edit_feature',schema_fields(),('feature_id',))
     tool('transform',transform['properties'])
+    tool('edit_joint',transform['properties'])
     tool('appearance',dict(name=text,color=color,material=obj(dict(name=text,density=number,youngs_modulus=number,poisson=number))))
     pattern={'anyOf':[obj(dict(kind={'const':'rectangular'},count_x={'type':'integer'},count_y={'type':'integer'},
         spacing_x=number,spacing_y=number,center=array(number,2,2)),('kind','count_x','count_y','spacing_x','spacing_y')),
@@ -80,7 +81,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         for action in actions:
             name=action['properties']['tool']['const']
             if name=='create':action['properties']['target']=enum(*new_parts)
-            elif name not in ('joint','parameter'):action['properties']['target']=enum(*dict.fromkeys((*existing_parts,*new_parts)))
+            elif name not in ('joint','edit_joint','parameter'):action['properties']['target']=enum(*dict.fromkeys((*existing_parts,*new_parts)))
     if connections:
         joint = next(a for a in actions if a['properties']['tool']['const'] == 'joint')
         actions.remove(joint)
@@ -103,7 +104,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
     schema['required']=['construction','summary','actions']
     if single_part:
         create=next(a for a in actions if a['properties']['tool']['const']=='create')
-        features=[a for a in actions if a['properties']['tool']['const'] not in ('create','joint')]
+        features=[a for a in actions if a['properties']['tool']['const'] not in ('create','joint','edit_joint')]
         schema['properties'].pop('actions')
         schema['properties']['base']=create
         schema['properties']['actions']=array({'anyOf':features} if features else {},0,31 if features else 0)
