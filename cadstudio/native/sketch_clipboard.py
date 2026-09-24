@@ -1,10 +1,9 @@
 """Sketch clipboard with internal geometric constraints and independent anchors."""
 import json
 from copy import deepcopy
-from PySide6.QtCore import QMimeData
-from PySide6.QtWidgets import QApplication
 from ..models import Extrusion
 from . import geometry as G
+from . import clipboard
 
 MIME='application/x-promptcad-sketch-v1'
 
@@ -18,15 +17,16 @@ class SketchClipboard:
         payload=dict(kind='extrusion',sketch_mode='entities',entities=entities,entity_constraints=constraints,groups=groups)
         payload=deepcopy(payload)
         for c in payload['entity_constraints']:c.pop('expression',None)
-        mime=QMimeData();mime.setData(MIME,json.dumps(payload).encode());mime.setText(f'Prompt CAD Studio · 스케치 요소 {len(ids)}개');QApplication.clipboard().setMimeData(mime);self.clipboard_pastes=0
+        encoded=json.dumps(payload).encode()
+        if len(encoded)>2_000_000:self.error('복사 데이터가 2 MB를 넘습니다. 요소 수를 줄이세요.');return
+        clipboard.write(MIME,encoded,f'Prompt CAD Studio · 스케치 요소 {len(ids)}개');self.clipboard_pastes=0
         if cut:self.delete_selected()
         else:self.status.setText(f'{len(ids)}개 요소 복사 · 고정/외부 구속은 제외하고 내부 구속 유지')
 
     def paste_selection(self):
-        mime=QApplication.clipboard().mimeData()
-        if not mime or not mime.hasFormat(MIME):self.error('복사한 스케치 요소가 없습니다.');return
+        encoded=clipboard.read(MIME)
+        if encoded is None:self.error('복사한 스케치 요소가 없습니다.');return
         try:
-            encoded=bytes(mime.data(MIME))
             if len(encoded)>2_000_000:raise ValueError('복사 데이터가 너무 큽니다.')
             g=Extrusion.model_validate(json.loads(encoded)).model_dump();ids={e['id']:G.uid() for e in g['entities']};count=getattr(self,'clipboard_pastes',0)+1
             entities=[]

@@ -346,6 +346,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def make_ai(self):
         w=QWidget();v=QVBoxLayout(w);v.setContentsMargins(12,12,12,12);self.provider=combo([('local','오프라인 치수 명령 · 키 불필요'),('openai','OpenAI · API 키 필요'),('ollama','로컬 AI · Ollama')]);v.addWidget(self.provider);self.ai_info=label('형상 이름과 치수를 입력하세요. 예: 구멍판 길이 80, 폭 60, 두께 6, 구멍 수 4 mm',True);v.addWidget(self.ai_info)
         self.key=QLineEdit();self.key.setEchoMode(QLineEdit.EchoMode.Password);self.key.setPlaceholderText('API 키 · 이번 실행 동안만 사용');self.key.setVisible(False);v.addWidget(self.key);self.model=QLineEdit('gpt-4.1');self.model.setPlaceholderText('모델 이름');self.model.setVisible(False);v.addWidget(self.model);self.provider.currentIndexChanged.connect(self.provider_changed)
+        self.astra_button=button('Astra 모델 선택',lambda:self.model.setText('gpt-6-astra'));self.astra_button.hide();v.addWidget(self.astra_button)
+        self.cloud_effort=combo([('low','추론 · 빠르게'),('medium','추론 · 균형'),('high','추론 · 깊게')]);self.cloud_effort.setCurrentIndex(1);self.cloud_effort.hide();v.addWidget(self.cloud_effort)
         from .model_picker import LocalModelPicker
         self.ollama_models=LocalModelPicker(self);self.ollama_models.hide();v.addWidget(self.ollama_models);self.ai_timeout=combo([(180,'AI 최대 대기 · 3분'),(300,'AI 최대 대기 · 5분'),(600,'AI 최대 대기 · 10분'),(1200,'AI 최대 대기 · 20분'),(None,'AI 최대 대기 · 무제한 (취소 가능)')]);self.ai_timeout.setCurrentIndex(2);v.addWidget(self.ai_timeout);v.addWidget(button('로컬 AI 설치 / 모델 다운로드',self.install_local_ai))
         self.prompt=QPlainTextEdit();self.prompt.setObjectName('designPrompt');self.prompt.setPlaceholderText('만들 형상과 치수, 바꿀 부분을 입력하세요.');self.prompt.setMinimumHeight(84);self.prompt.setMaximumHeight(120);v.addWidget(self.prompt)
@@ -494,6 +496,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             if key=='hole_count':w=combo([(n,str(n)) for n in (0,2,4)]);w.setCurrentIndex(w.findData(value))
             else:w=ExpressionField(value,0 if key in ('bore_diameter','flat_depth') else .01,2000,' '+unit,variables=parameter_values(self.document.design.get('parameters',{})),expression=binding_for(self.document.design,['parts',part['id'],'geometry',key]) or (g.get('thickness_expression','') if key=='thickness' else ''))
             inputs[key]=w;form.addRow(title,w)
+        self.property_layout.addWidget(button('이동 / 회전 · M',self.move_parts))
         color_button=button('●  부품 색상 변경',lambda:self.color_part(part['id']));color_button.setObjectName('partColorButton');color_button.setStyleSheet(f"border-left:6px solid {part['color']};text-align:left;padding:8px;");self.property_layout.addWidget(color_button);self.property_layout.addWidget(button('재질 / 물성',self.material_dialog));self.property_layout.addLayout(form)
         if part.get('source_part_id'):
             self.property_layout.addWidget(label('연결된 원본: '+part['source_part_id']+' · 형상은 원본을 따라갑니다.',True));self.property_layout.addWidget(button('원본 편집',lambda:self.select_part(part['source_part_id'])));self.property_layout.addWidget(button('연결 해제 · 독립 부품으로',self.unlink_part))
@@ -786,7 +789,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             return target
         self.run(work,lambda p:self.message('내보내기 완료: '+str(p)),'형상 내보내는 중…')
     def provider_changed(self):
-        provider=self.provider.currentData();self.key.setVisible(provider=='openai');self.model.setVisible(provider=='openai');self.ollama_models.setVisible(provider=='ollama');self.ai_info.setText({'local':'인터넷·API 키 없이 형상 이름과 치수를 해석합니다. 자유로운 문장을 이해하는 AI 모델은 아닙니다.','openai':'프롬프트와 현재 설계를 OpenAI API로 보냅니다. API 사용료가 발생할 수 있습니다. 키는 저장하지 않습니다.','ollama':'이 PC의 Ollama (127.0.0.1:11434)에 연결합니다. 설치된 모델을 자동으로 찾아 표시합니다. 인터넷 API 키 없이 자유로운 프롬프트를 처리합니다.'}[provider]);self.last_draft=None;self.accept_draft.setEnabled(False)
+        provider=self.provider.currentData();self.astra_button.setVisible(provider=='openai');self.cloud_effort.setVisible(provider=='openai');self.key.setVisible(provider=='openai');self.model.setVisible(provider=='openai');self.ollama_models.setVisible(provider=='ollama');self.ai_info.setText({'local':'인터넷·API 키 없이 형상 이름과 치수를 해석합니다. 자유로운 문장을 이해하는 AI 모델은 아닙니다.','openai':'프롬프트와 현재 설계를 OpenAI API로 보냅니다. API 사용료가 발생합니다. 최대 4회 요청으로 계획과 형상을 검증합니다. 취소 전 사용량은 청구될 수 있습니다. 키는 저장하지 않습니다.','ollama':'이 PC의 Ollama (127.0.0.1:11434)에 연결합니다. 설치된 모델을 자동으로 찾아 표시합니다. 인터넷 API 키 없이 자유로운 프롬프트를 처리합니다.'}[provider]);self.last_draft=None;self.accept_draft.setEnabled(False)
         if provider=='ollama':self.ollama_models.refresh()
     def install_local_ai(self):
         from .ai_setup import AISetupDialog
@@ -797,21 +800,18 @@ class MainWindow(QMainWindow,PartSelectionUI):
         prompt=self.prompt.toPlainText().strip()
         if not prompt:self.ai_result.setPlainText('설계 명령을 입력하세요. 예: 직경 20 mm, 높이 10 mm인 원통을 만들어줘.');self.prompt.setFocus();return
         if len(prompt)>4000:self.show_error('명령은 4,000자 이내로 입력하세요.');return
-        provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
+        provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();effort=self.cloud_effort.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
         if provider=='ollama' and not model:self.ai_result.setPlainText('Ollama 모델을 먼저 선택하세요. 새로 찾기를 누르거나 로컬 AI 설치 / 모델 다운로드를 사용하세요.');return
         def work(control,progress):
-            from ..planner import local_draft,openai_draft
+            from ..planner import local_draft
             if provider=='local':result=local_draft(request)
             elif provider=='ollama':
                 from .local_ai import ollama_draft
                 result=ollama_draft(request,model,control=control,progress=progress,deadline=deadline)
             else:
                 if not key:raise ValueError('API 키를 입력하거나 OPENAI_API_KEY 환경변수를 설정하세요.')
-                from openai import OpenAI
-                client=OpenAI(api_key=key,base_url='https://api.openai.com/v1',timeout=75,max_retries=0)
-                # Pass the chosen model without changing process-wide environment variables.
                 from .local_ai import cloud_draft
-                result=cloud_draft(request,client,model)
+                result=cloud_draft(request,model,api_key=key,control=control,progress=progress,deadline=deadline,effort=effort)
             control.check();progress('생성 완료 · CAD 형상 검증 중…')
             with KERNEL_LOCK:d=Design.model_validate(result['design']);r=preview(d)
             return dict(response=result,design=d.model_dump(),preview=r,serial=serial,provider=provider,prompt=prompt)
@@ -820,12 +820,12 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.ai_started=time.monotonic();self.ai_stage='모델 연결 / 준비 중…';self.ai_controls(True);self.ai_tick();self.ai_timer.start();self.ai_task.start()
     def ai_controls(self,running):
         self.generate_button.setEnabled(not running and not self.busy and not self.sketching);self.cancel_ai_button.setVisible(running);self.ai_status_button.setVisible(running)
-        for widget in (self.provider,self.prompt,self.ollama_models,self.model,self.key,self.ai_timeout):widget.setEnabled(not running)
+        for widget in (self.provider,self.prompt,self.ollama_models,self.model,self.key,self.ai_timeout,self.astra_button,self.cloud_effort):widget.setEnabled(not running)
     @Slot()
     def ai_tick(self):
         if not self.ai_task:return
-        elapsed=int(time.monotonic()-self.ai_started);policy=' · 대기 무제한' if self.provider.currentData()=='ollama' and self.ai_timeout.currentData() is None else '';text=f'{self.ai_stage}\n경과 {elapsed//60:02d}:{elapsed%60:02d}{policy}\n\n생성 중에도 CAD 작업과 저장이 가능합니다. 취소하거나 앱을 종료할 수 있습니다.'
-        if elapsed>=30:text+='\n로컬 모델은 PC 성능과 설계 크기에 따라 몇 분 걸릴 수 있습니다.'
+        elapsed=int(time.monotonic()-self.ai_started);policy=' · 대기 무제한' if self.provider.currentData() in ('ollama','openai') and self.ai_timeout.currentData() is None else '';text=f'{self.ai_stage}\n경과 {elapsed//60:02d}:{elapsed%60:02d}{policy}\n\n생성 중에도 CAD 작업과 저장이 가능합니다. 취소하거나 앱을 종료할 수 있습니다.'
+        if elapsed>=30 and self.provider.currentData()=='ollama':text+='\n로컬 모델은 PC 성능과 설계 크기에 따라 몇 분 걸릴 수 있습니다.'
         self.ai_result.setPlainText(text);self.ai_status_button.setText(f'AI {elapsed//60:02d}:{elapsed%60:02d} · 취소')
     @Slot(object)
     def ai_progress(self,packet):

@@ -25,11 +25,11 @@ def run(app,w,path):
     def apply(data):w.apply_design(data,'선택 테스트',fit=True);wait(lambda:not w.busy)
     def key(code,mods=Qt.KeyboardModifier.ControlModifier):
         w.activateWindow();w.viewport.widget.setFocus();app.processEvents();QTest.keyClick(w.viewport.widget,code,mods);app.processEvents();wait(lambda:not w.busy)
-    def snapshot(name):
+    def snapshot(name,target=None):
         from vtkmodules.vtkRenderingCore import vtkWindowToImageFilter
         from vtkmodules.vtkIOImage import vtkPNGWriter
-        app.processEvents();v=w.viewport;v.window.Render();capture=vtkWindowToImageFilter();capture.SetInput(v.window);capture.ReadFrontBufferOff();capture.Update();writer=vtkPNGWriter();writer.SetFileName(str(path.with_name(name+'-viewport.png')));writer.SetInputConnection(capture.GetOutputPort());writer.Write()
-        pix=w.grab();p=QPainter(pix);pos=v.widget.mapTo(w,QPoint(0,0));p.drawImage(QRectF(pos.x(),pos.y(),v.widget.width(),v.widget.height()),QImage(str(path.with_name(name+'-viewport.png'))));p.end();pix.save(str(path.with_name(name+'.png')))
+        target=target or w;app.processEvents();v=target.viewport;v.window.Render();capture=vtkWindowToImageFilter();capture.SetInput(v.window);capture.ReadFrontBufferOff();capture.Update();writer=vtkPNGWriter();writer.SetFileName(str(path.with_name(name+'-viewport.png')));writer.SetInputConnection(capture.GetOutputPort());writer.Write()
+        pix=target.grab();p=QPainter(pix);pos=v.widget.mapTo(target,QPoint(0,0));p.drawImage(QRectF(pos.x(),pos.y(),v.widget.width(),v.widget.height()),QImage(str(path.with_name(name+'-viewport.png'))));p.end();pix.save(str(path.with_name(name+'.png')))
     def screen(point):
         v=w.viewport;v.renderer.SetWorldPoint(*point,1);v.renderer.WorldToDisplay();return v.renderer.GetDisplayPoint()[:2]
     def click_world(point,shift=False):
@@ -65,7 +65,11 @@ def run(app,w,path):
             it+=1
         w.tree.scrollToItem(items['a']);QTest.mouseClick(w.tree.viewport(),Qt.MouseButton.LeftButton,Qt.KeyboardModifier.NoModifier,w.tree.visualItemRect(items['a']).center())
         w.tree.scrollToItem(items['c']);QTest.mouseClick(w.tree.viewport(),Qt.MouseButton.LeftButton,Qt.KeyboardModifier.ShiftModifier,w.tree.visualItemRect(items['c']).center());app.processEvents();check(set(w.selected_parts)=={'a','b','c'},'tree Shift range keeps multiple parts selected')
-        key(Qt.Key.Key_C);key(Qt.Key.Key_V);check(len(w.document.design['parts'])==6 and len(w.selected_parts)==3,'Ctrl C V copies selected assembly')
+        key(Qt.Key.Key_C)
+        from .part_ui import PART_MIME
+        from . import clipboard
+        check(bool(clipboard.read(PART_MIME)),'Ctrl C retains the native part clipboard even when the system clipboard is unavailable')
+        key(Qt.Key.Key_V);check(len(w.document.design['parts'])==6 and len(w.selected_parts)==3,'Ctrl C V copies selected assembly')
         copied=set(w.selected_parts);check(all({m['parent'],m['child']}<=copied for m in w.document.design['mates'][2:]),'pasted joints refer only to new parts')
         key(Qt.Key.Key_X);check(len(w.document.design['parts'])==3,'Ctrl X cuts only selected copies')
         key(Qt.Key.Key_Z);check(len(w.document.design['parts'])==6,'Ctrl Z restores cut parts and joints')
@@ -81,6 +85,22 @@ def run(app,w,path):
         joint_button=w.selection_toolbar.widgetForAction(w.joint_toolbar_action);check(joint_button.isVisible() and w.selection_toolbar.rect().contains(joint_button.geometry()),'joint toggle remains visible at 820 pixels');snapshot('selection250-compact')
         w.resize(1180,780);w.select_parts(['a','b']);w.group_parts();wait(lambda:not w.busy);w.document.write(path.with_suffix('.cad.json'));saved=read_project(path.with_suffix('.cad.json'));check(len(saved.design.part_groups)==1 and len(saved.design.mates)==2,'groups and joints survive project save/reopen')
         key(Qt.Key.Key_A);key(Qt.Key.Key_Delete,Qt.KeyboardModifier.NoModifier);check(not w.document.design['parts'],'delete all parts yields valid empty design');key(Qt.Key.Key_Z);check(len(w.document.design['parts'])==3,'undo empty design restores assembly')
+        from .placement_dialog import PlacementDialog
+        original_exec=PlacementDialog.exec;before_move=deepcopy(w.document.design)
+        def automatic_move(dialog):
+            dialog.show();wait(lambda:dialog.checked is not None);check(not dialog.apply_button.isEnabled(),'zero placement does not create a history entry')
+            dialog.fields['x'].setValue(25);wait(lambda:not dialog.timer.isActive() and not dialog.running)
+            check(dialog.checked is None and not dialog.apply_button.isEnabled(),'grounded selection cannot move accidentally')
+            dialog.grounded.setChecked(True);dialog.fields['rz'].setValue(90);dialog.center.setCurrentIndex(dialog.center.findData('world'));wait(lambda:dialog.checked is not None)
+            check(len(dialog.moved_ids)==3 and dialog.apply_button.isEnabled(),'move includes constrained components and previews valid placement')
+            check(dialog.apply_button.visibleRegion().contains(dialog.apply_button.rect()),'placement apply button stays reachable')
+            snapshot('placement260-preview',dialog);dialog.accept();return 1
+        PlacementDialog.exec=automatic_move
+        try:w.select_parts(['c']);key(Qt.Key.Key_M,Qt.KeyboardModifier.NoModifier)
+        finally:PlacementDialog.exec=original_exec
+        check(len(w.selected_parts)==3 and w.document.design['parts'][0]['fixed'],'M moves whole assembly and preserves grounding')
+        check(abs(w.document.design['parts'][0]['transform']['x']-25)<1e-6 and abs(w.document.design['parts'][0]['transform']['y']+45)<1e-6,'move uses world pivot and exact entered coordinates')
+        after_move=deepcopy(w.document.design);key(Qt.Key.Key_Z);check(w.document.design==before_move,'undo restores complete assembly placement');key(Qt.Key.Key_Y);check(w.document.design==after_move,'redo restores moved assembly')
         w.start_sketch(g=Extrusion(sketch_mode='entities',entities=[G.line(G.pt(0,0),G.pt(20,0)),G.line(G.pt(20,0),G.pt(20,20))]).model_dump());e=w.editor;wait(lambda:e.preview is not None);e.canvas.setFocus();e.selected={i['id'] for i in e.g['entities']};QTest.keyClick(e.canvas,Qt.Key.Key_C,Qt.KeyboardModifier.ControlModifier);QTest.keyClick(e.canvas,Qt.Key.Key_V,Qt.KeyboardModifier.ControlModifier);check(len(e.g['entities'])==4,'sketch Ctrl C V duplicates selected geometry');e.create_group('스케치 그룹');e.canvas.setFocus();QTest.keyClick(e.canvas,Qt.Key.Key_G,Qt.KeyboardModifier.ControlModifier|Qt.KeyboardModifier.ShiftModifier);check(not e.g.get('groups'),'sketch Ctrl Shift G ungroups selected elements');QTest.keyClick(e.canvas,Qt.Key.Key_X,Qt.KeyboardModifier.ControlModifier);check(len(e.g['entities'])==2,'sketch Ctrl X removes selected geometry');w.cancel_sketch()
         check(not errors,'no CAD/UI errors');w.document.dirty=False;w.close();path.write_text(json.dumps(dict(success=True,checks=checks),ensure_ascii=False,indent=2),encoding='utf-8');app.quit()
     except Exception:

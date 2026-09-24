@@ -1,11 +1,12 @@
 """Visible selection tools and focus-aware native clipboard operations."""
 import json
 from copy import deepcopy
-from PySide6.QtCore import Qt,QMimeData
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor,QAction
 from PySide6.QtWidgets import QApplication,QAbstractItemView,QToolBar,QMenu,QTreeWidgetItemIterator,QLineEdit,QColorDialog
 from ..part_operations import group_parts,ungroup_parts,part_clipboard,paste_parts,delete_parts
 from .widgets import label,button,clear_layout
+from . import clipboard
 
 PART_MIME='application/x-promptcad-parts-v1'
 CLIPBOARD_LIMIT=32_000_000
@@ -13,13 +14,15 @@ CLIPBOARD_LIMIT=32_000_000
 
 class PartSelectionUI:
     def make_selection_tools(self,edit,assembly):
+        edit.addAction(self.action('move_parts','이동 / 회전 · M',self.move_parts))
         for key,title,fn in [('copy','복사 · Ctrl+C',self.copy_parts),('cut','잘라내기 · Ctrl+X',self.cut_parts),('paste','붙여넣기 · Ctrl+V',self.paste_parts),('select_all','모든 부품 선택 · Ctrl+A',self.select_all_parts),('group','그룹 · Ctrl+G',self.group_parts),('ungroup','그룹 해제 · Ctrl+Shift+G',self.ungroup_parts)]:
             edit.addAction(self.action(key,title,fn))
         assembly.addAction(self.action('joints','관절 표시 · J',self.toggle_joints));self.actions['joints'].setCheckable(True)
         self.action('box_select','범위 선택 · B',lambda:self.viewport.set_box_mode(self.actions['box_select'].isChecked()));self.actions['box_select'].setCheckable(True)
         self.action('group_select','그룹 단위 선택',lambda:None);self.actions['group_select'].setCheckable(True);self.actions['group_select'].setChecked(True)
+        edit.addAction(self.actions['group_select'])
         bar=QToolBar('선택 / 조립 표시',self.viewport);bar.setObjectName('selectionToolbar');bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly);bar.setMovable(False)
-        for key,title in [('joints','관절 J'),('box_select','범위 B'),('group','그룹'),('ungroup','해제'),('group_select','그룹 선택')]:
+        for key,title in [('move_parts','이동 M'),('joints','관절 J'),('box_select','범위 B'),('group','그룹'),('ungroup','해제'),('group_select','그룹 선택')]:
             source=self.actions[key];compact=QAction(title,bar);compact.setCheckable(source.isCheckable());compact.setChecked(source.isChecked());compact.setToolTip(source.text());compact.triggered.connect(source.trigger)
             def sync(a=source,b=compact):b.setEnabled(a.isEnabled());b.setChecked(a.isChecked())
             source.changed.connect(sync);bar.addAction(compact)
@@ -38,11 +41,22 @@ class PartSelectionUI:
 
     def selection_menu(self,pos,widget=None):
         menu=QMenu(self)
-        for key in ('copy','cut','paste','group','ungroup','color','delete'):menu.addAction(self.actions[key])
+        for key in ('move_parts','copy','cut','paste','group','ungroup','group_select','color','delete'):menu.addAction(self.actions[key])
         menu.exec((widget or self.tree).mapToGlobal(pos))
 
     def selected_ids(self):
         return [p['id'] for p in (self.document.design or {}).get('parts',[]) if p['id'] in self.selected_parts]
+
+    def move_parts(self):
+        if self.busy or self.sketching:return
+        ids=self.selected_ids()
+        if not ids:self.message('이동할 부품을 선택하세요. Shift+클릭으로 여러 부품을 선택할 수 있습니다.');return
+        from .placement_dialog import PlacementDialog
+        dialog=PlacementDialog(self,self.document.design,ids)
+        if dialog.exec() and dialog.checked:
+            payload=dialog.candidate();payload.pop('raw')
+            self.apply_design(dialog.checked.model_dump(),'부품 이동 / 회전',payload,
+                              after=lambda:self.select_parts(dialog.moved_ids))
 
     def expand_groups(self,ids):
         chosen=set(ids)
@@ -103,6 +117,7 @@ class PartSelectionUI:
         ids=self.selected_ids();groups=[g for g in self.document.design.get('part_groups',[]) if set(ids).intersection(g['part_ids'])]
         self.property_layout.addWidget(label(f'{len(ids)}개 부품 선택'))
         self.property_layout.addWidget(label('\n'.join(p['name'] for p in self.document.design['parts'] if p['id'] in ids),True))
+        self.property_layout.addWidget(button('이동 / 회전 · M',self.move_parts,True))
         self.property_layout.addWidget(button('● 선택 부품 색상',self.color_selection,True))
         self.property_layout.addWidget(button('선택 부품 그룹 · Ctrl+G',self.group_parts))
         for group in groups:
@@ -129,7 +144,7 @@ class PartSelectionUI:
     def write_part_clipboard(self,payload):
         encoded=json.dumps(payload,ensure_ascii=False).encode('utf-8')
         if len(encoded)>CLIPBOARD_LIMIT:raise ValueError('복사 데이터가 32 MB를 넘습니다. 부품 수를 줄이거나 프로젝트로 저장하세요.')
-        mime=QMimeData();mime.setData(PART_MIME,encoded);mime.setText('Prompt CAD Studio · '+str(len(payload['parts']))+'개 부품');QApplication.clipboard().setMimeData(mime);self.paste_count=0
+        clipboard.write(PART_MIME,encoded,'Prompt CAD Studio · '+str(len(payload['parts']))+'개 부품');self.paste_count=0
 
     def copy_parts(self):
         if self.busy or not self.document.design:return
@@ -138,10 +153,9 @@ class PartSelectionUI:
 
     def paste_parts(self):
         if self.busy or self.sketching:return
-        mime=QApplication.clipboard().mimeData()
-        if not mime or not mime.hasFormat(PART_MIME):self.message('복사한 CAD 부품이 없습니다. 부품 선택 후 Ctrl+C를 누르세요.');return
+        encoded=clipboard.read(PART_MIME)
+        if encoded is None:self.message('복사한 CAD 부품이 없습니다. 부품 선택 후 Ctrl+C를 누르세요.');return
         try:
-            encoded=bytes(mime.data(PART_MIME))
             if len(encoded)>CLIPBOARD_LIMIT:raise ValueError('복사 데이터가 너무 큽니다.')
             count=getattr(self,'paste_count',0)+1;data,ids=paste_parts(self.document.design,json.loads(encoded),30*count)
         except Exception as exc:self.show_error(str(exc));return

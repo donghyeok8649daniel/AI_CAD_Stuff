@@ -14,8 +14,10 @@ def solve_closures(design):
         if loop.parent not in parts or loop.child not in parts or loop.parent==loop.child:raise ValueError('폐루프에는 서로 다른 실제 부품이 필요합니다.')
         for identifier,key in ((loop.parent,loop.parent_anchor),(loop.child,loop.child_anchor)):
             if key not in anchors(parts[identifier].geometry):raise ValueError('폐루프의 기준점이 없습니다.')
-        if loop.planar and any(abs(getattr(parts[p].transform,k))>1e-6 for p in (loop.parent,loop.child) for k in ('rx','ry')):
-            raise ValueError('평면 폐루프는 XY 평면에 평행한 부품에서 사용하세요.')
+        if loop.planar:
+            normals=[transform_matrix(parts[p].transform)[:,2] for p in (loop.parent,loop.child)]
+            if abs(np.dot(*normals))<1-1e-8:
+                raise ValueError('평면 폐루프의 두 부품은 서로 평행한 스케치 평면을 가져야 합니다.')
     attributes=['rz' if mates[j].kind=='revolute' else 'z' for j in identifiers]
     bounds=[mates[j].limits.get(key,[-360,360] if key=='rz' else [-5000,5000]) for j,key in zip(identifiers,attributes)]
     if any(high-low<1e-9 for low,high in bounds):raise ValueError('폐루프 수동 관절의 운동 한계에는 움직일 수 있는 범위가 필요합니다.')
@@ -30,7 +32,9 @@ def solve_closures(design):
         rows=[]
         for loop in design.loops:
             error=point(loop.child,loop.child_anchor)-point(loop.parent,loop.parent_anchor)-loop.offset
-            rows.extend(error[:2] if loop.planar else error)
+            # A planar closure is measured in its reference body's plane. This
+            # stays invariant when a whole mechanism is tilted in world space.
+            rows.extend((transform_matrix(parts[loop.parent].transform).T@error)[:2] if loop.planar else error)
         return np.array(rows)
     result=least_squares(residual,initial,bounds=(lower,upper),xtol=1e-11,ftol=1e-11,gtol=1e-11,max_nfev=250)
     error=float(np.max(np.abs(residual(result.x))))

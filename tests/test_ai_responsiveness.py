@@ -72,7 +72,8 @@ def test_stream_failures_return_actionable_messages(wire,match):
 
 
 @pytest.mark.parametrize('size',[(1024,640),(820,560)])
-def test_gui_remains_editable_cancel_ignores_late_result_and_close_returns(monkeypatch,tmp_path,size):
+@pytest.mark.parametrize('provider_name',['ollama','openai'])
+def test_gui_remains_editable_cancel_ignores_late_result_and_close_returns(monkeypatch,tmp_path,size,provider_name):
     global _APP
     _APP=QApplication.instance() or QApplication([]);_APP.setQuitOnLastWindowClosed(False)
     import cadstudio.native.window as module
@@ -83,14 +84,19 @@ def test_gui_remains_editable_cancel_ignores_late_result_and_close_returns(monke
     entered=threading.Event();release=threading.Event()
     def fake(request,model,**kwargs):
         assert kwargs['deadline'] is None
+        if provider_name=='openai':assert model=='gpt-6-astra' and kwargs['effort']=='high' and kwargs['api_key']=='test-placeholder'
         entered.set();release.wait(5);return reply()
     monkeypatch.setattr(provider,'ollama_draft',fake)
+    monkeypatch.setattr(provider,'cloud_draft',fake)
     w=module.MainWindow(restore=False);w.resize(*size);w.show();w.ai_dock.show();w.ai_dock.raise_();_APP.processEvents()
     for value in (0,w.ai_scroll.verticalScrollBar().maximum()):
         w.ai_scroll.verticalScrollBar().setValue(value);_APP.processEvents()
         for button in (w.generate_button,w.accept_draft):assert button.visibleRegion().contains(button.rect())
     # Set the provider without making a real discovery request in this test.
-    w.provider.blockSignals(True);w.provider.setCurrentIndex(w.provider.findData('ollama'));w.provider.blockSignals(False)
+    w.provider.setCurrentIndex(w.provider.findData(provider_name));w.provider_changed()
+    if provider_name=='openai':
+        assert w.astra_button.isVisible() and w.cloud_effort.isVisible()
+        w.astra_button.click();w.cloud_effort.setCurrentIndex(w.cloud_effort.findData('high'));w.key.setText('test-placeholder')
     w.ollama_models.models.addItem('test','test');w.prompt.setPlainText('원통')
     index=w.ai_timeout.findData(None);assert index>=0;w.ai_timeout.setCurrentIndex(index);assert w.ai_timeout.currentData() is None and '무제한' in w.ai_timeout.currentText()
     w.generate_button.click();task=w.ai_task;assert entered.wait(2)

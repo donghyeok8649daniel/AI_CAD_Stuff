@@ -7,16 +7,12 @@ import math
 from copy import deepcopy
 import httpx
 from pydantic import ValidationError
-from ..planner import AIReply,SYSTEM_PROMPT,openai_draft,ai_design_context,parse_ai_reply
+from ..planner import AIReply,ai_design_context,parse_ai_reply
 from ..kernel import preview,KERNEL_LOCK
 
-def cloud_draft(request,client,model):
-    from openai import APIError,AuthenticationError,RateLimitError,APITimeoutError
-    try:return openai_draft(request,client=client,model=model)
-    except AuthenticationError:raise ValueError('OpenAI API 키 인증에 실패했습니다. 키를 확인하세요.') from None
-    except RateLimitError:raise ValueError('OpenAI 요청 한도 또는 API 잔액을 확인하세요.') from None
-    except APITimeoutError:raise ValueError('OpenAI 응답 시간이 초과되었습니다. 더 작은 요청으로 시도하세요.') from None
-    except APIError:raise ValueError('OpenAI API 요청에 실패했습니다. 네트워크와 모델 이름을 확인하세요.') from None
+def cloud_draft(request,model,**kwargs):
+    from .cloud_ai import generate
+    return generate(request,model,**kwargs)
 
 class DraftCancelled(Exception):
     pass
@@ -40,14 +36,14 @@ class DraftControl:
             if self.loop and not self.loop.is_closed():self.loop.call_soon_threadsafe(self.task.cancel)
     def check(self):
         if self.cancelled.is_set():raise DraftCancelled('설계 초안 생성을 취소했습니다.')
-    async def execute(self,fn,deadline):
+    async def execute(self,fn,deadline,timeout_message=None):
         self.check()
         with self.lock:self.loop=asyncio.get_running_loop();self.task=asyncio.current_task()
         try:
             self.check()
             return await asyncio.wait_for(fn(),timeout=deadline)
         except asyncio.CancelledError:raise DraftCancelled('설계 초안 생성을 취소했습니다.') from None
-        except asyncio.TimeoutError:raise ValueError('로컬 AI가 제한 시간 안에 완료하지 못했습니다. 부품 하나와 치수부터 요청하거나 더 작은 모델을 선택하세요.') from None
+        except asyncio.TimeoutError:raise ValueError(timeout_message or '로컬 AI가 제한 시간 안에 완료하지 못했습니다. 부품 하나와 치수부터 요청하거나 더 작은 모델을 선택하세요.') from None
         finally:
             with self.lock:self.loop=None;self.task=None
 
