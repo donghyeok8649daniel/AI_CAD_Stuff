@@ -12,6 +12,7 @@ from ..parameters import parameter_values,set_binding,binding_for
 from ..models import Design,Part,SavedSketch
 from ..kernel import KERNEL_LOCK
 from ..associativity import edit_source
+from ..sketch_frames import extrusion_transform
 
 
 def extrusion_candidate(base,g,context,operation,part_id,feature_id):
@@ -30,7 +31,7 @@ def extrusion_candidate(base,g,context,operation,part_id,feature_id):
         if context.get('sketch_id'):p['features'][-1]['sketch_id']=context['sketch_id']
         if face.get('reference'):p['features'][-1]['reference']=face['reference']
     else:
-        plane=context.get('plane','XY');transform={'rx':90} if plane=='XZ' else {'rx':90,'rz':90} if plane=='YZ' else {}
+        transform=extrusion_transform(context)
         raw['parts'].append(Part(id=part_id,name='스케치 돌출 '+str(len(raw['parts'])+1),geometry=g,transform=transform).model_dump())
         if context.get('sketch_id'):raw['parts'][-1]['profile_sketch_id']=context['sketch_id']
     return raw
@@ -114,7 +115,7 @@ class ExtrudeDialog(PreviewDialog):
         with KERNEL_LOCK:
             d,result=super().compute(raw);part=next(p for p in d.parts if p.id==self.part_id)
             g=next(f.sketch for f in part.features if f.id==self.feature_id) if self.face_based else part.geometry
-            ctx={k:deepcopy(v) for k,v in self.context.items() if k in ('plane','title','part_id','support_feature','face','operation')}
+            ctx={k:deepcopy(v) for k,v in self.context.items() if k in ('plane','work_plane','title','part_id','support_feature','face','operation')}
             if not self.face_based and not self.context.get('edit_base'):ctx.pop('part_id',None)
             source=SavedSketch(id='extrude-source',name='돌출 원본',geometry=g,context=ctx)
             records=preview_sketches(d.model_copy(update={'sketches':[source]}));result['sketches']=records

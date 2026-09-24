@@ -1,21 +1,11 @@
 """Saved sketch display frames; geometry and support context remain in history."""
 import numpy as np
 from ..sketch_engine import sketch_preview,profile_regions
-from ..constraints import transform_matrix
+from ..sketch_frames import context_frame
 
 
 def sketch_frame(design,sketch):
-    context=sketch.context.model_dump()
-    face=context.get('face')
-    if face:
-        origin=np.array(face['origin']);x=np.array(face['x_direction']);normal=np.array(face['normal']);y=np.cross(normal,x)
-    else:
-        origin=np.zeros(3);plane=context.get('plane','XY')
-        x=np.array([0,1,0] if plane=='YZ' else [1,0,0]);y=np.array([0,0,1] if plane in ('YZ','XZ') else [0,1,0])
-    part=next((p for p in design.parts if p.id==context.get('part_id')),None)
-    rotation=transform_matrix(part.transform) if part else np.eye(3)
-    translation=np.array([part.transform.x,part.transform.y,part.transform.z]) if part else np.zeros(3)
-    return rotation@origin+translation,rotation@x,rotation@y
+    return context_frame(sketch.context,design)
 
 
 def preview_sketches(design):

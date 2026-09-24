@@ -67,6 +67,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         examples.addAction('2링크 조립',lambda:self.add_preset('robot_arm'));file.addSeparator();file.addAction('종료',self.close)
         edit=self.menuBar().addMenu('편집(&E)');edit.addAction(self.action('undo','실행 취소',self.undo,'Ctrl+Z','undo'));edit.addAction(self.action('redo','다시 실행',self.redo,'Ctrl+Y','redo'));edit.addAction(self.action('delete','선택 부품 삭제',self.delete_part,None,'delete'))
         model=self.menuBar().addMenu('모델링(&M)');model.addAction(self.action('sketch','새 스케치 · XY',lambda:self.start_sketch('XY'),None,'sketch'));model.addAction(self.action('face_sketch','면 스케치',self.start_face_sketch,None,'sketch'));model.addAction(self.action('edit_sketch','스케치 편집 · Shift+E',self.edit_sketch,None,'sketch'));model.addSeparator()
+        model.addAction(self.action('work_plane','작업 평면 · 오프셋 / 기울기…',self.work_plane_dialog,None,'origin'))
         for kind,title in TITLES.items():
             if kind not in ('sweep','loft','revolve','imported','sheetmetal'):model.addAction(title,lambda k=kind:self.add_preset(k))
         model.addSeparator();model.addAction(self.action('sweep','스윕 편집…',lambda:self.modelling_dialog('sweep'),None,'extrude'));model.addAction(self.action('loft','로프트 편집…',lambda:self.modelling_dialog('loft'),None,'extrude'));model.addAction(self.action('surface','곡면 만들기…',lambda:self.modelling_dialog('loft',surface=True),None,'sketch'));model.addAction(self.action('edge_finish','3D 필렛 / 모따기…',self.edge_finish_dialog,None,'extrude'))
@@ -93,7 +94,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.toolbar=QToolBar('작업 공간');self.toolbar.setObjectName('modelToolbar');self.toolbar.setMovable(False);self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.toolbar.setIconSize(QSize(25,25));self.addToolBar(self.toolbar)
         for key in ('new','open','save'):self.toolbar.addAction(self.actions[key])
         self.toolbar.addSeparator();self.workspace=combo([('model','설계'),('assembly','조립'),('specimen','시편')]);self.workspace.setMinimumWidth(95);self.workspace.setToolTip('작업 공간을 선택하면 필요한 도구가 나타납니다.');self.toolbar.addWidget(self.workspace);self.toolbar.addSeparator();self.mode_tools={'model':[],'assembly':[],'specimen':[]}
-        self.plane=combo([('XY','XY 평면'),('XZ','XZ 평면'),('YZ','YZ 평면')]);self.mode_tools['model'].append(self.toolbar.addWidget(self.plane));self.mode_tools['model'].append(self.toolbar.addAction(icon('sketch'),'스케치 작성',lambda:self.start_sketch(self.plane.currentData())))
+        self.plane=combo([('XY','XY 평면'),('XZ','XZ 평면'),('YZ','YZ 평면'),('custom','사용자 작업 평면…')]);self.mode_tools['model'].append(self.toolbar.addWidget(self.plane));self.mode_tools['model'].append(self.toolbar.addAction(icon('sketch'),'스케치 작성',lambda:self.start_sketch(self.plane.currentData())))
         for key in ('extrude','face_sketch','edit_sketch'):self.add_mode_tool('model',key)
         advanced=QToolButton();advanced.setText('3D 도구');advanced.setIcon(icon('extrude'));advanced.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);advanced.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup);advanced_menu=QMenu(advanced)
         for key in ('hole','thread','revolve','solid_tools','feature_manager','sweep','loft','surface','edge_finish'):advanced_menu.addAction(self.actions[key])
@@ -487,6 +488,9 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.refresh_ai_target();saved=next((s for s in (self.document.design or {}).get('sketches',[]) if s['id']==identifier),None)
         if not saved:return
         clear_layout(self.property_layout);self.property_layout.addWidget(label(saved['name']));self.property_layout.addWidget(label(f"{len(saved['geometry']['entities'])}개 요소 · 단위 mm",True));self.property_layout.addWidget(button('스케치 편집',lambda:self.edit_saved_sketch(identifier),True));self.property_layout.addWidget(button('3D 돌출 / 절삭 · E',lambda:self.extrude_dialog(sketch_id=identifier)))
+        if not saved['context'].get('face') and not saved['context'].get('part_id'):
+            self.property_layout.addWidget(button('작업 평면 · 위치 / 각도 편집',lambda:self.work_plane_dialog(identifier)))
+            self.property_layout.addWidget(button('같은 평면에 새 스케치',lambda:self.start_sketch(context={**deepcopy(saved['context']),'title':saved['name']+' · 같은 평면의 새 스케치'})))
         def remove():
             data=deepcopy(self.document.design);data['sketches']=[s for s in data['sketches'] if s['id']!=identifier];self.selected_sketch=None;remove_bindings(data,['sketches',identifier]);self.apply_design(data,'스케치 삭제',{'sketch_id':identifier})
         self.property_layout.addWidget(button('스케치 삭제',remove));self.property_layout.addStretch();self.property_dock.show();self.property_dock.raise_()
@@ -615,8 +619,21 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.apply_design(data,'부품 복제',{'part_ids':ids},fit=True,after=lambda:self.select_parts(ids))
     def delete_part(self):
         self.delete_selection()
+    def work_plane_dialog(self,sketch_id=None):
+        if self.busy or self.sketching:return
+        from .work_plane import WorkPlaneDialog
+        sketch_id=sketch_id if isinstance(sketch_id,str) else None
+        saved=next((s for s in (self.document.design or {}).get('sketches',[]) if s['id']==sketch_id),None)
+        ctx=(saved or {}).get('context',{})
+        plane=ctx.get('work_plane') or {'plane':ctx.get('plane',self.plane.currentData() if self.plane.currentData()!='custom' else 'XY')}
+        dialog=WorkPlaneDialog(self,self.document.design,plane,sketch_id)
+        if dialog.exec()==QDialog.DialogCode.Accepted:
+            plane,design=dialog.checked
+            if sketch_id:self.apply_design(design.model_dump(),'스케치 작업 평면 편집',{'tool':'work-plane','sketch_id':sketch_id,'work_plane':plane.model_dump()},fit=True,after=lambda:self.select_sketch(sketch_id))
+            else:self.start_sketch(context={'work_plane':plane.model_dump(),'title':f'사용자 작업 평면 · {plane.plane} · {plane.offset:g} mm'})
     def start_sketch(self,plane='XY',g=None,context=None):
         if self.busy or self.sketching:return
+        if plane=='custom' and not context:self.work_plane_dialog();return
         if self.joint_picks is not None:self.cancel_joint_pick()
         context=context or {'plane':plane,'title':f'새 스케치 · {plane} 기준 평면'};self.sketching=True;self.editor.start(g,context,parameter_values((self.document.design or {}).get('parameters',{})));self.stack.setCurrentWidget(self.editor);self.property_dock.hide();self.ai_dock.hide();self.browser_dock.hide();self.timeline_dock.hide();self.toolbar.hide();self.set_busy(False);self.editor.tabs.setCurrentIndex(0)
     def start_face_sketch(self):
@@ -690,7 +707,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
             p=next(p for p in data['parts'] if p['id']==context['part_id']);face=context['face'];title='구멍 / 포켓 절삭' if operation=='cut' else '면 스케치 돌출';f=dict(id='feature-'+uid(),name=f"{title} {len(p['features'])+1}",face=face['index'],support_face_count=face['face_count'],support_feature=context['support_feature'],origin=face['origin'],normal=face['normal'],x_direction=face['x_direction'],operation=operation,sketch=g);p['features'].append(f);context['feature_id']=f['id']
             if face.get('reference'):f['reference']=face['reference']
         else:
-            plane=context.get('plane','XY');transform={'rx':90} if plane=='XZ' else {'rx':90,'rz':90} if plane=='YZ' else {};p=Part(id='part-'+uid(),name='스케치 돌출 '+str(len(data['parts'])+1),geometry=g,transform=transform).model_dump();data['parts'].append(p);context['part_id']=p['id']
+            from ..sketch_frames import extrusion_transform
+            p=Part(id='part-'+uid(),name='스케치 돌출 '+str(len(data['parts'])+1),geometry=g,transform=extrusion_transform(context)).model_dump();data['parts'].append(p);context['part_id']=p['id']
         if not source_context.get('edit_base') and not source_context.get('feature_id'):
             identifier=source_context.get('sketch_id') or 'sketch-'+uid();saved_context={k:deepcopy(v) for k,v in source_context.items() if k not in ('tool_actions','sketch_id','source_sketch_id')};saved_context['operation']=operation
             old=next((s for s in data.get('sketches',[]) if s['id']==identifier),None)

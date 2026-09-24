@@ -42,10 +42,12 @@ def move_selection(raw, identifiers, translation=(0,0,0), rotation=(0,0,0), pivo
         raise ValueError('고정된 부품이 포함되어 있습니다: '+', '.join(grounded)+'. 고정 부품 배치 변경을 켜면 이동 후에도 고정 상태를 유지합니다.')
     children={m['child'] for m in data['mates']}
     roots=chosen-children
+    from .parameters import numeric_node
     for binding in data.get('dimension_bindings',[]):
-        path=binding['path']
-        if len(path)>=4 and path[0]=='parts' and path[1] in roots and path[2]=='transform':
-            raise ValueError('위치가 변수로 구속된 부품입니다. 변수 값을 편집하거나 위치의 변수 연결을 해제하세요: '+parts[path[1]]['name'])
+        node,_=numeric_node(data,binding['path'])
+        owner=next((parts[i] for i in roots if node is parts[i]['transform']),None)
+        if owner is not None:
+            raise ValueError('위치가 변수로 구속된 부품입니다. 변수 값을 편집하거나 위치의 변수 연결을 해제하세요: '+owner['name'])
     delta=Rotation.from_euler('xyz',rotation,degrees=True).as_matrix()
     for identifier in roots:
         old=Transform.model_validate(parts[identifier]['transform'])

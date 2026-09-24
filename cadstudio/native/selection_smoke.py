@@ -1,5 +1,5 @@
 """Real Qt/VTK checks for selection, grouping, clipboard and joint visibility."""
-import json,time,traceback
+import json,time,traceback,math
 from copy import deepcopy
 from PySide6.QtCore import Qt,QPoint,QRectF,QEvent,QPointF
 from PySide6.QtGui import QPainter,QImage,QMouseEvent
@@ -147,6 +147,40 @@ def run(app,w,path):
         check(w.document.design['parts'][0]['geometry']==before_properties['parts'][0]['geometry'],'renaming preserves untouched geometry and feature settings')
         key(Qt.Key.Key_Z);check(w.document.design==before_properties,'undo property edit restores original name and precise pose')
         w.start_sketch(g=Extrusion(sketch_mode='entities',entities=[G.line(G.pt(0,0),G.pt(20,0)),G.line(G.pt(20,0),G.pt(20,20))]).model_dump());e=w.editor;wait(lambda:e.preview is not None);e.canvas.setFocus();e.selected={i['id'] for i in e.g['entities']};QTest.keyClick(e.canvas,Qt.Key.Key_C,Qt.KeyboardModifier.ControlModifier);QTest.keyClick(e.canvas,Qt.Key.Key_V,Qt.KeyboardModifier.ControlModifier);check(len(e.g['entities'])==4,'sketch Ctrl C V duplicates selected geometry');e.create_group('스케치 그룹');e.canvas.setFocus();QTest.keyClick(e.canvas,Qt.Key.Key_G,Qt.KeyboardModifier.ControlModifier|Qt.KeyboardModifier.ShiftModifier);check(not e.g.get('groups'),'sketch Ctrl Shift G ungroups selected elements');QTest.keyClick(e.canvas,Qt.Key.Key_X,Qt.KeyboardModifier.ControlModifier);check(len(e.g['entities'])==2,'sketch Ctrl X removes selected geometry');w.cancel_sketch()
+        from .work_plane import WorkPlaneDialog
+        from .extrude import ExtrudeDialog
+        original_plane=WorkPlaneDialog.exec;original_extrude=ExtrudeDialog.exec
+        def choose_plane(dialog):
+            dialog.offset.setValue(80);dialog.fields['ry'].setValue(30);dialog.resize(820,600);dialog.show();wait(lambda:dialog.checked is not None)
+            check(dialog.apply_button.visibleRegion().contains(dialog.apply_button.rect()),'work plane apply is reachable in compact native dialog')
+            snapshot('workplane260-preview',dialog);dialog.accept();return 1
+        WorkPlaneDialog.exec=choose_plane
+        try:w.actions['work_plane'].trigger()
+        finally:WorkPlaneDialog.exec=original_plane
+        check(w.sketching and w.editor.context['work_plane']['offset']==80,'native work plane starts an offset angled sketch')
+        plane_context=deepcopy(w.editor.context);geometry=Extrusion(sketch_mode='entities',entities=[G.circle(G.pt(0,0),5)],thickness=8).model_dump()
+        w.finish_sketch(geometry,plane_context,'add');wait(lambda:not w.busy);saved=w.document.design['sketches'][-1];plane_sketch=saved['id']
+        check(len(saved['geometry']['entities'])==1 and not saved['context'].get('face'),'plane sketch persists without display grid or false face reference')
+        volume=w.result['stats']['volume']
+        def extrude_plane(dialog):
+            dialog.show();wait(lambda:dialog.checked is not None);source=dialog.result['sketches'][0]
+            check(abs(source['normal'][0]-.5)<1e-8 and abs(source['origin'][2]-80)<1e-8,'extrusion handle shares exact angled sketch frame')
+            dialog.accept();return 1
+        ExtrudeDialog.exec=extrude_plane
+        try:w.select_sketch(plane_sketch);key(Qt.Key.Key_E,Qt.KeyboardModifier.NoModifier)
+        finally:ExtrudeDialog.exec=original_extrude
+        shape=build(Design.model_validate(w.document.design))[-1];center=shape.Center()
+        check(abs(w.result['stats']['volume']-volume-math.pi*25*8)<1e-5 and abs(center.x-2)<1e-6 and abs(center.z-(80+math.sqrt(3)*2))<1e-6,'angled native extrusion has expected world center and volume')
+        snapshot('workplane260-extruded');before_plane_edit=deepcopy(w.document.design)
+        def shift_plane(dialog):
+            dialog.offset.setValue(100);wait(lambda:dialog.checked is not None);dialog.accept();return 1
+        WorkPlaneDialog.exec=shift_plane
+        try:w.work_plane_dialog(plane_sketch);wait(lambda:not w.busy)
+        finally:WorkPlaneDialog.exec=original_plane
+        check(abs(w.document.design['parts'][-1]['transform']['z']-100)<1e-8 and w.document.design['parts'][-1]['geometry']==before_plane_edit['parts'][-1]['geometry'],'plane editing moves dependent extrusion and retains its geometry')
+        key(Qt.Key.Key_Z);check(w.document.design==before_plane_edit,'undo restores sketch plane and dependent body together')
+        plane_file=path.with_name('work-plane.cad.json');w.document.write(plane_file);loaded=read_project(plane_file)
+        check(loaded.design.model_dump()==before_plane_edit,'angled plane and full history reopen with exact geometry')
         check(not errors,'no CAD/UI errors');w.document.dirty=False;w.close();path.write_text(json.dumps(dict(success=True,checks=checks),ensure_ascii=False,indent=2),encoding='utf-8');app.quit()
     except Exception:
         path.write_text(json.dumps(dict(success=False,checks=checks,error=traceback.format_exc(),ui_errors=errors),ensure_ascii=False,indent=2),encoding='utf-8');w.document.dirty=False

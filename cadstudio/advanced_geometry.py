@@ -123,18 +123,8 @@ def apply_edge_feature(shape,feature):
 
 def section_from_saved(design,saved):
     from .models import ModelSection,ModelFrame
-    from .constraints import transform_matrix
-    face=saved.context.face
-    if face:
-        origin=np.array(face.origin);x=np.array(face.x_direction);normal=np.array(face.normal)
-    else:
-        origin=np.zeros(3)
-        x=np.array([0,1,0] if saved.context.plane=='YZ' else [1,0,0])
-        normal=np.array([1,0,0] if saved.context.plane=='YZ' else [0,-1,0] if saved.context.plane=='XZ' else [0,0,1])
-    parent=next((p for p in design.parts if p.id==saved.context.part_id),None)
-    if parent:
-        rotation=transform_matrix(parent.transform)
-        origin=rotation@origin+[parent.transform.x,parent.transform.y,parent.transform.z];x=rotation@x;normal=rotation@normal
+    from .sketch_frames import context_frame
+    origin,x,y=context_frame(saved.context,design);normal=np.cross(x,y)
     return ModelSection(sketch=saved.geometry.model_copy(deep=True),frame=ModelFrame(origin=origin.tolist(),normal=normal.tolist(),x_direction=x.tolist()),sketch_id=saved.id)
 
 

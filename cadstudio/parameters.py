@@ -61,6 +61,7 @@ def parameter_values(parameters):
 
 def numeric_node(data,path):
     if not path or path[0] not in ('parts','sketches') or len(path)>20:raise ValueError('변수는 부품 또는 스케치 치수에 연결하세요.')
+    if 'work_plane' in path:raise ValueError('작업 평면의 위치와 각도는 작업 평면 편집 도구에서 변경하세요.')
     node=data
     try:
         for key in path[:-1]:

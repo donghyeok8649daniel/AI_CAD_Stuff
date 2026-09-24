@@ -681,6 +681,12 @@ class SketchSupportFace(StrictModel):
         return data
 
 
+class WorkPlane(StrictModel):
+    plane: Literal['XY', 'XZ', 'YZ'] = 'XY'
+    offset: Coordinate = 0
+    placement: Transform = Field(default_factory=Transform)
+
+
 class SavedSketchContext(StrictModel):
     plane: Literal['XY', 'XZ', 'YZ'] = 'XY'
     title: str = Field(default='스케치', max_length=160)
@@ -688,6 +694,19 @@ class SavedSketchContext(StrictModel):
     support_feature: str = Field(default='', max_length=40)
     operation: Literal['add', 'cut'] = 'add'
     face: SketchSupportFace | None = None
+    work_plane: WorkPlane | None = None
+
+    @model_validator(mode='after')
+    def independent_plane(self):
+        if self.work_plane and (self.face or self.part_id or self.support_feature):
+            raise ValueError('사용자 작업 평면과 부품 면 참조를 동시에 사용할 수 없습니다.')
+        return self
+
+    @model_serializer(mode='wrap')
+    def compatible_plane(self,handler):
+        data=handler(self)
+        if self.work_plane is None:data.pop('work_plane',None)
+        return data
 
 
 class SavedSketch(StrictModel):
