@@ -219,7 +219,11 @@ class SketchCanvas(QWidget):
     def wheelEvent(self,event):
         pos=event.position();p=self.world(pos,False);self.scale=max(.08,min(1000,self.scale*1.18**(event.angleDelta().y()/120)));self.pan=QPointF(pos.x()-self.width()/2-p['x']*self.scale,pos.y()-self.height()/2+p['y']*self.scale);self.update()
     def keyPressEvent(self,event):
-        key=event.key();ctrl=bool(event.modifiers()&Qt.KeyboardModifier.ControlModifier)
+        key=event.key();ctrl=bool(event.modifiers()&Qt.KeyboardModifier.ControlModifier);shift=bool(event.modifiers()&Qt.KeyboardModifier.ShiftModifier)
+        if ctrl and key in (Qt.Key.Key_C,Qt.Key.Key_X):self.editor.copy_selection(cut=key==Qt.Key.Key_X);return
+        if ctrl and key==Qt.Key.Key_V:self.editor.paste_selection();return
+        if ctrl and shift and key==Qt.Key.Key_G:self.editor.ungroup();return
+        if ctrl and shift and key==Qt.Key.Key_Z:self.editor.redo();return
         if ctrl and key in (Qt.Key.Key_Return,Qt.Key.Key_Enter):self.editor.finish_sketch()
         elif ctrl and key==Qt.Key.Key_A:self.editor.selected={e['id'] for e in self.editor.g['entities']};self.editor.selection_refs=[];self.editor.refresh_selection();self.update()
         elif key==Qt.Key.Key_Escape:self.editor.set_tool('select')
@@ -242,7 +246,10 @@ class SketchCanvas(QWidget):
         elif ctrl and key==Qt.Key.Key_G:self.editor.create_group()
         else:super().keyPressEvent(event)
 
-class SketchEditor(QWidget):
+from .sketch_clipboard import SketchClipboard
+
+
+class SketchEditor(QWidget,SketchClipboard):
     apply_requested=Signal(object,object,str)
     finished_requested=Signal(object,object,str)
     cancelled=Signal()
@@ -260,7 +267,7 @@ class SketchEditor(QWidget):
         splitter=QSplitter();outer.addWidget(splitter,1);left=QWidget();vl=QVBoxLayout(left);vl.setContentsMargins(0,0,0,0);self.hint=label('');self.hint.setStyleSheet('padding:8px 12px;color:#9cb3c5;');self.hint.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);vl.addWidget(self.hint);self.canvas=SketchCanvas(self);vl.addWidget(self.canvas,1)
         self.selection_bar=QWidget();bar=QHBoxLayout(self.selection_bar);bar.setContentsMargins(10,5,10,5);bar.addWidget(button('돌출 E',self.prepare_extrude,True));bar.addWidget(button('치수 D',self.quick_dimension));self.quick_constraints=QToolButton();self.quick_constraints.setText('구속 ▾');self.quick_constraints.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup);menu=QMenu(self.quick_constraints);menu.addAction('구속 설정…',lambda:self.tabs.setCurrentIndex(1))
         for key in ('tangent','normal','midpoint','perpendicular','parallel','horizontal','vertical','point_on','fixed'):menu.addAction(CONSTRAINTS[key],lambda k=key:self.quick_constraint(k))
-        self.quick_constraints.setMenu(menu);bar.addWidget(self.quick_constraints);bar.addWidget(button('그룹 Ctrl+G',self.create_group));self.free=QCheckBox('자유 배치 G');self.free.setObjectName('freePlacement');self.free.setToolTip('점·선·닫힌 영역을 임의 위치에 그립니다. 스냅·자동 구속을 잠시 끄며, 기존 구속은 유지합니다. Alt를 누르는 동안에도 자유 배치됩니다.');bar.addWidget(self.free);bar.addStretch();vl.insertWidget(1,self.selection_bar)
+        self.quick_constraints.setMenu(menu);bar.addWidget(self.quick_constraints);bar.addWidget(button('그룹 Ctrl+G',self.create_group));ungroup_button=button('해제',self.ungroup);ungroup_button.setToolTip('선택한 요소의 그룹 해제 · Ctrl+Shift+G');bar.addWidget(ungroup_button);self.free=QCheckBox('자유 배치 G');self.free.setObjectName('freePlacement');self.free.setToolTip('점·선·닫힌 영역을 임의 위치에 그립니다. 스냅·자동 구속을 잠시 끄며, 기존 구속은 유지합니다. Alt를 누르는 동안에도 자유 배치됩니다.');bar.addWidget(self.free);bar.addStretch();vl.insertWidget(1,self.selection_bar)
         splitter.addWidget(left)
         self.tabs=QTabWidget();self.tabs.setMinimumWidth(250);self.tabs.setMaximumWidth(350);splitter.addWidget(self.tabs);splitter.setStretchFactor(0,1);splitter.setSizes([900,330])
         props=self.page('스케치');coords=QFormLayout();self.x=number(0,-1000,1000,' mm');self.y=number(0,-1000,1000,' mm');coords.addRow('입력 X',self.x);coords.addRow('입력 Y',self.y);props.addLayout(coords);props.addWidget(button('좌표로 점 입력',lambda:self.input_point(G.pt(self.x.value(),self.y.value()))));props.addWidget(button('그리기 완료 ↵',self.finish_drawing));self.selection_label=label('선택 없음',True);self.selection_label.setObjectName('selectedPointCoordinates');props.addWidget(self.selection_label);self.snapping=QCheckBox('끝점·교점·중심·원점 스냅');self.snapping.setChecked(True);self.auto=QCheckBox('자동 구속');self.auto.setChecked(True);self.construction=QCheckBox('보조선으로 작성');props.addWidget(self.snapping);props.addWidget(self.auto);props.addWidget(self.construction)
@@ -638,7 +645,7 @@ class SketchEditor(QWidget):
         name=name.strip()[:80]
         if not name:return
         group=dict(id='group-'+G.uid(),name=name,entity_ids=[e['id'] for e in self.g['entities'] if e['id'] in members])
-        self.mutate('그룹 생성 · '+name,lambda:self.g.setdefault('groups',[]).append(group));self.groups.setCurrentIndex(self.groups.findData(group['id']));self.tabs.setCurrentIndex(3)
+        self.mutate('그룹 생성 · '+name,lambda:self.g.setdefault('groups',[]).append(group));self.groups.setCurrentIndex(self.groups.findData(group['id']));self.status.setText(name+' 생성 · Ctrl+Shift+G: 그룹 해제 · 돌출 탭에서 그룹 돌출/절삭')
     def use_group(self,operation=None):
         if isinstance(operation,bool):operation=None
         group=next((g for g in self.g.get('groups',[]) if g['id']==self.groups.currentData()),None)
@@ -652,8 +659,10 @@ class SketchEditor(QWidget):
         if not indices:self.error('그룹 안에 완전히 닫힌 영역이 없습니다. 경계 요소를 모두 묶으세요.');return
         self.set_profiles(indices);self.selected=set();self.selection_refs=[];self.refresh_selection();self.operation.setCurrentIndex(self.operation.findData(operation));self.prepare_extrude()
     def ungroup(self):
-        identifier=self.groups.currentData()
-        if identifier:self.mutate('그룹 해제',lambda:self.g.update(groups=[g for g in self.g.get('groups',[]) if g['id']!=identifier]))
+        identifiers={g['id'] for g in self.g.get('groups',[]) if self.selected.intersection(g['entity_ids'])}
+        if not identifiers and self.groups.currentData():identifiers.add(self.groups.currentData())
+        if identifiers:self.mutate('그룹 해제',lambda:self.g.update(groups=[g for g in self.g.get('groups',[]) if g['id'] not in identifiers]))
+        else:self.error('그룹 안의 요소 또는 돌출 탭의 그룹을 선택하세요.')
     def entity_state(self,identifier):
         if self.conflicted and any(identifier in (c.get('a'),c.get('b'),c.get('c')) for c in self.g['entity_constraints']):return 'conflict'
         if any(c['kind']=='fixed' and c['a']==identifier and c.get('a_point')=='all' for c in self.g['entity_constraints']):return 'fixed'

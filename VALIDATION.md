@@ -1,3 +1,13 @@
+# 2.5.0 selection / assembly visibility validation
+
+Source regression: 388 passed, 102 warnings in 125.47s (0:02:05). Frozen native EXE: 109 checks across kernel/basic/direct/selection flows. All 78 bundled CAD modules and the entry point match the tested source.
+
+Real Qt/VTK checks cover Shift click and Shift drag, box containment/crossing and hidden-part exclusion, tree Shift range, group/ungroup and history, internal assembly copy/cut/undo/redo, text-input shortcut focus, occluded joint picking, compact layout, save/reopen, deleting all parts, and sketch clipboard/group removal. Pure regression also verifies closed loops, motion links, imported assets, shared profile copies, and preserved face-sketch placement when deleting support bodies.
+
+The AI runtime/model was not changed in this version. Earlier measured CPU timings in AI_EXPECTATIONS_KO.md are historical evidence, not a new benchmark or general success rate. Fatigue integration is deferred. Clipboard copies are independent numeric snapshots; Ctrl+D retains same-document variable bindings. Group folders do not impose rigid joints.
+
+[Native evidence](docs/selection250-validation.json) · [Selection checks](docs/selection250-report.json)
+
 # 검증 기록 · 2.4.2 Native
 
 2026-09-24. 전체 소스 검사 **377개 통과**, 경고 101개, 102.29초. 배포 EXE의 cadstudio **72개 모듈**과 진입 스크립트가 최종 소스와 일치합니다. 실제 EXE의 커널 조립 재현·기본 CAD·직접 조작 검사 **74개**를 통과했습니다. [배포 검사 기록](docs/native-release242-report.json).

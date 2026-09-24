@@ -1,8 +1,18 @@
-# Prompt CAD Studio · Native 2.4.2
+# Prompt CAD Studio · Native 2.5.0
 
 사람이 직접 설계하고, 필요할 때 프롬프트로 도움을 받는 한국어 Windows CAD 앱입니다. **Qt Widgets + VTK OpenGL + Open CASCADE**로 실행하며 HTML, WebView, 브라우저, 내장 HTTP 서버를 사용하지 않습니다.
 
 Fusion의 스케치 → 피처 → 조립 → 작업 기록 흐름을 참고했습니다. Autodesk 제품이 아니며 Fusion의 전체 기능을 구현한 것은 아닙니다.
+
+## 2.5.0 · 다중 선택 / 그룹 / 조립 연결 표시
+
+- 3D 화면의 **Shift+클릭**으로 여러 부품을 추가·해제하고 **Shift+드래그**로 범위에 추가합니다. **범위 B** 버튼은 드래그로 선택하는 모드입니다. 왼쪽→오른쪽은 완전히 들어온 부품, 오른쪽→왼쪽은 닿은 부품을 선택합니다. 숨긴 부품은 제외하고 가려진 부품은 포함합니다.
+- 뷰포트 위 **그룹 / 해제**, **Ctrl+G / Ctrl+Shift+G**, 브라우저 우클릭으로 그룹을 관리합니다. 그룹은 트리에 폴더로 표시되며 이름 변경·전체 선택·색상 일괄 변경이 가능합니다. 그룹은 선택용 묶음이고 강체 구속은 별도로 설정합니다.
+- **관절 J** 버튼으로 강체·회전·슬라이더 등의 관절과 폐루프 연결 위치·축을 표시합니다. 표식 또는 오른쪽 연결 목록을 클릭하면 연결된 부품을 강조합니다. 부품에 가려진 표식도 보이며 접촉·간섭 분석을 뜻하지 않습니다.
+- **Ctrl+C / V / X**, **Ctrl+Z / Y / Shift+Z**, **Ctrl+A**, **Delete**를 부품 다중 선택에 적용합니다. 내부 관절·그룹을 보존한 독립 복사본을 만들고 외부 관절은 제외합니다. 변수는 복사 시 계산된 치수로 고정합니다. 입력칸에서는 일반 텍스트 편집으로 동작합니다.
+- 스케치에도 선택 요소 복사·붙여넣기·잘라내기와 빠른 그룹 해제를 추가했습니다. 고정·외부 참조 구속을 제외하고 내부 구속은 유지합니다. 작은 창에서는 작업 기록 패널을 접어 모델 공간을 확보합니다.
+
+[다중 선택·그룹·단축키 사용법](docs/USER_MANUAL_KO.md) · [로컬 AI의 현실적인 기대 성능](docs/AI_EXPECTATIONS_KO.md). 피로해석 외부 모듈 연동은 이번 버전에 포함하지 않았습니다.
 
 ## 2.4.2 · AI 조립 구속 유지
 
@@ -215,7 +225,7 @@ python -m venv .venv
 .venv\Scripts\python.exe native_desktop.py
 .venv\Scripts\python.exe -m PyInstaller NativeCAD.spec
 .venv\Scripts\python.exe -m PyInstaller Updater.spec
-.venv\Scripts\python.exe scripts\package_windows.py dist\PromptCADStudio PromptCADStudio-Windows-x64-v2.4.0.zip --updater dist\PromptCADStudioUpdater.exe
+.venv\Scripts\python.exe scripts\package_windows.py dist\PromptCADStudio PromptCADStudio-Windows-x64-v2.5.0.zip --updater dist\PromptCADStudioUpdater.exe
 ```
 
 `desktop.py`, `Start CAD.vbs`, `setup.ps1`도 네이티브 앱을 실행·설치합니다. 이전 웹 클라이언트는 별도 개발용 `launch.py`와 `requirements.txt`로 남겨 두었으며 Windows 앱에는 포함하지 않습니다.

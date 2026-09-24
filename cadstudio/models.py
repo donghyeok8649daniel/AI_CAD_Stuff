@@ -722,6 +722,13 @@ class DimensionBinding(StrictModel):
     expression: str = Field(min_length=1,max_length=240)
 
 
+class PartGroup(StrictModel):
+    """Selection folders, independent of geometric and assembly constraints."""
+    id: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
+    name: str = Field(min_length=1,max_length=80)
+    part_ids: list[str] = Field(min_length=1,max_length=256)
+
+
 class Design(StrictModel):
     schema_version: Literal[1] = 1
     name: str = Field(default="새 설계", min_length=1, max_length=100)
@@ -738,6 +745,7 @@ class Design(StrictModel):
     assets: dict[str,ShapeAsset] = Field(default_factory=dict,max_length=256)
     motion_links: list[MotionLink] = Field(default_factory=list,max_length=128)
     configurations: dict[str,dict[str,str]] = Field(default_factory=dict,max_length=64)
+    part_groups: list[PartGroup] = Field(default_factory=list,max_length=256)
 
     @model_validator(mode='before')
     @classmethod
@@ -749,7 +757,7 @@ class Design(StrictModel):
     @model_serializer(mode='wrap')
     def compatible_parameters(self,handler):
         data=handler(self)
-        for key in ('parameters','dimension_bindings','assets','motion_links','configurations'):
+        for key in ('parameters','dimension_bindings','assets','motion_links','configurations','part_groups'):
             if not data.get(key):data.pop(key,None)
         return data
 
@@ -766,6 +774,11 @@ class Design(StrictModel):
         ids = [p.id for p in self.parts]
         if len(ids) != len(set(ids)):
             raise ValueError("부품 ID는 중복될 수 없습니다.")
+        grouped=set();group_ids=set()
+        for group in self.part_groups:
+            if group.id in group_ids or len(set(group.part_ids))!=len(group.part_ids) or not set(group.part_ids)<=set(ids) or grouped.intersection(group.part_ids):
+                raise ValueError('그룹은 실제 부품을 중복 없이 포함해야 하며 부품은 한 그룹에만 속할 수 있습니다.')
+            group_ids.add(group.id);grouped.update(group.part_ids)
         if len({m.id for m in self.mates}) != len(self.mates):
             raise ValueError("조립 구속 ID는 중복될 수 없습니다.")
         if len({f.mate_id for f in self.joint_frames}) != len(self.joint_frames) or any(f.mate_id not in {m.id for m in self.mates} for f in self.joint_frames):

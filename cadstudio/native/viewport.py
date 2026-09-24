@@ -1,8 +1,8 @@
 """Native OpenGL CAD viewport using VTK's Qt window and exact-kernel meshes."""
 import math
 import numpy as np
-from PySide6.QtCore import Qt,Signal,QTimer
-from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QToolButton,QSizePolicy,QComboBox
+from PySide6.QtCore import Qt,Signal,QTimer,QPoint,QRect
+from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QToolButton,QSizePolicy,QComboBox,QRubberBand
 import vtkmodules.qt
 vtkmodules.qt.PyQtImpl='PySide6'
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
@@ -38,16 +38,26 @@ class CADStyle(vtkInteractorStyleTrackballCamera):
         self.AddObserver('MouseMoveEvent',self.move)
     def press(self,caller,event):
         self.down=self.GetInteractor().GetEventPosition()
-        if self.owner.handle and self.owner.handle.press(self.down):return
+        self.additive=bool(self.GetInteractor().GetShiftKey() or self.GetInteractor().GetControlKey())
+        self.box=bool(self.owner.box_mode or self.additive)
+        if self.owner.handle and self.owner.handle.press(self.down):self.box=False;return
+        if self.box:return
         self.OnLeftButtonDown()
     def release(self,caller,event):
         pos=self.GetInteractor().GetEventPosition()
+        if getattr(self,'box',False):
+            self.owner.rubber.hide()
+            if self.down:
+                if math.dist(self.down,pos)<5:self.owner.pick(*pos,additive=self.additive,body=True)
+                else:self.owner.box_pick(self.down,pos,self.additive)
+            self.down=None;self.box=False;return
         if self.owner.handle and self.owner.handle.release():self.down=None;return
         self.OnLeftButtonUp()
         if self.down and math.dist(self.down,pos)<5:self.owner.pick(*pos)
         self.down=None
     def move(self,caller,event):
         pos=self.GetInteractor().GetEventPosition()
+        if self.down is not None and getattr(self,'box',False):self.owner.show_rubber(self.down,pos);return
         if self.owner.handle and self.owner.handle.move(pos):return
         self.OnMouseMove()
         if self.down is None:self.owner.hover_profile(*pos)
@@ -64,10 +74,12 @@ class CADViewport(QWidget,SelectionTools):
     edge_selected=Signal(int)
     sketch_selected=Signal(str)
     part_selected=Signal(str)
+    parts_selected=Signal(object,str)
+    joint_selected=Signal(str,str)
     face_selected=Signal(str,object)
     message=Signal(str)
     def __init__(self,parent=None):
-        super().__init__(parent);self.setObjectName('cadViewport');self.meshes={};self.actors={};self.actor_ids={};self.hidden=set();self.selected=None;self.face=None
+        super().__init__(parent);self.setObjectName('cadViewport');self.meshes={};self.actors={};self.actor_ids={};self.hidden=set();self.selected=None;self.selected_ids=[];self.face=None;self.box_mode=False
         self.closed=False;self.show_edges=True;self.face_pick=False;self.result=None;self.grid_actor=None;self.highlight=None;self.sketch_actors={};self.edge_candidates={};self.pick_objects={};self.selection_mode='auto';self.profile_actors={};self.hovered_profile=None;self.handle=None
         layout=QVBoxLayout(self);layout.setContentsMargins(0,0,0,0);layout.setSpacing(0)
         bar=QHBoxLayout();bar.setContentsMargins(12,8,12,8);self.caption=QLabel('새 설계 · XY 원점');self.caption.setStyleSheet('font-weight:600;color:#afc7d6;');self.caption.setWordWrap(True);self.caption.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);layout.addWidget(self.caption);self.caption.setContentsMargins(12,7,12,0);bar.addStretch()
@@ -86,9 +98,11 @@ class CADViewport(QWidget,SelectionTools):
         for role in ('Key','Fill','Back','Head'):getattr(self.light_kit,'Set'+role+'LightWarmth')(.5)
         self.light_kit.SetKeyLightIntensity(.8);self.light_kit.AddLightsToRenderer(self.renderer)
         self.window=self.widget.GetRenderWindow();self.window.AddRenderer(self.renderer);self.window.SetMultiSamples(4)
+        from .assembly_display import AssemblyDisplay
+        self.joints=AssemblyDisplay(self);self.rubber=QRubberBand(QRubberBand.Shape.Rectangle,self.widget)
         self.interactor=self.window.GetInteractor();self.style=CADStyle(self);self.style.SetDefaultRenderer(self.renderer);self.interactor.SetInteractorStyle(self.style)
         self.axes=vtkAxesActor();self.axes.SetShaftTypeToCylinder();self.axes_widget=vtkOrientationMarkerWidget();self.axes_widget.SetOrientationMarker(self.axes);self.axes_widget.SetInteractor(self.interactor);self.axes_widget.SetViewport(0,0,.13,.19)
-        self.footer=QLabel('드래그: 회전   ·   가운데 버튼: 이동   ·   휠: 확대   ·   클릭: 부품/면 선택   ·   F: 맞춤')
+        self.footer=QLabel('드래그: 회전 · Shift+클릭: 추가/해제 · Shift+드래그: 범위 추가 · B: 범위 선택 · J: 관절');self.footer.setWordWrap(True)
         self.footer.setStyleSheet('padding:7px 12px;background:#17232e;color:#92aabd;font-size:11px;');layout.addWidget(self.footer)
         self.make_grid(100);self.set_view('iso',render=False);QTimer.singleShot(0,self.initialize)
 
@@ -143,7 +157,7 @@ class CADViewport(QWidget,SelectionTools):
         else:self.caption.setText('새 설계 · 스케치를 시작하거나 부품을 추가하세요.')
         self.rebuild_pick_objects()
         for key in self.hidden:self.visibility(key,False,False)
-        if self.selected in self.actors:self.select(self.selected,False)
+        self.select_many([i for i in self.selected_ids if i in self.actors],False)
         if fit:self.fit()
         else:self.window.Render()
 
@@ -151,7 +165,16 @@ class CADViewport(QWidget,SelectionTools):
         if self.highlight:self.renderer.RemoveActor(self.highlight);self.highlight=None
         self.face=None
 
-    def pick(self,x,y):
+    def pick(self,x,y,additive=False,body=False):
+        if additive or body:
+            picker=vtkCellPicker();picker.SetTolerance(.004);picker.PickFromListOn()
+            for actor,identifier in self.actor_ids.items():
+                if identifier not in self.hidden:picker.AddPickList(actor)
+            identifier=self.actor_ids.get(picker.GetActor()) if picker.Pick(x,y,0,self.renderer) else None
+            if identifier:self.parts_selected.emit([identifier],'toggle' if additive else 'replace')
+            elif not additive:self.parts_selected.emit([],'replace')
+            return
+        if self.joints.pick(x,y):return
         if self.edge_candidates:
             picker=vtkCellPicker();picker.SetTolerance(.008);picker.PickFromListOn()
             for actor in self.edge_candidates:picker.AddPickList(actor)
@@ -166,7 +189,7 @@ class CADViewport(QWidget,SelectionTools):
         for actor in (self.sketch_actors if self.selection_mode=='sketch' else self.actor_ids):picker.AddPickList(actor)
         if self.selection_mode=='auto':
             for actor in self.sketch_actors:picker.AddPickList(actor)
-        if not picker.Pick(x,y,0,self.renderer):self.clear_face();self.window.Render();return
+        if not picker.Pick(x,y,0,self.renderer):self.clear_face();self.parts_selected.emit([],'replace');self.window.Render();return
         if picker.GetActor() in self.sketch_actors:
             self.sketch_selected.emit(self.sketch_actors[picker.GetActor()]);return
         identifier=self.actor_ids.get(picker.GetActor())
@@ -175,7 +198,7 @@ class CADViewport(QWidget,SelectionTools):
         if index<0 or index>=len(mesh['triangle_faces']):return
         face_index=mesh['triangle_faces'][index];face=next((f for f in mesh['faces'] if f['index']==face_index),None)
         self.select(identifier,False);self.part_selected.emit(identifier)
-        if self.selection_mode=='body':self.clear_face();self.window.Render();self.message.emit(mesh['name']+' · 부품 선택');return
+        if self.selection_mode=='body' or len(self.selected_ids)>1:self.clear_face();self.window.Render();self.message.emit(mesh['name']+' · 부품 선택');return
         self.highlight_face(identifier,face_index)
         self.face=(identifier,face)
         self.face_selected.emit(identifier,face)
@@ -206,9 +229,31 @@ class CADViewport(QWidget,SelectionTools):
         actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.95,.68,.22);actor.GetProperty().SetOpacity(.45);actor.PickableOff();self.highlight=actor;self.renderer.AddActor(actor);self.window.Render()
 
     def select(self,identifier,render=True):
-        self.selected=identifier
-        for key,(_,edge) in self.actors.items():edge.GetProperty().SetColor(*((.86,.52,.16) if key==identifier else (.22,.35,.40)));edge.GetProperty().SetLineWidth(1.7 if key==identifier else 1)
+        self.select_many([identifier] if identifier else [],render)
+
+    def select_many(self,identifiers,render=True):
+        self.selected_ids=list(identifiers);self.selected=identifiers[-1] if identifiers else None
+        for key,(actor,edge) in self.actors.items():
+            selected=key in identifiers;edge.GetProperty().SetColor(*((1,.67,.22) if selected else (.22,.35,.40)));edge.GetProperty().SetLineWidth(2.5 if selected else 1)
+            edge.SetVisibility(key not in self.hidden and (self.show_edges or selected))
+            actor.GetProperty().SetAmbient(.4 if selected else .24)
         if render:self.window.Render()
+
+    def set_box_mode(self,enabled):
+        self.box_mode=enabled;self.widget.setCursor(Qt.CursorShape.CrossCursor if enabled else Qt.CursorShape.ArrowCursor)
+        self.message.emit('범위 선택: 왼쪽→오른쪽 완전 포함 · 오른쪽→왼쪽 닿는 부품 · Shift: 추가' if enabled else '드래그: 회전 · Shift+드래그: 범위 추가')
+
+    def show_rubber(self,start,end):
+        scale=self.widget.devicePixelRatioF();height=self.window.GetSize()[1]
+        points=[QPoint(round(p[0]/scale),round((height-1-p[1])/scale)) for p in (start,end)]
+        self.rubber.setGeometry(QRect(*points).normalized());self.rubber.show()
+
+    def box_pick(self,start,end,additive=False):
+        from .box_selection import projected_selection
+        camera=self.renderer.GetActiveCamera();m=camera.GetCompositeProjectionTransformMatrix(self.renderer.GetTiledAspectRatio(),0,1)
+        matrix=np.array([[m.GetElement(i,j) for j in range(4)] for i in range(4)])
+        ids=projected_selection(self.meshes,self.hidden,matrix,self.window.GetSize(),start,end)
+        self.parts_selected.emit(ids,'add' if additive else 'replace');return ids
 
     def visibility(self,identifier,visible,render=True):
         if visible:self.hidden.discard(identifier)
@@ -239,6 +284,7 @@ class CADViewport(QWidget,SelectionTools):
         if self.closed:return
         self.closed=True
         if self.handle:self.handle.close()
+        self.joints.close()
         # Disconnect the VTK -> Python -> QWidget cycle while the Qt window
         # still exists. Otherwise later garbage collection may release an
         # OpenGL interactor after Qt has destroyed its native HWND.

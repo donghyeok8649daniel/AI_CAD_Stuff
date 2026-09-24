@@ -25,7 +25,7 @@ class ExtrusionHandle:
         self.view=viewport;self.center=np.array(center,float);self.normal=np.array(normal,float);self.rows=outlines;self.changed=changed;self.actors=[];self.drag=None;self.depth=8.
         # A cut handle may be inside the solid: draw controls in an overlay so
         # depth testing never hides the only way to drag it back out.
-        self.overlay=vtkRenderer();self.overlay.SetLayer(1);self.overlay.SetInteractive(False);self.overlay.SetPreserveDepthBuffer(False);self.overlay.SetActiveCamera(viewport.renderer.GetActiveCamera());viewport.window.SetNumberOfLayers(max(2,viewport.window.GetNumberOfLayers()));viewport.window.AddRenderer(self.overlay)
+        self.overlay=vtkRenderer();self.overlay.SetLayer(2);self.overlay.SetInteractive(False);self.overlay.SetPreserveDepthBuffer(False);self.overlay.SetActiveCamera(viewport.renderer.GetActiveCamera());viewport.window.SetNumberOfLayers(max(3,viewport.window.GetNumberOfLayers()));viewport.window.AddRenderer(self.overlay)
         viewport.handle=self;self.update(8.)
     def display(self,p):
         r=self.view.renderer;r.SetWorldPoint(*p,1);r.WorldToDisplay();return np.array(r.GetDisplayPoint()[:2])
