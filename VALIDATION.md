@@ -1,3 +1,13 @@
+# 2.6.1 OpenAI account setup validation
+
+Targeted compact AI layout regression: **2 passed in 10.64s**. Frozen native EXE: **80 checks**, kernel (4) and selection/UI (76), including eight account setup checks. All **87 bundled CAD modules** and the native entry point match this source snapshot. The broader 2.6.0 results below are historical, not rerun for this UI patch.
+
+Native setup checks verify masked key entry, reachable controls, only fixed official key/billing URLs, no premature credential transfer or inference, a copyable URL when browser launch fails, cancel preserving provider/key, explicit apply selecting OpenAI, and preserved CAD design/prompt. Browser dispatch is intercepted in smoke tests; no actual login, key creation, payment or paid API call was performed. Browser login is not claimed to authenticate the CAD app. Screenshot inspected for readable labels and buttons.
+
+- [Frozen flow report](docs/native261-report.json)
+- [Verification metadata](docs/native261-validation.json)
+- [Native setup screen](docs/openai261-setup.png)
+
 # 2.6.0 assembly placement / work planes / CAD AI edit validation
 
 Source regression: 521 passed, 194 warnings in 193.61s (0:03:13) (final source snapshot; hashes checked before every verification stage). Frozen native EXE: **142 checks** across kernel/basic/direct/selection flows. All **86 bundled CAD modules** and the entry point match the final source.

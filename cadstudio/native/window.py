@@ -90,6 +90,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         edit.addAction(self.action('search','도구 찾기…',self.command_palette,'Ctrl+K','ai'))
         view=self.menuBar().addMenu('보기(&V)');view.addAction(self.action('fit','모델에 맞춤',self.fit,None,'fit'));self.view_menu=view;edge=view.addAction('모서리 표시');edge.setCheckable(True);edge.setChecked(True);edge.toggled.connect(self.viewport.edges)
         help=self.menuBar().addMenu('도움말(&H)');help.addAction(self.action('manual','사용 방법 · 단축키 매뉴얼',self.help_dialog,'F1'));help.addAction(self.action('update','업데이트 확인…',self.check_updates));help.addAction('이 앱 정보',lambda:QMessageBox.about(self,APP_NAME,f'Prompt CAD Studio {__version__}\nQt Widgets + VTK OpenGL + Open CASCADE\n\n브라우저와 웹 서버 없이 실행되는 Windows CAD 앱입니다.\n단위: mm\n설계 프로젝트: .cad.json\n형상 교환: STEP / STL'))
+        help.addAction(self.action('openai_setup','OpenAI 연결 · API 키 발급…',self.openai_setup))
     def make_toolbar(self):
         self.toolbar=QToolBar('작업 공간');self.toolbar.setObjectName('modelToolbar');self.toolbar.setMovable(False);self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.toolbar.setIconSize(QSize(25,25));self.addToolBar(self.toolbar)
         for key in ('new','open','save'):self.toolbar.addAction(self.actions[key])
@@ -349,6 +350,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         w=QWidget();v=QVBoxLayout(w);v.setContentsMargins(12,12,12,12)
         self.prompt=QPlainTextEdit();self.prompt.setObjectName('designPrompt');self.prompt.setPlaceholderText('만들 형상과 치수, 바꿀 부분을 입력하세요.\n예: 선택한 구멍을 지름 6 mm로 줄여줘.');self.prompt.setMinimumHeight(84);self.prompt.setMaximumHeight(110);v.addWidget(self.prompt)
         self.provider=combo([('local','오프라인 치수 명령 · 키 불필요'),('openai','OpenAI · 유료 API'),('ollama','로컬 AI · Ollama')]);v.addWidget(self.provider)
+        self.openai_setup_button=button('OpenAI 연결 · API 키 발급…',self.openai_setup);self.openai_setup_button.setToolTip('로그인·키 발급·결제 설정 안내를 엽니다.');v.addWidget(self.openai_setup_button)
         self.ai_info=label('',True);v.addWidget(self.ai_info)
         self.ai_result=QPlainTextEdit();self.ai_result.setReadOnly(True);self.ai_result.setPlaceholderText('생성 진행과 검증 결과가 여기에 표시됩니다.');self.ai_result.setMinimumHeight(100)
         self.ai_settings_toggle=button('모델 · 대기 설정',lambda:None);self.ai_settings_toggle.setCheckable(True);self.ai_settings_toggle.setToolTip('모델 선택, 최대 대기 시간, API 키 설정');header=QHBoxLayout();header.addWidget(label('설계 요청'));header.addStretch();header.addWidget(self.ai_settings_toggle);v.insertLayout(0,header)
@@ -372,6 +374,18 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.cancel_ai_button=button('생성 취소',self.cancel_ai);self.cancel_ai_button.hide();row.addWidget(self.cancel_ai_button);actions.addLayout(row)
         self.accept_draft=button('검증된 초안 적용',self.apply_draft,True);self.accept_draft.setEnabled(False);actions.addWidget(self.accept_draft);layout.addWidget(footer)
         self.ai_dock=self.dock('설계 명령 / AI','aiDock',Qt.DockWidgetArea.RightDockWidgetArea,panel);self.tabifyDockWidget(self.property_dock,self.ai_dock);self.property_dock.raise_();self.ai_dock.hide()
+    def openai_setup(self):
+        from .openai_setup import OpenAISetupDialog
+        dialog=OpenAISetupDialog(self,self.key.text())
+        try:
+            if dialog.exec()!=QDialog.DialogCode.Accepted:return
+            key=dialog.key.text().strip()
+            if not key:return
+            self.key.setText(key);self.provider.setCurrentIndex(self.provider.findData('openai'));self.ai_settings_toggle.setChecked(True)
+            self.ai_dock.show();self.ai_dock.raise_();self.ai_scroll.ensureWidgetVisible(self.key);self.key.setFocus()
+            self.message('API 키를 입력했습니다. 모델을 선택하고 설계 초안 생성을 누르세요. 인증은 요청 시 확인합니다.')
+        finally:
+            dialog.key.clear();dialog.deleteLater()
     def refresh_ai_target(self):
         if not hasattr(self,'ai_target'):return
         raw=self.document.design or {};names={p['id']:p['name'] for p in raw.get('parts',[])}

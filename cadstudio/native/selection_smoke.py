@@ -109,6 +109,34 @@ def run(app,w,path):
         snapshot('joint260-ai-target')
         w.resize(820,560);app.processEvents();w.ai_scroll.verticalScrollBar().setValue(0);app.processEvents();snapshot('ai260-compact')
         check(w.prompt.visibleRegion().contains(w.prompt.rect()),'AI prompt remains fully visible at minimum window size')
+        # Exercise account setup without opening a browser or making API requests.
+        from .openai_setup import OpenAISetupDialog, QDesktopServices, API_KEYS_URL, BILLING_URL
+        original_setup=OpenAISetupDialog.exec;original_open=QDesktopServices.openUrl
+        prior_provider=w.provider.currentData();prior_key=w.key.text();prior_prompt=w.prompt.toPlainText();before_setup=deepcopy(w.document.design);opened=[]
+        def setup_flow(dialog):
+            dialog.show();app.processEvents()
+            check(dialog.key.echoMode()==dialog.key.EchoMode.Password,'account setup masks API key')
+            check(dialog.use_button.visibleRegion().contains(dialog.use_button.rect()),'account setup apply remains visible')
+            dialog.grab().save(str(path.with_name('openai261-setup.png')))
+            dialog.key.setText('test-only-not-a-real-api-key')
+            dialog.keys_button.click();dialog.billing_button.click()
+            check(opened==[API_KEYS_URL,BILLING_URL],'account setup opens only fixed official pages without credentials')
+            check(w.ai_task is None and w.key.text()==prior_key,'browser setup does not start AI or apply credentials early')
+            QDesktopServices.openUrl=lambda url:False
+            dialog.keys_button.click();check(API_KEYS_URL in dialog.status.text(),'browser failure gives a copyable official address')
+            dialog.reject();return 0
+        try:
+            QDesktopServices.openUrl=lambda url:opened.append(url.toString()) or True
+            OpenAISetupDialog.exec=setup_flow;w.openai_setup()
+            check(w.provider.currentData()==prior_provider and w.key.text()==prior_key,'cancelled setup preserves provider and key')
+            def apply_setup(dialog):
+                dialog.key.setText('  test-only-not-a-real-api-key  ');dialog.use_button.click();return dialog.result()
+            OpenAISetupDialog.exec=apply_setup;w.openai_setup()
+            check(w.provider.currentData()=='openai' and w.key.text()=='test-only-not-a-real-api-key' and w.ai_task is None,'setup applies key and provider without a paid request')
+            check(w.document.design==before_setup and w.prompt.toPlainText()==prior_prompt,'account setup preserves CAD design and prompt')
+        finally:
+            OpenAISetupDialog.exec=original_setup;QDesktopServices.openUrl=original_open
+            w.key.setText(prior_key);w.provider.setCurrentIndex(w.provider.findData(prior_provider));w.ai_settings_toggle.setChecked(False)
         w.resize(1180,780);app.processEvents()
         original_drive=JointDriveDialog.exec;before_drive=deepcopy(w.document.design)
         def automatic_drive(dialog):

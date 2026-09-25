@@ -1,8 +1,12 @@
-# Prompt CAD Studio · Native 2.6.0
+# Prompt CAD Studio · Native 2.6.1
 
 사람이 직접 설계하고, 필요할 때 프롬프트로 도움을 받는 한국어 Windows CAD 앱입니다. **Qt Widgets + VTK OpenGL + Open CASCADE**로 실행하며 HTML, WebView, 브라우저, 내장 HTTP 서버를 사용하지 않습니다.
 
 Fusion의 스케치 → 피처 → 조립 → 작업 기록 흐름을 참고했습니다. Autodesk 제품이 아니며 Fusion의 전체 기능을 구현한 것은 아닙니다.
+
+## 2.6.1 · OpenAI 연결 안내
+
+AI 패널의 **OpenAI 연결 · API 키 발급…**에서 공식 로그인·키 발급 페이지와 API 결제 설정을 열고, 발급한 키를 바로 입력할 수 있습니다. **도움말**과 **Ctrl+K** 도구 검색에서도 찾을 수 있습니다. 브라우저 로그인 후 키를 직접 붙여넣는 방식이며, 키는 이번 실행 동안만 사용합니다. 키 적용은 유료 요청을 실행하지 않으며 모델 선택 후 **설계 초안 생성**에서 인증을 확인합니다.
 
 ## 2.6.0 · 조립 이동 / 작업 평면 / 기존 설계 AI 편집
 
@@ -235,7 +239,7 @@ python -m venv .venv
 .venv\Scripts\python.exe native_desktop.py
 .venv\Scripts\python.exe -m PyInstaller NativeCAD.spec
 .venv\Scripts\python.exe -m PyInstaller Updater.spec
-.venv\Scripts\python.exe scripts\package_windows.py dist\PromptCADStudio PromptCADStudio-Windows-x64-v2.6.0.zip --updater dist\PromptCADStudioUpdater.exe
+.venv\Scripts\python.exe scripts\package_windows.py dist\PromptCADStudio PromptCADStudio-Windows-x64-v2.6.1.zip --updater dist\PromptCADStudioUpdater.exe
 ```
 
 `desktop.py`, `Start CAD.vbs`, `setup.ps1`도 네이티브 앱을 실행·설치합니다. 이전 웹 클라이언트는 별도 개발용 `launch.py`와 `requirements.txt`로 남겨 두었으며 Windows 앱에는 포함하지 않습니다.
