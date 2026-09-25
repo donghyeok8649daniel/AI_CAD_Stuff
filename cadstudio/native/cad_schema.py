@@ -77,10 +77,13 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         limits=obj({axis:array(number,2,2) for axis in ('x','y','z','rx','ry','rz')}),
         **transform['properties']),('kind','parent','child'))
     tool('parameter',dict(value=text),('value',))
-    if new_parts:
+    # Editing-only plans cannot invent another part ID. In particular, a
+    # feature ID is not its owning part ID (small models confuse the two).
+    # If create remains available without declared IDs, allow new targets.
+    if new_parts or (existing_parts and allowed_tools is not None and 'create' not in allowed_tools):
         for action in actions:
             name=action['properties']['tool']['const']
-            if name=='create':action['properties']['target']=enum(*new_parts)
+            if name=='create' and new_parts:action['properties']['target']=enum(*new_parts)
             elif name not in ('joint','edit_joint','parameter'):action['properties']['target']=enum(*dict.fromkeys((*existing_parts,*new_parts)))
     if connections:
         joint = next(a for a in actions if a['properties']['tool']['const'] == 'joint')

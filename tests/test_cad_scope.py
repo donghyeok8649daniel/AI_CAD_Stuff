@@ -210,3 +210,19 @@ def test_planned_ids_include_unconnected_parts_and_reject_missing_components():
 def test_joint_selection_rejects_unknown_part_synonym_before_geometry_generation():
     with pytest.raises(ValueError,match='Joint IDs must refer'):
         Scope.parse(json.dumps(dict(intent='assembly',tools=['create','joint'],shapes=['cylinder'],new_parts=['housing','shaft'],connections=[dict(kind='revolute',parent='support',child='shaft')])),DraftRequest(prompt='조립'))
+
+
+def test_edit_target_grammar_preserves_joint_variable_and_unplanned_create_ids():
+    from cadstudio.native.cad_schema import plan_schema
+    def targets(schema):
+        return {a['properties']['tool']['const']:a['properties']['target'] for a in schema['properties']['actions']['items']['anyOf']}
+    edit=targets(plan_schema(['dimensions','appearance','edit_feature','edit_joint','parameter','joint'],existing_parts=['housing','shaft']))
+    for name in ('dimensions','appearance','edit_feature'):
+        assert edit[name]['enum']==['housing','shaft']
+    for name in ('edit_joint','joint','parameter'):
+        assert 'enum' not in edit[name]
+    create=targets(plan_schema(['create','hole'],existing_parts=['housing']))
+    assert 'enum' not in create['create'] and 'enum' not in create['hole']
+    declared=targets(plan_schema(['create','hole'],existing_parts=['housing'],new_parts=['shaft']))
+    assert declared['create']['enum']==['shaft']
+    assert declared['hole']['enum']==['housing','shaft']

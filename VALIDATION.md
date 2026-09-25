@@ -1,3 +1,15 @@
+# 2.6.0 assembly placement / work planes / CAD AI edit validation
+
+Source regression: 521 passed, 194 warnings in 193.61s (0:03:13) (final source snapshot; hashes checked before every verification stage). Frozen native EXE: **142 checks** across kernel/basic/direct/selection flows. All **86 bundled CAD modules** and the entry point match the final source.
+
+Actual Qt/VTK flows verify group/assembly move and rotation, preserved joints and tilted planar loops, explicit grounded movement, parameter-bound position guards, clipboard fallback, keyboard-selected feature/joint AI targets, precise property edits, reachable AI prompt/settings, offset/angled work plane previews, extrusion volume/center, dependent plane edits and undo/save. Previous selection/group/clipboard and direct-extrusion flows remain covered.
+
+The OpenAI provider was exercised with the actual SDK and mock HTTP streaming, strict schemas, repair, cancellation, timeout and the real CAD kernel. **No paid request or Astra quality benchmark was performed.** Installed-model CPU checks and exact prompts/plans are in the linked evidence; two selected edit examples do not establish general success rates. Actual hardware/runtime conditions affect speed.
+
+Limits: work plane fields are numeric; externally constrained or advanced referenced sections require their original editing tools. The loop solver remains planar. AI validates available geometry operations, not manufacturing suitability, autonomous collision-free robot motion, or arbitrary-object completeness. F3D/IPT require the Autodesk conversion bridge and have not been verified inside Autodesk. Fatigue module integration remains deferred.
+
+[Native and local AI evidence](docs/native260-validation.json) · [EXE check report](docs/native260-report.json) · [AI expectations](docs/AI_EXPECTATIONS_KO.md)
+
 # 2.5.0 selection / assembly visibility validation
 
 Source regression: 388 passed, 102 warnings in 125.47s (0:02:05). Frozen native EXE: 109 checks across kernel/basic/direct/selection flows. All 78 bundled CAD modules and the entry point match the tested source.

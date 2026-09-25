@@ -187,5 +187,10 @@ def test_both_providers_plan_existing_feature_edit_via_real_kernel(provider):
     kwargs=dict(transport=httpx.MockTransport(handle),deadline=None)
     reply=generate(request,'gpt-6-astra',api_key='test-placeholder',**kwargs) if provider=='openai' else ollama_draft(request,'test',**kwargs)
     assert len(calls)==2 and reply['tool_actions'][0]['tool']=='edit_feature'
+    schema=calls[1]['text']['format']['schema'] if provider=='openai' else calls[1]['format']
+    edit_schema=next(a for a in schema['properties']['actions']['items']['anyOf']
+                     if a['properties']['tool'].get('const')=='edit_feature' or a['properties']['tool'].get('enum')==['edit_feature'])
+    assert edit_schema['properties']['target']['enum']==['part']
+    assert 'ai-feature-1' not in edit_schema['properties']['target']['enum']
     assert len(reply['design']['parts'][0]['features'])==1
     assert build(Design.model_validate(reply['design']))[0].Volume()==pytest.approx(100000-math.pi*9*25)

@@ -1,8 +1,18 @@
-# Prompt CAD Studio · Native 2.5.0
+# Prompt CAD Studio · Native 2.6.0
 
 사람이 직접 설계하고, 필요할 때 프롬프트로 도움을 받는 한국어 Windows CAD 앱입니다. **Qt Widgets + VTK OpenGL + Open CASCADE**로 실행하며 HTML, WebView, 브라우저, 내장 HTTP 서버를 사용하지 않습니다.
 
 Fusion의 스케치 → 피처 → 조립 → 작업 기록 흐름을 참고했습니다. Autodesk 제품이 아니며 Fusion의 전체 기능을 구현한 것은 아닙니다.
+
+## 2.6.0 · 조립 이동 / 작업 평면 / 기존 설계 AI 편집
+
+- 여러 부품이나 그룹을 선택하고 **M**으로 이동·회전합니다. 연결된 조립·폐루프·몸체 연산의 부품을 함께 옮기고, 회전 중심을 지정하며 관절 관계를 유지합니다. 고정 부품 이동은 명시적으로 선택하고 변수로 제어되는 위치는 보호합니다.
+- **모델 → 작업 평면 · 오프셋 / 기울기**에서 XY/XZ/YZ를 기준으로 거리·각도를 정해 스케치합니다. 원본 스케치의 작업 평면을 다시 편집하면 연결된 기본 돌출도 함께 이동합니다. 외부 조립 연결·변수 위치·회전/스윕/로프트 단면 참조가 있는 경우 변경을 제한합니다.
+- AI가 **기존 피처와 관절**을 직접 수정할 수 있습니다. 구멍 지름 축소·돌출 깊이·필렛 등의 치수와 관절의 독립 운동 축을 편집하고, 기존 ID·구속·다른 부품을 유지합니다. 현재 선택한 대상은 AI 패널 하단에서 확인합니다. 새 부품을 만들지 않는 편집 계획의 대상은 실제 부품 ID로 제한해 피처 ID 혼동을 줄였습니다.
+- **OpenAI API → Astra 모델 선택**과 추론 강도 선택을 추가했습니다. 공식 모델명 `gpt-6-astra`와 Responses API를 사용하며 Ollama와 같은 CAD 도구·형상 검증을 적용합니다. 유료 요청은 실행하지 않았으며 실제 Astra 설계 품질 비교는 아직 하지 않았습니다.
+- AI 입력창을 작은 창에서도 바로 보이게 하고 **모델 · 대기 설정**을 접을 수 있게 했습니다. OpenAI도 무제한 대기·진행 표시·취소를 지원합니다. 이름이나 치수 하나를 바꿀 때 건드리지 않은 위치·각도가 반올림되는 문제와 관절 입력 범위 문제를 수정했습니다.
+
+[사용 방법](docs/USER_MANUAL_KO.md) · [AI 기대 수준과 실측 범위](docs/AI_EXPECTATIONS_KO.md) · [검증 기록](VALIDATION.md)
 
 ## 2.5.0 · 다중 선택 / 그룹 / 조립 연결 표시
 
@@ -225,7 +235,7 @@ python -m venv .venv
 .venv\Scripts\python.exe native_desktop.py
 .venv\Scripts\python.exe -m PyInstaller NativeCAD.spec
 .venv\Scripts\python.exe -m PyInstaller Updater.spec
-.venv\Scripts\python.exe scripts\package_windows.py dist\PromptCADStudio PromptCADStudio-Windows-x64-v2.5.0.zip --updater dist\PromptCADStudioUpdater.exe
+.venv\Scripts\python.exe scripts\package_windows.py dist\PromptCADStudio PromptCADStudio-Windows-x64-v2.6.0.zip --updater dist\PromptCADStudioUpdater.exe
 ```
 
 `desktop.py`, `Start CAD.vbs`, `setup.ps1`도 네이티브 앱을 실행·설치합니다. 이전 웹 클라이언트는 별도 개발용 `launch.py`와 `requirements.txt`로 남겨 두었으며 Windows 앱에는 포함하지 않습니다.
