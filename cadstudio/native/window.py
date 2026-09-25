@@ -376,12 +376,12 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.ai_dock=self.dock('설계 명령 / AI','aiDock',Qt.DockWidgetArea.RightDockWidgetArea,panel);self.tabifyDockWidget(self.property_dock,self.ai_dock);self.property_dock.raise_();self.ai_dock.hide()
     def openai_setup(self):
         from .openai_setup import OpenAISetupDialog
-        dialog=OpenAISetupDialog(self,self.key.text())
+        dialog=OpenAISetupDialog(self,self.key.text(),self.model.text())
         try:
             if dialog.exec()!=QDialog.DialogCode.Accepted:return
             key=dialog.key.text().strip()
-            if not key:return
-            self.key.setText(key);self.provider.setCurrentIndex(self.provider.findData('openai'));self.ai_settings_toggle.setChecked(True)
+            if not key and not os.getenv('OPENAI_API_KEY','').strip():return
+            self.key.setText(key);self.model.setText(dialog.model.text().strip());self.provider.setCurrentIndex(self.provider.findData('openai'));self.ai_settings_toggle.setChecked(True)
             self.ai_dock.show();self.ai_dock.raise_();self.ai_scroll.ensureWidgetVisible(self.key);self.key.setFocus()
             self.message('API 키를 입력했습니다. 모델을 선택하고 설계 초안 생성을 누르세요. 인증은 요청 시 확인합니다.')
         finally:
@@ -894,7 +894,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.ai_started=time.monotonic();self.ai_stage='모델 연결 / 준비 중…';self.ai_controls(True);self.ai_tick();self.ai_timer.start();self.ai_task.start()
     def ai_controls(self,running):
         self.generate_button.setEnabled(not running and not self.busy and not self.sketching);self.cancel_ai_button.setVisible(running);self.ai_status_button.setVisible(running)
-        for widget in (self.provider,self.prompt,self.ollama_models,self.model,self.key,self.ai_timeout,self.astra_button,self.cloud_effort):widget.setEnabled(not running)
+        for widget in (self.provider,self.prompt,self.ollama_models,self.model,self.key,self.ai_timeout,self.astra_button,self.cloud_effort,self.openai_setup_button):widget.setEnabled(not running)
+        self.actions['openai_setup'].setEnabled(not running)
     @Slot()
     def ai_tick(self):
         if not self.ai_task:return

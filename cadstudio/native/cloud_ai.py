@@ -5,7 +5,7 @@ import json
 import math
 import time
 
-import httpx
+from .cloud_connection import api_error_message, credentials, make_client
 
 from ..kernel import KERNEL_LOCK, preview
 from .cad_scope import Scope, scope_schema, scope_messages
@@ -69,7 +69,7 @@ def decode_plan(content):
     return json.dumps(data,ensure_ascii=False)
 
 
-async def _content(client, model, messages, schema, name, control, progress, effort):
+async def _content(client, model, messages, schema, name, control, progress, effort, api_key=''):
     control.check()
     options=dict(model=model, input=messages, store=False, stream=True,
                  max_output_tokens=4096 if name=='cad_scope' else 16384,
@@ -96,24 +96,24 @@ async def _content(client, model, messages, schema, name, control, progress, eff
             elif event.type=='response.incomplete':
                 raise ValueError('OpenAI 출력이 제한에 도달해 완료되지 않았습니다. 요청을 나누거나 추론 강도를 낮추세요.')
             elif event.type in ('response.failed','error'):
-                raise ValueError('OpenAI 설계 생성에 실패했습니다. 모델 접근 권한과 API 상태를 확인하세요.')
+                error=getattr(getattr(event,'response',None),'error',None) if event.type=='response.failed' else event
+                body=error.model_dump() if hasattr(error,'model_dump') else {}
+                raise ValueError(api_error_message(None,model,api_key=api_key,body=body))
     if not completed or not chunks:raise ValueError('OpenAI 응답이 완료 전에 끊어졌습니다. 현재 설계는 변경되지 않았습니다.')
     return ''.join(chunks)
 
 
 def generate(request,model,*,api_key,control=None,progress=None,deadline=600,effort='medium',transport=None):
-    from openai import AsyncOpenAI, APIError, AuthenticationError, RateLimitError, APITimeoutError
+    from openai import APIError
     control=control or DraftControl();progress=progress or (lambda message:None)
-    if not isinstance(model,str) or not model.strip() or len(model)>120:raise ValueError('OpenAI 모델 이름을 입력하세요.')
+    api_key,model=credentials(api_key,model)
     if effort not in ('low','medium','high','xhigh','max'):raise ValueError('지원되지 않는 추론 강도입니다.')
     if deadline is not None and (not isinstance(deadline,(int,float)) or not math.isfinite(deadline) or deadline<=0):
         raise ValueError('대기 시간은 양수 또는 무제한이어야 합니다.')
     async def run():
-        async with AsyncOpenAI(api_key=api_key,base_url='https://api.openai.com/v1',max_retries=0,
-                http_client=httpx.AsyncClient(timeout=httpx.Timeout(deadline,connect=10),trust_env=False,
-                                              follow_redirects=False,transport=transport)) as client:
+        async with make_client(api_key,deadline,transport) as client:
             progress('OpenAI · 요청의 부품과 CAD 도구 선택 중…')
-            content=await _content(client,model,scope_messages(request),scope_schema(),'cad_scope',control,progress,effort)
+            content=await _content(client,model,scope_messages(request),scope_schema(),'cad_scope',control,progress,effort,api_key)
             try:scope=Scope.parse(content,request)
             except (ValueError,TypeError):
                 scope=Scope();progress('전체 CAD 도구로 계획합니다…')
@@ -123,7 +123,7 @@ def generate(request,model,*,api_key,control=None,progress=None,deadline=600,eff
             messages[0]['content']+='\nFor this strict output schema: optional fields use null when unused. dimensions.args.values is an array of {key,value_json}; encode each actual dimension value as JSON text. Do not invent unused values.'
             for attempt in range(3):
                 control.check();progress('OpenAI · CAD 작업 계획 생성 중…' if not attempt else 'OpenAI · CAD 검증 오류 수정 중…')
-                content=await _content(client,model,messages,schema,'cad_plan',control,progress,effort)
+                content=await _content(client,model,messages,schema,'cad_plan',control,progress,effort,api_key)
                 try:
                     control.check();progress('OpenAI 생성 완료 · 실제 CAD 형상 검증 중…')
                     with KERNEL_LOCK:
@@ -142,7 +142,4 @@ def generate(request,model,*,api_key,control=None,progress=None,deadline=600,eff
                         {'role':'user','content':'CAD 검증 오류를 수정한 전체 계획을 반환하세요. 원래 요청과 올바른 작업을 유지하세요.\n'+reason}]
     try:
         return asyncio.run(control.execute(run,deadline,'OpenAI가 제한 시간 안에 완료하지 못했습니다. AI 최대 대기를 늘리거나 무제한으로 설정할 수 있습니다.'))
-    except AuthenticationError:raise ValueError('OpenAI API 키 인증에 실패했습니다. 키를 확인하세요.') from None
-    except RateLimitError:raise ValueError('OpenAI 요청 한도 또는 API 잔액을 확인하세요.') from None
-    except APITimeoutError:raise ValueError('OpenAI 연결 시간이 초과되었습니다. 네트워크와 AI 최대 대기를 확인하세요.') from None
-    except APIError:raise ValueError('OpenAI API 요청에 실패했습니다. 모델 이름·접근 권한과 네트워크를 확인하세요.') from None
+    except APIError as exc:raise ValueError(api_error_message(exc,model,api_key=api_key)) from None

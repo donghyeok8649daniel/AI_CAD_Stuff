@@ -1,3 +1,15 @@
+# 2.6.2 OpenAI diagnostics and model lookup validation
+
+Targeted SDK/mock HTTP/kernel/native UI regression: **42 passed in 7.63s**. Frozen EXE: **84 checks**, kernel (4) and selection/UI (80). All **88 bundled CAD modules** and the entry point match this source snapshot. Earlier release results below are historical.
+
+Tests cover safe error classification (401/403/404/429/400/500), quota versus rate limit, invalid schema versus key errors, TLS/network errors, streamed failures, request ID/code retention without raw server prose or secrets; model GET-only access checks; malformed input rejected before networking; timeout, cancellation and dialog close; stale status invalidation; visible results/apply/close at compact size. Native smoke also exercises prior CAD selection/group/assembly/edit workflows.
+
+No real account credentials, billing action or paid API calls were used. User's original generic error lacked saved HTTP details, so the original account-specific root cause is not established by these tests. Models read success does not prove Responses write permission, billing availability, or generation compatibility. No model auto-fallback or paid retry was added.
+
+- [Frozen flow report](docs/native262-report.json)
+- [Source snapshot and results](docs/native262-validation.json)
+- [Native connection check screen](docs/openai262-check.png)
+
 # 2.6.1 OpenAI account setup validation
 
 Targeted compact AI layout regression: **2 passed in 10.64s**. Frozen native EXE: **80 checks**, kernel (4) and selection/UI (76), including eight account setup checks. All **87 bundled CAD modules** and the native entry point match this source snapshot. The broader 2.6.0 results below are historical, not rerun for this UI patch.

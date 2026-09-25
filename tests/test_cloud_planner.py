@@ -136,7 +136,7 @@ def test_total_deadline_also_cancels_cloud():
     with pytest.raises(ValueError,match='OpenAI가 제한 시간'):invoke(handle,deadline=.03)
 
 
-@pytest.mark.parametrize('status,match',[(401,'인증'),(429,'잔액'),(400,'접근 권한')])
+@pytest.mark.parametrize('status,match',[(401,'인증'),(429,'잔액'),(400,'요청 형식')])
 def test_api_errors_are_safe_actionable_and_not_retried(status,match):
     calls=[]
     def handle(request):

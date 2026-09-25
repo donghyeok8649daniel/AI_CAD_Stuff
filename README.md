@@ -1,8 +1,12 @@
-# Prompt CAD Studio · Native 2.6.1
+# Prompt CAD Studio · Native 2.6.2
 
 사람이 직접 설계하고, 필요할 때 프롬프트로 도움을 받는 한국어 Windows CAD 앱입니다. **Qt Widgets + VTK OpenGL + Open CASCADE**로 실행하며 HTML, WebView, 브라우저, 내장 HTTP 서버를 사용하지 않습니다.
 
 Fusion의 스케치 → 피처 → 조립 → 작업 기록 흐름을 참고했습니다. Autodesk 제품이 아니며 Fusion의 전체 기능을 구현한 것은 아닙니다.
+
+## 2.6.2 · OpenAI 오류 진단 / 키·모델 확인
+
+OpenAI 오류를 한 문장으로 숨기던 처리를 고쳤습니다. 키 인증, 모델 이름·접근, API 잔액·한도, 요청 형식, 네트워크·TLS 오류를 구분하고 안전한 HTTP 상태·오류 코드·문제 항목·요청 ID를 표시합니다. **OpenAI 연결 → 키 · 모델 확인 (설계 생성 안 함)**은 모델 정보만 조회하며, 취소·창 닫기가 가능합니다. 조회 성공은 결제 잔액이나 CAD 설계 생성 성공을 보장하지 않습니다. 사용자의 실제 계정 오류 원인은 이 검사 결과 또는 다음 요청의 구체적인 오류로 확인해야 합니다.
 
 ## 2.6.1 · OpenAI 연결 안내
 
@@ -239,7 +243,7 @@ python -m venv .venv
 .venv\Scripts\python.exe native_desktop.py
 .venv\Scripts\python.exe -m PyInstaller NativeCAD.spec
 .venv\Scripts\python.exe -m PyInstaller Updater.spec
-.venv\Scripts\python.exe scripts\package_windows.py dist\PromptCADStudio PromptCADStudio-Windows-x64-v2.6.1.zip --updater dist\PromptCADStudioUpdater.exe
+.venv\Scripts\python.exe scripts\package_windows.py dist\PromptCADStudio PromptCADStudio-Windows-x64-v2.6.2.zip --updater dist\PromptCADStudioUpdater.exe
 ```
 
 `desktop.py`, `Start CAD.vbs`, `setup.ps1`도 네이티브 앱을 실행·설치합니다. 이전 웹 클라이언트는 별도 개발용 `launch.py`와 `requirements.txt`로 남겨 두었으며 Windows 앱에는 포함하지 않습니다.

@@ -18,7 +18,7 @@ def run(app,w,path):
     def wait(predicate,timeout=40):
         deadline=time.monotonic()+timeout
         while not predicate():
-            app.processEvents();QTest.qWait(15)
+            app.processEvents();QTest.qWait(15);time.sleep(.001)  # Yield to Python AI/network worker threads too.
             if errors:raise AssertionError(errors[-1])
             if time.monotonic()>deadline:raise TimeoutError('UI wait')
         app.processEvents()
@@ -123,7 +123,7 @@ def run(app,w,path):
             check(opened==[API_KEYS_URL,BILLING_URL],'account setup opens only fixed official pages without credentials')
             check(w.ai_task is None and w.key.text()==prior_key,'browser setup does not start AI or apply credentials early')
             QDesktopServices.openUrl=lambda url:False
-            dialog.keys_button.click();check(API_KEYS_URL in dialog.status.text(),'browser failure gives a copyable official address')
+            dialog.keys_button.click();check(API_KEYS_URL in dialog.status.toPlainText(),'browser failure gives a copyable official address')
             dialog.reject();return 0
         try:
             QDesktopServices.openUrl=lambda url:opened.append(url.toString()) or True
@@ -137,6 +137,31 @@ def run(app,w,path):
         finally:
             OpenAISetupDialog.exec=original_setup;QDesktopServices.openUrl=original_open
             w.key.setText(prior_key);w.provider.setCurrentIndex(w.provider.findData(prior_provider));w.ai_settings_toggle.setChecked(False)
+        from . import cloud_connection
+        import httpx,asyncio,threading
+        original_check=cloud_connection.check_access;requests=[];probe=None
+        def model_lookup(request):
+            requests.append((request.method,str(request.url),len(request.content)))
+            return httpx.Response(200,json=dict(id='gpt-6-astra',object='model',created=1,owned_by='openai'))
+        try:
+            cloud_connection.check_access=lambda api_key,model,**kw:original_check(api_key,model,transport=httpx.MockTransport(model_lookup),**kw)
+            probe=OpenAISetupDialog(w,'test-only-not-a-real-api-key','gpt-6-astra');probe.show();app.processEvents();probe.check_button.click()
+            check(probe.task is not None and not probe.key.isEnabled(),'connection check runs off the UI thread and freezes checked inputs')
+            wait(lambda:probe.task is None)
+            check(requests==[('GET','https://api.openai.com/v1/models/gpt-6-astra',0)] and '조회에 성공' in probe.status.toPlainText(),'native connection check retrieves model without generating a design')
+            check(probe.use_button.visibleRegion().contains(probe.use_button.rect()) and probe.status.visibleRegion().contains(probe.status.rect()),'connection result keeps result and apply/close controls reachable')
+            probe.key.clear();probe.grab().save(str(path.with_name('openai262-check.png')))
+            probe.key.setText('test-only-not-a-real-api-key');entered=threading.Event();closed=threading.Event()
+            async def stalled(request):
+                entered.set()
+                try:await asyncio.sleep(60)
+                finally:closed.set()
+            cloud_connection.check_access=lambda api_key,model,**kw:original_check(api_key,model,transport=httpx.MockTransport(stalled),**kw)
+            probe.check_button.click();wait(entered.is_set);probe.reject();wait(closed.is_set)
+            check(probe.task is None and w.document.design==before_setup,'closing connection check cancels blocked request and preserves CAD')
+        finally:
+            cloud_connection.check_access=original_check
+            if probe:probe.reject();probe.key.clear();probe.deleteLater()
         w.resize(1180,780);app.processEvents()
         original_drive=JointDriveDialog.exec;before_drive=deepcopy(w.document.design)
         def automatic_drive(dialog):
