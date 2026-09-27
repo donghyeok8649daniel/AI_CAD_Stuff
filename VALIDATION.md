@@ -1,3 +1,18 @@
+# 2.7.0 Codex subscription mode validation
+
+Targeted protocol/planner/native UI and existing cloud regression: **62 passed in 7.74s**. Frozen EXE: **101 checks**, kernel (4), selection/UI (80), Codex mode (17). All **92 bundled CAD modules** and the entry point match the source snapshot. Earlier release results below are historical.
+
+Three real requests used the existing ChatGPT Pro sign-in through Codex CLI 0.154.0 and gpt-6-astra: a diameter 50 mm wheel with an 8 mm bore (12.51 s), a 60 x 40 x 8 mm plate with four diameter 6 mm through holes (14.17 s), and an edit changing the wheel bore to 12 mm (12.13 s). All succeeded on the first plan attempt with valid CAD bodies and volumes matching analytical values. These consumed Codex subscription usage, with no paid API calls or billing actions. This small sample is not a general benchmark for arbitrary designs.
+
+Regression tests cover existing-login reuse without copying credentials, API-auth rejection before generation, official login URL checks, model catalog validation, inherited tool isolation, owned-process cancellation, bounded repair, unchanged documents before explicit apply, compact dialog controls, and stale-result suppression. Frozen Codex UI checks use a mock protocol with the real CAD kernel; the three live requests are separate evidence. The CLI app-server interface is experimental and may require future compatibility updates.
+
+- [Live design measurements](docs/codex270-live-validation.json)
+- [Frozen Codex flow report](docs/codex270-report.json)
+- [Source snapshot and results](docs/native270-validation.json)
+- [Connection dialog](docs/codex270-setup.png)
+- [CAD viewport](docs/codex270-viewport.png)
+- [Korean connection guide](docs/CODEX_MODE_KO.md)
+
 # 2.6.2 OpenAI diagnostics and model lookup validation
 
 Targeted SDK/mock HTTP/kernel/native UI regression: **42 passed in 7.63s**. Frozen EXE: **84 checks**, kernel (4) and selection/UI (80). All **88 bundled CAD modules** and the entry point match this source snapshot. Earlier release results below are historical.

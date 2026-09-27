@@ -42,7 +42,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.ai_status_button=button('AI 생성 취소',self.cancel_ai);self.ai_status_button.hide();self.statusBar().addPermanentWidget(self.ai_status_button)
         from .shortcuts import ShortcutRouter
         self.shortcut_router=ShortcutRouter(self)
-        self.provider.setCurrentIndex(self.provider.findData('ollama'));self.ai_dock.show();self.ai_dock.raise_()
+        self.provider.setCurrentIndex(self.provider.findData('codex' if self.codex_config['model'] else 'ollama'));self.ai_dock.show();self.ai_dock.raise_()
         if restore and self.autosave.exists():QTimer.singleShot(120,lambda:self.open_project(self.autosave,recovery=True))
     def action(self,key,title,fn,shortcut=None,ico=None):
         a=QAction(icon(ico),title,self) if ico else QAction(title,self);a.triggered.connect(fn)
@@ -91,6 +91,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         view=self.menuBar().addMenu('보기(&V)');view.addAction(self.action('fit','모델에 맞춤',self.fit,None,'fit'));self.view_menu=view;edge=view.addAction('모서리 표시');edge.setCheckable(True);edge.setChecked(True);edge.toggled.connect(self.viewport.edges)
         help=self.menuBar().addMenu('도움말(&H)');help.addAction(self.action('manual','사용 방법 · 단축키 매뉴얼',self.help_dialog,'F1'));help.addAction(self.action('update','업데이트 확인…',self.check_updates));help.addAction('이 앱 정보',lambda:QMessageBox.about(self,APP_NAME,f'Prompt CAD Studio {__version__}\nQt Widgets + VTK OpenGL + Open CASCADE\n\n브라우저와 웹 서버 없이 실행되는 Windows CAD 앱입니다.\n단위: mm\n설계 프로젝트: .cad.json\n형상 교환: STEP / STL'))
         help.addAction(self.action('openai_setup','OpenAI 연결 · API 키 발급…',self.openai_setup))
+        help.addAction(self.action('codex_setup','Codex 연결 · ChatGPT 구독…',self.codex_setup))
     def make_toolbar(self):
         self.toolbar=QToolBar('작업 공간');self.toolbar.setObjectName('modelToolbar');self.toolbar.setMovable(False);self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.toolbar.setIconSize(QSize(25,25));self.addToolBar(self.toolbar)
         for key in ('new','open','save'):self.toolbar.addAction(self.actions[key])
@@ -349,8 +350,12 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def make_ai(self):
         w=QWidget();v=QVBoxLayout(w);v.setContentsMargins(12,12,12,12)
         self.prompt=QPlainTextEdit();self.prompt.setObjectName('designPrompt');self.prompt.setPlaceholderText('만들 형상과 치수, 바꿀 부분을 입력하세요.\n예: 선택한 구멍을 지름 6 mm로 줄여줘.');self.prompt.setMinimumHeight(84);self.prompt.setMaximumHeight(110);v.addWidget(self.prompt)
-        self.provider=combo([('local','오프라인 치수 명령 · 키 불필요'),('openai','OpenAI · 유료 API'),('ollama','로컬 AI · Ollama')]);v.addWidget(self.provider)
+        self.provider=combo([('local','오프라인 치수 명령 · 키 불필요'),('codex','Codex · ChatGPT 구독'),('openai','OpenAI · 유료 API'),('ollama','로컬 AI · Ollama')]);v.addWidget(self.provider)
         self.openai_setup_button=button('OpenAI 연결 · API 키 발급…',self.openai_setup);self.openai_setup_button.setToolTip('로그인·키 발급·결제 설정 안내를 엽니다.');v.addWidget(self.openai_setup_button)
+        self.codex_setup_button=button('Codex 연결 · ChatGPT로 로그인…',self.codex_setup);v.addWidget(self.codex_setup_button)
+        from .codex_connection import settings as codex_settings
+        self.codex_config=codex_settings();self.codex_catalog=[]
+        self.codex_model_label=label('Codex 모델: '+(self.codex_config['model'] or '연결 후 선택'),True);v.addWidget(self.codex_model_label)
         self.ai_info=label('',True);v.addWidget(self.ai_info)
         self.ai_result=QPlainTextEdit();self.ai_result.setReadOnly(True);self.ai_result.setPlaceholderText('생성 진행과 검증 결과가 여기에 표시됩니다.');self.ai_result.setMinimumHeight(100)
         self.ai_settings_toggle=button('모델 · 대기 설정',lambda:None);self.ai_settings_toggle.setCheckable(True);self.ai_settings_toggle.setToolTip('모델 선택, 최대 대기 시간, API 키 설정');header=QHBoxLayout();header.addWidget(label('설계 요청'));header.addStretch();header.addWidget(self.ai_settings_toggle);v.insertLayout(0,header)
@@ -386,6 +391,16 @@ class MainWindow(QMainWindow,PartSelectionUI):
             self.message('API 키를 입력했습니다. 모델을 선택하고 설계 초안 생성을 누르세요. 인증은 요청 시 확인합니다.')
         finally:
             dialog.key.clear();dialog.deleteLater()
+    def codex_setup(self):
+        if self.ai_task:return
+        from .codex_setup import CodexSetupDialog
+        dialog=CodexSetupDialog(self)
+        try:
+            if dialog.exec()!=QDialog.DialogCode.Accepted:return
+            self.codex_config=dict(executable=dialog.executable_path,model=dialog.model_name);self.codex_catalog=dialog.catalog
+            self.provider.setCurrentIndex(self.provider.findData('codex'));self.provider_changed()
+            self.ai_dock.show();self.ai_dock.raise_();self.message('Codex에 연결했습니다. 설계 명령을 입력하고 초안 생성을 누르세요.')
+        finally:dialog.deleteLater()
     def refresh_ai_target(self):
         if not hasattr(self,'ai_target'):return
         raw=self.document.design or {};names={p['id']:p['name'] for p in raw.get('parts',[])}
@@ -859,10 +874,19 @@ class MainWindow(QMainWindow,PartSelectionUI):
             return target
         self.run(work,lambda p:self.message('내보내기 완료: '+str(p)),'형상 내보내는 중…')
     def provider_changed(self):
-        provider=self.provider.currentData();self.astra_button.setVisible(provider=='openai');self.cloud_effort.setVisible(provider=='openai');self.key.setVisible(provider=='openai');self.model.setVisible(provider=='openai');self.ollama_models.setVisible(provider=='ollama')
-        self.ai_info.setText({'local':'이름·치수를 해석하는 오프라인 명령입니다. 자유로운 문장용 AI는 아닙니다.','openai':'유료 API · 프롬프트와 설계를 OpenAI로 전송합니다. 키는 저장하지 않습니다.','ollama':'이 PC의 모델로 실행 · API 키 불필요. 설치된 모델을 자동으로 찾습니다.'}[provider])
+        provider=self.provider.currentData();self.astra_button.setVisible(provider=='openai');self.cloud_effort.setVisible(provider in ('openai','codex'));self.key.setVisible(provider=='openai');self.model.setVisible(provider=='openai');self.ollama_models.setVisible(provider=='ollama')
+        self.openai_setup_button.setVisible(provider=='openai');self.codex_setup_button.setVisible(provider=='codex');self.codex_model_label.setVisible(provider=='codex')
+        self.codex_model_label.setText('Codex 모델: '+(self.codex_config['model'] or '연결 후 선택'))
+        self.ai_info.setText({'local':'이름·치수를 해석하는 오프라인 명령입니다. 자유로운 문장용 AI는 아닙니다.','codex':'ChatGPT 구독의 Codex 사용량 적용 · 프롬프트와 현재 설계를 전송합니다. API로 자동 전환하지 않습니다.','openai':'유료 API · 프롬프트와 설계를 OpenAI로 전송합니다. 키는 저장하지 않습니다.','ollama':'이 PC의 모델로 실행 · API 키 불필요. 설치된 모델을 자동으로 찾습니다.'}[provider])
         self.ai_info.setToolTip('OpenAI 초안 생성은 최대 4회 요청으로 계획과 형상을 검증합니다. 취소 전 사용량은 청구될 수 있습니다.' if provider=='openai' else self.ai_info.text())
-        if provider=='openai':self.ai_settings_toggle.setChecked(True)
+        if provider in ('openai','codex'):self.ai_settings_toggle.setChecked(True)
+        for i in range(self.cloud_effort.count()):self.cloud_effort.model().item(i).setEnabled(True)
+        if provider=='codex' and self.codex_catalog:
+            selected=next((item for item in self.codex_catalog if item['model']==self.codex_config['model']),None)
+            if selected:
+                for i in range(self.cloud_effort.count()):self.cloud_effort.model().item(i).setEnabled(self.cloud_effort.itemData(i) in selected['efforts'])
+                if self.cloud_effort.currentData() not in selected['efforts']:
+                    index=next((i for i in range(self.cloud_effort.count()) if self.cloud_effort.itemData(i) in selected['efforts']),-1);self.cloud_effort.setCurrentIndex(index)
         self.last_draft=None;self.accept_draft.setEnabled(False)
         if provider=='ollama':self.ollama_models.refresh()
     def install_local_ai(self):
@@ -876,12 +900,17 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if len(prompt)>4000:self.show_error('명령은 4,000자 이내로 입력하세요.');return
         provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,selected_feature=getattr(self,'selected_feature',None),selected_joint=getattr(self,'selected_joint',None),mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();effort=self.cloud_effort.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
         if provider=='ollama' and not model:self.ai_settings_toggle.setChecked(True);self.ai_result.setPlainText('Ollama 모델을 먼저 선택하세요. 설정에서 새로 찾기 또는 로컬 AI 설치 / 모델 다운로드를 사용하세요.');self.ai_scroll.ensureWidgetVisible(self.ollama_models);return
+        codex_config=dict(self.codex_config)
+        if provider=='codex' and not codex_config['model']:self.ai_result.setPlainText('Codex 연결 버튼에서 ChatGPT로 로그인하고 모델을 선택하세요.');return
         def work(control,progress):
             from ..planner import local_draft
             if provider=='local':result=local_draft(request)
             elif provider=='ollama':
                 from .local_ai import ollama_draft
                 result=ollama_draft(request,model,control=control,progress=progress,deadline=deadline)
+            elif provider=='codex':
+                from .codex_ai import generate
+                result=generate(request,codex_config['model'],executable=codex_config['executable'],control=control,progress=progress,deadline=deadline,effort=effort)
             else:
                 if not key:raise ValueError('API 키를 입력하거나 OPENAI_API_KEY 환경변수를 설정하세요.')
                 from .local_ai import cloud_draft
@@ -894,12 +923,13 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.ai_started=time.monotonic();self.ai_stage='모델 연결 / 준비 중…';self.ai_controls(True);self.ai_tick();self.ai_timer.start();self.ai_task.start()
     def ai_controls(self,running):
         self.generate_button.setEnabled(not running and not self.busy and not self.sketching);self.cancel_ai_button.setVisible(running);self.ai_status_button.setVisible(running)
-        for widget in (self.provider,self.prompt,self.ollama_models,self.model,self.key,self.ai_timeout,self.astra_button,self.cloud_effort,self.openai_setup_button):widget.setEnabled(not running)
+        for widget in (self.provider,self.prompt,self.ollama_models,self.model,self.key,self.ai_timeout,self.astra_button,self.cloud_effort,self.openai_setup_button,self.codex_setup_button):widget.setEnabled(not running)
         self.actions['openai_setup'].setEnabled(not running)
+        self.actions['codex_setup'].setEnabled(not running)
     @Slot()
     def ai_tick(self):
         if not self.ai_task:return
-        elapsed=int(time.monotonic()-self.ai_started);policy=' · 대기 무제한' if self.provider.currentData() in ('ollama','openai') and self.ai_timeout.currentData() is None else '';text=f'{self.ai_stage}\n경과 {elapsed//60:02d}:{elapsed%60:02d}{policy}\n\n생성 중에도 CAD 작업과 저장이 가능합니다. 취소하거나 앱을 종료할 수 있습니다.'
+        elapsed=int(time.monotonic()-self.ai_started);policy=' · 대기 무제한' if self.provider.currentData() in ('ollama','openai','codex') and self.ai_timeout.currentData() is None else '';text=f'{self.ai_stage}\n경과 {elapsed//60:02d}:{elapsed%60:02d}{policy}\n\n생성 중에도 CAD 작업과 저장이 가능합니다. 취소하거나 앱을 종료할 수 있습니다.'
         if elapsed>=30 and self.provider.currentData()=='ollama':text+='\n로컬 모델은 PC 성능과 설계 크기에 따라 몇 분 걸릴 수 있습니다.'
         self.ai_result.setPlainText(text);self.ai_status_button.setText(f'AI {elapsed//60:02d}:{elapsed%60:02d} · 취소')
     @Slot(object)
@@ -932,7 +962,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         draft=self.last_draft
         if not draft or self.busy or self.sketching:return
         if draft['serial']!=self.operation_serial:self.show_error('초안 생성 이후 설계가 변경되었습니다. 현재 설계로 초안을 다시 생성하세요.');return
-        self.document.prompt=draft['prompt'];context=dict(source='openai' if draft['provider']=='openai' else 'local',provider=draft['provider'],prompt=draft['prompt'],summary=draft['response']['summary'],assumptions=draft['response'].get('assumptions',[]),tool='prompt',tool_actions=draft['response'].get('tool_actions',[]),journal_base=draft['response'].get('journal_base'),journal_steps=draft['response'].get('journal_steps',[]));self.apply_design(draft['design'],'설계 명령 적용',context,fit=True);self.last_draft=None;self.accept_draft.setEnabled(False)
+        self.document.prompt=draft['prompt'];context=dict(source='openai' if draft['provider'] in ('openai','codex') else 'local',provider=draft['provider'],prompt=draft['prompt'],summary=draft['response']['summary'],assumptions=draft['response'].get('assumptions',[]),tool='prompt',tool_actions=draft['response'].get('tool_actions',[]),journal_base=draft['response'].get('journal_base'),journal_steps=draft['response'].get('journal_steps',[]));self.apply_design(draft['design'],'설계 명령 적용',context,fit=True);self.last_draft=None;self.accept_draft.setEnabled(False)
     def help_dialog(self):
         from .shortcuts import show_manual
         show_manual(self)

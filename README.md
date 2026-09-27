@@ -1,5 +1,7 @@
 # Prompt CAD Studio · Native 2.6.2
 
+**v2.7.0 — Codex · ChatGPT 구독 모드:** 기존 Codex 로그인으로 설계 요청을 실행합니다. AI 패널에서 Codex 선택 → Codex 연결 → 기존 로그인 사용 → 모델 선택. API 키가 필요하지 않으며 Codex 구독 사용량이 적용됩니다. [연결 방법과 한계](docs/CODEX_MODE_KO.md).
+
 사람이 직접 설계하고, 필요할 때 프롬프트로 도움을 받는 한국어 Windows CAD 앱입니다. **Qt Widgets + VTK OpenGL + Open CASCADE**로 실행하며 HTML, WebView, 브라우저, 내장 HTTP 서버를 사용하지 않습니다.
 
 Fusion의 스케치 → 피처 → 조립 → 작업 기록 흐름을 참고했습니다. Autodesk 제품이 아니며 Fusion의 전체 기능을 구현한 것은 아닙니다.

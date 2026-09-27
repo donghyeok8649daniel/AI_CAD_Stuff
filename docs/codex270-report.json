@@ -1,0 +1,23 @@
+{
+  "checks": [
+    "blank start",
+    "ChatGPT connection discoverable",
+    "no API key field in subscription mode",
+    "native worker completed",
+    "subscription draft ready",
+    "preview does not replace current design",
+    "explicit apply enabled",
+    "native worker completed",
+    "real through hole volume",
+    "single connected body",
+    "editable hole feature preserved",
+    "generate reachable at compact size",
+    "apply reachable at compact size",
+    "closing login is immediate and cancellable",
+    "native worker completed",
+    "account and model result in native setup",
+    "connection result visible at compact size"
+  ],
+  "real_model_calls": 0,
+  "passed": true
+}

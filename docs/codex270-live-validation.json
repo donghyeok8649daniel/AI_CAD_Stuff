@@ -1,0 +1,53 @@
+{
+  "provider": "codex",
+  "authentication": "ChatGPT Pro",
+  "model": "gpt-6-astra",
+  "codex_cli": "0.154.0",
+  "api_calls": 0,
+  "cases": [
+    {
+      "case": "wheel",
+      "seconds": 12.51,
+      "attempts": 1,
+      "volume": 19132.299260361844,
+      "expected_volume": 19132.29926036184,
+      "valid": true,
+      "parts": 1,
+      "tool_actions": [
+        {
+          "step": 1,
+          "tool": "create",
+          "target": "wheel",
+          "args": {
+            "name": "원형 바퀴",
+            "geometry": {
+              "kind": "cylinder",
+              "diameter": 50,
+              "height": 10,
+              "bore_diameter": 8
+            }
+          },
+          "validated": true
+        }
+      ]
+    },
+    {
+      "case": "plate",
+      "seconds": 14.17,
+      "attempts": 1,
+      "volume": 18295.22131576613,
+      "expected_volume": 18295.22131576614,
+      "valid": true,
+      "parts": 1
+    },
+    {
+      "case": "edit",
+      "seconds": 12.13,
+      "attempts": 1,
+      "volume": 18503.980729643885,
+      "expected_volume": 18503.98072964388,
+      "valid": true,
+      "parts": 1
+    }
+  ]
+}
