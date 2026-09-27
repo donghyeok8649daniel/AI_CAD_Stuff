@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import uuid4
 from PySide6.QtCore import Qt,QTimer,QThreadPool,QSize,Slot
 from PySide6.QtGui import QAction,QKeySequence,QColor,QIcon
-from PySide6.QtWidgets import (QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QDockWidget,QTreeWidget,QTreeWidgetItem,QListWidget,QListWidgetItem,QAbstractItemView,QStackedWidget,QScrollArea,QToolBar,QToolButton,QMenu,QLineEdit,QComboBox,QCheckBox,QPlainTextEdit,QFileDialog,QMessageBox,QDialog,QDialogButtonBox,QColorDialog,QProgressBar,QLabel,QSplitter,QInputDialog)
+from PySide6.QtWidgets import (QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QDockWidget,QTreeWidget,QTreeWidgetItem,QListWidget,QListWidgetItem,QAbstractItemView,QStackedWidget,QScrollArea,QToolBar,QToolButton,QMenu,QLineEdit,QComboBox,QCheckBox,QPlainTextEdit,QFileDialog,QMessageBox,QDialog,QDialogButtonBox,QColorDialog,QProgressBar,QLabel,QSplitter,QInputDialog,QLayout)
 from .document import Document,read_project
 from .widgets import icon,number,label,button,clear_layout,Worker
 from .viewport import CADViewport
@@ -72,7 +72,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             if kind not in ('sweep','loft','revolve','imported','sheetmetal'):model.addAction(title,lambda k=kind:self.add_preset(k))
         model.addSeparator();model.addAction(self.action('sweep','스윕 편집…',lambda:self.modelling_dialog('sweep'),None,'extrude'));model.addAction(self.action('loft','로프트 편집…',lambda:self.modelling_dialog('loft'),None,'extrude'));model.addAction(self.action('surface','곡면 만들기…',lambda:self.modelling_dialog('loft',surface=True),None,'sketch'));model.addAction(self.action('edge_finish','3D 필렛 / 모따기…',self.edge_finish_dialog,None,'extrude'))
         model.addAction(self.action('extrude','3D 돌출 / 깊이 편집 · E',self.extrude_dialog,None,'extrude'));edit.addAction(self.action('parameters','변수 / 연결 치수 · U',self.parameter_dialog,None,'dimension'))
-        assembly=self.menuBar().addMenu('조립(&A)');assembly.addAction(self.action('face_joint','면으로 조인트',self.start_face_joint,None,'assembly'));self.actions['face_joint'].setCheckable(True);assembly.addAction(self.action('drive','관절 구동',self.drive_joints,None,'origin'));assembly.addAction(self.action('robot','로봇 치수',self.robot_dialog,None,'assembly'));assembly.addAction(self.action('mate','기준점으로 연결…',self.mate_dialog,None,'assembly'));model.addAction(self.action('specimen','시편 설계',self.specimen_dialog,None,'specimen'))
+        assembly=self.menuBar().addMenu('조립(&A)');assembly.addAction(self.action('joint_hardware','실제 관절 구조…',self.joint_hardware_dialog,None,'assembly'));assembly.addAction(self.action('face_joint','면으로 조인트',self.start_face_joint,None,'assembly'));self.actions['face_joint'].setCheckable(True);assembly.addAction(self.action('drive','관절 구동',self.drive_joints,None,'origin'));assembly.addAction(self.action('robot','로봇 치수',self.robot_dialog,None,'assembly'));assembly.addAction(self.action('mate','기준점으로 연결…',self.mate_dialog,None,'assembly'));model.addAction(self.action('specimen','시편 설계',self.specimen_dialog,None,'specimen'))
         assembly.addAction(self.action('loop','폐루프 연결…',self.closure_dialog,None,'assembly'));assembly.addAction(self.action('four_bar','4절 링크 추가',self.add_four_bar,None,'assembly'))
         model.addAction(self.action('hole','구멍 뚫기…',self.hole_dialog,None,'cut'));model.addAction(self.action('measure','길이 측정…',self.measure_dialog,None,'dimension'))
         model.addAction(self.action('thread','나사산 · 수나사 / 암나사 · T',self.thread_dialog,None,'thread'))
@@ -104,7 +104,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         b=QToolButton();b.setText('부품 추가');b.setIcon(icon('extrude'));b.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);b.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup);menu=QMenu(b)
         for kind,title in TITLES.items():menu.addAction(title,lambda k=kind:self.add_preset(k))
         b.setMenu(menu);self.add_part_action=self.toolbar.addWidget(b)
-        for key in ('face_joint','drive','robot','mate'):self.add_mode_tool('assembly',key)
+        for key in ('face_joint','drive','joint_hardware','robot','mate'):self.add_mode_tool('assembly',key)
         self.add_mode_tool('assembly','loop');self.add_mode_tool('assembly','robot_study')
         self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure']);self.toolbar.addAction(self.actions['color']);self.toolbar.addAction(self.actions['parameters']);self.toolbar.addSeparator()
         for key in ('undo','redo','fit'):self.toolbar.addAction(self.actions[key])
@@ -315,6 +315,12 @@ class MainWindow(QMainWindow,PartSelectionUI):
         from .workflows import RobotDialog
         dialog=RobotDialog(self,self.document.design)
         if dialog.exec()==QDialog.DialogCode.Accepted:self.apply_design(dialog.checked.model_dump(),'로봇 링크 / 핀 / 관절 치수 편집',{'tool':'robot','dimensions':{k:w.value() for k,w in dialog.inputs.items()}},fit=True)
+    def joint_hardware_dialog(self):
+        if self.busy or self.sketching:return
+        from .joint_hardware_dialog import JointHardwareDialog
+        dialog=JointHardwareDialog(self,self.document.design,self.selected_joint)
+        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.checked:
+            payload=dialog.candidate();payload.pop('raw');self.apply_design(dialog.checked.model_dump(),'실제 회전 관절 구조 추가',{'tool':'joint-hardware',**payload},fit=True,after=lambda:self.select_parts(dialog.part_ids))
     def drive_joints(self):
         if self.busy or self.sketching:return
         if not self.document.design or not any(m['kind']!='rigid' for m in self.document.design['mates']):self.message('회전·슬라이더·원통 조인트를 먼저 만들거나 로봇 조립을 추가하세요.');return
@@ -344,7 +350,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.tree=QTreeWidget();self.tree.setObjectName('designBrowser');self.tree.setHeaderHidden(True);self.tree.setMinimumWidth(190);self.tree.itemClicked.connect(self.tree_clicked);self.tree.itemDoubleClicked.connect(self.tree_edit);self.tree.itemChanged.connect(self.visibility_changed);self.browser_dock=self.dock('설계 브라우저','browserDock',Qt.DockWidgetArea.LeftDockWidgetArea,self.tree);self.resizeDocks([self.browser_dock],[225],Qt.Orientation.Horizontal)
         self.prepare_tree_selection()
     def make_properties(self):
-        scroll=QScrollArea();scroll.setWidgetResizable(True);self.properties=QWidget();self.property_layout=QVBoxLayout(self.properties);self.property_layout.setContentsMargins(14,14,14,14);scroll.setWidget(self.properties);scroll.setMinimumWidth(270);self.property_dock=self.dock('속성 / 선택','propertiesDock',Qt.DockWidgetArea.RightDockWidgetArea,scroll);self.resizeDocks([self.property_dock],[305],Qt.Orientation.Horizontal)
+        scroll=QScrollArea();scroll.setWidgetResizable(True);self.properties=QWidget();self.property_layout=QVBoxLayout(self.properties);self.property_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinAndMaxSize);self.property_layout.setContentsMargins(14,14,14,14);scroll.setWidget(self.properties);scroll.setMinimumWidth(270);self.property_dock=self.dock('속성 / 선택','propertiesDock',Qt.DockWidgetArea.RightDockWidgetArea,scroll);self.resizeDocks([self.property_dock],[305],Qt.Orientation.Horizontal)
     def make_timeline(self):
         w=QWidget();v=QVBoxLayout(w);v.setContentsMargins(10,8,10,8);row=QHBoxLayout();row.addWidget(label('작업 기록 · 클릭: 상세 · 더블클릭: 해당 단계로 복원',True));row.addStretch();row.addWidget(button('모든 분기 / 상세',self.history_dialog));v.addLayout(row);self.timeline=QListWidget();self.timeline.setObjectName('featureTimeline');self.timeline.setFlow(QListWidget.Flow.LeftToRight);self.timeline.setWrapping(False);self.timeline.setFixedHeight(66);self.timeline.setIconSize(QSize(24,24));self.timeline.itemClicked.connect(self.history_clicked);self.timeline.itemDoubleClicked.connect(lambda item:self.restore_history(item.data(Qt.ItemDataRole.UserRole)));v.addWidget(self.timeline);self.timeline_dock=self.dock('피처 / 작업 타임라인','historyDock',Qt.DockWidgetArea.BottomDockWidgetArea,w)
     def make_ai(self):
@@ -548,6 +554,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
             self.property_layout.addWidget(label('사람이 설계하고, 필요할 때 AI를 사용하세요.'));self.property_layout.addWidget(label('① 기준 평면 선택\n② 스케치 작성\n③ 닫힌 영역 돌출\n④ 면 선택 → 스케치 → 구멍 / 돌출',True));self.property_layout.addWidget(button('XY 평면에 스케치',lambda:self.start_sketch('XY'),True));self.property_layout.addWidget(button('시편 치수 설계',self.specimen_dialog));self.property_layout.addWidget(button('로봇 조립 설계',self.robot_dialog));self.property_layout.addStretch();return
         heading=label(part['name']);heading.setStyleSheet('font-size:17px;font-weight:600;');self.property_layout.addWidget(heading);form=QFormLayout();name=QLineEdit(part['name']);name.setObjectName('partName');form.addRow('부품 이름',name);inputs={};g=part['geometry'];changed_dimensions=set()
         group=next((g for g in self.document.design.get('part_groups',[]) if part['id'] in g['part_ids']),None)
+        self.property_layout.addWidget(button('선택 부품만 보기 / 돌아오기',self.isolate_parts))
+        self.property_layout.addWidget(button('이 부품 STEP / STL 내보내기',self.export_selected_parts))
         if group:
             self.property_layout.addWidget(button(group['name']+' · 그룹 전체 선택',lambda:self.select_parts(group['part_ids'])))
             self.property_layout.addWidget(button('그룹 해제 · Ctrl+Shift+G',self.ungroup_parts))
@@ -795,6 +803,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.selected_joint=identifier;self.selected_feature=None;self.refresh_ai_target()
         from ..assembly_motion import JOINT_TITLES,JOINT_AXES
         mate=next(m for m in self.document.design['mates'] if m['id']==identifier);names={p['id']:p['name'] for p in self.document.design['parts']};clear_layout(self.property_layout);self.property_layout.addWidget(label('조립 구속 · '+JOINT_TITLES[mate['kind']]));self.property_layout.addWidget(label(names[mate['parent']]+' → '+names[mate['child']]));self.property_layout.addWidget(label('운동 축: '+(', '.join(a.upper() for a in JOINT_AXES[mate['kind']]) or '없음 · 강체 연결')+'\n이동 XYZ: '+', '.join(f"{mate[k]:g}" for k in ('x','y','z'))+' mm\n회전 XYZ: '+', '.join(f"{mate[k]:g}" for k in ('rx','ry','rz'))+' °',True));self.property_layout.addWidget(button('연결된 부품 선택',lambda:self.select_parts([mate['parent'],mate['child']])));self.property_layout.addWidget(button('관절 구동 · 간섭 확인',self.drive_joints,True));self.property_layout.addWidget(button('고급 구속 / 오프셋 편집',lambda:self.mate_dialog(identifier)))
+        if mate['kind']=='revolute':self.property_layout.addWidget(button('이 관절에 실제 축 / 하우징 구조 추가',self.joint_hardware_dialog,True))
         def remove():data=deepcopy(self.document.design);data['mates']=[m for m in data['mates'] if m['id']!=identifier];data['joint_frames']=[f for f in data.get('joint_frames',[]) if f['mate_id']!=identifier];prune_joint_references(data);self.apply_design(data,'조립 구속 삭제',{'mate_id':identifier})
         self.property_layout.addWidget(button('구속 삭제',remove));self.property_layout.addStretch()
     def mate_dialog(self,identifier=None):
@@ -829,7 +838,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def new_document(self):
         if self.busy or self.sketching or not self.check_save():return
         self.cancel_ai();self.operation_serial+=1;self.accept_draft.setEnabled(False)
-        self.document=Document();self.result=None;self.selected=None;self.selected_parts=[];self.selected_sketch=None;self.selected_profile=None;self.last_draft=None;self.viewport.load(None);self.viewport.joints.set_design(None);self.viewport.hidden.clear();self.rebuild_tree();self.rebuild_timeline();self.show_properties();self.title()
+        self.document=Document();self.result=None;self.selected=None;self.selected_parts=[];self.selected_sketch=None;self.selected_profile=None;self.last_draft=None;self.viewport.load(None);self.viewport.joints.set_design(None);self.viewport.hidden.clear();self.isolation_hidden=None;self.actions['isolate'].setChecked(False);self.rebuild_tree();self.rebuild_timeline();self.show_properties();self.title()
     def recover_autosave(self):
         if self.busy or self.sketching:return
         if not self.autosave.exists():self.message('복구할 자동저장 파일이 없습니다.');return
@@ -845,7 +854,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         def work():
             with KERNEL_LOCK:project=read_project(path);r=preview(project.design);return project,r
         def done(result):
-            project,self.result=result;self.document.load(project,None if recovery else path);self.operation_serial+=1;self.last_draft=None;self.accept_draft.setEnabled(False);self.document.dirty=recovery;self.selected=project.design.parts[0].id if project.design.parts else None;self.selected_sketch=None;self.prompt.setPlainText(project.prompt);self.viewport.hidden.clear();self.viewport.load(self.result,True);self.viewport.joints.set_design(project.design);self.rebuild_tree();self.select_parts([self.selected] if self.selected else []);self.rebuild_timeline();self.title();self.message('자동 저장한 설계를 복구했습니다.' if recovery else '프로젝트와 작업 기록을 열었습니다.')
+            project,self.result=result;self.document.load(project,None if recovery else path);self.operation_serial+=1;self.last_draft=None;self.accept_draft.setEnabled(False);self.document.dirty=recovery;self.selected=project.design.parts[0].id if project.design.parts else None;self.selected_sketch=None;self.prompt.setPlainText(project.prompt);self.viewport.hidden.clear();self.isolation_hidden=None;self.actions['isolate'].setChecked(False);self.viewport.load(self.result,True);self.viewport.joints.set_design(project.design);self.rebuild_tree();self.select_parts([self.selected] if self.selected else []);self.rebuild_timeline();self.title();self.message('자동 저장한 설계를 복구했습니다.' if recovery else '프로젝트와 작업 기록을 열었습니다.')
         self.run(work,done,'프로젝트 · 작업 기록 검증 중…')
     def save(self,save_as=False):
         if self.busy or self.sketching or not self.document.design:return False

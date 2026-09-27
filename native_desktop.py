@@ -8,8 +8,8 @@ import traceback
 from cadstudio import __version__
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--open',type=Path);parser.add_argument('--no-restore',action='store_true');parser.add_argument('--smoke-test',type=Path);parser.add_argument('--self-test',type=Path);parser.add_argument('--setup-ai',action='store_true');parser.add_argument('--setup-codex',action='store_true');parser.add_argument('--codex-smoke',type=Path);parser.add_argument('--advanced-smoke',type=Path);parser.add_argument('--reliability-smoke',type=Path);parser.add_argument('--direct-smoke',type=Path);parser.add_argument('--thread-smoke',type=Path);parser.add_argument('--sketch-guide-smoke',type=Path);parser.add_argument('--extended-smoke',type=Path);parser.add_argument('--ai-smoke','--wheel-smoke',dest='ai_smoke',type=Path);parser.add_argument('--selection-smoke',type=Path);args=parser.parse_args()
-    if (args.ai_smoke or args.selection_smoke) and not os.getenv('CADSTUDIO_DATA_DIR'):os.environ['CADSTUDIO_DATA_DIR']=str((args.ai_smoke or args.selection_smoke).resolve().parent/'test-profile')
+    parser=argparse.ArgumentParser();parser.add_argument('--open',type=Path);parser.add_argument('--no-restore',action='store_true');parser.add_argument('--smoke-test',type=Path);parser.add_argument('--self-test',type=Path);parser.add_argument('--setup-ai',action='store_true');parser.add_argument('--setup-codex',action='store_true');parser.add_argument('--codex-smoke',type=Path);parser.add_argument('--mechanical-smoke',type=Path);parser.add_argument('--advanced-smoke',type=Path);parser.add_argument('--reliability-smoke',type=Path);parser.add_argument('--direct-smoke',type=Path);parser.add_argument('--thread-smoke',type=Path);parser.add_argument('--sketch-guide-smoke',type=Path);parser.add_argument('--extended-smoke',type=Path);parser.add_argument('--ai-smoke','--wheel-smoke',dest='ai_smoke',type=Path);parser.add_argument('--selection-smoke',type=Path);args=parser.parse_args()
+    if (args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke) and not os.getenv('CADSTUDIO_DATA_DIR'):os.environ['CADSTUDIO_DATA_DIR']=str((args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke).resolve().parent/'test-profile')
     data=Path(os.getenv('CADSTUDIO_DATA_DIR',str(Path(os.getenv('LOCALAPPDATA',str(Path.home()/'AppData/Local')))/'PromptCADStudio')));data.mkdir(parents=True,exist_ok=True);os.environ['CADSTUDIO_DATA_DIR']=str(data)
     log=(data/'native-desktop.log').open('a',encoding='utf-8',buffering=1)
     if sys.stdout is None:sys.stdout=log
@@ -40,6 +40,10 @@ def main():
         kernel_self_test(args.self_test);return 0
     from cadstudio.native.window import MainWindow
     window=MainWindow();window.show()
+    if args.mechanical_smoke:
+        from cadstudio.native.mechanical_smoke import run
+        QTimer.singleShot(300,lambda:run(app,window,args.mechanical_smoke))
+        return app.exec()
     if args.codex_smoke:
         from cadstudio.native.codex_smoke import run
         QTimer.singleShot(300,lambda:run(app,window,args.codex_smoke))

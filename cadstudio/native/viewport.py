@@ -38,13 +38,18 @@ class CADStyle(vtkInteractorStyleTrackballCamera):
         self.AddObserver('MouseMoveEvent',self.move)
     def press(self,caller,event):
         self.down=self.GetInteractor().GetEventPosition()
+        self.axis_drag=self.owner.axis_at(self.down);self.axis_last=self.down
+        if self.axis_drag is not None:return
         self.additive=bool(self.GetInteractor().GetShiftKey() or self.GetInteractor().GetControlKey())
-        self.box=bool(self.owner.box_mode or self.additive)
+        self.box=bool(not self.owner.orbit_mode and (self.owner.box_mode or self.additive))
         if self.owner.handle and self.owner.handle.press(self.down):self.box=False;return
         if self.box:return
         self.OnLeftButtonDown()
     def release(self,caller,event):
         pos=self.GetInteractor().GetEventPosition()
+        if getattr(self,'axis_drag',None) is not None:
+            if self.down and math.dist(self.down,pos)<5:self.owner.orient_axis(self.axis_drag)
+            self.down=None;self.axis_drag=None;return
         if getattr(self,'box',False):
             self.owner.rubber.hide()
             if self.down:
@@ -53,14 +58,18 @@ class CADStyle(vtkInteractorStyleTrackballCamera):
             self.down=None;self.box=False;return
         if self.owner.handle and self.owner.handle.release():self.down=None;return
         self.OnLeftButtonUp()
-        if self.down and math.dist(self.down,pos)<5:self.owner.pick(*pos)
+        if self.down and math.dist(self.down,pos)<5 and not self.owner.orbit_mode:self.owner.pick(*pos)
         self.down=None
     def move(self,caller,event):
         pos=self.GetInteractor().GetEventPosition()
+        if self.down is not None and getattr(self,'axis_drag',None) is not None:
+            if math.dist(self.down,pos)>=5:
+                camera=self.owner.renderer.GetActiveCamera();camera.Azimuth((self.axis_last[0]-pos[0])*.6);camera.Elevation((self.axis_last[1]-pos[1])*.6);camera.OrthogonalizeViewUp();self.owner.renderer.ResetCameraClippingRange();self.owner.window.Render()
+            self.axis_last=pos;return
         if self.down is not None and getattr(self,'box',False):self.owner.show_rubber(self.down,pos);return
         if self.owner.handle and self.owner.handle.move(pos):return
         self.OnMouseMove()
-        if self.down is None:self.owner.hover_profile(*pos)
+        if self.down is None and not self.owner.orbit_mode:self.owner.hover_profile(*pos)
     def key(self,caller,event):
         key=self.GetInteractor().GetKeySym()
         if key.lower()=='f':self.owner.fit()
@@ -79,7 +88,7 @@ class CADViewport(QWidget,SelectionTools):
     face_selected=Signal(str,object)
     message=Signal(str)
     def __init__(self,parent=None):
-        super().__init__(parent);self.setObjectName('cadViewport');self.meshes={};self.actors={};self.actor_ids={};self.hidden=set();self.selected=None;self.selected_ids=[];self.face=None;self.box_mode=False
+        super().__init__(parent);self.setObjectName('cadViewport');self.meshes={};self.actors={};self.actor_ids={};self.hidden=set();self.selected=None;self.selected_ids=[];self.face=None;self.box_mode=False;self.orbit_mode=False
         self.closed=False;self.show_edges=True;self.face_pick=False;self.result=None;self.grid_actor=None;self.highlight=None;self.sketch_actors={};self.edge_candidates={};self.pick_objects={};self.selection_mode='auto';self.profile_actors={};self.hovered_profile=None;self.handle=None
         layout=QVBoxLayout(self);layout.setContentsMargins(0,0,0,0);layout.setSpacing(0)
         bar=QHBoxLayout();bar.setContentsMargins(12,8,12,8);self.caption=QLabel('새 설계 · XY 원점');self.caption.setStyleSheet('font-weight:600;color:#afc7d6;');self.caption.setWordWrap(True);self.caption.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);layout.addWidget(self.caption);self.caption.setContentsMargins(12,7,12,0);bar.addStretch()
@@ -102,7 +111,7 @@ class CADViewport(QWidget,SelectionTools):
         self.joints=AssemblyDisplay(self);self.rubber=QRubberBand(QRubberBand.Shape.Rectangle,self.widget)
         self.interactor=self.window.GetInteractor();self.style=CADStyle(self);self.style.SetDefaultRenderer(self.renderer);self.interactor.SetInteractorStyle(self.style)
         self.axes=vtkAxesActor();self.axes.SetShaftTypeToCylinder();self.axes_widget=vtkOrientationMarkerWidget();self.axes_widget.SetOrientationMarker(self.axes);self.axes_widget.SetInteractor(self.interactor);self.axes_widget.SetViewport(0,0,.13,.19)
-        self.footer=QLabel('드래그: 회전 · Shift+클릭: 추가/해제 · Shift+드래그: 범위 추가 · B: 범위 선택 · J: 관절');self.footer.setWordWrap(True)
+        self.footer=QLabel('드래그: 회전 · Shift: 추가 선택 · Esc: 선택 해제 / 회전 · 아래 XYZ: 클릭 / 드래그로 시점 변경');self.footer.setWordWrap(True)
         self.footer.setStyleSheet('padding:7px 12px;background:#17232e;color:#92aabd;font-size:11px;');layout.addWidget(self.footer)
         self.make_grid(100);self.set_view('iso',render=False);QTimer.singleShot(0,self.initialize)
 
@@ -279,6 +288,37 @@ class CADViewport(QWidget,SelectionTools):
         directions={'iso':((1,-1,1), (0,0,1)),'top':((0,0,1),(0,1,0)),'front':((0,-1,0),(0,0,1)),'right':((1,0,0),(0,0,1))}
         position,up=directions[name];camera.SetPosition(*[v*200 for v in position]);camera.SetFocalPoint(0,0,0);camera.SetViewUp(*up)
         if render:self.fit()
+
+    def axis_points(self):
+        renderer=self.axes_widget.GetRenderer();points={}
+        for name,p in [('origin',(0,0,0)),('x',(1,0,0)),('y',(0,1,0)),('z',(0,0,1))]:
+            renderer.SetWorldPoint(*p,1);renderer.WorldToDisplay();points[name]=np.array(renderer.GetDisplayPoint()[:2])
+        return points
+
+    def axis_at(self,pos):
+        width,height=self.window.GetSize();left,bottom,right,top=self.axes_widget.GetViewport()
+        if not (left*width<=pos[0]<=right*width and bottom*height<=pos[1]<=top*height):return None
+        points=self.axis_points();p=np.array(pos);origin=points['origin'];tolerance=12*self.widget.devicePixelRatioF()
+        if np.linalg.norm(p-origin)<tolerance*.55:
+            camera=self.renderer.GetActiveCamera();direction=np.array(camera.GetPosition())-camera.GetFocalPoint();direction/=max(np.linalg.norm(direction),1e-9)
+            return 'xyz'[int(np.argmax(np.abs(direction)))] if max(np.abs(direction))>.999 else 'origin'
+        hits=[]
+        for key in ('x','y','z'):
+            v=points[key]-origin;length=float(v@v)
+            if length<1:continue
+            t=np.clip(float((p-origin)@v/length),0,1.25);distance=np.linalg.norm(p-(origin+t*v))
+            if distance<=tolerance:hits.append((distance,key))
+        return min(hits)[1] if hits else None
+
+    def orient_axis(self,axis):
+        camera=self.renderer.GetActiveCamera();focus=np.array(camera.GetFocalPoint());distance=max(camera.GetDistance(),1)
+        if axis=='origin':direction=np.array([1.,-1.,1.]);direction/=np.linalg.norm(direction);up=(0,0,1)
+        else:
+            direction=np.eye(3)['xyz'.index(axis)];current=np.array(camera.GetPosition())-focus;current/=max(np.linalg.norm(current),1e-9)
+            if np.dot(current,direction)>.999:direction=-direction
+            up=(0,1,0) if axis=='z' else (0,0,1)
+        camera.SetPosition(*(focus+direction*distance));camera.SetViewUp(*up);camera.OrthogonalizeViewUp();self.renderer.ResetCameraClippingRange();self.window.Render()
+        self.message.emit('등각 시점' if axis=='origin' else axis.upper()+'축 시점 · 다시 누르면 반대 방향')
 
     def shutdown(self):
         if self.closed:return

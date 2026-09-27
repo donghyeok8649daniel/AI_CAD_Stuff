@@ -24,14 +24,13 @@ class ShortcutRouter(QObject):
             if key==Qt.Key.Key_G:w.ungroup_parts();return True
             if key==Qt.Key.Key_Z:w.redo();return True
         if mods==Qt.KeyboardModifier.ShiftModifier and Qt.Key.Key_1<=key<=Qt.Key.Key_6:
-            w.viewport.filter.setCurrentIndex(key-Qt.Key.Key_1);w.viewport.widget.setFocus();return True
+            w.leave_orbit();w.viewport.filter.setCurrentIndex(key-Qt.Key.Key_1);w.viewport.widget.setFocus();return True
         if mods==Qt.KeyboardModifier.ControlModifier and key==Qt.Key.Key_D:w.duplicate_part();return True
         if mods==Qt.KeyboardModifier.ShiftModifier and key==Qt.Key.Key_E:w.edit_sketch();return True
         if mods!=Qt.KeyboardModifier.NoModifier:return False
         if key in (Qt.Key.Key_B,Qt.Key.Key_J):w.actions['box_select' if key==Qt.Key.Key_B else 'joints'].trigger();return True
         if key==Qt.Key.Key_Escape:
-            if w.actions['box_select'].isChecked():w.actions['box_select'].trigger()
-            w.select_parts([]);return True
+            w.return_to_orbit();return True
         if key==Qt.Key.Key_T:w.thread_dialog();return True
         if key==Qt.Key.Key_M:w.move_parts();return True
         if Qt.Key.Key_1<=key<=Qt.Key.Key_4:w.viewport.set_view(('iso','top','front','right')[key-Qt.Key.Key_1]);return True

@@ -1,0 +1,29 @@
+{
+  "checks": [
+    "blank startup retained",
+    "physical joint preview contains seven CAD parts",
+    "default joint has no volume interference",
+    "validated physical structure can be applied",
+    "native joint command completes",
+    "joint command adds real parts to document",
+    "ordinary assembly constraints connect hardware",
+    "hardware is a normal editable group",
+    "hardware has one rotary degree of freedom",
+    "turning off group selection clears current selection",
+    "individual hardware can be selected",
+    "isolate hides other six components",
+    "isolate restores previous visibility",
+    "Escape clears selection and exits box mode to orbit",
+    "X glyph click changes camera only",
+    "Y glyph click changes camera only",
+    "Z glyph click changes camera only",
+    "selection and camera actions preserve document",
+    "exploded viewport is visible and usable",
+    "exploded view separates actual geometry",
+    "exploded view restores assembly at zero spacing",
+    "exploded inspection never alters original joints",
+    "seven separate STEP and STL files plus manifest exported",
+    "export manifest identifies every hardware component"
+  ],
+  "passed": true
+}

@@ -1,3 +1,22 @@
+# 2.8.0 Physical joints, navigation and component workflows
+
+Targeted regression: **213 passed, 113 warnings in 49.15s**. Frozen Windows EXE: **125 checks** (kernel4, selection/UI80, Codex17, physical joints/navigation/export24). All **97 bundled CAD modules** and the entry point match the tested source snapshot. Earlier release results below are historical.
+
+Native interaction checks use actual Qt/VTK clicks on the XYZ marker, Escape from selection/range modes, individual/group selection, reversible isolation and a view-only exploded dialog. The compact 820x560 layout keeps a usable viewport and visible joint toggle. Property controls scroll instead of collapsing their text. These layout checks caught and corrected toolbar crowding during implementation.
+
+Physical revolute hardware contains seven editable CAD solids, six ordinary assembly mates, one rotational degree of freedom, two bored bushings, and two flanges with real mounting holes. Default and larger dimensions pass volume-interference checks. Existing-joint attachment preserves original components and relationships. STEP round-trip retains seven solids and their volume. Independent-part ZIP tests verify local floor/origin alignment, original assembly coordinates, Boolean dependency evaluation, safe filenames and atomic failure preservation.
+
+Two actual Codex Pro/gpt-6-astra requests were executed, using subscription usage and no paid API calls: a custom four-body joint in37.7s (volume26159.399139181536 mm³), then a shaft12→14mm plus matching bore edit in21.2s (volume26300.142490062357 mm³). Both used ordinary CAD tools, succeeded on the first plan, matched analytical requested volumes, and had no final-pose volume collisions. The edit kept the three original mates. This is a small test sample, not a guarantee for arbitrary mechanisms or collision-free full motion.
+
+The built-in structure is an editable mechanical concept, not a rated manufactured assembly. Fastening screws/keys, bearing selection, standardized tolerance grades and load ratings are not completed by the preset. Existing host geometry is not automatically machined when hardware is attached. New independent-part exports support STEP/STL; existing Autodesk conversion remains separate.
+
+- [Native flow checks](docs/mechanical280-report.json)
+- [Snapshot and regression results](docs/native280-validation.json)
+- [Actual AI plans and measured results](docs/ai-joint280-validation.json)
+- [Workbench](docs/mechanical280-workbench.png) / [Exploded view](docs/mechanical280-exploded.png)
+- [Korean usage guide](docs/ASSEMBLY_PARTS_KO.md)
+- Editable examples: examples/physical-revolute.cad.json and examples/custom-revolute-ai.cad.json
+
 # 2.7.0 Codex subscription mode validation
 
 Targeted protocol/planner/native UI and existing cloud regression: **62 passed in 7.74s**. Frozen EXE: **101 checks**, kernel (4), selection/UI (80), Codex mode (17). All **92 bundled CAD modules** and the entry point match the source snapshot. Earlier release results below are historical.

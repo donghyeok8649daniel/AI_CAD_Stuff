@@ -47,6 +47,8 @@ TOOL_LABELS={'create':'부품 생성','dimensions':'치수 변경','transform':'
              'hole':'구멍','pocket':'포켓 절삭','pad':'돌출','fillet':'필렛','chamfer':'모따기',
              'shell':'셸','solid':'솔리드 작업','thread':'나사산','joint':'조립 구속','parameter':'변수','edit_feature':'기존 피처 편집','edit_joint':'관절 자세 편집'}
 
+PHYSICAL_ASSEMBLY_GUIDANCE = '''For a request to DESIGN a physical mechanism or joint structure, create separately editable mechanical bodies with actual mating geometry (supports/housings, bores, shafts, moving members and necessary retention) and then use ordinary joint constraints to assemble them. The joint tool creates only a kinematic relationship, NEVER physical hardware. Choose shapes and dimensions from the user's request, not a fixed named-joint template. Preserve user clearances, mounting dimensions and motion limits; state unspecified fit/retention assumptions. Use assembly intent when separate moving bodies are needed. If the request only connects existing bodies or changes an existing joint pose, do not add unsolicited hardware. Customization of existing hardware uses normal dimensions, edit_feature, parameter and edit_joint tools while retaining unrelated geometry and connections.'''
+
 
 CATALOG = '''You design CAD models by composing tools, for ANY object the user describes. Return only one compact JSON plan. Never return a complete design file, Python, or a catalogue of unrelated parts. Choose only the operations needed by this request. All lengths are mm, all angles degrees. Respect explicit dimensions. If dimensions are missing choose practical dimensions and list these assumptions in Korean. Existing parts stay untouched unless the user asks to edit them. New IDs must be unique ASCII letters/digits/hyphens. The target is a part ID except joint/edit_joint (joint ID) and parameter (variable name). Each action has tool,target,args. Execute in listed order. At most 32 actions.
 For a vague request, start with a minimal useful mechanical concept, normally one body and 1..6 actions. Do not invent decorative details, fillets, spokes or repeated features unless needed or requested. State the chosen dimensions and omitted functional details briefly; the user can refine them. Explicit requested features always take priority over this simplicity preference. construction contains at most 4 short technical fragments, each at most 80 characters. No paragraphs or repeated explanation. summary is at most 160 characters. assumptions contains only necessary choices, at most 4 short items of 120 characters each. The actual dimensions belong in actions, not extended narration.
@@ -105,7 +107,7 @@ def context(design):
 
 
 def messages(request):
-    return [dict(role='system',content=CATALOG),dict(role='user',content=json.dumps(
+    return [dict(role='system',content=CATALOG+'\n'+PHYSICAL_ASSEMBLY_GUIDANCE),dict(role='user',content=json.dumps(
         dict(prompt=request.prompt,selected_part=request.selected_part,selected_feature=request.selected_feature,selected_joint=request.selected_joint,current_design=context(request.current)),
         ensure_ascii=False,separators=(',',':')))]
 

@@ -1,0 +1,2053 @@
+{
+  "provider": "Codex ChatGPT subscription",
+  "model": "gpt-6-astra",
+  "paid_api_calls": 0,
+  "cases": [
+    {
+      "success": true,
+      "seconds": 37.7,
+      "prompt": "커스텀 회전 관절을 실제 부품 4개로 설계해줘. 고정 하우징은 외경32 내경12.3 길이24 mm, 회전 축은 지름12 길이36 mm로 z=-6에 두고 하우징 안에서 회전. 출력 플랜지는 40x28 두께5 mm 판에 중앙 지름12 관통 구멍을 만들고 z=24.25에 두어 축에 강체 연결. 뒤 고정 칼라는 외경20 내경12 길이3 mm, z=-6에 두어 축에 강체 연결. 하우징과 축은 회전 조인트, 각도범위 -90~90도. 실제 기하와 일반 조립 구속으로 만들고 체결 상세는 생략했다고 밝혀줘.",
+      "result": {
+        "design": {
+          "schema_version": 1,
+          "name": "커스텀 회전 관절",
+          "mode": "specimen",
+          "units": "mm",
+          "parts": [
+            {
+              "id": "housing",
+              "name": "고정 하우징",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 32.0,
+                "height": 24.0,
+                "bore_diameter": 12.3
+              },
+              "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "rx": 0.0,
+                "ry": 0.0,
+                "rz": 0.0
+              },
+              "color": "#70aebf",
+              "fixed": true,
+              "features": []
+            },
+            {
+              "id": "shaft",
+              "name": "회전 축",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 12.0,
+                "height": 36.0,
+                "bore_diameter": 0.0
+              },
+              "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": -6.0,
+                "rx": 0.0,
+                "ry": 0.0,
+                "rz": 0.0
+              },
+              "color": "#70aebf",
+              "fixed": false,
+              "features": []
+            },
+            {
+              "id": "output_flange",
+              "name": "출력 플랜지",
+              "geometry": {
+                "kind": "plate",
+                "length": 40.0,
+                "width": 28.0,
+                "thickness": 5.0,
+                "hole_count": 0,
+                "hole_diameter": 6.0,
+                "hole_pitch_x": 56.0,
+                "hole_pitch_y": 36.0
+              },
+              "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 24.25,
+                "rx": 0.0,
+                "ry": 0.0,
+                "rz": 0.0
+              },
+              "color": "#70aebf",
+              "fixed": false,
+              "features": [
+                {
+                  "id": "ai-feature-1",
+                  "name": "AI 구멍",
+                  "face": 5,
+                  "support_face_count": 6,
+                  "support_feature": "base",
+                  "origin": [
+                    -2.775557561562892e-17,
+                    7.993605777301129e-16,
+                    5.0
+                  ],
+                  "x_direction": [
+                    1.0,
+                    0.0,
+                    0.0
+                  ],
+                  "normal": [
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "operation": "cut",
+                  "sketch": {
+                    "kind": "extrusion",
+                    "thickness": 10.0,
+                    "points": [
+                      {
+                        "x": -35.0,
+                        "y": -25.0
+                      },
+                      {
+                        "x": 35.0,
+                        "y": -25.0
+                      },
+                      {
+                        "x": 35.0,
+                        "y": 10.0
+                      },
+                      {
+                        "x": 10.0,
+                        "y": 25.0
+                      },
+                      {
+                        "x": -35.0,
+                        "y": 25.0
+                      }
+                    ],
+                    "holes": [],
+                    "constraints": [],
+                    "sketch_mode": "entities",
+                    "entities": [
+                      {
+                        "id": "hole-0",
+                        "construction": false,
+                        "kind": "circle",
+                        "center": {
+                          "x": 0.0,
+                          "y": 0.0
+                        },
+                        "radius": 6.0
+                      }
+                    ],
+                    "entity_constraints": [],
+                    "profiles": [
+                      0
+                    ]
+                  },
+                  "reference": {
+                    "index": 5,
+                    "surface": "PLANE",
+                    "center": [
+                      -2.775557561562892e-17,
+                      7.993605777301129e-16,
+                      5.0
+                    ],
+                    "relative_center": [
+                      0.5,
+                      0.5,
+                      1.0
+                    ],
+                    "normal": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "area": 1119.9999999999998
+                  },
+                  "through_all": true
+                }
+              ]
+            },
+            {
+              "id": "rear_collar",
+              "name": "뒤 고정 칼라",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 20.0,
+                "height": 3.0,
+                "bore_diameter": 12.0
+              },
+              "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": -6.0,
+                "rx": 0.0,
+                "ry": 0.0,
+                "rz": 0.0
+              },
+              "color": "#70aebf",
+              "fixed": false,
+              "features": []
+            }
+          ],
+          "mates": [
+            {
+              "id": "housing-shaft-revolute",
+              "kind": "revolute",
+              "parent": "housing",
+              "child": "shaft",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "x": 0.0,
+              "y": 0.0,
+              "z": -6.0,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "limits": {
+                "rz": [
+                  -90.0,
+                  90.0
+                ]
+              }
+            },
+            {
+              "id": "shaft-flange-rigid",
+              "kind": "rigid",
+              "parent": "shaft",
+              "child": "output_flange",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "x": 0.0,
+              "y": 0.0,
+              "z": 30.25,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0
+            },
+            {
+              "id": "shaft-collar-rigid",
+              "kind": "rigid",
+              "parent": "shaft",
+              "child": "rear_collar",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0
+            }
+          ],
+          "sketches": [],
+          "joint_frames": [],
+          "loops": [],
+          "studies": []
+        },
+        "summary": "실제 형상의 독립 부품 4개와 일반 조립 구속으로 구성. 하우징은 고정하고 축만 회전하며, 체결 상세는 생략합니다.",
+        "assumptions": [
+          "하우징 원점은 z=0이며 모든 부품의 중심축은 Z축입니다.",
+          "플랜지와 칼라의 축 고정은 강체 구속으로 표현하며 나사·키 등 체결 상세는 생략합니다."
+        ],
+        "tool_actions": [
+          {
+            "step": 1,
+            "tool": "create",
+            "target": "housing",
+            "args": {
+              "name": "고정 하우징",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 32,
+                "height": 24,
+                "bore_diameter": 12.3
+              }
+            },
+            "validated": true
+          },
+          {
+            "step": 2,
+            "tool": "create",
+            "target": "shaft",
+            "args": {
+              "name": "회전 축",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 12,
+                "height": 36
+              },
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "z": -6,
+                "rx": 0,
+                "ry": 0,
+                "rz": 0
+              }
+            },
+            "validated": true
+          },
+          {
+            "step": 3,
+            "tool": "create",
+            "target": "output_flange",
+            "args": {
+              "name": "출력 플랜지",
+              "geometry": {
+                "kind": "plate",
+                "length": 40,
+                "width": 28,
+                "thickness": 5,
+                "hole_count": 0
+              },
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "z": 24.25,
+                "rx": 0,
+                "ry": 0,
+                "rz": 0
+              }
+            },
+            "validated": true
+          },
+          {
+            "step": 4,
+            "tool": "hole",
+            "target": "output_flange",
+            "args": {
+              "face": "+Z",
+              "diameter": 12,
+              "centers": [
+                [
+                  0,
+                  0
+                ]
+              ],
+              "through_all": true,
+              "finish": "plain"
+            },
+            "validated": true
+          },
+          {
+            "step": 5,
+            "tool": "create",
+            "target": "rear_collar",
+            "args": {
+              "name": "뒤 고정 칼라",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 20,
+                "height": 3,
+                "bore_diameter": 12
+              },
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "z": -6,
+                "rx": 0,
+                "ry": 0,
+                "rz": 0
+              }
+            },
+            "validated": true
+          },
+          {
+            "step": 6,
+            "tool": "joint",
+            "target": "housing-shaft-revolute",
+            "args": {
+              "kind": "revolute",
+              "parent": "housing",
+              "child": "shaft",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "limits": {
+                "rz": [
+                  -90,
+                  90
+                ]
+              },
+              "x": 0,
+              "y": 0,
+              "z": -6,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            },
+            "validated": true
+          },
+          {
+            "step": 7,
+            "tool": "joint",
+            "target": "shaft-flange-rigid",
+            "args": {
+              "kind": "rigid",
+              "parent": "shaft",
+              "child": "output_flange",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "x": 0,
+              "y": 0,
+              "z": 30.25,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            },
+            "validated": true
+          },
+          {
+            "step": 8,
+            "tool": "joint",
+            "target": "shaft-collar-rigid",
+            "args": {
+              "kind": "rigid",
+              "parent": "shaft",
+              "child": "rear_collar",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            },
+            "validated": true
+          }
+        ],
+        "journal_base": {
+          "schema_version": 1,
+          "name": "커스텀 회전 관절",
+          "mode": "specimen",
+          "units": "mm",
+          "parts": [],
+          "mates": [],
+          "sketches": [],
+          "joint_frames": [],
+          "loops": [],
+          "studies": []
+        },
+        "journal_steps": [
+          {
+            "action": {
+              "step": 1,
+              "tool": "create",
+              "target": "housing",
+              "args": {
+                "name": "고정 하우징",
+                "geometry": {
+                  "kind": "cylinder",
+                  "diameter": 32,
+                  "height": 24,
+                  "bore_diameter": 12.3
+                }
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "parts"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": [],
+                "after": [
+                  {
+                    "id": "housing",
+                    "name": "고정 하우징",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 32.0,
+                      "height": 24.0,
+                      "bore_diameter": 12.3
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": 0.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "action": {
+              "step": 2,
+              "tool": "create",
+              "target": "shaft",
+              "args": {
+                "name": "회전 축",
+                "geometry": {
+                  "kind": "cylinder",
+                  "diameter": 12,
+                  "height": 36
+                },
+                "transform": {
+                  "x": 0,
+                  "y": 0,
+                  "z": -6,
+                  "rx": 0,
+                  "ry": 0,
+                  "rz": 0
+                }
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "parts"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": [
+                  {
+                    "id": "housing",
+                    "name": "고정 하우징",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 32.0,
+                      "height": 24.0,
+                      "bore_diameter": 12.3
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": 0.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  }
+                ],
+                "after": [
+                  {
+                    "id": "housing",
+                    "name": "고정 하우징",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 32.0,
+                      "height": 24.0,
+                      "bore_diameter": 12.3
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": 0.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  },
+                  {
+                    "id": "shaft",
+                    "name": "회전 축",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 12.0,
+                      "height": 36.0,
+                      "bore_diameter": 0.0
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": -6.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "action": {
+              "step": 3,
+              "tool": "create",
+              "target": "output_flange",
+              "args": {
+                "name": "출력 플랜지",
+                "geometry": {
+                  "kind": "plate",
+                  "length": 40,
+                  "width": 28,
+                  "thickness": 5,
+                  "hole_count": 0
+                },
+                "transform": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 24.25,
+                  "rx": 0,
+                  "ry": 0,
+                  "rz": 0
+                }
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "parts"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": [
+                  {
+                    "id": "housing",
+                    "name": "고정 하우징",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 32.0,
+                      "height": 24.0,
+                      "bore_diameter": 12.3
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": 0.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  },
+                  {
+                    "id": "shaft",
+                    "name": "회전 축",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 12.0,
+                      "height": 36.0,
+                      "bore_diameter": 0.0
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": -6.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  }
+                ],
+                "after": [
+                  {
+                    "id": "housing",
+                    "name": "고정 하우징",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 32.0,
+                      "height": 24.0,
+                      "bore_diameter": 12.3
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": 0.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  },
+                  {
+                    "id": "shaft",
+                    "name": "회전 축",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 12.0,
+                      "height": 36.0,
+                      "bore_diameter": 0.0
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": -6.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  },
+                  {
+                    "id": "output_flange",
+                    "name": "출력 플랜지",
+                    "geometry": {
+                      "kind": "plate",
+                      "length": 40.0,
+                      "width": 28.0,
+                      "thickness": 5.0,
+                      "hole_count": 0,
+                      "hole_diameter": 6.0,
+                      "hole_pitch_x": 56.0,
+                      "hole_pitch_y": 36.0
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": 24.25,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "action": {
+              "step": 4,
+              "tool": "hole",
+              "target": "output_flange",
+              "args": {
+                "face": "+Z",
+                "diameter": 12,
+                "centers": [
+                  [
+                    0,
+                    0
+                  ]
+                ],
+                "through_all": true,
+                "finish": "plain"
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "parts",
+                  2,
+                  "features"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": [],
+                "after": [
+                  {
+                    "id": "ai-feature-1",
+                    "name": "AI 구멍",
+                    "face": 5,
+                    "support_face_count": 6,
+                    "support_feature": "base",
+                    "origin": [
+                      -2.775557561562892e-17,
+                      7.993605777301129e-16,
+                      5.0
+                    ],
+                    "x_direction": [
+                      1.0,
+                      0.0,
+                      0.0
+                    ],
+                    "normal": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "operation": "cut",
+                    "sketch": {
+                      "kind": "extrusion",
+                      "thickness": 10.0,
+                      "points": [
+                        {
+                          "x": -35.0,
+                          "y": -25.0
+                        },
+                        {
+                          "x": 35.0,
+                          "y": -25.0
+                        },
+                        {
+                          "x": 35.0,
+                          "y": 10.0
+                        },
+                        {
+                          "x": 10.0,
+                          "y": 25.0
+                        },
+                        {
+                          "x": -35.0,
+                          "y": 25.0
+                        }
+                      ],
+                      "holes": [],
+                      "constraints": [],
+                      "sketch_mode": "entities",
+                      "entities": [
+                        {
+                          "id": "hole-0",
+                          "construction": false,
+                          "kind": "circle",
+                          "center": {
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          "radius": 6.0
+                        }
+                      ],
+                      "entity_constraints": [],
+                      "profiles": [
+                        0
+                      ]
+                    },
+                    "reference": {
+                      "index": 5,
+                      "surface": "PLANE",
+                      "center": [
+                        -2.775557561562892e-17,
+                        7.993605777301129e-16,
+                        5.0
+                      ],
+                      "relative_center": [
+                        0.5,
+                        0.5,
+                        1.0
+                      ],
+                      "normal": [
+                        0.0,
+                        0.0,
+                        1.0
+                      ],
+                      "area": 1119.9999999999998
+                    },
+                    "through_all": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "action": {
+              "step": 5,
+              "tool": "create",
+              "target": "rear_collar",
+              "args": {
+                "name": "뒤 고정 칼라",
+                "geometry": {
+                  "kind": "cylinder",
+                  "diameter": 20,
+                  "height": 3,
+                  "bore_diameter": 12
+                },
+                "transform": {
+                  "x": 0,
+                  "y": 0,
+                  "z": -6,
+                  "rx": 0,
+                  "ry": 0,
+                  "rz": 0
+                }
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "parts"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": [
+                  {
+                    "id": "housing",
+                    "name": "고정 하우징",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 32.0,
+                      "height": 24.0,
+                      "bore_diameter": 12.3
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": 0.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  },
+                  {
+                    "id": "shaft",
+                    "name": "회전 축",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 12.0,
+                      "height": 36.0,
+                      "bore_diameter": 0.0
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": -6.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  },
+                  {
+                    "id": "output_flange",
+                    "name": "출력 플랜지",
+                    "geometry": {
+                      "kind": "plate",
+                      "length": 40.0,
+                      "width": 28.0,
+                      "thickness": 5.0,
+                      "hole_count": 0,
+                      "hole_diameter": 6.0,
+                      "hole_pitch_x": 56.0,
+                      "hole_pitch_y": 36.0
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": 24.25,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": [
+                      {
+                        "id": "ai-feature-1",
+                        "name": "AI 구멍",
+                        "face": 5,
+                        "support_face_count": 6,
+                        "support_feature": "base",
+                        "origin": [
+                          -2.775557561562892e-17,
+                          7.993605777301129e-16,
+                          5.0
+                        ],
+                        "x_direction": [
+                          1.0,
+                          0.0,
+                          0.0
+                        ],
+                        "normal": [
+                          0.0,
+                          0.0,
+                          1.0
+                        ],
+                        "operation": "cut",
+                        "sketch": {
+                          "kind": "extrusion",
+                          "thickness": 10.0,
+                          "points": [
+                            {
+                              "x": -35.0,
+                              "y": -25.0
+                            },
+                            {
+                              "x": 35.0,
+                              "y": -25.0
+                            },
+                            {
+                              "x": 35.0,
+                              "y": 10.0
+                            },
+                            {
+                              "x": 10.0,
+                              "y": 25.0
+                            },
+                            {
+                              "x": -35.0,
+                              "y": 25.0
+                            }
+                          ],
+                          "holes": [],
+                          "constraints": [],
+                          "sketch_mode": "entities",
+                          "entities": [
+                            {
+                              "id": "hole-0",
+                              "construction": false,
+                              "kind": "circle",
+                              "center": {
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "radius": 6.0
+                            }
+                          ],
+                          "entity_constraints": [],
+                          "profiles": [
+                            0
+                          ]
+                        },
+                        "reference": {
+                          "index": 5,
+                          "surface": "PLANE",
+                          "center": [
+                            -2.775557561562892e-17,
+                            7.993605777301129e-16,
+                            5.0
+                          ],
+                          "relative_center": [
+                            0.5,
+                            0.5,
+                            1.0
+                          ],
+                          "normal": [
+                            0.0,
+                            0.0,
+                            1.0
+                          ],
+                          "area": 1119.9999999999998
+                        },
+                        "through_all": true
+                      }
+                    ]
+                  }
+                ],
+                "after": [
+                  {
+                    "id": "housing",
+                    "name": "고정 하우징",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 32.0,
+                      "height": 24.0,
+                      "bore_diameter": 12.3
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": 0.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  },
+                  {
+                    "id": "shaft",
+                    "name": "회전 축",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 12.0,
+                      "height": 36.0,
+                      "bore_diameter": 0.0
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": -6.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  },
+                  {
+                    "id": "output_flange",
+                    "name": "출력 플랜지",
+                    "geometry": {
+                      "kind": "plate",
+                      "length": 40.0,
+                      "width": 28.0,
+                      "thickness": 5.0,
+                      "hole_count": 0,
+                      "hole_diameter": 6.0,
+                      "hole_pitch_x": 56.0,
+                      "hole_pitch_y": 36.0
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": 24.25,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": [
+                      {
+                        "id": "ai-feature-1",
+                        "name": "AI 구멍",
+                        "face": 5,
+                        "support_face_count": 6,
+                        "support_feature": "base",
+                        "origin": [
+                          -2.775557561562892e-17,
+                          7.993605777301129e-16,
+                          5.0
+                        ],
+                        "x_direction": [
+                          1.0,
+                          0.0,
+                          0.0
+                        ],
+                        "normal": [
+                          0.0,
+                          0.0,
+                          1.0
+                        ],
+                        "operation": "cut",
+                        "sketch": {
+                          "kind": "extrusion",
+                          "thickness": 10.0,
+                          "points": [
+                            {
+                              "x": -35.0,
+                              "y": -25.0
+                            },
+                            {
+                              "x": 35.0,
+                              "y": -25.0
+                            },
+                            {
+                              "x": 35.0,
+                              "y": 10.0
+                            },
+                            {
+                              "x": 10.0,
+                              "y": 25.0
+                            },
+                            {
+                              "x": -35.0,
+                              "y": 25.0
+                            }
+                          ],
+                          "holes": [],
+                          "constraints": [],
+                          "sketch_mode": "entities",
+                          "entities": [
+                            {
+                              "id": "hole-0",
+                              "construction": false,
+                              "kind": "circle",
+                              "center": {
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "radius": 6.0
+                            }
+                          ],
+                          "entity_constraints": [],
+                          "profiles": [
+                            0
+                          ]
+                        },
+                        "reference": {
+                          "index": 5,
+                          "surface": "PLANE",
+                          "center": [
+                            -2.775557561562892e-17,
+                            7.993605777301129e-16,
+                            5.0
+                          ],
+                          "relative_center": [
+                            0.5,
+                            0.5,
+                            1.0
+                          ],
+                          "normal": [
+                            0.0,
+                            0.0,
+                            1.0
+                          ],
+                          "area": 1119.9999999999998
+                        },
+                        "through_all": true
+                      }
+                    ]
+                  },
+                  {
+                    "id": "rear_collar",
+                    "name": "뒤 고정 칼라",
+                    "geometry": {
+                      "kind": "cylinder",
+                      "diameter": 20.0,
+                      "height": 3.0,
+                      "bore_diameter": 12.0
+                    },
+                    "transform": {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "z": -6.0,
+                      "rx": 0.0,
+                      "ry": 0.0,
+                      "rz": 0.0
+                    },
+                    "color": "#70aebf",
+                    "fixed": false,
+                    "features": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "action": {
+              "step": 6,
+              "tool": "joint",
+              "target": "housing-shaft-revolute",
+              "args": {
+                "kind": "revolute",
+                "parent": "housing",
+                "child": "shaft",
+                "parent_anchor": "origin",
+                "child_anchor": "origin",
+                "limits": {
+                  "rz": [
+                    -90,
+                    90
+                  ]
+                },
+                "x": 0,
+                "y": 0,
+                "z": -6,
+                "rx": 0,
+                "ry": 0,
+                "rz": 0
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "parts",
+                  0,
+                  "fixed"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": false,
+                "after": true
+              },
+              {
+                "path": [
+                  "mates"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": [],
+                "after": [
+                  {
+                    "id": "housing-shaft-revolute",
+                    "kind": "revolute",
+                    "parent": "housing",
+                    "child": "shaft",
+                    "parent_anchor": "origin",
+                    "child_anchor": "origin",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": -6.0,
+                    "rx": 0.0,
+                    "ry": 0.0,
+                    "rz": 0.0,
+                    "limits": {
+                      "rz": [
+                        -90.0,
+                        90.0
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "action": {
+              "step": 7,
+              "tool": "joint",
+              "target": "shaft-flange-rigid",
+              "args": {
+                "kind": "rigid",
+                "parent": "shaft",
+                "child": "output_flange",
+                "parent_anchor": "origin",
+                "child_anchor": "origin",
+                "x": 0,
+                "y": 0,
+                "z": 30.25,
+                "rx": 0,
+                "ry": 0,
+                "rz": 0
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "mates"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": [
+                  {
+                    "id": "housing-shaft-revolute",
+                    "kind": "revolute",
+                    "parent": "housing",
+                    "child": "shaft",
+                    "parent_anchor": "origin",
+                    "child_anchor": "origin",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": -6.0,
+                    "rx": 0.0,
+                    "ry": 0.0,
+                    "rz": 0.0,
+                    "limits": {
+                      "rz": [
+                        -90.0,
+                        90.0
+                      ]
+                    }
+                  }
+                ],
+                "after": [
+                  {
+                    "id": "housing-shaft-revolute",
+                    "kind": "revolute",
+                    "parent": "housing",
+                    "child": "shaft",
+                    "parent_anchor": "origin",
+                    "child_anchor": "origin",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": -6.0,
+                    "rx": 0.0,
+                    "ry": 0.0,
+                    "rz": 0.0,
+                    "limits": {
+                      "rz": [
+                        -90.0,
+                        90.0
+                      ]
+                    }
+                  },
+                  {
+                    "id": "shaft-flange-rigid",
+                    "kind": "rigid",
+                    "parent": "shaft",
+                    "child": "output_flange",
+                    "parent_anchor": "origin",
+                    "child_anchor": "origin",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 30.25,
+                    "rx": 0.0,
+                    "ry": 0.0,
+                    "rz": 0.0
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "action": {
+              "step": 8,
+              "tool": "joint",
+              "target": "shaft-collar-rigid",
+              "args": {
+                "kind": "rigid",
+                "parent": "shaft",
+                "child": "rear_collar",
+                "parent_anchor": "origin",
+                "child_anchor": "origin",
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "rx": 0,
+                "ry": 0,
+                "rz": 0
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "mates"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": [
+                  {
+                    "id": "housing-shaft-revolute",
+                    "kind": "revolute",
+                    "parent": "housing",
+                    "child": "shaft",
+                    "parent_anchor": "origin",
+                    "child_anchor": "origin",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": -6.0,
+                    "rx": 0.0,
+                    "ry": 0.0,
+                    "rz": 0.0,
+                    "limits": {
+                      "rz": [
+                        -90.0,
+                        90.0
+                      ]
+                    }
+                  },
+                  {
+                    "id": "shaft-flange-rigid",
+                    "kind": "rigid",
+                    "parent": "shaft",
+                    "child": "output_flange",
+                    "parent_anchor": "origin",
+                    "child_anchor": "origin",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 30.25,
+                    "rx": 0.0,
+                    "ry": 0.0,
+                    "rz": 0.0
+                  }
+                ],
+                "after": [
+                  {
+                    "id": "housing-shaft-revolute",
+                    "kind": "revolute",
+                    "parent": "housing",
+                    "child": "shaft",
+                    "parent_anchor": "origin",
+                    "child_anchor": "origin",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": -6.0,
+                    "rx": 0.0,
+                    "ry": 0.0,
+                    "rz": 0.0,
+                    "limits": {
+                      "rz": [
+                        -90.0,
+                        90.0
+                      ]
+                    }
+                  },
+                  {
+                    "id": "shaft-flange-rigid",
+                    "kind": "rigid",
+                    "parent": "shaft",
+                    "child": "output_flange",
+                    "parent_anchor": "origin",
+                    "child_anchor": "origin",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 30.25,
+                    "rx": 0.0,
+                    "ry": 0.0,
+                    "rz": 0.0
+                  },
+                  {
+                    "id": "shaft-collar-rigid",
+                    "kind": "rigid",
+                    "parent": "shaft",
+                    "child": "rear_collar",
+                    "parent_anchor": "origin",
+                    "child_anchor": "origin",
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0,
+                    "rx": 0.0,
+                    "ry": 0.0,
+                    "rz": 0.0
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "measurements": [],
+        "provider": "codex",
+        "attempts": 1,
+        "changes": [
+          "1. 부품 생성 · housing",
+          "2. 부품 생성 · shaft",
+          "3. 부품 생성 · output_flange",
+          "4. 구멍 · output_flange",
+          "5. 부품 생성 · rear_collar",
+          "6. 조립 구속 · housing-shaft-revolute",
+          "7. 조립 구속 · shaft-flange-rigid",
+          "8. 조립 구속 · shaft-collar-rigid"
+        ],
+        "planning": {
+          "intent": "assembly",
+          "tools": [
+            "create",
+            "hole",
+            "transform",
+            "joint"
+          ],
+          "shapes": [
+            "cylinder",
+            "plate"
+          ],
+          "connections": [
+            {
+              "kind": "revolute",
+              "parent": "housing",
+              "child": "shaft"
+            },
+            {
+              "kind": "rigid",
+              "parent": "shaft",
+              "child": "output_flange"
+            },
+            {
+              "kind": "rigid",
+              "parent": "shaft",
+              "child": "rear_collar"
+            }
+          ],
+          "new_parts": [
+            "housing",
+            "shaft",
+            "output_flange",
+            "rear_collar"
+          ]
+        }
+      },
+      "stats": {
+        "valid": true,
+        "parts": 4,
+        "volume": 26159.399139181536,
+        "bounds": [
+          40.0,
+          32.0,
+          36.0
+        ],
+        "min": [
+          -20.0,
+          -16.0,
+          -6.0
+        ],
+        "max": [
+          20.0,
+          16.0,
+          30.0
+        ],
+        "triangles": 2532,
+        "collisions": [],
+        "assembly_constraints": {
+          "mates": 3,
+          "grounded": 1,
+          "dof": 1
+        }
+      }
+    },
+    {
+      "success": true,
+      "seconds": 21.2,
+      "prompt": "기존 관절을 커스텀 수정해줘. 축 지름을14 mm, 하우징 내경을14.3 mm, 출력 플랜지의 기존 중앙 구멍 지름을14 mm, 뒤 칼라 내경을14 mm로 변경해줘. 다른 치수, 부품, 조립 구속, 자세는 모두 유지해줘. 새 부품이나 구멍을 추가하지 마.",
+      "result": {
+        "design": {
+          "schema_version": 1,
+          "name": "커스텀 회전 관절",
+          "mode": "specimen",
+          "units": "mm",
+          "parts": [
+            {
+              "id": "housing",
+              "name": "고정 하우징",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 32.0,
+                "height": 24.0,
+                "bore_diameter": 14.3
+              },
+              "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "rx": 0.0,
+                "ry": 0.0,
+                "rz": 0.0
+              },
+              "color": "#70aebf",
+              "fixed": true,
+              "features": []
+            },
+            {
+              "id": "shaft",
+              "name": "회전 축",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 14.0,
+                "height": 36.0,
+                "bore_diameter": 0.0
+              },
+              "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": -6.0,
+                "rx": 0.0,
+                "ry": 0.0,
+                "rz": 0.0
+              },
+              "color": "#70aebf",
+              "fixed": false,
+              "features": []
+            },
+            {
+              "id": "output_flange",
+              "name": "출력 플랜지",
+              "geometry": {
+                "kind": "plate",
+                "length": 40.0,
+                "width": 28.0,
+                "thickness": 5.0,
+                "hole_count": 0,
+                "hole_diameter": 6.0,
+                "hole_pitch_x": 56.0,
+                "hole_pitch_y": 36.0
+              },
+              "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 24.25,
+                "rx": 0.0,
+                "ry": 0.0,
+                "rz": 0.0
+              },
+              "color": "#70aebf",
+              "fixed": false,
+              "features": [
+                {
+                  "id": "ai-feature-1",
+                  "name": "AI 구멍",
+                  "face": 5,
+                  "support_face_count": 6,
+                  "support_feature": "base",
+                  "origin": [
+                    -2.775557561562892e-17,
+                    7.993605777301129e-16,
+                    5.0
+                  ],
+                  "x_direction": [
+                    1.0,
+                    0.0,
+                    0.0
+                  ],
+                  "normal": [
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "operation": "cut",
+                  "sketch": {
+                    "kind": "extrusion",
+                    "thickness": 10.0,
+                    "points": [
+                      {
+                        "x": -35.0,
+                        "y": -25.0
+                      },
+                      {
+                        "x": 35.0,
+                        "y": -25.0
+                      },
+                      {
+                        "x": 35.0,
+                        "y": 10.0
+                      },
+                      {
+                        "x": 10.0,
+                        "y": 25.0
+                      },
+                      {
+                        "x": -35.0,
+                        "y": 25.0
+                      }
+                    ],
+                    "holes": [],
+                    "constraints": [],
+                    "sketch_mode": "entities",
+                    "entities": [
+                      {
+                        "id": "hole-0",
+                        "construction": false,
+                        "kind": "circle",
+                        "center": {
+                          "x": 0.0,
+                          "y": 0.0
+                        },
+                        "radius": 7.0
+                      }
+                    ],
+                    "entity_constraints": [],
+                    "profiles": [
+                      0
+                    ]
+                  },
+                  "reference": {
+                    "index": 5,
+                    "surface": "PLANE",
+                    "center": [
+                      -2.775557561562892e-17,
+                      7.993605777301129e-16,
+                      5.0
+                    ],
+                    "relative_center": [
+                      0.5,
+                      0.5,
+                      1.0
+                    ],
+                    "normal": [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "area": 1119.9999999999998
+                  },
+                  "through_all": true
+                }
+              ]
+            },
+            {
+              "id": "rear_collar",
+              "name": "뒤 고정 칼라",
+              "geometry": {
+                "kind": "cylinder",
+                "diameter": 20.0,
+                "height": 3.0,
+                "bore_diameter": 14.0
+              },
+              "transform": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": -6.0,
+                "rx": 0.0,
+                "ry": 0.0,
+                "rz": 0.0
+              },
+              "color": "#70aebf",
+              "fixed": false,
+              "features": []
+            }
+          ],
+          "mates": [
+            {
+              "id": "housing-shaft-revolute",
+              "kind": "revolute",
+              "parent": "housing",
+              "child": "shaft",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "x": 0.0,
+              "y": 0.0,
+              "z": -6.0,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "limits": {
+                "rz": [
+                  -90.0,
+                  90.0
+                ]
+              }
+            },
+            {
+              "id": "shaft-flange-rigid",
+              "kind": "rigid",
+              "parent": "shaft",
+              "child": "output_flange",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "x": 0.0,
+              "y": 0.0,
+              "z": 30.25,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0
+            },
+            {
+              "id": "shaft-collar-rigid",
+              "kind": "rigid",
+              "parent": "shaft",
+              "child": "rear_collar",
+              "parent_anchor": "origin",
+              "child_anchor": "origin",
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0
+            }
+          ],
+          "sketches": [],
+          "joint_frames": [],
+          "loops": [],
+          "studies": []
+        },
+        "summary": "지정한 네 지름만 수정합니다. 다른 치수, 부품, 조립 구속과 자세는 유지하며 새 부품이나 구멍을 추가하지 않습니다.",
+        "assumptions": [],
+        "tool_actions": [
+          {
+            "step": 1,
+            "tool": "dimensions",
+            "target": "shaft",
+            "args": {
+              "values": {
+                "diameter": 14
+              }
+            },
+            "validated": true
+          },
+          {
+            "step": 2,
+            "tool": "dimensions",
+            "target": "housing",
+            "args": {
+              "values": {
+                "bore_diameter": 14.3
+              }
+            },
+            "validated": true
+          },
+          {
+            "step": 3,
+            "tool": "edit_feature",
+            "target": "output_flange",
+            "args": {
+              "feature_id": "ai-feature-1",
+              "entity_id": "hole-0",
+              "diameter": 14
+            },
+            "validated": true
+          },
+          {
+            "step": 4,
+            "tool": "dimensions",
+            "target": "rear_collar",
+            "args": {
+              "values": {
+                "bore_diameter": 14
+              }
+            },
+            "validated": true
+          }
+        ],
+        "journal_base": null,
+        "journal_steps": [
+          {
+            "action": {
+              "step": 1,
+              "tool": "dimensions",
+              "target": "shaft",
+              "args": {
+                "values": {
+                  "diameter": 14
+                }
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "parts",
+                  1,
+                  "geometry",
+                  "diameter"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": 12.0,
+                "after": 14.0
+              }
+            ]
+          },
+          {
+            "action": {
+              "step": 2,
+              "tool": "dimensions",
+              "target": "housing",
+              "args": {
+                "values": {
+                  "bore_diameter": 14.3
+                }
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "parts",
+                  0,
+                  "geometry",
+                  "bore_diameter"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": 12.3,
+                "after": 14.3
+              }
+            ]
+          },
+          {
+            "action": {
+              "step": 3,
+              "tool": "edit_feature",
+              "target": "output_flange",
+              "args": {
+                "feature_id": "ai-feature-1",
+                "entity_id": "hole-0",
+                "diameter": 14
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "parts",
+                  2,
+                  "features",
+                  0,
+                  "sketch",
+                  "entities",
+                  0,
+                  "radius"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": 6.0,
+                "after": 7.0
+              }
+            ]
+          },
+          {
+            "action": {
+              "step": 4,
+              "tool": "dimensions",
+              "target": "rear_collar",
+              "args": {
+                "values": {
+                  "bore_diameter": 14
+                }
+              },
+              "validated": true
+            },
+            "changes": [
+              {
+                "path": [
+                  "parts",
+                  3,
+                  "geometry",
+                  "bore_diameter"
+                ],
+                "operation": "set",
+                "existed": true,
+                "before": 12.0,
+                "after": 14.0
+              }
+            ]
+          }
+        ],
+        "measurements": [],
+        "provider": "codex",
+        "attempts": 1,
+        "changes": [
+          "1. 치수 변경 · shaft",
+          "2. 치수 변경 · housing",
+          "3. 기존 피처 편집 · output_flange",
+          "4. 치수 변경 · rear_collar"
+        ],
+        "planning": {
+          "intent": "edit",
+          "tools": [
+            "dimensions",
+            "edit_feature"
+          ],
+          "shapes": [
+            "cylinder",
+            "plate",
+            "extrusion",
+            "revolve",
+            "sweep",
+            "loft",
+            "bracket",
+            "link",
+            "sheetmetal",
+            "round_specimen",
+            "flat_specimen"
+          ],
+          "connections": [],
+          "new_parts": []
+        }
+      },
+      "stats": {
+        "valid": true,
+        "parts": 4,
+        "volume": 26300.142490062357,
+        "bounds": [
+          40.0,
+          32.0,
+          36.0
+        ],
+        "min": [
+          -20.0,
+          -16.0,
+          -6.0
+        ],
+        "max": [
+          20.0,
+          16.0,
+          30.0
+        ],
+        "triangles": 2532,
+        "collisions": [],
+        "assembly_constraints": {
+          "mates": 3,
+          "grounded": 1,
+          "dof": 1
+        }
+      },
+      "analytical_volume": 26300.142490062364
+    }
+  ]
+}

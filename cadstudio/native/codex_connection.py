@@ -13,6 +13,7 @@ import subprocess
 from urllib.parse import urlsplit
 
 from .local_ai import DraftControl
+from .. import __version__
 
 INSTALL_URL = 'https://learn.chatgpt.com/docs/codex/cli'
 IDENTIFIER = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}')
@@ -149,7 +150,7 @@ class CodexSession:
                 **({'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}))
             self.job = _ProcessJob(self.process.pid)
             self.reader = asyncio.create_task(self._read())
-            await self.rpc('initialize', {'clientInfo': {'name': 'prompt_cad_studio', 'title': 'Prompt CAD Studio', 'version': '2.7.0'}})
+            await self.rpc('initialize', {'clientInfo': {'name': 'prompt_cad_studio', 'title': 'Prompt CAD Studio', 'version': __version__}})
             await self.send({'method': 'initialized', 'params': {}})
             # Disable inherited integrations for this CAD thread only, without
             # changing the user's config. config/read is handled locally by

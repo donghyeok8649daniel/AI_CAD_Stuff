@@ -7,22 +7,24 @@ from PySide6.QtWidgets import QApplication,QAbstractItemView,QToolBar,QMenu,QTre
 from ..part_operations import group_parts,ungroup_parts,part_clipboard,paste_parts,delete_parts
 from .widgets import label,button,clear_layout
 from . import clipboard
+from .part_inspection import PartInspectionUI
 
 PART_MIME='application/x-promptcad-parts-v1'
 CLIPBOARD_LIMIT=32_000_000
 
 
-class PartSelectionUI:
+class PartSelectionUI(PartInspectionUI):
     def make_selection_tools(self,edit,assembly):
         edit.addAction(self.action('move_parts','이동 / 회전 · M',self.move_parts))
         for key,title,fn in [('copy','복사 · Ctrl+C',self.copy_parts),('cut','잘라내기 · Ctrl+X',self.cut_parts),('paste','붙여넣기 · Ctrl+V',self.paste_parts),('select_all','모든 부품 선택 · Ctrl+A',self.select_all_parts),('group','그룹 · Ctrl+G',self.group_parts),('ungroup','그룹 해제 · Ctrl+Shift+G',self.ungroup_parts)]:
             edit.addAction(self.action(key,title,fn))
         assembly.addAction(self.action('joints','관절 표시 · J',self.toggle_joints));self.actions['joints'].setCheckable(True)
-        self.action('box_select','범위 선택 · B',lambda:self.viewport.set_box_mode(self.actions['box_select'].isChecked()));self.actions['box_select'].setCheckable(True)
-        self.action('group_select','그룹 단위 선택',lambda:None);self.actions['group_select'].setCheckable(True);self.actions['group_select'].setChecked(True)
+        self.action('box_select','범위 선택 · B',self.toggle_box_selection);self.actions['box_select'].setCheckable(True)
+        self.action('orbit','선택 해제 · 회전 모드 · Esc',self.toggle_orbit);self.actions['orbit'].setCheckable(True)
+        self.action('group_select','그룹 단위 선택',self.toggle_group_selection);self.actions['group_select'].setCheckable(True);self.actions['group_select'].setChecked(True)
         edit.addAction(self.actions['group_select'])
         bar=QToolBar('선택 / 조립 표시',self.viewport);bar.setObjectName('selectionToolbar');bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly);bar.setMovable(False)
-        for key,title in [('move_parts','이동 M'),('joints','관절 J'),('box_select','범위 B'),('group','그룹'),('ungroup','해제'),('group_select','그룹 선택')]:
+        for key,title in [('orbit','회전 Esc'),('group_select','그룹 선택'),('joints','관절 J'),('box_select','범위 B'),('group','그룹'),('ungroup','그룹 해제'),('move_parts','이동 M')]:
             source=self.actions[key];compact=QAction(title,bar);compact.setCheckable(source.isCheckable());compact.setChecked(source.isChecked());compact.setToolTip(source.text());compact.triggered.connect(source.trigger)
             def sync(a=source,b=compact):b.setEnabled(a.isEnabled());b.setChecked(a.isChecked())
             source.changed.connect(sync);bar.addAction(compact)
@@ -30,6 +32,31 @@ class PartSelectionUI:
         self.viewport.layout().insertWidget(2,bar);self.selection_toolbar=bar
         self.viewport.parts_selected.connect(self.select_clicked_parts)
         self.viewport.joint_selected.connect(self.inspect_connection)
+        self.viewport.filter.activated.connect(lambda _:self.leave_orbit())
+        self.viewport.filter.currentIndexChanged.connect(lambda _:self.leave_orbit())
+        self.make_inspection_tools(edit,assembly)
+
+    def leave_orbit(self):
+        self.actions['orbit'].setChecked(False);self.viewport.orbit_mode=False
+
+    def toggle_box_selection(self):
+        self.leave_orbit();self.viewport.set_box_mode(self.actions['box_select'].isChecked())
+
+    def toggle_group_selection(self):
+        self.select_parts([])
+        self.message('그룹 전체를 함께 선택합니다.' if self.actions['group_select'].isChecked() else '개별 부품 선택 · 그룹은 그대로 유지됩니다.')
+
+    def return_to_orbit(self):
+        if self.busy or self.sketching:return
+        if self.joint_picks is not None:self.cancel_joint_pick()
+        self.actions['box_select'].setChecked(False);self.viewport.set_box_mode(False)
+        self.select_parts([]);self.actions['orbit'].setChecked(True);self.viewport.orbit_mode=True
+        self.viewport.footer.setText('회전 모드 · 드래그: 시점 회전 · 아래 XYZ 클릭/드래그: 시점 변경 · 회전 버튼 다시 클릭: 선택 모드')
+        self.viewport.widget.setFocus();self.message('선택 해제 · 회전 모드 · 그룹과 설계는 유지됩니다.')
+
+    def toggle_orbit(self):
+        if self.actions['orbit'].isChecked():self.return_to_orbit()
+        else:self.leave_orbit();self.viewport.footer.setText('선택 모드 · 클릭: 선택 · 드래그: 회전 · Shift: 추가 선택 · Esc: 선택 해제 / 회전')
 
     def prepare_tree_selection(self):
         self.tree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -41,7 +68,7 @@ class PartSelectionUI:
 
     def selection_menu(self,pos,widget=None):
         menu=QMenu(self)
-        for key in ('move_parts','copy','cut','paste','group','ungroup','group_select','color','delete'):menu.addAction(self.actions[key])
+        for key in ('orbit','isolate','show_all','explode','export_parts','move_parts','copy','cut','paste','group','ungroup','group_select','color','delete'):menu.addAction(self.actions[key])
         menu.exec((widget or self.tree).mapToGlobal(pos))
 
     def selected_ids(self):
@@ -123,6 +150,8 @@ class PartSelectionUI:
         self.property_layout.addWidget(label(f'{len(ids)}개 부품 선택'))
         self.property_layout.addWidget(label('\n'.join(p['name'] for p in self.document.design['parts'] if p['id'] in ids),True))
         self.property_layout.addWidget(button('이동 / 회전 · M',self.move_parts,True))
+        self.property_layout.addWidget(button('선택만 보기 / 돌아오기',self.isolate_parts))
+        self.property_layout.addWidget(button('선택 부품별 STEP / STL 내보내기',self.export_selected_parts))
         self.property_layout.addWidget(button('● 선택 부품 색상',self.color_selection,True))
         self.property_layout.addWidget(button('선택 부품 그룹 · Ctrl+G',self.group_parts))
         for group in groups:

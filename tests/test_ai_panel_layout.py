@@ -8,6 +8,7 @@ def test_prompt_is_visible_on_open_and_settings_leave_actions_accessible(app,mon
     from cadstudio.native import window
     from cadstudio.native.model_picker import LocalModelPicker
     monkeypatch.setattr(window,'DATA_DIR',tmp_path);monkeypatch.setattr(LocalModelPicker,'refresh',lambda self:None)
+    monkeypatch.setenv('CADSTUDIO_DATA_DIR',str(tmp_path))
     w=window.MainWindow();w.resize(*size);w.show();w.ai_dock.show();w.ai_dock.raise_();app.processEvents()
     try:
         w.ai_scroll.verticalScrollBar().setValue(0);app.processEvents()

@@ -3,7 +3,7 @@ import json
 import re
 from dataclasses import dataclass
 
-from .cad_tools import CATALOG, context, messages
+from .cad_tools import CATALOG, context, messages, PHYSICAL_ASSEMBLY_GUIDANCE
 
 TOOLS = ('create', 'dimensions', 'transform', 'appearance', 'hole', 'pocket',
          'pad', 'fillet', 'chamfer', 'shell', 'solid', 'thread', 'joint', 'parameter', 'edit_feature', 'edit_joint')
@@ -38,7 +38,7 @@ def scope_schema():
 
 
 def scope_messages(request):
-    return [dict(role='system', content=SYSTEM), dict(role='user', content=json.dumps(
+    return [dict(role='system', content=SYSTEM+'\n'+PHYSICAL_ASSEMBLY_GUIDANCE), dict(role='user', content=json.dumps(
         dict(prompt=request.prompt, selected_part=request.selected_part, selected_feature=request.selected_feature, selected_joint=request.selected_joint, current_design=context(request.current)),
         ensure_ascii=False, separators=(',', ':')))]
 
@@ -128,7 +128,7 @@ class Scope:
                 continue
             keep.append(line)
         result = messages(request)
-        result[0]['content'] = '\n'.join(keep) + '\nThe tools listed here are AVAILABLE, not a required sequence. Use only operations needed for the ORIGINAL request; do not use every tool just because it is listed.'
+        result[0]['content'] = '\n'.join(keep) + '\n'+PHYSICAL_ASSEMBLY_GUIDANCE+'\nThe tools listed here are AVAILABLE, not a required sequence. Use only operations needed for the ORIGINAL request; do not use every tool just because it is listed.'
         if self.new_parts:
             result[0]['content'] += '\nNEW PART IDs: '+json.dumps(self.new_parts)+'. Create every listed part using EXACTLY its declared target ID. Reuse that ID for holes, features, appearance and joints. Synonyms belong only in the display name, never in target IDs.'
         if self.connections:

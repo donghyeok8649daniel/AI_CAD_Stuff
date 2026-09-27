@@ -1,0 +1,745 @@
+{
+  "format": "prompt-cad-project",
+  "version": 2,
+  "design": {
+    "schema_version": 1,
+    "name": "회전 관절 구조",
+    "mode": "robot",
+    "units": "mm",
+    "parts": [
+      {
+        "id": "example-mount",
+        "name": "고정 장착 플랜지",
+        "geometry": {
+          "kind": "extrusion",
+          "thickness": 6.0,
+          "points": [
+            {
+              "x": -26.075,
+              "y": -26.075
+            },
+            {
+              "x": 26.075,
+              "y": -26.075
+            },
+            {
+              "x": 26.075,
+              "y": 26.075
+            },
+            {
+              "x": -26.075,
+              "y": 26.075
+            }
+          ],
+          "holes": [
+            {
+              "x": 0.0,
+              "y": 0.0,
+              "diameter": 16.15
+            },
+            {
+              "x": -20.075,
+              "y": -20.075,
+              "diameter": 5.0
+            },
+            {
+              "x": -20.075,
+              "y": 20.075,
+              "diameter": 5.0
+            },
+            {
+              "x": 20.075,
+              "y": -20.075,
+              "diameter": 5.0
+            },
+            {
+              "x": 20.075,
+              "y": 20.075,
+              "diameter": 5.0
+            }
+          ],
+          "constraints": [],
+          "sketch_mode": "polygon",
+          "entities": [],
+          "entity_constraints": [],
+          "profiles": []
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -6.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#657e91",
+        "fixed": true,
+        "features": []
+      },
+      {
+        "id": "example-housing",
+        "name": "관절 하우징",
+        "geometry": {
+          "kind": "cylinder",
+          "diameter": 24.15,
+          "height": 30.0,
+          "bore_diameter": 16.15
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#6ba8bc",
+        "fixed": false,
+        "features": []
+      },
+      {
+        "id": "example-bush-a",
+        "name": "하부 부시",
+        "geometry": {
+          "kind": "cylinder",
+          "diameter": 16.15,
+          "height": 10.0,
+          "bore_diameter": 12.15
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#c6a15d",
+        "fixed": false,
+        "features": []
+      },
+      {
+        "id": "example-bush-b",
+        "name": "상부 부시",
+        "geometry": {
+          "kind": "cylinder",
+          "diameter": 16.15,
+          "height": 10.0,
+          "bore_diameter": 12.15
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 20.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#c6a15d",
+        "fixed": false,
+        "features": []
+      },
+      {
+        "id": "example-shaft",
+        "name": "회전 축",
+        "geometry": {
+          "kind": "cylinder",
+          "diameter": 12.0,
+          "height": 46.5,
+          "bore_diameter": 0.0
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -10.25,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#cad2dc",
+        "fixed": false,
+        "features": []
+      },
+      {
+        "id": "example-output",
+        "name": "출력 장착 플랜지",
+        "geometry": {
+          "kind": "extrusion",
+          "thickness": 6.0,
+          "points": [
+            {
+              "x": -20.0,
+              "y": -20.0
+            },
+            {
+              "x": 20.0,
+              "y": -20.0
+            },
+            {
+              "x": 20.0,
+              "y": 20.0
+            },
+            {
+              "x": -20.0,
+              "y": 20.0
+            }
+          ],
+          "holes": [
+            {
+              "x": 0.0,
+              "y": 0.0,
+              "diameter": 12.0
+            },
+            {
+              "x": -14.0,
+              "y": -14.0,
+              "diameter": 5.0
+            },
+            {
+              "x": -14.0,
+              "y": 14.0,
+              "diameter": 5.0
+            },
+            {
+              "x": 14.0,
+              "y": -14.0,
+              "diameter": 5.0
+            },
+            {
+              "x": 14.0,
+              "y": 14.0,
+              "diameter": 5.0
+            }
+          ],
+          "constraints": [],
+          "sketch_mode": "polygon",
+          "entities": [],
+          "entity_constraints": [],
+          "profiles": []
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 30.25,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#70c8b4",
+        "fixed": false,
+        "features": []
+      },
+      {
+        "id": "example-collar",
+        "name": "축 고정 칼라",
+        "geometry": {
+          "kind": "cylinder",
+          "diameter": 18.0,
+          "height": 4.0,
+          "bore_diameter": 12.0
+        },
+        "transform": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -10.25,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        "color": "#b8c3cd",
+        "fixed": false,
+        "features": []
+      }
+    ],
+    "mates": [
+      {
+        "id": "example-housing-mount",
+        "kind": "rigid",
+        "parent": "example-mount",
+        "child": "example-housing",
+        "parent_anchor": "origin",
+        "child_anchor": "origin",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 6.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 0.0
+      },
+      {
+        "id": "example-bush-a-seat",
+        "kind": "rigid",
+        "parent": "example-housing",
+        "child": "example-bush-a",
+        "parent_anchor": "origin",
+        "child_anchor": "origin",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 0.0
+      },
+      {
+        "id": "example-bush-b-seat",
+        "kind": "rigid",
+        "parent": "example-housing",
+        "child": "example-bush-b",
+        "parent_anchor": "origin",
+        "child_anchor": "origin",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 20.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 0.0
+      },
+      {
+        "id": "example-output-shaft",
+        "kind": "rigid",
+        "parent": "example-shaft",
+        "child": "example-output",
+        "parent_anchor": "origin",
+        "child_anchor": "origin",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 40.5,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 0.0
+      },
+      {
+        "id": "example-collar-shaft",
+        "kind": "rigid",
+        "parent": "example-shaft",
+        "child": "example-collar",
+        "parent_anchor": "origin",
+        "child_anchor": "origin",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 0.0
+      },
+      {
+        "id": "example-rotation",
+        "kind": "revolute",
+        "parent": "example-housing",
+        "child": "example-shaft",
+        "parent_anchor": "origin",
+        "child_anchor": "origin",
+        "x": 0.0,
+        "y": 0.0,
+        "z": -10.25,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 0.0,
+        "limits": {
+          "rz": [
+            -180.0,
+            180.0
+          ]
+        }
+      }
+    ],
+    "sketches": [],
+    "joint_frames": [],
+    "loops": [],
+    "studies": [],
+    "part_groups": [
+      {
+        "id": "example-hardware",
+        "name": "회전 관절 구조 · 7개 부품",
+        "part_ids": [
+          "example-mount",
+          "example-housing",
+          "example-bush-a",
+          "example-bush-b",
+          "example-shaft",
+          "example-output",
+          "example-collar"
+        ]
+      }
+    ]
+  },
+  "prompt": "",
+  "history": {
+    "version": 1,
+    "base": {
+      "schema_version": 1,
+      "name": "회전 관절 구조",
+      "mode": "robot",
+      "units": "mm",
+      "parts": [
+        {
+          "id": "example-mount",
+          "name": "고정 장착 플랜지",
+          "geometry": {
+            "kind": "extrusion",
+            "thickness": 6.0,
+            "points": [
+              {
+                "x": -26.075,
+                "y": -26.075
+              },
+              {
+                "x": 26.075,
+                "y": -26.075
+              },
+              {
+                "x": 26.075,
+                "y": 26.075
+              },
+              {
+                "x": -26.075,
+                "y": 26.075
+              }
+            ],
+            "holes": [
+              {
+                "x": 0.0,
+                "y": 0.0,
+                "diameter": 16.15
+              },
+              {
+                "x": -20.075,
+                "y": -20.075,
+                "diameter": 5.0
+              },
+              {
+                "x": -20.075,
+                "y": 20.075,
+                "diameter": 5.0
+              },
+              {
+                "x": 20.075,
+                "y": -20.075,
+                "diameter": 5.0
+              },
+              {
+                "x": 20.075,
+                "y": 20.075,
+                "diameter": 5.0
+              }
+            ],
+            "constraints": [],
+            "sketch_mode": "polygon",
+            "entities": [],
+            "entity_constraints": [],
+            "profiles": []
+          },
+          "transform": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": -6.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          "color": "#657e91",
+          "fixed": true,
+          "features": []
+        },
+        {
+          "id": "example-housing",
+          "name": "관절 하우징",
+          "geometry": {
+            "kind": "cylinder",
+            "diameter": 24.15,
+            "height": 30.0,
+            "bore_diameter": 16.15
+          },
+          "transform": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          "color": "#6ba8bc",
+          "fixed": false,
+          "features": []
+        },
+        {
+          "id": "example-bush-a",
+          "name": "하부 부시",
+          "geometry": {
+            "kind": "cylinder",
+            "diameter": 16.15,
+            "height": 10.0,
+            "bore_diameter": 12.15
+          },
+          "transform": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          "color": "#c6a15d",
+          "fixed": false,
+          "features": []
+        },
+        {
+          "id": "example-bush-b",
+          "name": "상부 부시",
+          "geometry": {
+            "kind": "cylinder",
+            "diameter": 16.15,
+            "height": 10.0,
+            "bore_diameter": 12.15
+          },
+          "transform": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 20.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          "color": "#c6a15d",
+          "fixed": false,
+          "features": []
+        },
+        {
+          "id": "example-shaft",
+          "name": "회전 축",
+          "geometry": {
+            "kind": "cylinder",
+            "diameter": 12.0,
+            "height": 46.5,
+            "bore_diameter": 0.0
+          },
+          "transform": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": -10.25,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          "color": "#cad2dc",
+          "fixed": false,
+          "features": []
+        },
+        {
+          "id": "example-output",
+          "name": "출력 장착 플랜지",
+          "geometry": {
+            "kind": "extrusion",
+            "thickness": 6.0,
+            "points": [
+              {
+                "x": -20.0,
+                "y": -20.0
+              },
+              {
+                "x": 20.0,
+                "y": -20.0
+              },
+              {
+                "x": 20.0,
+                "y": 20.0
+              },
+              {
+                "x": -20.0,
+                "y": 20.0
+              }
+            ],
+            "holes": [
+              {
+                "x": 0.0,
+                "y": 0.0,
+                "diameter": 12.0
+              },
+              {
+                "x": -14.0,
+                "y": -14.0,
+                "diameter": 5.0
+              },
+              {
+                "x": -14.0,
+                "y": 14.0,
+                "diameter": 5.0
+              },
+              {
+                "x": 14.0,
+                "y": -14.0,
+                "diameter": 5.0
+              },
+              {
+                "x": 14.0,
+                "y": 14.0,
+                "diameter": 5.0
+              }
+            ],
+            "constraints": [],
+            "sketch_mode": "polygon",
+            "entities": [],
+            "entity_constraints": [],
+            "profiles": []
+          },
+          "transform": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 30.25,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          "color": "#70c8b4",
+          "fixed": false,
+          "features": []
+        },
+        {
+          "id": "example-collar",
+          "name": "축 고정 칼라",
+          "geometry": {
+            "kind": "cylinder",
+            "diameter": 18.0,
+            "height": 4.0,
+            "bore_diameter": 12.0
+          },
+          "transform": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": -10.25,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          "color": "#b8c3cd",
+          "fixed": false,
+          "features": []
+        }
+      ],
+      "mates": [
+        {
+          "id": "example-housing-mount",
+          "kind": "rigid",
+          "parent": "example-mount",
+          "child": "example-housing",
+          "parent_anchor": "origin",
+          "child_anchor": "origin",
+          "x": 0.0,
+          "y": 0.0,
+          "z": 6.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": "example-bush-a-seat",
+          "kind": "rigid",
+          "parent": "example-housing",
+          "child": "example-bush-a",
+          "parent_anchor": "origin",
+          "child_anchor": "origin",
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": "example-bush-b-seat",
+          "kind": "rigid",
+          "parent": "example-housing",
+          "child": "example-bush-b",
+          "parent_anchor": "origin",
+          "child_anchor": "origin",
+          "x": 0.0,
+          "y": 0.0,
+          "z": 20.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": "example-output-shaft",
+          "kind": "rigid",
+          "parent": "example-shaft",
+          "child": "example-output",
+          "parent_anchor": "origin",
+          "child_anchor": "origin",
+          "x": 0.0,
+          "y": 0.0,
+          "z": 40.5,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": "example-collar-shaft",
+          "kind": "rigid",
+          "parent": "example-shaft",
+          "child": "example-collar",
+          "parent_anchor": "origin",
+          "child_anchor": "origin",
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": "example-rotation",
+          "kind": "revolute",
+          "parent": "example-housing",
+          "child": "example-shaft",
+          "parent_anchor": "origin",
+          "child_anchor": "origin",
+          "x": 0.0,
+          "y": 0.0,
+          "z": -10.25,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "limits": {
+            "rz": [
+              -180.0,
+              180.0
+            ]
+          }
+        }
+      ],
+      "sketches": [],
+      "joint_frames": [],
+      "loops": [],
+      "studies": [],
+      "part_groups": [
+        {
+          "id": "example-hardware",
+          "name": "회전 관절 구조 · 7개 부품",
+          "part_ids": [
+            "example-mount",
+            "example-housing",
+            "example-bush-a",
+            "example-bush-b",
+            "example-shaft",
+            "example-output",
+            "example-collar"
+          ]
+        }
+      ]
+    },
+    "entries": [
+      {
+        "id": "step-5c734c63c5684a63b96dcc1eedd6b79d",
+        "parent": null,
+        "label": "회전 관절 실제 구조",
+        "created_at": "2026-09-27T18:36:35.326180+00:00",
+        "source": "manual",
+        "changes": [],
+        "context": {}
+      }
+    ],
+    "cursor": "step-5c734c63c5684a63b96dcc1eedd6b79d",
+    "head": "step-5c734c63c5684a63b96dcc1eedd6b79d"
+  }
+}
