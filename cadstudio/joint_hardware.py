@@ -89,4 +89,6 @@ def add_revolute_hardware(raw=None, dimensions=None, *, mate_id=None, origin=(0,
     else:mates.append(dict(id=prefix+'rotation',kind='revolute',parent=prefix+'housing',child=prefix+'shaft',z=bottom,limits={'rz':[-180,180]}))
     data['parts'].extend(parts);data['mates'].extend(mates)
     data.setdefault('part_groups',[]).append(dict(id=prefix+'hardware',name='회전 관절 구조 · 7개 부품',part_ids=[p['id'] for p in parts]))
-    return Design.model_validate(data),[p['id'] for p in parts]
+    from .print_profile import link_print_parts
+    ids=[p['id'] for p in parts]
+    return link_print_parts(data,ids),ids

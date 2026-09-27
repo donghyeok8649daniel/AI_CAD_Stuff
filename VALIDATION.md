@@ -1,3 +1,20 @@
+# 2.9.0 Printer allowances, product references and native usability
+
+Targeted regression: **278 passed, 160 warnings in 157.97s (0:02:37)**. Frozen Windows EXE: **150 checks** (kernel 4, selection/UI 80, Codex integration 17, physical joints/navigation/export 24, new usability flow 25). All **105 bundled CAD modules** and the entry point match the tested source snapshot. Earlier release results below are historical. No paid API calls or live subscription AI requests were made in this release validation.
+
+Printer-profile checks cover PLA 0.2/0 mm defaults, variable-bound dimensions, no cumulative compensation, nominal restoration, disable/re-enable, collisions with reserved user parameter names, document round trips and undo/redo. Mounting-seat checks use real CAD solids and analytical removed volumes, face coordinates through successive cuts, optional mounting/cable holes, compensation links, and rejection of pockets outside the available material. Printer adjustments are opt-in supported dimensions, not a universal face offset or certification of printer accuracy.
+
+The native flow exercises blank startup, the version/about command, persisted Korean/English switching without changing user names or document data, independent grid/axis visibility, hidden XYZ marker hit testing, model reload, adaptive grid scale, printer previews and actual electronics pockets with four mounting holes. Screenshots were inspected for legible English controls, unit fields and the compact layout. Some legacy detailed engineering messages remain Korean.
+
+Product-page parsing and transport tests cover metric/inch evidence, scripts excluded from text, bounded responses, unsupported content, blocked local addresses and redirected addresses, and source-preserving AI prompt preparation. Actual public Adafruit 4864 and Pololu 1099 specification pages were read successfully and produced multiple dimension candidates. The user must confirm the applicable product variant and axis order; component height is not silently used as pocket depth. HTML text extraction does not cover PDF/image drawings or JavaScript-only specifications. Preparing the prompt does not invoke an AI model or establish its design quality.
+
+Existing STEP/STL and Autodesk export regression checks remain passing. F3D/IPT conversion still requires the corresponding Autodesk application and does not recreate the original feature timeline. Existing documents are preserved by the transactional updater.
+
+- [Native flow checks](docs/usability290-report.json)
+- [Snapshot and regression results](docs/native290-validation.json)
+- [Printer profile](docs/usability290-printer.png) / [Electronics seat](docs/usability290-electronics-en.png) / [English workbench](docs/usability290-workbench-en.png)
+- [Korean usage guide](docs/PRINT_AND_COMPONENTS_KO.md) / [English guide](docs/USER_MANUAL_EN.md)
+
 # 2.8.0 Physical joints, navigation and component workflows
 
 Targeted regression: **213 passed, 113 warnings in 49.15s**. Frozen Windows EXE: **125 checks** (kernel4, selection/UI80, Codex17, physical joints/navigation/export24). All **97 bundled CAD modules** and the entry point match the tested source snapshot. Earlier release results below are historical.

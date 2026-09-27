@@ -86,6 +86,9 @@ def evaluate_design(data):
         if key in raw:
             if not isinstance(raw[key],list):raise ValueError('부품과 스케치는 목록이어야 합니다.')
             raw[key]=[item.model_dump() if hasattr(item,'model_dump') else item for item in raw[key]]
+    if raw.get('print_profile'):
+        from .print_profile import profile_parameters
+        raw['parameters']={**raw.get('parameters',{}),**profile_parameters(raw['print_profile'])}
     values=parameter_values(raw.get('parameters',{}));seen=set()
     def sketch_expressions(node):
         if isinstance(node,list):

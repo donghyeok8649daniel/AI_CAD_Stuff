@@ -100,11 +100,13 @@ class SketchCanvas(QWidget):
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing);p.fillRect(self.rect(),QColor('#141e29'));origin=self.screen(G.pt(0,0));unit=grid_step(self.scale);step=unit*self.scale
         p.setPen(QPen(QColor('#23313e'),1))
-        x=origin.x()%step
-        while x<self.width():p.drawLine(QPointF(x,0),QPointF(x,self.height()));x+=step
-        y=origin.y()%step
-        while y<self.height():p.drawLine(QPointF(0,y),QPointF(self.width(),y));y+=step
-        p.setPen(QPen(QColor('#9b6071'),1));p.drawLine(QPointF(0,origin.y()),QPointF(self.width(),origin.y()));p.setPen(QPen(QColor('#477c72'),1));p.drawLine(QPointF(origin.x(),0),QPointF(origin.x(),self.height()))
+        if getattr(self.editor,'grid_visible',True):
+            x=origin.x()%step
+            while x<self.width():p.drawLine(QPointF(x,0),QPointF(x,self.height()));x+=step
+            y=origin.y()%step
+            while y<self.height():p.drawLine(QPointF(0,y),QPointF(self.width(),y));y+=step
+        if getattr(self.editor,'axes_visible',True):
+            p.setPen(QPen(QColor('#9b6071'),1));p.drawLine(QPointF(0,origin.y()),QPointF(self.width(),origin.y()));p.setPen(QPen(QColor('#477c72'),1));p.drawLine(QPointF(origin.x(),0),QPointF(origin.x(),self.height()))
         for region in (self.editor.preview or {}).get('regions',[]):
             path=QPainterPath();path.setFillRule(Qt.FillRule.OddEvenFill)
             for row in region['outline']:
@@ -142,7 +144,9 @@ class SketchCanvas(QWidget):
                     if e['kind'] not in ('text','point'):p.drawPath(self.path([G.at(e,i/64) for i in range(65)]))
             else:p.drawPath(self.path(pending+([self.cursor] if self.cursor else [])))
             for v in pending:p.drawEllipse(self.screen(v),4,4)
-        p.setFont(QFont('Malgun Gothic',9));p.setPen(QColor('#9bb0c3'));p.drawText(origin+QPointF(8,17),'원점 (0, 0)')
+        p.setFont(QFont('Malgun Gothic',9));p.setPen(QColor('#9bb0c3'))
+        if getattr(self.editor,'axes_visible',True):p.drawText(origin+QPointF(8,17),'Origin (0, 0)')
+        p.drawText(QPointF(12,self.height()-14),f'1 grid = {unit:g} mm')
         self.dimension_boxes=[];index={e['id']:e for e in self.editor.g['entities']}
         for con in self.editor.g['entity_constraints']:
             e=index.get(con['a']);kind=con['kind']

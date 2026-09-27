@@ -748,6 +748,16 @@ class PartGroup(StrictModel):
     part_ids: list[str] = Field(min_length=1,max_length=256)
 
 
+class PrintProfile(StrictModel):
+    name: str = Field(default='FDM / FFF', min_length=1, max_length=80)
+    material: str = Field(default='PLA', max_length=80)
+    enabled: bool = True
+    hole_expansion: float = Field(default=.2, ge=0, le=5)
+    shaft_reduction: float = Field(default=0, ge=0, le=5)
+    gap: float = Field(default=.2, ge=0, le=5)
+    uncertainty: float = Field(default=0, ge=0, le=5)
+
+
 class Design(StrictModel):
     schema_version: Literal[1] = 1
     name: str = Field(default="새 설계", min_length=1, max_length=100)
@@ -765,6 +775,7 @@ class Design(StrictModel):
     motion_links: list[MotionLink] = Field(default_factory=list,max_length=128)
     configurations: dict[str,dict[str,str]] = Field(default_factory=dict,max_length=64)
     part_groups: list[PartGroup] = Field(default_factory=list,max_length=256)
+    print_profile: PrintProfile | None = None
 
     @model_validator(mode='before')
     @classmethod
@@ -776,7 +787,7 @@ class Design(StrictModel):
     @model_serializer(mode='wrap')
     def compatible_parameters(self,handler):
         data=handler(self)
-        for key in ('parameters','dimension_bindings','assets','motion_links','configurations','part_groups'):
+        for key in ('parameters','dimension_bindings','assets','motion_links','configurations','part_groups','print_profile'):
             if not data.get(key):data.pop(key,None)
         return data
 

@@ -1,0 +1,30 @@
+{
+  "checks": [
+    "blank startup",
+    "title bar exposes current app version",
+    "3D grid reports actual ten-mm cell",
+    "grid and axis glyph can be hidden independently of CAD data",
+    "hidden axis glyph cannot capture clicks",
+    "PLA initial hole +0.2 and shaft zero",
+    "printer settings committed via native action",
+    "undo restores pre-profile design",
+    "redo restores profile",
+    "electronics preview has pocket plus four ordinary cut features",
+    "electronics preview removes actual material",
+    "preview is non-destructive before apply",
+    "new dialog controls switch to English",
+    "mounting features applied to CAD",
+    "language switch preserves user part name",
+    "English product-source action exists",
+    "grid visibility survives model reload",
+    "display toggles preserve geometry and history",
+    "source URL and evidence transferred into AI prompt",
+    "preparing source prompt does not call AI or change CAD",
+    "project roundtrip preserves printer profile",
+    "switch back to Korean",
+    "sketch mode opens",
+    "grid/axis visibility works in sketch mode",
+    "sketch cell length follows adaptive zoom grid"
+  ],
+  "passed": true
+}

@@ -41,6 +41,7 @@ class ShortcutRouter(QObject):
 
 def show_manual(parent):
     dialog=QDialog(parent);dialog.setWindowTitle('Prompt CAD Studio · 사용 설명서 / 단축키');dialog.resize(860,740);layout=QVBoxLayout(dialog);view=QTextBrowser();view.setOpenExternalLinks(False);layout.addWidget(view)
-    path=Path(__file__).resolve().parents[2]/'docs'/'USER_MANUAL_KO.md'
-    if not path.exists():path=Path(sys.executable).parent/'docs'/'USER_MANUAL_KO.md'
+    service=getattr(QApplication.instance(),'cad_language',None);name='USER_MANUAL_EN.md' if service and service.language=='en' else 'USER_MANUAL_KO.md'
+    path=Path(__file__).resolve().parents[2]/'docs'/name
+    if not path.exists():path=Path(sys.executable).parent/'docs'/name
     view.setMarkdown(path.read_text(encoding='utf-8') if path.exists() else '설치 폴더의 docs/USER_MANUAL_KO.md를 열어주세요.');dialog.exec()

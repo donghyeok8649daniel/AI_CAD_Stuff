@@ -18,6 +18,9 @@ def export_parts(raw, identifiers, destination, formats=('step','stl'), placemen
     if not ids or not ids<={p.id for p in design.parts}:raise ValueError('내보낼 부품을 선택하세요.')
     target=Path(destination);temporary=target.with_name(target.name+'.'+uuid4().hex+'.tmp')
     manifest=dict(units='mm',placement=placement,parts=[])
+    if design.print_profile:
+        manifest['print_profile']=design.print_profile.model_dump()
+        manifest['dimension_bindings']=[b.model_dump() for b in design.dimension_bindings if b.path[:1]==['parts'] and b.path[1] in ids]
     try:
         with KERNEL_LOCK,TemporaryDirectory(prefix='promptcad-parts-') as scratch:
             shapes=build(design)

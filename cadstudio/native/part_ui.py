@@ -148,7 +148,7 @@ class PartSelectionUI(PartInspectionUI):
     def selection_properties(self):
         ids=self.selected_ids();groups=[g for g in self.document.design.get('part_groups',[]) if set(ids).intersection(g['part_ids'])]
         self.property_layout.addWidget(label(f'{len(ids)}개 부품 선택'))
-        self.property_layout.addWidget(label('\n'.join(p['name'] for p in self.document.design['parts'] if p['id'] in ids),True))
+        self.property_layout.addWidget(label('\n'.join(p['name'] for p in self.document.design['parts'] if p['id'] in ids),True,user_text=True))
         self.property_layout.addWidget(button('이동 / 회전 · M',self.move_parts,True))
         self.property_layout.addWidget(button('선택만 보기 / 돌아오기',self.isolate_parts))
         self.property_layout.addWidget(button('선택 부품별 STEP / STL 내보내기',self.export_selected_parts))

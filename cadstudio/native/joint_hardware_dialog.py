@@ -18,6 +18,10 @@ class JointHardwareDialog(PreviewDialog):
         self.inputs={};form=QFormLayout();self.controls.addLayout(form)
         labels={'shaft_diameter':'축 지름','clearance':'부시 내경 − 축 지름','length':'하우징 길이','bushing_wall':'부시 두께','housing_wall':'하우징 벽 두께','flange_thickness':'플랜지 두께','bolt_diameter':'장착 구멍 지름','axial_gap':'축 방향 여유'}
         defaults=RevoluteHardware().model_dump()
+        profile=(raw or {}).get('print_profile')
+        if profile and profile.get('enabled',True):
+            if profile['gap']>=.02:defaults['axial_gap']=profile['gap']
+            self.controls.addWidget(label('이 프로젝트의 프린터 보정을 새 부품의 외경 / 구멍에 연결합니다. 실제 미리보기 치수를 확인하세요.',True))
         for key,title in labels.items():
             field=RevoluteHardware.model_fields[key];bounds=field.metadata
             lo=next(m.ge for m in bounds if hasattr(m,'ge'));hi=next(m.le for m in bounds if hasattr(m,'le'))

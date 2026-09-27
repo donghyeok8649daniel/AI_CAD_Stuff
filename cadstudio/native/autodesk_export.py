@@ -11,7 +11,7 @@ from ..native_export import inventor_installed,prepare_native_export,convert_ipt
 class AutodeskExportDialog(QDialog):
     def __init__(self,parent,project,fmt,selected=None):
         super().__init__(parent);self.setWindowTitle(fmt.upper()+' 내보내기');self.resize(660,420);self.project=project;self.fmt=fmt;self.running=False;self.folder=None;self.has_inventor=inventor_installed()
-        v=QVBoxLayout(self);v.addWidget(label('Inventor 부품 · IPT' if fmt=='ipt' else 'Fusion 아카이브 · F3D'));self.part=choice([(p.id,p.name) for p in project.design.parts]);self.part.setVisible(fmt=='ipt');v.addWidget(self.part)
+        v=QVBoxLayout(self);v.addWidget(label('Inventor 부품 · IPT' if fmt=='ipt' else 'Fusion 아카이브 · F3D'));self.part=choice([(p.id,p.name) for p in project.design.parts]);self.part.setProperty('cadUserText',True);self.part.setVisible(fmt=='ipt');v.addWidget(self.part)
         if selected:self.part.setCurrentIndex(max(0,self.part.findData(selected)))
         info=('설치된 Inventor로 선택 부품을 변환합니다.' if self.has_inventor else 'Inventor가 감지되지 않았습니다. 변환 준비 파일을 만든 뒤 Inventor가 설치된 PC에서 변환할 수 있습니다.') if fmt=='ipt' else 'Fusion에서 실행할 변환 스크립트와 STEP을 함께 준비합니다. Fusion의 스크립트 및 애드인에서 폴더를 등록하고 실행하면 지정한 F3D로 저장합니다.'
         v.addWidget(label(info,True));v.addWidget(label('실제 파일은 Autodesk 앱이 생성합니다. 원본 스케치·구속·피처 기록은 함께 저장하는 CAD 프로젝트에 보존하며 Autodesk 타임라인으로 재구성하지 않습니다.',True))

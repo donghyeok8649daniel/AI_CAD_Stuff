@@ -100,4 +100,9 @@ class HoleDialog(PreviewDialog):
         if face.get('reference'):part['features'][-1]['reference']=face['reference']
         if self.through.isChecked():part['features'][-1]['through_all']=True
         if self.style.currentData()!='plain':part['features'][-1].update(hole_finish=self.style.currentData(),head_diameter=self.head_diameter.value(),head_depth=self.head_depth.value(),head_angle=self.head_angle.value())
+        if raw.get('print_profile') and self.style.currentData()=='plain':
+            from ..print_profile import print_targets,apply_print_profile
+            rows=print_targets(raw);selected=[r['path'] for r in rows if r['linked'] or (r['part']==self.part_id and len(r['path'])>3 and r['path'][2]=='features' and r['path'][3]==self.feature_id)]
+            part['features'][-1]['name']=part['features'][-1]['name'].replace('구멍 Ø','구멍 기준 Ø')
+            return apply_print_profile(raw,raw['print_profile'],selected).model_dump()
         return raw

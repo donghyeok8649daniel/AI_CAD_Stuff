@@ -81,8 +81,8 @@ def number(value=0,low=-5000,high=5000,suffix='',decimals=5):
     widget=QDoubleSpinBox();widget.setRange(low,high);widget.setDecimals(decimals);widget.setValue(float(value));widget.setKeyboardTracking(False);widget.setSuffix(suffix);widget.setMinimumWidth(86);return widget
 
 
-def label(text,muted=False):
-    widget=QLabel(text);widget.setWordWrap(True)
+def label(text,muted=False,*,user_text=False):
+    widget=QLabel(text);widget.setWordWrap(True);widget.setProperty('cadUserText',user_text)
     if muted:widget.setStyleSheet('color:#9bb2c3;font-size:11px;')
     return widget
 

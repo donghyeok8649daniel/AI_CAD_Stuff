@@ -13,6 +13,9 @@ class FitDialog(QDialog):
     def __init__(self,parent,design,identifier=None):
         super().__init__(parent);self.setWindowTitle('축 / 구멍 공차 · 끼워맞춤');self.resize(700,570);self.base=Design.model_validate(design);self.identifier=identifier or 'fit-'+uid();self.inputs={};self.refs={};self.output=None
         old=next((s for s in self.base.studies if s.id==identifier),None);settings=FitSettings.model_validate(old.settings if old else {})
+        if not old and self.base.print_profile:
+            error=self.base.print_profile.uncertainty
+            settings=FitSettings(shaft_lower=-error,shaft_upper=error,hole_lower=-error,hole_upper=error)
         v=QVBoxLayout(self);v.addWidget(label('상한 / 하한은 기준 지름에 더하는 편차입니다. 단위 mm · 예: 하한 -0.020, 상한 0.000',True));row=QHBoxLayout();v.addLayout(row)
         for side,title in [('shaft','축'),('hole','구멍')]:
             group=QGroupBox(title);form=QFormLayout(group);form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows);row.addWidget(group)

@@ -29,6 +29,20 @@ def polydata(vertices,triangles):
 from .interaction import SelectionTools
 
 
+class ViewportCaption(QLabel):
+    """Keep model statistics readable without taking space from a small viewport."""
+    def __init__(self,text):
+        super().__init__();self._full_text='';self.setText(text)
+    def setText(self,text):
+        self._full_text=text;self.setToolTip(text);self._refresh_text()
+    def text(self):
+        return self._full_text
+    def _refresh_text(self):
+        super().setText(self.fontMetrics().elidedText(self._full_text,Qt.TextElideMode.ElideRight,max(0,self.contentsRect().width())))
+    def resizeEvent(self,event):
+        super().resizeEvent(event);self._refresh_text()
+
+
 class CADStyle(vtkInteractorStyleTrackballCamera):
     def __init__(self,owner):
         self.owner=owner;self.down=None
@@ -89,9 +103,10 @@ class CADViewport(QWidget,SelectionTools):
     message=Signal(str)
     def __init__(self,parent=None):
         super().__init__(parent);self.setObjectName('cadViewport');self.meshes={};self.actors={};self.actor_ids={};self.hidden=set();self.selected=None;self.selected_ids=[];self.face=None;self.box_mode=False;self.orbit_mode=False
-        self.closed=False;self.show_edges=True;self.face_pick=False;self.result=None;self.grid_actor=None;self.highlight=None;self.sketch_actors={};self.edge_candidates={};self.pick_objects={};self.selection_mode='auto';self.profile_actors={};self.hovered_profile=None;self.handle=None
+        self.closed=False;self.show_edges=True;self.face_pick=False;self.result=None;self.grid_actor=None;self.highlight=None;self.sketch_actors={};self.edge_candidates={};self.pick_objects={};self.selection_mode='auto';self.profile_actors={};self.hovered_profile=None;self.handle=None;self.grid_visible=True;self.axes_visible=True;self.initialized=False
         layout=QVBoxLayout(self);layout.setContentsMargins(0,0,0,0);layout.setSpacing(0)
-        bar=QHBoxLayout();bar.setContentsMargins(12,8,12,8);self.caption=QLabel('새 설계 · XY 원점');self.caption.setStyleSheet('font-weight:600;color:#afc7d6;');self.caption.setWordWrap(True);self.caption.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);layout.addWidget(self.caption);self.caption.setContentsMargins(12,7,12,0);bar.addStretch()
+        bar=QHBoxLayout();bar.setContentsMargins(12,8,12,8);self.caption=ViewportCaption('새 설계 · XY 원점');self.caption.setStyleSheet('font-weight:600;color:#afc7d6;');self.caption.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);layout.addWidget(self.caption);self.caption.setContentsMargins(12,7,12,0);bar.addStretch()
+        layout.removeWidget(self.caption);caption_row=QHBoxLayout();caption_row.setContentsMargins(0,0,10,0);caption_row.addWidget(self.caption,1);self.grid_label=QLabel();caption_row.addWidget(self.grid_label);layout.insertLayout(0,caption_row)
         self.filter=QComboBox();self.filter.setObjectName('selectionFilter');self.filter.setToolTip('선택 대상 · Shift+1~6');
         for key,name in [('auto','자동 선택'),('point','점 선택'),('edge','선 / 모서리'),('face','면 선택'),('body','체적 / 부품'),('sketch','스케치 영역')]:self.filter.addItem(name,key)
         self.filter.currentIndexChanged.connect(lambda:self.set_selection_mode(self.filter.currentData()));bar.insertWidget(0,self.filter)
@@ -117,17 +132,29 @@ class CADViewport(QWidget,SelectionTools):
 
     def initialize(self):
         if self.closed:return
-        self.widget.Initialize();self.axes_widget.SetEnabled(1);self.axes_widget.InteractiveOff();self.window.Render()
+        self.widget.Initialize();self.initialized=True;self.axes_widget.SetEnabled(int(self.axes_visible));self.axes_widget.InteractiveOff();self.window.Render()
+
+    def show_grid(self,visible):
+        self.grid_visible=bool(visible)
+        if self.grid_actor:self.grid_actor.SetVisibility(self.grid_visible)
+        self.grid_label.setVisible(self.grid_visible)
+        if self.initialized and not self.closed:self.window.Render()
+
+    def show_axes(self,visible):
+        self.axes_visible=bool(visible)
+        if self.initialized and not self.closed:self.axes_widget.SetEnabled(int(visible));self.window.Render()
 
     def make_grid(self,extent):
         if self.grid_actor:self.renderer.RemoveActor(self.grid_actor)
-        extent=max(50,float(extent));step=10**math.ceil(math.log10(extent/10));extent=math.ceil(extent/step)*step
+        extent=max(50,float(extent));target=extent/10;power=10**math.floor(math.log10(target));step=next(n*power for n in (1,2,5,10) if n*power>=target);extent=math.ceil(extent/step)*step
+        self.grid_spacing=step;self.grid_label.setText(f'1 grid = {step:g} mm');self.grid_label.setToolTip('격자 한 칸의 실제 길이 · mm');self.grid_label.setVisible(self.grid_visible)
         pts=vtkPoints();lines=vtkCellArray()
         for i in range(-int(extent/step),int(extent/step)+1):
             v=i*step
             for a,b in [((-extent,v,-.02),(extent,v,-.02)),((v,-extent,-.02),(v,extent,-.02))]:
                 start=pts.InsertNextPoint(*a);end=pts.InsertNextPoint(*b);lines.InsertNextCell(2);lines.InsertCellPoint(start);lines.InsertCellPoint(end)
         mesh=vtkPolyData();mesh.SetPoints(pts);mesh.SetLines(lines);mapper=vtkPolyDataMapper();mapper.SetInputData(mesh);self.grid_actor=vtkActor();self.grid_actor.SetMapper(mapper);self.grid_actor.GetProperty().SetColor(.35,.49,.56);self.grid_actor.GetProperty().SetOpacity(.15);self.grid_actor.PickableOff();self.renderer.AddActor(self.grid_actor)
+        self.grid_actor.SetVisibility(self.grid_visible)
 
     def load(self,result,fit=True):
         for actor in self.edge_candidates:self.renderer.RemoveActor(actor)
@@ -296,6 +323,7 @@ class CADViewport(QWidget,SelectionTools):
         return points
 
     def axis_at(self,pos):
+        if not self.axes_visible:return None
         width,height=self.window.GetSize();left,bottom,right,top=self.axes_widget.GetViewport()
         if not (left*width<=pos[0]<=right*width and bottom*height<=pos[1]<=top*height):return None
         points=self.axis_points();p=np.array(pos);origin=points['origin'];tolerance=12*self.widget.devicePixelRatioF()

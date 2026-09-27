@@ -47,7 +47,14 @@ class ParameterDialog(PreviewDialog):
         self.controls.addWidget(label('부품 속성에서 연결한 식'));self.controls.addWidget(self.bindings);self.controls.addWidget(button('선택 연결 해제 · 현재 값 유지',self.unlink));self.controls.addStretch();self.table.itemChanged.connect(self.schedule);self.schedule();self.resize(1150,800)
     def add_row(self,name='',expr='0'):
         i=self.table.rowCount();self.table.insertRow(i);self.table.setItem(i,0,QTableWidgetItem(name));self.table.setItem(i,1,QTableWidgetItem(str(expr)));item=QTableWidgetItem();item.setFlags(item.flags()&~Qt.ItemFlag.ItemIsEditable);self.table.setItem(i,2,item)
+        from ..print_profile import PARAMETERS
+        if self.base.get('print_profile') and name in PARAMETERS.values():
+            for col in (0,1):
+                item=self.table.item(i,col);item.setFlags(item.flags()&~Qt.ItemFlag.ItemIsEditable);item.setToolTip('3D 프린터 전체 여유 / 공차 창에서 변경하세요.')
     def remove_row(self):
+        from ..print_profile import PARAMETERS
+        i=self.table.currentRow()
+        if i>=0 and self.base.get('print_profile') and self.table.item(i,0).text() in PARAMETERS.values():return
         if self.table.currentRow()>=0:self.table.removeRow(self.table.currentRow());self.schedule()
     def unlink(self):
         i=self.bindings.currentRow()
