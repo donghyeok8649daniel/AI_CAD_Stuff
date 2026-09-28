@@ -79,3 +79,10 @@ View → Grid / axes colors, brightness, width lets you choose a grid color and 
 Assembly → Align joint shaft / bore axes lets you select the actual cylindrical faces of an existing revolute/cylindrical joint. Review measured eccentricity, axis tilt and interference before applying. Current axial placement and clocking are retained by default; turn this off to enter axial gap/angle. Existing limits are preserved. Descendants follow their parent, so check collars and other hardware separately. Cut cylinders or ambiguous references require reselection. Cancel leaves the project unchanged.
 
 New AI face features use the selected face bounding-box midpoint, avoiding the shift in area centroid caused by asymmetric holes. Tilted AI joints must bind to actual measured cylindrical axes. Old documents keep their existing geometry and can be repaired explicitly. Neither alignment nor sampled travel is a manufacturing or continuous collision certificate.
+
+
+## Graphics startup recovery (2.10.1)
+
+The app tests native rendering in a disposable process before opening the CAD viewport. If the default OpenGL driver fails or hangs, it tests the already-bundled software renderer and falls back automatically. Both failing shows a recovery window with retry and diagnostic buttons. The software renderer uses the CPU; large assemblies may display more slowly, while CAD geometry and project saving remain unchanged. No system graphics drivers or DLLs are replaced.
+
+Use **Help → Graphics startup diagnostics** to inspect the current backend. Diagnostic files live in `%LOCALAPPDATA%/PromptCADStudio`. For troubleshooting, `PromptCADStudio.exe --renderer software` forces the software path. Autosaved projects are not automatically restored or overwritten. This guards the reproduced startup failure and does not guarantee against every native driver/runtime crash.

@@ -8,7 +8,11 @@ from PySide6.QtWidgets import QApplication,QWidget,QLabel,QAbstractButton,QCombo
 from shiboken6 import isValid
 
 
-PAIRS = '''관절 축 · 구멍 동심 정렬…|Align joint shaft / bore axes…
+PAIRS = '''소프트웨어 3D · 안정 모드|Software 3D · safe mode
+그래픽 시작 진단…|Graphics startup diagnostics…
+그래픽 시작 진단|Graphics startup diagnostics
+진단 폴더 열기|Open diagnostics folder
+관절 축 · 구멍 동심 정렬…|Align joint shaft / bore axes…
 관절 축 · 구멍 동심 정렬|Align joint shaft / bore axes
 현재 축 방향 위치 / 회전 각도 유지|Keep current axial position / rotation
 축 방향 뒤집기|Reverse axis direction

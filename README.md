@@ -1,10 +1,12 @@
+**2.10.1 안정성 수정:** 그래픽 시작 검사를 별도 프로세스로 분리하고, OpenGL 실패 시 내장 소프트웨어 렌더링으로 전환합니다. 복구 창과 진단 로그를 추가했습니다. [시작 오류 안내](docs/STARTUP_RECOVERY_KO.md).
+
 **2.10.0:** 실제 원통 기반 관절 동심 정렬·AI 축 편심 수정, 격자/XYZ 색·밝기·굵기 설정, 간섭 경고·관절 중간 자세 검사와 적용 차단, 실제 관절의 0.2 mm 조립 여유, 출력 방향/배치/STL 미리보기, 설계를 바꾸지 않는 AI 질의응답, AI 변경 전후 비교, 실제 연결 확인 후 ✓ Codex 체크 표시. [사용 방법과 검사 범위](docs/PRINT_AI_INTERFERENCE_KO.md).
 
 **2.9.0:** 프린터별 프로젝트 여유(PLA 기본 구멍 +0.2 mm / 축 0), 한국어·English UI, 앱 버전 표시, 격자 한 칸 mm와 격자/축 토글, 전장부품 장착 자리, 공개 제품 URL의 치수 후보·출처 검토 및 AI 요청 연결. [사용 방법](docs/PRINT_AND_COMPONENTS_KO.md) / [English guide](docs/USER_MANUAL_EN.md).
 
 **2.8.0:** 선택 해제·회전, 클릭 가능한 XYZ 축, 실제 관절 구조, AI 커스텀 조립, 선택만/분해 보기와 부품별 STEP·STL 출력. [사용 방법](docs/ASSEMBLY_PARTS_KO.md)
 
-# Prompt CAD Studio · Native 2.10.0
+# Prompt CAD Studio · Native 2.10.1
 
 **v2.7.0 — Codex · ChatGPT 구독 모드:** 기존 Codex 로그인으로 설계 요청을 실행합니다. AI 패널에서 Codex 선택 → Codex 연결 → 기존 로그인 사용 → 모델 선택. API 키가 필요하지 않으며 Codex 구독 사용량이 적용됩니다. [연결 방법과 한계](docs/CODEX_MODE_KO.md).
 

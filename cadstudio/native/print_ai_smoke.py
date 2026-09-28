@@ -1,3 +1,4 @@
+from cadstudio import __version__
 """Owned native integration checks; all AI/account responses are offline fixtures."""
 import json,time,traceback
 from copy import deepcopy
@@ -36,7 +37,7 @@ def run(app,w,path):
     try:
         w.show_error=errors.append;w.resize(1200,820);app.setQuitOnLastWindowClosed(False)
         check(w.document.design is None,'blank startup retained')
-        check('v2.10.0' in w.windowTitle(),'version 2.10.0 visible')
+        check(('v'+__version__) in w.windowTitle(),'current version visible')
         design=Design(parts=[Part(id='base',name='기준판',fixed=True,geometry=dict(kind='plate',length=5,width=5,thickness=2,hole_count=0)),
             Part(id='arm',name='회전 팔',geometry=dict(kind='extrusion',thickness=2,sketch_mode='polygon',points=[dict(x=x,y=y) for x,y in [(0,-1),(20,-1),(20,1),(0,1)]])),
             Part(id='stop',name='장애물',fixed=True,geometry=dict(kind='plate',length=4,width=4,thickness=2,hole_count=0),transform=dict(x=15,z=4))],

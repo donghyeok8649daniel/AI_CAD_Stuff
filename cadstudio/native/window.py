@@ -42,6 +42,10 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.progress=QProgressBar();self.progress.setRange(0,0);self.progress.setFixedWidth(140);self.progress.setMaximumHeight(12);self.progress.hide();self.statusBar().addPermanentWidget(self.progress);self.statusBar().addPermanentWidget(QLabel(f'  mm  ·  NATIVE {__version__}  '));self.message('새 스케치에서 시작하거나 부품을 추가하세요.');self.rebuild_tree();self.show_properties();self.title()
         self.ai_timer=QTimer(self);self.ai_timer.setInterval(500);self.ai_timer.timeout.connect(self.ai_tick)
         self.ai_status_button=button('AI 생성 취소',self.cancel_ai);self.ai_status_button.hide();self.statusBar().addPermanentWidget(self.ai_status_button)
+        if os.getenv('CADSTUDIO_RENDERER')=='software':
+            self.graphics_status=button('소프트웨어 3D · 안정 모드',self.graphics_diagnostics)
+            self.graphics_status.setToolTip('그래픽 드라이버 초기화에 실패해 CPU 렌더링을 사용합니다. 큰 조립품은 표시가 느려질 수 있습니다.')
+            self.statusBar().addPermanentWidget(self.graphics_status)
         from .shortcuts import ShortcutRouter
         self.shortcut_router=ShortcutRouter(self)
         self.provider.setCurrentIndex(self.provider.findData('codex' if self.codex_config['model'] else 'ollama'));self.ai_dock.show();self.ai_dock.raise_()
@@ -105,6 +109,16 @@ class MainWindow(QMainWindow,PartSelectionUI):
         help=self.menuBar().addMenu('도움말(&H)');help.addAction(self.action('manual','사용 방법 · 단축키 매뉴얼',self.help_dialog,'F1'));help.addAction(self.action('update','업데이트 확인…',self.check_updates));help.addAction(self.action('about','버전 / 앱 정보…',self.about_dialog))
         help.addAction(self.action('openai_setup','OpenAI 연결 · API 키 발급…',self.openai_setup))
         help.addAction(self.action('codex_setup','Codex 연결 · ChatGPT 구독…',self.codex_setup))
+        help.addAction(self.action('graphics_diagnostics','그래픽 시작 진단…',self.graphics_diagnostics))
+    def graphics_diagnostics(self):
+        from PySide6.QtGui import QDesktopServices
+        from PySide6.QtCore import QUrl
+        box=QMessageBox(self);box.setWindowTitle('그래픽 시작 진단');box.setText('현재 렌더러: '+('소프트웨어 3D (CPU)' if os.getenv('CADSTUDIO_RENDERER')=='software' else '기본 그래픽 드라이버'))
+        box.setInformativeText('시작할 때 실제 3D 렌더링을 별도 프로세스에서 검사합니다. 기본 드라이버가 실패하면 소프트웨어 렌더링으로 전환합니다. 설계 데이터와 형상 계산은 동일합니다.')
+        try:box.setDetailedText((self.data_dir/'graphics-status.json').read_text(encoding='utf-8'))
+        except OSError:pass
+        open_log=box.addButton('진단 폴더 열기',QMessageBox.ButtonRole.ActionRole);box.addButton(QMessageBox.StandardButton.Close);box.exec()
+        if box.clickedButton()==open_log:QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.data_dir)))
     def make_toolbar(self):
         self.toolbar=QToolBar('작업 공간');self.toolbar.setObjectName('modelToolbar');self.toolbar.setMovable(False);self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.toolbar.setIconSize(QSize(25,25));self.addToolBar(self.toolbar)
         for key in ('new','open','save'):self.toolbar.addAction(self.actions[key])

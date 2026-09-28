@@ -1,3 +1,17 @@
+# 2.10.1 Native graphics startup stability
+
+Reproduced the reported Windows access violation during VTK startup after `wglCreateContext` / OpenGL function initialization failed. An ordinary Python exception handler cannot catch this native process failure. Startup now tests real Qt/VTK rendering in an isolated child, bounds each probe to20 seconds, checks rendered pixels and process exit, and falls back to the existing Qt-distributed Mesa software driver. Both renderers failing opens a Qt-only diagnostics/retry window without creating a CAD viewport. Windows system libraries and drivers are unchanged. This addresses the reproduced startup path; it is not a guarantee against all native runtime/driver failures.
+
+Source regression: **48 passed, 49 warnings in 65.59s (0:01:05)**. It covers subprocess native failure, timeout/reaping, cleanup failure after a successful frame, malformed reports, actual recovery UI, blank startup/autosave protection, display settings, selection/navigation, AI cancellation and compact UI. A separate integration test injects the observed hardware access-violation result and then uses a real software probe and normal main event loop: **7 checks passed**.
+
+Frozen EXE: **226 checks**. Repeated default and explicit-software startup sessions each remain alive for15 seconds while generating and orbiting a real robot assembly, resizing, saving/reloading and closing normally. Selection/UI regression runs80 checks on each renderer. The38-check print/AI/interference flow also passes. All **116 CAD modules** and the native entry match the tested source. The packaged Mesa DLL hash matches the existing upstream PySide6 DLL and there is no duplicate driver payload. Screenshots verified for actual geometry in both modes. AI transport fixtures are offline; no paid API calls or live subscription requests.
+
+The native self-test alone does not establish that the GUI can stay open; these checks exercise the actual event loop and rendered frames. Hardware capability and CPU rendering speed vary by machine.
+
+- [Validation report](docs/native211-validation.json)
+- [Hardware startup](docs/startup-auto-1211.json) / [Software startup](docs/startup-software-1211.json) / [Failure-to-software integration](docs/startup-fallback211.json)
+- [Startup troubleshooting](docs/STARTUP_RECOVERY_KO.md)
+
 # 2.10.0 Interference prevention, printing and AI review
 
 Targeted source regression: **355 passed, 242 warnings in 207.20s (0:03:27)**. Frozen Windows EXE: **188 checks** across kernel, selection/UI, Codex, mechanical, usability and the new print/AI/interference flow. **114 bundled CAD modules** and the native entry match the tested snapshot. The reports below are from this release; older results remain historical. No paid API requests, live subscription prompts or live account checks were made during validation.

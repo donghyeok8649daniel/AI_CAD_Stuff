@@ -1,3 +1,4 @@
+from cadstudio import __version__
 import json,time
 from copy import deepcopy
 import pytest
@@ -40,7 +41,7 @@ def test_language_switch_preserves_document_and_user_text_and_grid_state(app,mon
         w.viewport.make_grid(600);assert w.viewport.grid_spacing==100 and not w.viewport.grid_actor.GetVisibility()
         w.actions['grid'].trigger();w.actions['axes'].trigger();assert '100 mm' in w.viewport.grid_label.text()
         assert w.viewport.axes_widget.GetEnabled() and w.viewport.grid_actor.GetVisibility()
-        captured=[];monkeypatch.setattr(window.QMessageBox,'about',lambda *args:captured.append(args[-1]));w.actions['about'].trigger();assert 'v2.10.0' in captured[0]
+        captured=[];monkeypatch.setattr(window.QMessageBox,'about',lambda *args:captured.append(args[-1]));w.actions['about'].trigger();assert ('v'+__version__) in captured[0]
         service.set_language('ko');app.processEvents();assert w.actions['print_profile'].text()=='3D 프린터 · 전체 여유 / 공차…'
     finally:
         service.set_language('ko',False);service.path=old_path;w.document.dirty=False;w.close();app.processEvents();QThreadPool.globalInstance().waitForDone(5000)

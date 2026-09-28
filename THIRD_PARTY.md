@@ -16,3 +16,5 @@ The optional legacy web source includes **Three.js 0.180.0** (MIT), FastAPI and 
 No Autodesk source code, artwork, logos or proprietary assets are included. This is an independent application.
 
 The optional local AI setup downloads Ollama from its official release and Qwen3 from the Ollama model library. These installer/model payloads are not redistributed inside the CAD ZIP; they retain their upstream licenses. The native exporter integration uses the installed Autodesk application API and includes no proprietary Autodesk binaries.
+
+Software rendering reuses the unmodified Mesa 11.2.2 / LLVM 3.6 DLL distributed by Qt/PySide6, packaged as `_internal/software-renderer/opengl32.dll` (the upstream file name is `opengl32sw.dll`). It is loaded only for software rendering and does not replace Windows system files. [Qt build instructions](https://wiki.qt.io/MesaLlvmpipe), [Qt binary distribution](https://download.qt.io/development_releases/prebuilt/llvmpipe/windows/), [upstream notices](https://doc.qt.io/qt-6/qt-attribution-llvmpipe.html). The notices are also included in `licenses/Mesa-llvmpipe.txt`.

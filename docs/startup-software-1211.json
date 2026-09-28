@@ -1,0 +1,14 @@
+{
+  "checks": [
+    "ordinary blank startup initializes a visible native viewport",
+    "startup does not restore or overwrite the previous project",
+    "real robot assembly builds and renders after startup",
+    "native event loop remains responsive through repeated orbit rendering",
+    "rendered assembly framebuffer contains visible geometry",
+    "render fallback preserves normal native project saving",
+    "normal window close shuts down the render context"
+  ],
+  "renderer": "software",
+  "frames": 133,
+  "seconds": 15.64
+}

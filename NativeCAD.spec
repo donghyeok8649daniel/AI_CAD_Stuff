@@ -12,6 +12,9 @@ a=Analysis([str(root/'native_desktop.py')],pathex=[str(root)],binaries=binaries,
 # Qt on Windows uses the operating system's unversioned ICU exports. Build hosts
 # with Poppler on PATH can otherwise contribute an incompatible ICU 78 DLL.
 a.binaries=[entry for entry in a.binaries if Path(entry[0]).name.lower() not in {'icuuc.dll','icudt78.dll'}]
+# Reuse Qt's already-bundled Mesa software driver under WGL's required name.
+# Preload this app-local copy only after a successful isolated software probe.
+a.binaries=[('software-renderer/opengl32.dll',entry[1],entry[2]) if entry[0].replace('\\','/').lower()=='pyside6/opengl32sw.dll' else entry for entry in a.binaries]
 pyz=PYZ(a.pure)
 exe=EXE(pyz,a.scripts,[],exclude_binaries=True,name='PromptCADStudio',debug=False,bootloader_ignore_signals=False,strip=False,upx=False,console=False,icon=str(root/'static/app.ico'))
 coll=COLLECT(exe,a.binaries,a.datas,strip=False,upx=False,name='PromptCADStudio')

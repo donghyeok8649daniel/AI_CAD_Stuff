@@ -1,5 +1,6 @@
 """Native OpenGL CAD viewport using VTK's Qt window and exact-kernel meshes."""
 import math
+import os
 import numpy as np
 from PySide6.QtCore import Qt,Signal,QTimer,QPoint,QRect
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QToolButton,QSizePolicy,QComboBox,QRubberBand,QMessageBox
@@ -114,7 +115,13 @@ class CADViewport(QWidget,SelectionTools):
         for key,name in [('iso','등각 1'),('top','상면 2'),('front','정면 3'),('right','측면 4')]:
             b=QToolButton();b.setText(name);b.clicked.connect(lambda _,k=key:self.set_view(k));bar.addWidget(b)
         self.caption.setMinimumHeight(38);layout.addLayout(bar)
-        self.widget=QVTKRenderWindowInteractor(self);self.widget.setObjectName('nativeOpenGLViewport');self.widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus);layout.addWidget(self.widget,1)
+        if os.name=='nt':
+            # Use exactly the backend tested by the isolated graphics probe.
+            # VTK's automatic OSMesa fallback may itself crash on Windows.
+            from vtkmodules.vtkRenderingOpenGL2 import vtkWin32OpenGLRenderWindow
+            self.widget=QVTKRenderWindowInteractor(self,rw=vtkWin32OpenGLRenderWindow())
+        else:self.widget=QVTKRenderWindowInteractor(self)
+        self.widget.setObjectName('nativeOpenGLViewport');self.widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus);layout.addWidget(self.widget,1)
         self.renderer=vtkRenderer();self.renderer.SetBackground(.07,.105,.15);self.renderer.SetBackground2(.16,.22,.28);self.renderer.GradientBackgroundOn()
         # A single headlight gives perpendicular faces the same brightness in
         # an isometric view, hiding pockets and hollow interiors. Camera-relative
@@ -122,7 +129,7 @@ class CADViewport(QWidget,SelectionTools):
         self.renderer.AutomaticLightCreationOff();self.light_kit=vtkLightKit()
         for role in ('Key','Fill','Back','Head'):getattr(self.light_kit,'Set'+role+'LightWarmth')(.5)
         self.light_kit.SetKeyLightIntensity(.8);self.light_kit.AddLightsToRenderer(self.renderer)
-        self.window=self.widget.GetRenderWindow();self.window.AddRenderer(self.renderer);self.window.SetMultiSamples(4)
+        self.window=self.widget.GetRenderWindow();self.window.AddRenderer(self.renderer);self.window.SetMultiSamples(0)
         from .assembly_display import AssemblyDisplay
         self.joints=AssemblyDisplay(self);self.rubber=QRubberBand(QRubberBand.Shape.Rectangle,self.widget)
         self.interactor=self.window.GetInteractor();self.style=CADStyle(self);self.style.SetDefaultRenderer(self.renderer);self.interactor.SetInteractorStyle(self.style)
