@@ -33,7 +33,7 @@ def run(app,w,path):
     try:
         app.setQuitOnLastWindowClosed(False);w.show_error=errors.append;w.resize(1200,820);w.activateWindow();app.processEvents()
         check(w.document.design is None,'blank startup')
-        check('v2.9.0' in w.windowTitle(),'title bar exposes current app version')
+        check('v2.10.0' in w.windowTitle(),'title bar exposes current app version')
         check('10 mm' in w.viewport.grid_label.text(),'3D grid reports actual ten-mm cell')
         w.actions['grid'].trigger();w.actions['axes'].trigger()
         check(not w.viewport.grid_actor.GetVisibility() and not w.viewport.axes_widget.GetEnabled(),'grid and axis glyph can be hidden independently of CAD data')

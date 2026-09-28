@@ -17,7 +17,7 @@ def reorder_features(raw,part_id,index,destination):
 class FeatureManager(PreviewDialog):
     def __init__(self,parent,design,part_id):
         super().__init__(parent,'피처 순서 / 억제','순서를 바꾸거나 피처를 끄고 실제 결과를 확인하세요. 참조가 맞지 않으면 적용되지 않습니다.')
-        self.raw=deepcopy(design);self.part_id=part_id;self.list=QListWidget();self.list.setMinimumHeight(230);self.controls.addWidget(self.list)
+        self.base=deepcopy(design);self.raw=deepcopy(design);self.part_id=part_id;self.list=QListWidget();self.list.setMinimumHeight(230);self.controls.addWidget(self.list)
         row=QHBoxLayout();row.addWidget(button('↑ 앞으로',lambda:self.move(-1)));row.addWidget(button('↓ 뒤로',lambda:self.move(1)));self.controls.addLayout(row)
         self.following=QCheckBox('선택한 피처 뒤의 작업도 함께 억제 / 복원');self.following.setChecked(True);self.controls.addWidget(self.following)
         self.controls.addWidget(button('선택 피처 앞에 솔리드 작업 삽입',self.insert));self.controls.addWidget(label('체크한 피처를 계산합니다. 체크 해제는 임시 억제이며 입력값과 기록을 지우지 않습니다. 앞선 작업을 삭제·이동해 참조가 달라지면 면 재선택이 필요할 수 있습니다.',True));self.controls.addStretch();self.list.itemChanged.connect(self.toggle);self.refresh();self.schedule()

@@ -8,7 +8,13 @@ from PySide6.QtWidgets import QApplication,QWidget,QLabel,QAbstractButton,QCombo
 from shiboken6 import isValid
 
 
-PAIRS = '''파일(&F)|&File
+PAIRS = '''관절 축 · 구멍 동심 정렬…|Align joint shaft / bore axes…
+관절 축 · 구멍 동심 정렬|Align joint shaft / bore axes
+현재 축 방향 위치 / 회전 각도 유지|Keep current axial position / rotation
+축 방향 뒤집기|Reverse axis direction
+기준 부품 · 구멍 / 원통|Parent bore / cylinder
+이동 부품 · 축 / 원통|Child shaft / cylinder
+파일(&F)|&File
 편집(&E)|&Edit
 모델링(&M)|&Model
 조립(&A)|&Assembly
@@ -368,6 +374,25 @@ EN.update({
     '가져온 1번 치수 → 폭, 2번 → 길이. 치수 순서를 확인하세요. 제품 높이를 자리 깊이로 자동 적용하지 않습니다.':'Dimension 1 → width; dimension 2 → length. Check the axis order. Product height is not automatically used as pocket depth.',
 })
 
+
+EN.update({
+    '격자 · 축 모양':'Grid / axes appearance','격자 · 축 색상 / 밝기 / 선 굵기…':'Grid / axes colors, brightness, width…','격자 색':'Grid color','X축 색':'X-axis color','Y축 색':'Y-axis color','Z축 색':'Z-axis color','격자 밝기':'Grid brightness','축 밝기':'Axes brightness','격자 선 굵기':'Grid line width','축 선 굵기':'Axes line width','기본 모양으로':'Restore defaults','모양 저장':'Save appearance','3D 프린팅':'3D printing','3D 프린팅 · STL 미리보기…':'3D printing / STL preview…',
+    '3D 프린팅 · STL 미리보기':'3D printing / STL preview', '이 미리보기로 STL 저장':'Save this preview as STL',
+    '부품 간격':'Part spacing','STL 메시 오차':'STL mesh tolerance',
+    '정밀 · 0.025 mm':'Fine / 0.025 mm','표준 · 0.05 mm':'Standard / 0.05 mm','가벼움 · 0.1 mm':'Coarse / 0.1 mm','고정밀 · 0.01 mm':'Extra fine / 0.01 mm',
+    '출력 X 회전':'Print X rotation','출력 Y 회전':'Print Y rotation','출력 Z 회전':'Print Z rotation',
+    '출력 영역 X':'Build volume X','출력 영역 Y':'Build volume Y','출력 영역 Z':'Build volume Z',
+    '질의응답':'Questions','초안 생성':'Generate','질문 보내기':'Ask AI','미리보기 / 적용':'Preview / apply',
+    'AI 설계 · 적용 전 비교':'AI design / before and after','변경 후 · AI 초안':'After / AI draft','변경 전 · 현재 설계':'Before / current design',
+    '확인 · 설계에 적용':'Apply to design','돌아가기':'Back',
+    '마지막 확인 자세로 이동':'Use last checked pose',
+    'Codex 연결 상태 확인':'Check Codex connection','Codex · 연결 확인 전':'Codex / not checked',
+    'Codex · 연결 확인 중…':'Codex / checking…','Codex · 연결 확인 실패':'Codex / check failed',
+    '✓ Codex 연결 완료':'✓ Codex connected','Codex · 연결 재확인 필요':'Codex / recheck connection',
+    '회전 지름 여유 · 부시 − 축':'Rotating fit / bush minus shaft',
+    '삽입 지름 여유 · 하우징 − 부시':'Insertion fit / housing minus bush',
+    '삽입 지름 여유 · 플랜지/칼라 − 축':'Insertion fit / flange/collar minus shaft',
+})
 
 def translate(text,language):
     if language!='en' or not isinstance(text,str):return text

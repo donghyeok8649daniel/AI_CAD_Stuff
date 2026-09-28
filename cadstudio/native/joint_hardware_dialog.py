@@ -16,7 +16,7 @@ class JointHardwareDialog(PreviewDialog):
         self.target=choice(items);self.controls.addWidget(self.target)
         self.target.setCurrentIndex(max(0,self.target.findData(selected_joint or '')))
         self.inputs={};form=QFormLayout();self.controls.addLayout(form)
-        labels={'shaft_diameter':'축 지름','clearance':'부시 내경 − 축 지름','length':'하우징 길이','bushing_wall':'부시 두께','housing_wall':'하우징 벽 두께','flange_thickness':'플랜지 두께','bolt_diameter':'장착 구멍 지름','axial_gap':'축 방향 여유'}
+        labels={'shaft_diameter':'축 지름','clearance':'회전 지름 여유 · 부시 − 축','seat_clearance':'삽입 지름 여유 · 하우징 − 부시','assembly_clearance':'삽입 지름 여유 · 플랜지/칼라 − 축','length':'하우징 길이','bushing_wall':'부시 두께','housing_wall':'하우징 벽 두께','flange_thickness':'플랜지 두께','bolt_diameter':'장착 구멍 지름','axial_gap':'축 방향 여유'}
         defaults=RevoluteHardware().model_dump()
         profile=(raw or {}).get('print_profile')
         if profile and profile.get('enabled',True):
@@ -29,7 +29,7 @@ class JointHardwareDialog(PreviewDialog):
         self.positions=[]
         for axis in 'XYZ':
             widget=number(0,-2000,2000,' mm');self.positions.append(widget);form.addRow('새 조립 '+axis,widget);widget.valueChanged.connect(self.schedule)
-        self.controls.addWidget(label('기존 관절 선택 시 같은 회전 축에 구조를 장착하고 기존 운동을 따릅니다. 원래 부품의 구멍·장착부는 자동 가공하지 않으므로 간섭을 확인하세요.\n칼라와 축/출력 플랜지는 강체 연결입니다. 체결 나사·키·베어링 등급과 하중 정격은 포함하지 않은 편집 가능한 설계 초안입니다.',True));self.controls.addStretch()
+        self.controls.addWidget(label('기존 관절 선택 시 같은 회전 축에 구조를 장착하고 기존 운동을 따릅니다. 원래 부품의 구멍·장착부는 자동 가공하지 않습니다. 새 간섭이 있으면 적용을 막습니다. 지름 여유는 반경 여유의 2배이며 프린터 보정은 추가로 반영됩니다.\n칼라와 축/출력 플랜지는 강체 연결입니다. 체결 나사·키·베어링 등급과 하중 정격은 포함하지 않은 편집 가능한 설계 초안입니다.',True));self.controls.addStretch()
         self.target.currentIndexChanged.connect(self.target_changed);self.target_changed()
 
     def target_changed(self):

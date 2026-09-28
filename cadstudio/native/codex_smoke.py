@@ -50,6 +50,7 @@ def run(app, window, path):
         check(window.last_draft is not None, 'subscription draft ready')
         check(window.document.design is None, 'preview does not replace current design')
         check(window.accept_draft.isEnabled(), 'explicit apply enabled')
+        QTimer.singleShot(100,lambda:app.activeModalWidget().accept() if app.activeModalWidget() else None)
         window.accept_draft.click(); wait(lambda: not window.busy and window.document.design is not None)
         solid = build(Design.model_validate(window.document.design))[0]
         check(abs(solid.Volume() - math.pi * (20**2 - 4**2) * 10) < 1e-5, 'real through hole volume')

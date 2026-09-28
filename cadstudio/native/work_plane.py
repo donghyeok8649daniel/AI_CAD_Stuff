@@ -51,3 +51,5 @@ class WorkPlaneDialog(PreviewDialog):
     def present(self):
         plane,_=self.checked;origin,x,y=work_plane_frame(plane)
         self.status.setStyleSheet('color:#8dd7c0;');self.status.setText('평면 원점 (mm): '+', '.join(f'{v:g}' for v in origin)+' · 미리보기 확인 후 적용하세요.')
+    def validation_design(self,checked):
+        return checked[1]

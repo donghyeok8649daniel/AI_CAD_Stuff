@@ -8,8 +8,8 @@ import traceback
 from cadstudio import __version__
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--open',type=Path);parser.add_argument('--no-restore',action='store_true');parser.add_argument('--smoke-test',type=Path);parser.add_argument('--self-test',type=Path);parser.add_argument('--setup-ai',action='store_true');parser.add_argument('--setup-codex',action='store_true');parser.add_argument('--codex-smoke',type=Path);parser.add_argument('--mechanical-smoke',type=Path);parser.add_argument('--usability-smoke',type=Path);parser.add_argument('--advanced-smoke',type=Path);parser.add_argument('--reliability-smoke',type=Path);parser.add_argument('--direct-smoke',type=Path);parser.add_argument('--thread-smoke',type=Path);parser.add_argument('--sketch-guide-smoke',type=Path);parser.add_argument('--extended-smoke',type=Path);parser.add_argument('--ai-smoke','--wheel-smoke',dest='ai_smoke',type=Path);parser.add_argument('--selection-smoke',type=Path);args=parser.parse_args()
-    if (args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke) and not os.getenv('CADSTUDIO_DATA_DIR'):os.environ['CADSTUDIO_DATA_DIR']=str((args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke).resolve().parent/'test-profile')
+    parser=argparse.ArgumentParser();parser.add_argument('--open',type=Path);parser.add_argument('--no-restore',action='store_true');parser.add_argument('--smoke-test',type=Path);parser.add_argument('--self-test',type=Path);parser.add_argument('--setup-ai',action='store_true');parser.add_argument('--setup-codex',action='store_true');parser.add_argument('--codex-smoke',type=Path);parser.add_argument('--mechanical-smoke',type=Path);parser.add_argument('--usability-smoke',type=Path);parser.add_argument('--print-ai-smoke',type=Path);parser.add_argument('--advanced-smoke',type=Path);parser.add_argument('--reliability-smoke',type=Path);parser.add_argument('--direct-smoke',type=Path);parser.add_argument('--thread-smoke',type=Path);parser.add_argument('--sketch-guide-smoke',type=Path);parser.add_argument('--extended-smoke',type=Path);parser.add_argument('--ai-smoke','--wheel-smoke',dest='ai_smoke',type=Path);parser.add_argument('--selection-smoke',type=Path);args=parser.parse_args()
+    if (args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke or args.print_ai_smoke) and not os.getenv('CADSTUDIO_DATA_DIR'):os.environ['CADSTUDIO_DATA_DIR']=str((args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke or args.print_ai_smoke).resolve().parent/'test-profile')
     data=Path(os.getenv('CADSTUDIO_DATA_DIR',str(Path(os.getenv('LOCALAPPDATA',str(Path.home()/'AppData/Local')))/'PromptCADStudio')));data.mkdir(parents=True,exist_ok=True);os.environ['CADSTUDIO_DATA_DIR']=str(data)
     log=(data/'native-desktop.log').open('a',encoding='utf-8',buffering=1)
     if sys.stdout is None:sys.stdout=log
@@ -28,7 +28,7 @@ def main():
     install_language(data/'ui-settings.json')
     def report_exception(kind,value,tb):
         text=''.join(traceback.format_exception(kind,value,tb));log.write(text);log.flush()
-        if args.smoke_test or args.advanced_smoke or args.reliability_smoke or args.direct_smoke or args.thread_smoke or args.sketch_guide_smoke or args.extended_smoke or args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke:(args.smoke_test or args.advanced_smoke or args.reliability_smoke or args.direct_smoke or args.thread_smoke or args.sketch_guide_smoke or args.extended_smoke or args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke).with_suffix('.error.txt').write_text(text,encoding='utf-8');app.exit(1)
+        if args.smoke_test or args.advanced_smoke or args.reliability_smoke or args.direct_smoke or args.thread_smoke or args.sketch_guide_smoke or args.extended_smoke or args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke or args.print_ai_smoke:(args.smoke_test or args.advanced_smoke or args.reliability_smoke or args.direct_smoke or args.thread_smoke or args.sketch_guide_smoke or args.extended_smoke or args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke or args.print_ai_smoke).with_suffix('.error.txt').write_text(text,encoding='utf-8');app.exit(1)
         else:QMessageBox.warning(None,'작업 오류',str(value)[:1500])
     sys.excepthook=report_exception
     if args.setup_codex:
@@ -42,9 +42,13 @@ def main():
         kernel_self_test(args.self_test);return 0
     from cadstudio.native.window import MainWindow
     window=MainWindow();window.show()
+    if args.print_ai_smoke:
+        from cadstudio.native.print_ai_smoke import run
+        QTimer.singleShot(300,lambda:run(app,window,args.print_ai_smoke))
+        return app.exec()
     if args.usability_smoke:
         from cadstudio.native.usability_smoke import run
-        QTimer.singleShot(300,lambda:run(app,window,args.usability_smoke))
+        QTimer.singleShot(300,lambda:run(app,window,args.usability_smoke or args.print_ai_smoke))
         return app.exec()
     if args.mechanical_smoke:
         from cadstudio.native.mechanical_smoke import run

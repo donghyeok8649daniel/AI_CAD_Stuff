@@ -14,13 +14,15 @@ from .models import Design, Part
 class RevoluteHardware(BaseModel):
     model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
     shaft_diameter: float = Field(default=12, ge=2, le=200)
-    clearance: float = Field(default=.15, ge=.01, le=2)
+    clearance: float = Field(default=.2, ge=.01, le=2)
+    seat_clearance: float = Field(default=.2, ge=0, le=2)
+    assembly_clearance: float = Field(default=.2, ge=0, le=2)
     length: float = Field(default=30, ge=10, le=400)
     bushing_wall: float = Field(default=2, ge=.5, le=30)
     housing_wall: float = Field(default=4, ge=1, le=50)
     flange_thickness: float = Field(default=6, ge=2, le=50)
     bolt_diameter: float = Field(default=5, ge=1, le=20)
-    axial_gap: float = Field(default=.25, ge=.02, le=5)
+    axial_gap: float = Field(default=.2, ge=.02, le=5)
 
 
 def _pose(position, rotation):
@@ -60,17 +62,17 @@ def add_revolute_hardware(raw=None, dimensions=None, *, mate_id=None, origin=(0,
             basis=rotation@np.column_stack((x,np.cross(normal,x),normal));anchor=np.array(frame['origin'])
         else:basis=rotation;anchor=np.array(anchors(parent.geometry)[existing['parent_anchor']])
         root=np.array([parent.transform.x,parent.transform.y,parent.transform.z])+rotation@anchor+basis@np.array([existing[k] for k in ('x','y','z')])
-    d=spec.shaft_diameter;inside=d+spec.clearance;bush=inside+2*spec.bushing_wall;outside=bush+2*spec.housing_wall
+    d=spec.shaft_diameter;inside=d+spec.clearance;bush=inside+2*spec.bushing_wall;seat=bush+spec.seat_clearance;outside=seat+2*spec.housing_wall
     width=outside+4*spec.bolt_diameter+8;output_width=max(d+4*spec.bolt_diameter+8,outside+4)
     t=spec.flange_thickness;gap=spec.axial_gap;collar=4.;bottom=-t-gap-collar;top=spec.length+gap+t
     tube=lambda diameter,height,bore=0:dict(kind='cylinder',diameter=diameter,height=height,bore_diameter=bore)
-    rows=[('mount','고정 장착 플랜지',_mount_flange(width,t,bush,spec.bolt_diameter),-t,'#657e91'),
-          ('housing','관절 하우징',tube(outside,spec.length,bush),0,'#6ba8bc'),
+    rows=[('mount','고정 장착 플랜지',_mount_flange(width,t,seat,spec.bolt_diameter),-t,'#657e91'),
+          ('housing','관절 하우징',tube(outside,spec.length,seat),0,'#6ba8bc'),
           ('bush-a','하부 부시',tube(bush,spec.length/3,inside),0,'#c6a15d'),
           ('bush-b','상부 부시',tube(bush,spec.length/3,inside),spec.length*2/3,'#c6a15d'),
           ('shaft','회전 축',tube(d,top-bottom),bottom,'#cad2dc'),
-          ('output','출력 장착 플랜지',_mount_flange(output_width,t,d,spec.bolt_diameter),spec.length+gap,'#70c8b4'),
-          ('collar','축 고정 칼라',tube(d+6,collar,d),bottom,'#b8c3cd')]
+          ('output','출력 장착 플랜지',_mount_flange(output_width,t,d+spec.assembly_clearance,spec.bolt_diameter),spec.length+gap,'#70c8b4'),
+          ('collar','축 고정 칼라',tube(d+6,collar,d+spec.assembly_clearance),bottom,'#b8c3cd')]
     parts=[]
     for key,name,geometry,z,color in rows:
         parts.append(Part(id=prefix+key,name=name,geometry=geometry,color=color,

@@ -1,3 +1,23 @@
+# 2.10.0 Interference prevention, printing and AI review
+
+Targeted source regression: **355 passed, 242 warnings in 207.20s (0:03:27)**. Frozen Windows EXE: **188 checks** across kernel, selection/UI, Codex, mechanical, usability and the new print/AI/interference flow. **114 bundled CAD modules** and the native entry match the tested snapshot. The reports below are from this release; older results remain historical. No paid API requests, live subscription prompts or live account checks were made during validation.
+
+Exact OpenCASCADE tests cover face contact, positive-volume overlaps, new/increased versus unchanged/decreased existing overlap, grouped parts, retained Boolean operands, a clear-endpoint joint path colliding midway, colliding starts, a full revolution, cancellation and bounded sampling. UI checks verify disabled Apply cannot be bypassed, intermediate collision pose display, warning details, and revalidation of the last clear pose. Motion checking is discrete (at most 2 degrees / 0.5 mm sampling based on endpoint coordinates), not continuous collision certification. Grouping never suppresses physical checks.
+
+Cylinder alignment tests reproduce a 1.6 mm eccentric shaft, align measured cylinder axes, preserve alignment through six rotation angles in both shaft orientations, round-trip save/load and parent height changes. The frozen native dialog explicitly selects both cylinders, previews the repair and keeps the original document on Cancel. New AI face features use the face bounding-box midpoint instead of a perforated-face area centroid; existing documents retain their legacy geometry. Tilted AI revolute joints require measured cylinder selectors.
+
+Real revolute hardware has separate nominal 0.2 mm rotating/insertion/axial allowances; actual solids have no overlap through the tested motion. Existing allowance bindings and preservation tests pass. This does not certify retention hardware, loads, deformation, arbitrary assembly sequence or printer accuracy. Existing bad assemblies can be opened and repaired; unchanged overlaps stay visible.
+
+STL tests prepare actual evaluated solids on a build plate, validate Z=0, separation, bounds, volume, binary triangle records and read-back bounds. The frozen executable exports a seven-part hardware plate and blocks an undersized bed. Source document geometry, constraints and history remain unchanged. This is preparation for an external slicer, not support/infill/layer/G-code generation or minimum-wall certification.
+
+All three AI transports have offline tests for read-only Q&A, context/history, invalid payloads and cancellation. All three CAD providers reject or repair overlapping fixture plans, with bounded retries and preservation of current geometry. Native Before/After review does not commit until Apply. Successful account/model fixtures show a green Codex checkmark; a failed check removes it. These tests establish integration behavior, not live model quality or the user's account state.
+
+Screenshots inspected for collision details, visible disabled actions, separated build-plate parts, before/after controls and compact820x560 prompt/actions. Some detailed dynamic messages remain Korean.
+
+- [Native checks](docs/print-ai210-report.json) / [Snapshot results](docs/native210-validation.json)
+- [Joint collision](docs/motion210-blocked.png) / [Print plate](docs/printing210-preview.png) / [AI comparison](docs/ai210-compare.png) / [Q&A and connected state](docs/ai210-chat-connected.png)
+- [Korean guide and limits](docs/PRINT_AI_INTERFERENCE_KO.md) / [English guide](docs/USER_MANUAL_EN.md)
+
 # 2.9.0 Printer allowances, product references and native usability
 
 Targeted regression: **278 passed, 160 warnings in 157.97s (0:02:37)**. Frozen Windows EXE: **150 checks** (kernel 4, selection/UI 80, Codex integration 17, physical joints/navigation/export 24, new usability flow 25). All **105 bundled CAD modules** and the entry point match the tested source snapshot. Earlier release results below are historical. No paid API calls or live subscription AI requests were made in this release validation.

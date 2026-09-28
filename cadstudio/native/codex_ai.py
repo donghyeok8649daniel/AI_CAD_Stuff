@@ -49,7 +49,9 @@ def generate(request, model, *, executable='', control=None, progress=None, dead
                             progress=progress, single_part=scope.intent == 'part'))
                         verified = preview(result.design)
                     control.check()
-                    if verified['stats']['collisions']: result.assumptions.append('부품 사이에 체적 간섭이 있습니다. 배치를 확인하세요.')
+                    from ..interference import validate_candidate
+                    collision_report=validate_candidate(result.design,request.current,collisions=verified['stats']['collisions'],check=control.check)
+                    if collision_report['existing']:result.assumptions.append('기존 설계의 간섭이 남아 있습니다. 새 간섭은 없으나 조립 전 수정하세요.')
                     restore_sketch_display(result.design, request.current)
                     return {**result.model_dump(), 'provider': 'codex', 'attempts': attempt + 1,
                         'changes': [f"{s['step']}. {TOOL_LABELS[s['tool']]} · {s['target']}" for s in result.tool_actions],

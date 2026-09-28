@@ -24,31 +24,68 @@ class PreviewDialog(QDialog):
     """Only the latest successfully checked candidate can be committed."""
     def __init__(self,parent,title,instructions):
         super().__init__(parent);self.setWindowTitle(title);self.resize(1100,760);self.setMinimumSize(800,560)
-        self.alive=True;self.running=False;self.revision=0;self.checked=None;self.result=None;self.fit_next=True
+        self.alive=True;self.running=False;self.revision=0;self.checked=None;self.result=None;self.fit_next=True;self.interference=None;self.travel=None
         v=QVBoxLayout(self);v.setContentsMargins(12,12,12,12);heading=label(title);heading.setStyleSheet('font-size:18px;font-weight:600;color:#bcf2e7;');v.addWidget(heading);v.addWidget(label(instructions,True))
         split=QSplitter();v.addWidget(split,1);self.viewport=CADViewport();split.addWidget(self.viewport)
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setMinimumWidth(285);scroll.setMaximumWidth(360);controls=QWidget();self.controls=QVBoxLayout(controls);self.controls.setContentsMargins(14,12,14,12);scroll.setWidget(controls);split.addWidget(scroll);split.setSizes([750,330])
         self.status=label('치수를 입력하면 실제 CAD 형상을 미리 봅니다.');v.addWidget(self.status);row=QHBoxLayout();row.addStretch();row.addWidget(button('취소',self.reject));self.apply_button=button('설계에 적용',self.accept,True);self.apply_button.setEnabled(False);row.addWidget(self.apply_button);v.addLayout(row)
         self.timer=QTimer(self);self.timer.setSingleShot(True);self.timer.setInterval(220);self.timer.timeout.connect(self.calculate)
+        self.status.setWordWrap(True);self.status.setMaximumHeight(115)
     def schedule(self,*args):
-        self.revision+=1;self.checked=None;self.apply_button.setEnabled(False);self.timer.start()
+        self.revision+=1;self.checked=None;self.interference=None;self.travel=None;self.apply_button.setEnabled(False);self.timer.start()
     def calculate(self):
         if not self.alive or self.running:return
         revision=self.revision
         try:raw=self.candidate()
         except Exception as exc:self.failed(str(exc));return
-        self.running=True;self.status.setText('형상 · 조립 구속 · 간섭 확인 중…');worker=Worker(lambda:self.compute(raw));self.worker=worker
+        self.running=True;self.status.setText('형상 · 조립 구속 · 간섭 확인 중…');worker=Worker(lambda:self.checked_compute(raw,revision));self.worker=worker
         def done(result):
             self.running=False
             if not self.alive:return
             if revision!=self.revision:self.timer.start();return
-            self.checked,self.result=result;self.viewport.load(self.result,self.fit_next);self.fit_next=False;self.apply_button.setEnabled(True);self.present()
+            self.checked,self.result,self.interference,self.travel=result;self.viewport.load(self.result,self.fit_next);self.fit_next=False;self.apply_button.setEnabled(True);self.present();self.present_interference()
         def failed(message):
             self.running=False
             if not self.alive:return
             if revision!=self.revision:self.timer.start();return
             self.failed(message)
         worker.signals.done.connect(done);worker.signals.failed.connect(failed);QThreadPool.globalInstance().start(worker)
+    def checked_compute(self,raw,revision):
+        from ..interference import assess,exact_collisions,check_joint_travel
+        def check():
+            if not self.alive or revision!=self.revision:raise RuntimeError('미리보기가 취소되었습니다.')
+        with KERNEL_LOCK:
+            check();computed,r=self.compute(raw);check();d=self.validation_design(computed);base=getattr(self,'base',None)
+            # Some dialogs display just one part. Always check the full candidate.
+            collisions=r['stats']['collisions'] if r['stats']['parts']==len(d.parts) else exact_collisions(d,check=check)
+            report=assess(d,base,collisions=collisions,check=check)
+            travel=check_joint_travel(base,d,check=check) if base else None
+            if travel and travel['blocked']:
+                from ..assembly_motion import set_joint_motion
+                collision_pose=Design.model_validate(base).model_dump()
+                for mid in {v['mate_id'] for v in travel['values']}:
+                    set_joint_motion(collision_pose,mid,{v['axis']:v['value'] for v in travel['values'] if v['mate_id']==mid})
+                check();r=preview(Design.model_validate(collision_pose))
+            return computed,r,report,travel
+    def validation_design(self,checked):
+        return checked
+    def present_interference(self):
+        from ..interference import describe,travel_message
+        report=self.interference or {};blocked=report.get('blocked',[])
+        motion=self.travel and self.travel['blocked']
+        if blocked or motion:
+            self.apply_button.setEnabled(False);self.status.setStyleSheet('color:#ffab91;')
+            design=self.validation_design(self.checked)
+            text=travel_message(design,self.travel) if motion else '새로 생기거나 증가한 간섭 · 적용할 수 없습니다.\n'+describe(design,blocked)
+            self.status.setText(text);self.status.setToolTip(text)
+            for hit in (motion or blocked):
+                for identifier in (hit['a'],hit['b']):
+                    if identifier in self.viewport.actors:self.viewport.actors[identifier][0].GetProperty().SetColor(.9,.25,.16)
+            self.viewport.window.Render()
+        elif report.get('existing'):
+            self.status.setStyleSheet('color:#f5c26b;');self.status.setText(self.status.text()+'\n기존 간섭이 남아 있습니다 · '+describe(self.validation_design(self.checked),report['existing']))
+        elif self.travel:
+            self.status.setText(self.status.text()+f" · 구동 {self.travel['samples']}개 자세 검사 (최대 2° / 0.5 mm 간격)")
     @staticmethod
     def compute(raw):
         with KERNEL_LOCK:
@@ -58,7 +95,7 @@ class PreviewDialog(QDialog):
     def present(self):
         self.status.setStyleSheet('color:#8dd7c0;');s=self.result['stats'];self.status.setText(f"형상 유효 · {s['parts']}개 부품 · 체적 {s['volume']:,.2f} mm³ · 간섭 {len(s['collisions'])}건")
     def accept(self):
-        if self.checked is not None:super().accept()
+        if self.checked is not None and self.apply_button.isEnabled() and self.interference is not None and not self.interference['blocked'] and not (self.travel and self.travel['blocked']):super().accept()
     def done(self,result):
         self.alive=False;self.timer.stop();self.viewport.shutdown();super().done(result)
 
@@ -185,7 +222,18 @@ class JointDriveDialog(PreviewDialog):
             for identifier,group in self.groups.items():group.setVisible(not selected or selected==identifier)
         self.joint_filter.currentIndexChanged.connect(filter_joints)
         self.joint_filter.setCurrentIndex(max(0,self.joint_filter.findData(selected_joint)));filter_joints()
-        self.collisions=label('',True);self.controls.addWidget(self.collisions);self.controls.addStretch();self.schedule()
+        self.collisions=label('',True);self.controls.addWidget(self.collisions)
+        self.stop_button=button('마지막 확인 자세로 이동',self.use_last_clear);self.stop_button.setEnabled(False);self.controls.addWidget(self.stop_button)
+        self.controls.addWidget(label('현재 자세부터 입력한 자세까지 최대 2° / 0.5 mm 간격으로 검사합니다. 충돌을 발견하면 적용을 막습니다. 얇은 장애물의 연속 충돌·제작 오차는 별도 검토가 필요합니다.',True));self.controls.addStretch();self.schedule()
+    def present_interference(self):
+        super().present_interference()
+        self.stop_button.setEnabled(bool(self.travel and self.travel['blocked'] and self.travel['last_clear']))
+    def use_last_clear(self):
+        if not self.travel or not self.travel['blocked'] or not self.travel['last_clear']:return
+        values=deepcopy(self.travel['last_clear'])
+        for value in values:self.inputs[(value['mate_id'],value['axis'])].setValue(value['value'])
+        # Recheck rather than trusting a stale range after changes.
+        self.schedule()
     def candidate(self):
         from ..assembly_motion import set_joint_motion
         raw=deepcopy(self.base)

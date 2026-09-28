@@ -19,6 +19,7 @@ from test_cad_tools import execute, action
 
 
 def joint_design(kind='revolute', **values):
+    values.setdefault('z',20)
     return Design(parts=[Part(id='base',name='Base',fixed=True,geometry={'kind':'plate','hole_count':0}),
                          Part(id='arm',name='Arm',geometry={'kind':'plate','hole_count':0})],
                   mates=[dict(id='hinge',kind=kind,parent='base',child='arm',**values)])
@@ -69,7 +70,7 @@ def test_face_joint_uses_its_existing_frame_and_keeps_non_motion_offsets():
 def linked_design():
     raw=joint_design(rz=10).model_dump()
     raw['parts'].append(Part(id='follower',name='Follower',geometry={'kind':'cylinder'}).model_dump())
-    raw['mates'].append(dict(id='follow',kind='revolute',parent='arm',child='follower'))
+    raw['mates'].append(dict(id='follow',kind='revolute',parent='arm',child='follower',z=60))
     raw['motion_links']=[dict(id='ratio',driver='hinge',driver_axis='rz',driven='follow',driven_axis='rz',ratio=-2,offset=5)]
     return Design.model_validate(raw)
 

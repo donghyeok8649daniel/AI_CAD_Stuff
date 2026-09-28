@@ -20,6 +20,7 @@ QTreeWidget::item,QListWidget::item{padding:7px 5px;border-radius:4px;} QTreeWid
 QPushButton{background:#263644;color:#dce6ee;border:1px solid #405363;border-radius:6px;padding:8px 12px;} QPushButton:hover{background:#304858;border-color:#68969e;} QPushButton:pressed{background:#1d5350;}
 QPushButton:disabled,QToolButton:disabled{color:#6f8292;background:#1b2733;border-color:#2d3b47;}
 QPushButton[primary="true"]{background:#187d72;color:#f3fffb;border-color:#2dac99;font-weight:600;} QPushButton[primary="true"]:hover{background:#209588;border-color:#68d7bd;}
+QPushButton[primary="true"]:disabled{background:#25333f;color:#718594;border-color:#405361;}
 QLineEdit,QDoubleSpinBox,QSpinBox,QComboBox{background:#111c27;color:#e3edf4;border:1px solid #384d60;border-radius:5px;padding:7px;min-height:20px;selection-background-color:#267d78;}
 QLineEdit:focus,QDoubleSpinBox:focus,QComboBox:focus,QPlainTextEdit:focus{border-color:#43bca7;background:#162630;}
 QComboBox QAbstractItemView{background:#203240;color:#e1ecf4;selection-background-color:#28635e;selection-color:#f3fffc;}

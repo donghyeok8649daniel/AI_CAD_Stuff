@@ -44,6 +44,7 @@ def summary(feature):
     result['dimensions'] = {k: data[k] for k in fields(data) - COMMON if k in data}
     if result['kind'] == 'sketch':
         sketch = feature.sketch
+        result['frame']=dict(origin=feature.origin,normal=feature.normal,x_direction=feature.x_direction,origin_mode=feature.origin_mode)
         result['dimensions'].update(depth=sketch.thickness, reverse_depth=sketch.reverse_depth,
             symmetric=sketch.symmetric, taper=sketch.taper, thin_wall=sketch.thin_wall,
             through_all=feature.through_all, hole_finish=feature.hole_finish)

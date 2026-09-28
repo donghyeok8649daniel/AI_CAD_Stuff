@@ -105,10 +105,13 @@ def construct(g):
     return shape
 
 
-def face_frame(face):
+def face_frame(face, origin_mode='face_center'):
     if face.geomType() != "PLANE":
         raise ValueError("면 스케치는 평평한 면에서만 시작할 수 있습니다.")
     normal=face.normalAt().normalized();origin=face.Center()
+    if origin_mode=='face_bounds':
+        b=exact_bounds(face);center=cq.Vector((b.xmin+b.xmax)/2,(b.ymin+b.ymax)/2,(b.zmin+b.zmax)/2)
+        origin=center-normal.multiply((center-origin).dot(normal))
     reference=cq.Vector(1,0,0) if abs(normal.x)<.95 else cq.Vector(0,1,0)
     u=(reference-normal.multiply(reference.dot(normal))).normalized()
     return cq.Plane(origin=origin, xDir=u, normal=normal)
@@ -147,7 +150,7 @@ def _part_cached(part_json,asset=None,tools=()):
         elif feature.face >= len(faces) or (feature.support_face_count and len(faces)!=feature.support_face_count):
             raise ValueError("면 스케치의 기준 면 구성이 변경되었습니다. 피처를 제거하고 면을 다시 선택하세요.")
         else:face=faces[feature.face]
-        plane=face_frame(face)
+        plane=face_frame(face,feature.origin_mode)
         if (plane.zDir-cq.Vector(*feature.normal)).Length > 1e-5:
             raise ValueError("면 스케치의 기준 방향이 변경되었습니다. 면을 다시 선택하세요.")
         g=feature.sketch
@@ -237,12 +240,17 @@ def build(design: Design):
             mate=mates[binding.mate_id]
             for identifier,frame in ((mate.parent,binding.parent),(mate.child,binding.child)):
                 part=parts[identifier];shape=local_shape(design,part);faces=shape.Faces();support=part.features[-1].id if part.features else 'base'
-                if frame.reference:
+                if frame.cylinder:
+                    from .joint_alignment import resolve_cylinder
+                    index,face=resolve_cylinder(shape,frame.cylinder)
+                elif frame.reference:
                     from .topology import resolve_face
-                    index,face=resolve_face(shape,frame.reference);plane=face_frame(face)
+                    index,face=resolve_face(shape,frame.reference)
                 else:
                     if len(faces)!=frame.face_count or frame.face>=len(faces) or support!=frame.support_feature:raise ValueError('면 조인트가 참조한 피처/면 구성이 변경되었습니다. 기준 면을 다시 선택하세요.')
-                    plane=face_frame(faces[frame.face])
+                    index=frame.face;face=faces[index]
+                from .joint_alignment import joint_face_plane
+                plane=joint_face_plane(face,index,len(faces))
                 if (plane.zDir-cq.Vector(*frame.normal)).Length>1e-5:
                     raise ValueError('면 조인트의 기준 방향이 변경되었습니다. 기준 면을 다시 선택하세요.')
                 frame.origin=list(plane.origin.toTuple());frame.x_direction=list(plane.xDir.toTuple())
@@ -306,17 +314,8 @@ def preview(design: Design):
         if not points: points = [[-25,-25,0],[25,25,0]]
         minimum = [min(p[i] for p in points) for i in range(3)]
         maximum = [max(p[i] for p in points) for i in range(3)]
-        collisions = [];collision_bounds=[exact_bounds(s) for s in shapes]
-        for i, a in enumerate(shapes):
-            ba = collision_bounds[i]
-            for j in range(i+1, len(shapes)):
-                b = shapes[j]
-                bc = collision_bounds[j]
-                overlap = all(min(getattr(ba, axis+"max"), getattr(bc, axis+"max")) - max(getattr(ba, axis+"min"), getattr(bc, axis+"min")) > 1e-5 for axis in "xyz")
-                if overlap and a.Solids() and b.Solids():
-                    volume = a.intersect(b).Volume()
-                    if volume > 1e-5:
-                        collisions.append({"a": design.parts[i].id, "b": design.parts[j].id, "volume": volume})
+        from .interference import exact_collisions
+        collisions = exact_collisions(design, shapes)
         return {"meshes": meshes, "sketches": saved_sketches, "stats": {
             "valid": all(m["valid"] for m in meshes), "parts": len(shapes),
             "volume": sum(m["volume"] for m in meshes),

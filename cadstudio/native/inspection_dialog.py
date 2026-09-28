@@ -10,7 +10,7 @@ from ..inspection import mass_properties,minimum_distance,angle_between,section
 class MaterialDialog(PreviewDialog):
     def __init__(self,parent,design,part_id):
         super().__init__(parent,'부품 재질 / 물성','질량·관성과 로봇 동역학에 사용할 재질 값을 지정하세요. 실제 소재 데이터시트 값을 입력할 수 있습니다.')
-        self.raw=deepcopy(design);self.part_id=part_id;p=next(p for p in design['parts'] if p['id']==part_id);material=Material.model_validate(p.get('material') or {})
+        self.base=deepcopy(design);self.raw=deepcopy(design);self.part_id=part_id;p=next(p for p in design['parts'] if p['id']==part_id);material=Material.model_validate(p.get('material') or {})
         self.enabled=QCheckBox('이 부품에 개별 재질 지정');self.enabled.setChecked(True);self.controls.addWidget(self.enabled);form=QFormLayout();self.controls.addLayout(form);self.name=QLineEdit(material.name);self.density=number(material.density,.01,30000,' kg/m³');self.modulus=number(material.youngs_modulus,.01,1000000,' MPa');self.poisson=number(material.poisson,-.99,.499,'')
         for title,w in [('재질 이름',self.name),('밀도',self.density),('탄성계수',self.modulus),('포아송 비',self.poisson)]:form.addRow(title,w);(w.textChanged if hasattr(w,'textChanged') else w.valueChanged).connect(self.schedule)
         self.controls.addWidget(label('초기 수치는 사용자 입력 예시입니다. 재질 인증값이 아닙니다. 밀도는 질량과 관성에, 탄성계수·포아송 비는 재질 기록에 저장됩니다.',True));self.controls.addStretch();self.enabled.toggled.connect(self.schedule);self.schedule()

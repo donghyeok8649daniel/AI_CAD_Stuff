@@ -8,7 +8,7 @@ from ..configurations import apply_configuration
 class ConfigurationDialog(PreviewDialog):
     def __init__(self,parent,design):
         super().__init__(parent,'설계 구성표','변수 조합을 이름으로 보관하고, 선택한 구성으로 형상을 다시 계산합니다. 각 구성의 적용은 작업기록에 남습니다.')
-        self.raw=deepcopy(design);self.names=list(design.get('parameters',{}));self.selector=choice([(k,k) for k in design.get('configurations',{})]);self.controls.addWidget(self.selector);self.name=QLineEdit();self.name.setPlaceholderText('구성 이름 · 예: 소형 / 대형');self.controls.addWidget(self.name)
+        self.base=deepcopy(design);self.raw=deepcopy(design);self.names=list(design.get('parameters',{}));self.selector=choice([(k,k) for k in design.get('configurations',{})]);self.controls.addWidget(self.selector);self.name=QLineEdit();self.name.setPlaceholderText('구성 이름 · 예: 소형 / 대형');self.controls.addWidget(self.name)
         self.table=QTableWidget(len(self.names),2);self.table.setHorizontalHeaderLabels(['변수','값 / 식']);self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch);self.controls.addWidget(self.table)
         from PySide6.QtCore import Qt
         for i,k in enumerate(self.names):

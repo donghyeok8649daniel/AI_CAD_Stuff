@@ -9,7 +9,7 @@ from ..assembly_motion import JOINT_AXES,JOINT_TITLES
 class MotionDialog(PreviewDialog):
     def __init__(self,parent,design):
         super().__init__(parent,'관절 한계 / 모션 연결','관절별 이동 범위를 정하거나 두 관절을 비율로 연결합니다. 연결 결과와 한계를 검사한 뒤 적용합니다.')
-        self.raw=deepcopy(design);self.joints={m['id']:m for m in self.raw['mates']};items=[(m['id'],JOINT_TITLES[m['kind']]+' · '+m['id']) for m in self.raw['mates'] if JOINT_AXES[m['kind']]]
+        self.base=deepcopy(design);self.raw=deepcopy(design);self.joints={m['id']:m for m in self.raw['mates']};items=[(m['id'],JOINT_TITLES[m['kind']]+' · '+m['id']) for m in self.raw['mates'] if JOINT_AXES[m['kind']]]
         self.joint=choice(items);self.controls.addWidget(label('운동 한계를 설정할 관절'));self.controls.addWidget(self.joint);self.limit_form=QFormLayout();self.controls.addLayout(self.limit_form);self.limit_fields={};self.limit_id=None
         self.controls.addWidget(label('모션 연결 · 결과 = 구동값 × 비율 + 오프셋'))
         form=QFormLayout();self.driver=choice(items);self.driven=choice(items);self.driven.setCurrentIndex(min(1,len(items)-1));self.driver_axis=choice([]);self.driven_axis=choice([])

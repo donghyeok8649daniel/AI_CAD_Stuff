@@ -540,6 +540,7 @@ class SketchFeature(FeatureState):
     support_face_count: int = Field(default=0, ge=0, le=100000)
     support_feature: str = Field(default="", max_length=40)
     origin: list[Coordinate] = Field(default_factory=list, max_length=3)
+    origin_mode: Literal['face_center','face_bounds'] = 'face_center'
     x_direction: list[Annotated[float, Field(ge=-1, le=1)]] = Field(default_factory=list, max_length=3)
     normal: list[Annotated[float, Field(ge=-1, le=1)]] = Field(min_length=3, max_length=3)
     operation: Literal["add", "cut"] = "add"
@@ -556,6 +557,7 @@ class SketchFeature(FeatureState):
     @model_serializer(mode='wrap')
     def compatible_link(self,handler):
         data=handler(self)
+        if self.origin_mode=='face_center':data.pop('origin_mode',None)
         if not self.sketch_id:data.pop('sketch_id',None)
         if not self.reference:data.pop('reference',None)
         if not self.suppressed:data.pop('suppressed',None)
@@ -613,11 +615,13 @@ class JointAnchorFrame(StrictModel):
     normal: list[float] = Field(min_length=3, max_length=3)
     x_direction: list[float] = Field(min_length=3, max_length=3)
     reference: FaceReference | None = None
+    cylinder: CylinderReference | None = None
 
     @model_serializer(mode='wrap')
     def compatible_reference(self,handler):
         data=handler(self)
         if self.reference is None:data.pop('reference',None)
+        if self.cylinder is None:data.pop('cylinder',None)
         return data
 
     @model_validator(mode='after')

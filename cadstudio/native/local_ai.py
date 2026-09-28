@@ -162,7 +162,9 @@ async def _ollama_reply(client,model,messages,control,progress,current=None,*,sc
             control.check();progress('생성 완료 · 치수와 실제 CAD 형상 검증 중…')
             with KERNEL_LOCK:result=parser(content) if parser else parse_ai_reply(content,current);verified=preview(result.design)
             control.check()
-            if verified['stats']['collisions']:result.assumptions.append('부품 사이에 체적 간섭이 있습니다. 배치를 확인하세요.')
+            from ..interference import validate_candidate
+            collision_report=validate_candidate(result.design,current,collisions=verified['stats']['collisions'],check=control.check)
+            if collision_report['existing']:result.assumptions.append('기존 설계의 간섭이 남아 있습니다. 새 간섭은 없으나 조립 전 수정하세요.')
             steps=getattr(result,'tool_actions',[])
             from .cad_tools import TOOL_LABELS
             return {**result.model_dump(),'changes':[f"{s['step']}. {TOOL_LABELS[s['tool']]} · {s['target']}" for s in steps],'provider':'ollama','attempts':attempt+1}

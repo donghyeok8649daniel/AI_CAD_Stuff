@@ -60,7 +60,8 @@ def test_edit_context_keeps_kinds_dimensions_and_existing_design():
         data=json.loads(json.loads(request.content)['messages'][1]['content'])['current_design']
         assert [p['id'] for p in data['parts']]==[p.id for p in current.parts]
         assert all(p['kind'] for p in data['parts']) and 'assets' not in data
-        return httpx.Response(200,json=dict(done=True,message=dict(content=json.dumps(tool_plan()))))
+        result=tool_plan();result['actions'][0]['args']['transform']={'x':500}
+        return httpx.Response(200,json=dict(done=True,message=dict(content=json.dumps(result))))
     result=ollama_draft(DraftRequest(prompt='원통 추가',current=current),'test',cad_transport(handle))
     assert result['design']['parts'][:-1]==current.model_dump()['parts']
 

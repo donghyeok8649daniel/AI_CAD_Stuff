@@ -28,6 +28,8 @@ class SketchCanvas(QWidget):
     def __init__(self,editor):
         super().__init__();self.editor=editor;self.setObjectName('sketchCanvas');self.setMinimumSize(280,180);self.setMouseTracking(True);self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.scale=5.;self.pan=QPointF();self.cursor=None;self.snap=None;self.drag=None;self.samples={};self.candidates=[];self.context_pan=False;self.hover=None;self.hover_region=None;self.region_paths=[];self.dimension_boxes=[]
+        from .display_style import preferences
+        self.display_prefs=preferences();self.display_prefs.changed.connect(self.update)
     def screen(self,p):return QPointF(self.width()/2+self.pan.x()+p['x']*self.scale,self.height()/2+self.pan.y()-p['y']*self.scale)
     def world(self,pos,snap=True):
         p=G.pt((pos.x()-self.width()/2-self.pan.x())/self.scale,(self.height()/2+self.pan.y()-pos.y())/self.scale);self.snap=None
@@ -99,14 +101,16 @@ class SketchCanvas(QWidget):
         return path
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing);p.fillRect(self.rect(),QColor('#141e29'));origin=self.screen(G.pt(0,0));unit=grid_step(self.scale);step=unit*self.scale
-        p.setPen(QPen(QColor('#23313e'),1))
+        from .display_style import color
+        style=self.display_prefs.style;p.setPen(QPen(color(style,'grid_color','grid_brightness'),style.grid_width))
         if getattr(self.editor,'grid_visible',True):
             x=origin.x()%step
             while x<self.width():p.drawLine(QPointF(x,0),QPointF(x,self.height()));x+=step
             y=origin.y()%step
             while y<self.height():p.drawLine(QPointF(0,y),QPointF(self.width(),y));y+=step
         if getattr(self.editor,'axes_visible',True):
-            p.setPen(QPen(QColor('#9b6071'),1));p.drawLine(QPointF(0,origin.y()),QPointF(self.width(),origin.y()));p.setPen(QPen(QColor('#477c72'),1));p.drawLine(QPointF(origin.x(),0),QPointF(origin.x(),self.height()))
+            plane=self.editor.context.get('plane','XY');horizontal,vertical={'XY':('x','y'),'XZ':('x','z'),'YZ':('y','z')}.get(plane,('x','y'))
+            p.setPen(QPen(color(style,horizontal+'_color','axes_brightness'),style.axes_width));p.drawLine(QPointF(0,origin.y()),QPointF(self.width(),origin.y()));p.setPen(QPen(color(style,vertical+'_color','axes_brightness'),style.axes_width));p.drawLine(QPointF(origin.x(),0),QPointF(origin.x(),self.height()))
         for region in (self.editor.preview or {}).get('regions',[]):
             path=QPainterPath();path.setFillRule(Qt.FillRule.OddEvenFill)
             for row in region['outline']:

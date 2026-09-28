@@ -47,7 +47,7 @@ TOOL_LABELS={'create':'부품 생성','dimensions':'치수 변경','transform':'
              'hole':'구멍','pocket':'포켓 절삭','pad':'돌출','fillet':'필렛','chamfer':'모따기',
              'shell':'셸','solid':'솔리드 작업','thread':'나사산','joint':'조립 구속','parameter':'변수','edit_feature':'기존 피처 편집','edit_joint':'관절 자세 편집'}
 
-PHYSICAL_ASSEMBLY_GUIDANCE = '''For a request to DESIGN a physical mechanism or joint structure, create separately editable mechanical bodies with actual mating geometry (supports/housings, bores, shafts, moving members and necessary retention) and then use ordinary joint constraints to assemble them. The joint tool creates only a kinematic relationship, NEVER physical hardware. Choose shapes and dimensions from the user's request, not a fixed named-joint template. Preserve user clearances, mounting dimensions and motion limits; state unspecified fit/retention assumptions. Use assembly intent when separate moving bodies are needed. If the request only connects existing bodies or changes an existing joint pose, do not add unsolicited hardware. Customization of existing hardware uses normal dimensions, edit_feature, parameter and edit_joint tools while retaining unrelated geometry and connections.'''
+PHYSICAL_ASSEMBLY_GUIDANCE = '''For a request to DESIGN a physical mechanism or joint structure, create separately editable mechanical bodies with actual mating geometry (supports/housings, bores, shafts, moving members and necessary retention) and then use ordinary joint constraints to assemble them. The joint tool creates only a kinematic relationship, NEVER physical hardware. Choose shapes and dimensions from the user's request, not a fixed named-joint template. Preserve user clearances, mounting dimensions and motion limits; state unspecified fit/retention assumptions. Design insertion paths, shaft/bore diametral clearance and axial gaps explicitly. Use the active printer allowances if present; distinguish nominal assembly clearance from additional printer compensation. Never overlap moving parts or use grouping to hide interference; final overlaps are rejected. Pure joint motions are also sampled for collisions, but new mechanisms require a separate travel review. Use assembly intent when separate moving bodies are needed. If the request only connects existing bodies or changes an existing joint pose, do not add unsolicited hardware. Customization of existing hardware uses normal dimensions, edit_feature, parameter and edit_joint tools while retaining unrelated geometry and connections.'''
 
 
 CATALOG = '''You design CAD models by composing tools, for ANY object the user describes. Return only one compact JSON plan. Never return a complete design file, Python, or a catalogue of unrelated parts. Choose only the operations needed by this request. All lengths are mm, all angles degrees. Respect explicit dimensions. If dimensions are missing choose practical dimensions and list these assumptions in Korean. Existing parts stay untouched unless the user asks to edit them. New IDs must be unique ASCII letters/digits/hyphens. The target is a part ID except joint/edit_joint (joint ID) and parameter (variable name). Each action has tool,target,args. Execute in listed order. At most 32 actions.
@@ -59,14 +59,14 @@ dimensions: {values:{dimension:value,...}}. Patch actual fields of an EXISTING p
 edit_feature: {feature_id,...changed_fields}. target is the owning PART ID, never the feature ID; args.feature_id is the feature ID inside that part. Edit an EXISTING feature, keeping its ID, support faces and downstream history. Use its actual editable fields and dimensions from current_design. depth edits sketch extrusion/cut depth; for a blind hole specify through_all=false AND depth. diameter edits a circular sketch profile; entity_id is mandatory when there is more than one circle, use one action per circle. This can SHRINK an existing hole by rebuilding its original cut; do not add a new hole on top. size is edge radius/chamfer distance or shell thickness; thread uses pitch,length,offset,clearance,handedness,reverse. Pattern uses count,count_y,spacing or angle as listed in editable. suppressed=true disables a feature reversibly, false restores it; dependent features must remain valid. name renames it. Do not change IDs, support references or operation types. A variable-driven field needs parameter instead; a linked profile needs its original sketch edited manually. Do not guess which feature when the request is ambiguous; selected_feature identifies the user's current feature selection.
 transform: {x?,y?,z?,rx?,ry?,rz?}. Set absolute placement, unspecified coordinates preserved. Joint-driven parts accept only an already-satisfied placement; set joint offsets when creating the joint instead of moving its child afterward.
 appearance: {color?:"#RRGGBB",name?,material?:{name,density,youngs_modulus,poisson}}.
-hole: {face:"+Z",diameter,centers?:[[u,v],...],pattern?:PATTERN,depth?:number,through_all?:true,finish?:"plain"|"counterbore"|"countersink",head_diameter?,head_depth?,head_angle?}. Use centers OR pattern, never both. For symmetric repeated holes PREFER pattern; CAD computes exact positions. PATTERN is {kind:"rectangular",count_x:2,count_y:2,spacing_x:60,spacing_y:40,center:[0,0]} OR {kind:"circular",count:6,diameter:50,start_angle:0,center:[0,0]}. Rectangular pattern is CENTERED on center, spacing is between adjacent holes. Circular diameter is the bolt circle diameter. Default single center=[[0,0]], through_all=true. u,v are coordinates in the selected face frame about its CENTER. For +Z, u=X and v=Y. Other faces: u is projected X (or Y on ±X faces), v=normal cross u. Never specify face indices.
-pocket or pad: {face,profile,depth,through_all?:false}. profile is a 2D profile as below in the face frame. pad adds material outward AND AUTOMATICALLY FUSES it to the body. pocket removes material inward: a circular pocket produces a BORE, never a smaller solid outside diameter. To reduce external diameter by cutting, remove an annulus, not its inner disk. Prefer a circular pad to build a smaller solid section on top.
+hole: {face:"+Z",diameter,centers?:[[u,v],...],pattern?:PATTERN,depth?:number,through_all?:true,finish?:"plain"|"counterbore"|"countersink",head_diameter?,head_depth?,head_angle?}. Use centers OR pattern, never both. For symmetric repeated holes PREFER pattern; CAD computes exact positions. PATTERN is {kind:"rectangular",count_x:2,count_y:2,spacing_x:60,spacing_y:40,center:[0,0]} OR {kind:"circular",count:6,diameter:50,start_angle:0,center:[0,0]}. Rectangular pattern is CENTERED on center, spacing is between adjacent holes. Circular diameter is the bolt circle diameter. Default single center=[[0,0]], through_all=true. u,v are coordinates in the selected face frame about its bounding-box midpoint (not its area centroid). For +Z, u=X and v=Y. Other faces: u is projected X (or Y on ±X faces), v=normal cross u. Never specify face indices.
+pocket or pad: {face,profile,depth,through_all?:false}. profile is a 2D profile as below in the face frame. NEW features use the face bounding-box midpoint (not the area centroid, not a corner) as origin; holes in the face do not shift that midpoint. For +Z/-Z faces u=local X; v=local Y for +Z, negative Y for -Z. Compute shaft/hole centers from this exact frame. pad adds material outward AND AUTOMATICALLY FUSES it to the body. pocket removes material inward: a circular pocket produces a BORE, never a smaller solid outside diameter. To reduce external diameter by cutting, remove an annulus, not its inner disk. Prefer a circular pad to build a smaller solid section on top.
 fillet or chamfer: {size,edges?:"all"|"+Z"|"-Z"|"+X"|"-X"|"+Y"|"-Y"}. A face direction selects the edges bordering that face. Use small radii that fit the material; do these last.
 shell: {thickness,open_faces?:["+Z"]}. Removes selected faces and hollows inward. Wall must be less than half the smallest dimension.
 solid: Modify an EXISTING solid ONLY when mirror/pattern/split/draft or boolean is requested. Creating a solid body (e.g. loft solid=true) does NOT require this tool. {operation:"mirror"|"linear_pattern"|"circular_pattern"|"split"|"draft"|"boolean", ...}. mirror: origin=[0,0,0],direction=[1,0,0],keep_original=true. linear_pattern: count,spacing=[dx,dy,dz],count_y=1. circular_pattern: count,angle=360,origin=[0,0,0],direction=[0,0,1]. split: origin,direction,keep_side="positive"|"negative"|"all". draft: angle,faces=["+X"],origin,direction. boolean: tool_part_id,boolean_mode="union"|"cut"|"intersect" (tool part remains as an editable reference; do not create unused tools).
 thread: {diameter,pitch,length,internal?:false,offset?:0,handedness?:"right"|"left",clearance?:0}. Selects the cylindrical face matching diameter (or internal pilot bore). Length 1..32 pitches, must fit the cylinder. Not cosmetic: creates actual thread geometry.
-joint: {kind:"rigid"|"revolute"|"slider"|"cylindrical"|"ball"|"planar"|"pin_slot",parent,child,parent_anchor?:"origin",child_anchor?:"origin",x?,y?,z?,rx?,ry?,rz?,limits?:{rz:[minimum,maximum]}}. For revolute use rz limits in degrees (e.g. {rz:[-90,90]}), for slider use z limits in mm. Omit limits when no range was requested. Both anchors must be "origin"; use offsets for another location. target=new joint ID. Parent/child are existing part IDs. Offsets relative to parent. Makes parent fixed if it has no parent joint. Do not join a part to itself.
-edit_joint: {x?,y?,z?,rx?,ry?,rz?}. target=EXISTING JOINT ID, never a part ID. Set absolute joint coordinates ONLY on its independent motion_axes, with mm or degrees as listed. For 'increase by' add to the current value first. Frame is the existing joint coordinate frame, not global XYZ. Existing limits, face frames, anchors, motion links and parent/child are preserved. Never transform a joint-driven child to move its joint. An axis marked driven_by must be moved using its driving joint instead; passive loop joints are solved automatically. Cannot alter connection kind or limits. selected_joint identifies the user's selected joint; when only selected_part is given find its parent joint by child ID. Do not claim a collision-free motion path; validation checks the final pose only.
+joint: {kind:"rigid"|"revolute"|"slider"|"cylindrical"|"ball"|"planar"|"pin_slot",parent,child,parent_anchor?:"origin",child_anchor?:"origin",x?,y?,z?,rx?,ry?,rz?,limits?:{rz:[minimum,maximum]}}. For revolute use rz limits in degrees (e.g. {rz:[-90,90]}), for slider use z limits in mm. Omit limits when no range was requested. Both anchors must be "origin"; use offsets for another location. target=new joint ID. Parent/child are existing part IDs. Offsets relative to parent. Makes parent fixed if it has no parent joint. Do not join a part to itself. For physical shaft/bore mating, supply BOTH parent_cylinder and child_cylinder, each {center:[x,y,z],direction:[unitX,unitY,unitZ],diameter:mm} in PART LOCAL coordinates. These must match UNIQUE actual cylindrical surfaces; the kernel rejects guessed/misaligned axes. They bind the joint to actual cylinder centers. Cylinder axes are canonicalized toward the positive dominant local axis; use flipped=true to oppose the child cylinder direction (insert from the other end). With cylinders only z (axial gap between cylinder starts) and rz (rotation angle) may be nonzero. A tilted joint REQUIRES cylinder selectors; rx/ry merely tilt a body, they do not change its rotation axis.
+edit_joint: {x?,y?,z?,rx?,ry?,rz?}. target=EXISTING JOINT ID, never a part ID. Set absolute joint coordinates ONLY on its independent motion_axes, with mm or degrees as listed. For 'increase by' add to the current value first. Frame is the existing joint coordinate frame, not global XYZ. Existing limits, face frames, anchors, motion links and parent/child are preserved. Never transform a joint-driven child to move its joint. An axis marked driven_by must be moved using its driving joint instead; passive loop joints are solved automatically. Cannot alter connection kind or limits. selected_joint identifies the user's selected joint; when only selected_part is given find its parent joint by child ID. Do not claim a collision-free motion path; validation also samples pure joint motion for interference; it is not continuous collision certification.
 parameter: {value:"expression"}. target=parameter name; update/add a dimension variable. Existing dimension bindings use the new value.
 
 SHAPES for create.geometry (kind and dimensions only, no tool/target inside geometry):
@@ -103,6 +103,7 @@ def context(design):
                             features=[summary(f) for f in p.features],
                             source_part_id=p.source_part_id) for p in design.parts],
                 mates=[dict(**m.model_dump(exclude_defaults=True),motion_axes=motion_controls(raw,m.id)) for m in design.mates],
+                joint_frames=[f.model_dump() for f in design.joint_frames],
                 dimension_bindings=[b.model_dump() for b in design.dimension_bindings])
 
 
@@ -130,7 +131,7 @@ def _shape(raw,identifier):
     return local_shape(design,next(p for p in design.parts if p.id==identifier))
 
 
-def _face(shape,selector):
+def _face(shape,selector,origin_mode='face_center'):
     from ..kernel import face_frame
     axes={'+X':(1,0,0),'-X':(-1,0,0),'+Y':(0,1,0),'-Y':(0,-1,0),'+Z':(0,0,1),'-Z':(0,0,-1)}
     if selector not in axes:raise ValueError('면 방향은 +X, -X, +Y, -Y, +Z, -Z 중 하나여야 합니다.')
@@ -142,7 +143,7 @@ def _face(shape,selector):
     if not found:raise ValueError(f'{selector} 방향 평면이 없습니다. 다른 방향 또는 다른 작업을 선택하세요.')
     # Outermost face, largest area when coplanar. No LLM-generated topology IDs.
     _,_,index,face=max(found,key=lambda x:(round(x[0],5),x[1]))
-    return index,face,face_frame(face)
+    return index,face,face_frame(face,origin_mode)
 
 
 def _feature_id(part):
@@ -278,11 +279,21 @@ def _apply(raw,action):
         if not isinstance(args['value'],str):raise ValueError('변수 값은 치수 식 문자열이어야 합니다.')
         raw.setdefault('parameters',{})[target]=args['value'];return
     if tool=='joint':
-        _keys(args,set(AssemblyMate.model_fields)-{'id'},('kind','parent','child'))
+        _keys(args,(set(AssemblyMate.model_fields)-{'id'})|{'parent_cylinder','child_cylinder','flipped'},('kind','parent','child'))
+        pc=args.pop('parent_cylinder',None);cc=args.pop('child_cylinder',None);flipped=args.pop('flipped',False)
+        if type(flipped) is not bool or (flipped and not pc):raise ValueError('flipped is a boolean for actual cylinder-bound joints only.')
+        if bool(pc)!=bool(cc):raise ValueError('Select BOTH actual parent_cylinder and child_cylinder axes.')
+        if pc and (args['kind'] not in ('revolute','cylindrical') or any(args.get(k,0) for k in ('x','y','rx','ry'))):raise ValueError('Concentric joints use revolute/cylindrical with z axial gap and rz angle; other offsets must be zero.')
+        if not pc and args['kind'] in ('revolute','cylindrical') and any(args.get(k,0) for k in ('rx','ry')):raise ValueError('rx/ry tilt the child, NOT the rotation axis. Use actual parent_cylinder and child_cylinder selectors to create an angled concentric joint.')
         if any(m['id']==target for m in raw['mates']):raise ValueError('조인트 ID가 이미 존재합니다.')
         raw['mates'].append(AssemblyMate(id=target,**args).model_dump())
         parent=_part(raw,args['parent'])
         if not any(m['child']==parent['id'] for m in raw['mates']):parent['fixed']=True
+        if pc:
+            from ..joint_alignment import find_cylinder,align
+            pi=find_cylinder(_shape(raw,args['parent']),pc);ci=find_cylinder(_shape(raw,args['child']),cc)
+            aligned,_=align(raw,target,pi,ci,gap=args.get('z',0),angle=args.get('rz',0),flipped=flipped)
+            raw.clear();raw.update(aligned.model_dump())
         return
     part=_part(raw,target)
     if tool=='dimensions':
@@ -319,7 +330,7 @@ def _apply(raw,action):
     if tool in ('hole','pocket','pad'):
         allowed=('face','diameter','centers','pattern','depth','through_all','finish','head_diameter','head_depth','head_angle') if tool=='hole' else ('face','profile','depth','through_all')
         _keys(args,allowed,('face','diameter') if tool=='hole' else ('face','profile','depth'))
-        index,face,frame=_face(shape,args['face'])
+        index,face,frame=_face(shape,args['face'],'face_bounds')
         if tool=='hole':
             centers=hole_centers(args)
             if not isinstance(centers,list) or not 1<=len(centers)<=32:raise ValueError('구멍 중심은 1~32개여야 합니다.')
@@ -360,7 +371,7 @@ def _apply(raw,action):
             sketch=Extrusion(sketch_mode='entities',thickness=sketch.thickness,profiles=list(range(len(retained))),entities=[dict(id=f'hole-{i}',kind='circle',center=dict(x=p[0],y=p[1]),radius=args['diameter']/2) for i,p in enumerate(retained)])
         feature=SketchFeature(**common,name={'hole':'AI 구멍','pocket':'AI 포켓','pad':'AI 돌출'}[tool],
             face=index,support_face_count=len(shape.Faces()),reference=face_reference(shape,index),
-            normal=list(frame.zDir.toTuple()),origin=list(frame.origin.toTuple()),x_direction=list(frame.xDir.toTuple()),
+            normal=list(frame.zDir.toTuple()),origin=list(frame.origin.toTuple()),origin_mode='face_bounds',x_direction=list(frame.xDir.toTuple()),
             operation='add' if tool=='pad' else 'cut',sketch=sketch,
             through_all=args.get('through_all',tool=='hole'),hole_finish=args.get('finish','plain'),
             **{k:args[k] for k in ('head_diameter','head_depth','head_angle') if k in args})

@@ -2,7 +2,7 @@
 import math
 import numpy as np
 from PySide6.QtCore import Qt,Signal,QTimer,QPoint,QRect
-from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QToolButton,QSizePolicy,QComboBox,QRubberBand
+from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QToolButton,QSizePolicy,QComboBox,QRubberBand,QMessageBox
 import vtkmodules.qt
 vtkmodules.qt.PyQtImpl='PySide6'
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
@@ -107,6 +107,7 @@ class CADViewport(QWidget,SelectionTools):
         layout=QVBoxLayout(self);layout.setContentsMargins(0,0,0,0);layout.setSpacing(0)
         bar=QHBoxLayout();bar.setContentsMargins(12,8,12,8);self.caption=ViewportCaption('새 설계 · XY 원점');self.caption.setStyleSheet('font-weight:600;color:#afc7d6;');self.caption.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred);layout.addWidget(self.caption);self.caption.setContentsMargins(12,7,12,0);bar.addStretch()
         layout.removeWidget(self.caption);caption_row=QHBoxLayout();caption_row.setContentsMargins(0,0,10,0);caption_row.addWidget(self.caption,1);self.grid_label=QLabel();caption_row.addWidget(self.grid_label);layout.insertLayout(0,caption_row)
+        self.collision_button=QToolButton();self.collision_button.setStyleSheet('QToolButton {background:#713824;color:#ffe0bd;border:1px solid #e49064;padding:4px 7px;font-weight:600;}');self.collision_button.clicked.connect(self.show_collisions);self.collision_button.hide();caption_row.addWidget(self.collision_button)
         self.filter=QComboBox();self.filter.setObjectName('selectionFilter');self.filter.setToolTip('선택 대상 · Shift+1~6');
         for key,name in [('auto','자동 선택'),('point','점 선택'),('edge','선 / 모서리'),('face','면 선택'),('body','체적 / 부품'),('sketch','스케치 영역')]:self.filter.addItem(name,key)
         self.filter.currentIndexChanged.connect(lambda:self.set_selection_mode(self.filter.currentData()));bar.insertWidget(0,self.filter)
@@ -125,10 +126,25 @@ class CADViewport(QWidget,SelectionTools):
         from .assembly_display import AssemblyDisplay
         self.joints=AssemblyDisplay(self);self.rubber=QRubberBand(QRubberBand.Shape.Rectangle,self.widget)
         self.interactor=self.window.GetInteractor();self.style=CADStyle(self);self.style.SetDefaultRenderer(self.renderer);self.interactor.SetInteractorStyle(self.style)
-        self.axes=vtkAxesActor();self.axes.SetShaftTypeToCylinder();self.axes_widget=vtkOrientationMarkerWidget();self.axes_widget.SetOrientationMarker(self.axes);self.axes_widget.SetInteractor(self.interactor);self.axes_widget.SetViewport(0,0,.13,.19)
+        self.axes=vtkAxesActor();self.axes.SetShaftTypeToLine();self.axes_widget=vtkOrientationMarkerWidget();self.axes_widget.SetOrientationMarker(self.axes);self.axes_widget.SetInteractor(self.interactor);self.axes_widget.SetViewport(0,0,.13,.19)
         self.footer=QLabel('드래그: 회전 · Shift: 추가 선택 · Esc: 선택 해제 / 회전 · 아래 XYZ: 클릭 / 드래그로 시점 변경');self.footer.setWordWrap(True)
         self.footer.setStyleSheet('padding:7px 12px;background:#17232e;color:#92aabd;font-size:11px;');layout.addWidget(self.footer)
+        from .display_style import preferences
+        self.display_prefs=preferences();self.display_prefs.changed.connect(self.apply_display_style)
         self.make_grid(100);self.set_view('iso',render=False);QTimer.singleShot(0,self.initialize)
+
+    def apply_display_style(self):
+        if self.closed:return
+        from PySide6.QtGui import QColor
+        s=self.display_prefs.style
+        if self.grid_actor:
+            c=QColor(s.grid_color);p=self.grid_actor.GetProperty();p.SetColor(c.redF(),c.greenF(),c.blueF());p.SetOpacity(s.grid_brightness/100);p.SetLineWidth(s.grid_width)
+        for axis in 'XYZ':
+            c=QColor(getattr(s,axis.lower()+'_color'));rgb=(c.redF(),c.greenF(),c.blueF())
+            for role in ('Shaft','Tip'):
+                p=getattr(self.axes,'Get'+axis+'Axis'+role+'Property')();p.SetColor(*rgb);p.SetOpacity(s.axes_brightness/100);p.SetLineWidth(s.axes_width)
+            p=getattr(self.axes,'Get'+axis+'AxisCaptionActor2D')().GetCaptionTextProperty();p.SetColor(*rgb);p.SetOpacity(s.axes_brightness/100)
+        if self.initialized and self.isVisible():self.window.Render()
 
     def initialize(self):
         if self.closed:return
@@ -155,7 +171,21 @@ class CADViewport(QWidget,SelectionTools):
                 start=pts.InsertNextPoint(*a);end=pts.InsertNextPoint(*b);lines.InsertNextCell(2);lines.InsertCellPoint(start);lines.InsertCellPoint(end)
         mesh=vtkPolyData();mesh.SetPoints(pts);mesh.SetLines(lines);mapper=vtkPolyDataMapper();mapper.SetInputData(mesh);self.grid_actor=vtkActor();self.grid_actor.SetMapper(mapper);self.grid_actor.GetProperty().SetColor(.35,.49,.56);self.grid_actor.GetProperty().SetOpacity(.15);self.grid_actor.PickableOff();self.renderer.AddActor(self.grid_actor)
         self.grid_actor.SetVisibility(self.grid_visible)
+        self.apply_display_style()
 
+    def show_collisions(self):
+        hits=(self.result or {}).get('stats',{}).get('collisions',[])
+        if not hits:return
+        names={m['id']:m.get('name',m['id']) for m in self.result['meshes']}
+        ids={c[k] for c in hits for k in ('a','b')}
+        for identifier in ids:
+            self.visibility(identifier,True)
+        self.select_many(list(ids))
+        for identifier in ids:
+            if identifier in self.actors:self.actors[identifier][0].GetProperty().SetColor(.9,.25,.16)
+        self.window.Render()
+        text='\n'.join(f"{names.get(c['a'],c['a'])} ↔ {names.get(c['b'],c['b'])}: {c['volume']:.4g} mm³" for c in hits[:30])
+        QMessageBox.warning(self,'부품 간섭 경고',text+'\n\n빨간색 부품의 장착 위치·구멍·조립 여유를 확인하세요. 그룹화는 간섭을 없애지 않습니다. 불리언 연산의 보관된 도구 몸체는 의도된 중첩일 수 있습니다.')
     def load(self,result,fit=True):
         for actor in self.edge_candidates:self.renderer.RemoveActor(actor)
         self.edge_candidates={}
@@ -191,6 +221,9 @@ class CADViewport(QWidget,SelectionTools):
             if s['assembly_constraints']['mates']:self.caption.setText(self.caption.text()+f"   ·   조립 자유도 {s['assembly_constraints']['dof']}")
             if s['collisions']:self.caption.setText(self.caption.text()+f"   ·   간섭 {len(s['collisions'])}건")
         else:self.caption.setText('새 설계 · 스케치를 시작하거나 부품을 추가하세요.')
+        hits=(result or {}).get('stats',{}).get('collisions',[])
+        self.collision_button.setVisible(bool(hits));self.collision_button.setText(f'간섭 {len(hits)} · 확인')
+        self.collision_button.setToolTip('부품 체적이 겹칩니다. 눌러 부품 이름·체적과 위치를 확인하세요. 그룹·숨김 상태와 관계없이 검사합니다.')
         self.rebuild_pick_objects()
         for key in self.hidden:self.visibility(key,False,False)
         self.select_many([i for i in self.selected_ids if i in self.actors],False)

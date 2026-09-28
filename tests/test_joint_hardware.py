@@ -17,7 +17,7 @@ def test_hardware_clearance_motion_and_real_solids(tmp_path):
     assert len(ids)==7 and result['stats']['valid'] and not result['stats']['collisions']
     assert result['stats']['assembly_constraints']['dof']==1
     parts={p.id:p for p in design.parts}
-    assert parts['test-bush-a'].geometry.bore_diameter-parts['test-shaft'].geometry.diameter==pytest.approx(.15)
+    assert parts['test-bush-a'].geometry.bore_diameter-parts['test-shaft'].geometry.diameter==pytest.approx(.2)
     assert len(parts['test-mount'].geometry.holes)==5
     raw=design.model_dump();set_joint_motion(raw,'test-rotation',{'rz':57});rotated=Design.model_validate(raw)
     assert preview(rotated)['stats']['volume']==pytest.approx(result['stats']['volume'])

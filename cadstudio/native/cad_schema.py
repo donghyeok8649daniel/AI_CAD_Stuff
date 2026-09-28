@@ -74,6 +74,9 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         handedness=enum('right','left'),clearance=number),('diameter','pitch','length'))
     tool('joint',dict(kind=enum('rigid','revolute','slider','cylindrical','ball','planar','pin_slot'),parent=text,child=text,
         parent_anchor=enum('origin'),child_anchor=enum('origin'),
+        parent_cylinder=obj(dict(center=vector,direction=vector,diameter=number),('center','direction','diameter')),
+        child_cylinder=obj(dict(center=vector,direction=vector,diameter=number),('center','direction','diameter')),
+        flipped=boolean,
         limits=obj({axis:array(number,2,2) for axis in ('x','y','z','rx','ry','rz')}),
         **transform['properties']),('kind','parent','child'))
     tool('parameter',dict(value=text),('value',))

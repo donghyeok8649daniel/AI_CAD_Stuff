@@ -58,3 +58,24 @@ Fillet rounds selected edges using a radius; chamfer bevels them. Use Model → 
 | F1 | This guide |
 
 Text fields retain normal typing and clipboard shortcuts. AI proposals require validation and Apply; a successful preview is not a guarantee that a design is manufacturable or meets every requirement.
+
+
+## v2.10 — interference, printing and AI review
+
+The viewport interference badge stays visible whenever exact solid intersections exist; click it to see the affected parts and overlap volume. Groups and hidden parts remain in the check. Preview workflows block newly introduced or increased overlaps, while edits reducing pre-existing overlap can proceed with a warning. Retained union/intersection tool bodies are classified separately from assembly interference.
+
+Joint drive samples intermediate poses at up to 2 degrees / 0.5 mm intervals based on independent and propagated endpoint changes. A detected collision blocks Apply and previews the first collision. Use last checked pose rechecks the proposed stop. This is a discrete check, not a continuous swept-volume or manufacturing certificate; thin obstacles and nonlinear loop motion require further review. New revolute hardware provides separate 0.2 mm rotating, insertion and axial allowances. Active printer compensation adds to nominal assembly allowances.
+
+Choose the 3D printing workspace or File → 3D printing / STL preview. Select parts, print orientation, build dimensions and spacing. Bodies are separated, placed on Z=0 and arranged in rows. Oversized or overlapping layouts cannot export. Save this preview as STL writes the actual checked solids without changing the source assembly. Import as millimetres in a slicer; STL carries no unit metadata. Supports, infill, layers and G-code remain slicer tasks. The existing Export parts action creates separate files when needed.
+
+The AI panel now has Design and Questions modes. Questions can discuss the current design or general topics, retaining up to five exchanges; answers cannot apply geometry. Provider/model changes start a fresh conversation. AI preview / apply opens a Before/After geometry comparison and operation summary. Closing it preserves the design; stale drafts are rejected. New overlaps are sent back for AI repair, with at most three validation attempts. All configured provider usage/billing rules still apply; there is no added web search.
+
+Codex shows a green ✓ only after a successful account and selected-model check or completed request. Saved configuration alone is unverified. Check Codex connection performs account/model discovery without asking for a design. Reopening the app requires a new check. This indicates the last check, not a persistent connection or a usage-balance guarantee.
+
+View → Grid / axes colors, brightness, width lets you choose a grid color and individual XYZ colors, brightness (0–100%) and widths (0.5–5 px). Changes preview in 2D and 3D immediately. Save persists across restarts; Cancel restores the prior appearance, and Restore defaults resets the palette. Visibility and snapping remain independent.
+
+
+### Concentric shaft / bore repair (2.10)
+Assembly → Align joint shaft / bore axes lets you select the actual cylindrical faces of an existing revolute/cylindrical joint. Review measured eccentricity, axis tilt and interference before applying. Current axial placement and clocking are retained by default; turn this off to enter axial gap/angle. Existing limits are preserved. Descendants follow their parent, so check collars and other hardware separately. Cut cylinders or ambiguous references require reselection. Cancel leaves the project unchanged.
+
+New AI face features use the selected face bounding-box midpoint, avoiding the shift in area centroid caused by asymmetric holes. Tilted AI joints must bind to actual measured cylindrical axes. Old documents keep their existing geometry and can be repaired explicitly. Neither alignment nor sampled travel is a manufacturing or continuous collision certificate.

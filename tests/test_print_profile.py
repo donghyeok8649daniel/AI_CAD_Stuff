@@ -65,6 +65,6 @@ def test_actual_export_bore_volume_and_profile_manifest(tmp_path):
 def test_new_joint_hardware_inherits_profile_and_retains_mates():
     d,ids=add_revolute_hardware(Design(print_profile=PrintProfile()).model_dump(),prefix='p-')
     by_id={p.id:p for p in d.parts}
-    assert by_id['p-bush-a'].geometry.bore_diameter==pytest.approx(12.35)
+    assert by_id['p-bush-a'].geometry.bore_diameter==pytest.approx(12.4)
     assert len(d.mates)==6 and any(r['linked'] for r in print_targets(d))
     assert all(s.isValid() for s in build(d))
