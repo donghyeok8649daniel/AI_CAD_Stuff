@@ -1,3 +1,5 @@
+**2.11.1:** 간섭이 남은 AI 초안을 미리보기로 보존하고 실제 겹침 좌표로 수정 계속. 기본 시편 원점·기울어진 회전축 안내와 조립 계획 용량 개선. [AI 간섭 수정 사용법](docs/AI_REPAIR_KO.md).
+
 **2.11.0:** 커서 중심 확대·축소, 실제 스퍼 기어/일체형 축/지지판과 잇수비 연결, 출력판 부품별 드래그·위치·회전 후 STL, 실제 지지 형상 검사에 따른 관절 색 표시. [사용법과 검사 범위](docs/MECHANISM_PRINT_ZOOM_KO.md).
 
 **2.10.1 안정성 수정:** 그래픽 시작 검사를 별도 프로세스로 분리하고, OpenGL 실패 시 내장 소프트웨어 렌더링으로 전환합니다. 복구 창과 진단 로그를 추가했습니다. [시작 오류 안내](docs/STARTUP_RECOVERY_KO.md).
@@ -8,7 +10,7 @@
 
 **2.8.0:** 선택 해제·회전, 클릭 가능한 XYZ 축, 실제 관절 구조, AI 커스텀 조립, 선택만/분해 보기와 부품별 STEP·STL 출력. [사용 방법](docs/ASSEMBLY_PARTS_KO.md)
 
-# Prompt CAD Studio · Native 2.11.0
+# Prompt CAD Studio · Native 2.11.1
 
 **v2.7.0 — Codex · ChatGPT 구독 모드:** 기존 Codex 로그인으로 설계 요청을 실행합니다. AI 패널에서 Codex 선택 → Codex 연결 → 기존 로그인 사용 → 모델 선택. API 키가 필요하지 않으며 Codex 구독 사용량이 적용됩니다. [연결 방법과 한계](docs/CODEX_MODE_KO.md).
 

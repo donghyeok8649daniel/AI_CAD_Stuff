@@ -261,3 +261,8 @@ AI 패널 아래 **현재 선택**에서 부품·피처·관절 대상을 확인
 - **모델링 → 판금 · 단일 절곡 / 전개**: 바닥·플랜지의 직선 접선 길이, 판 폭, 두께, 안쪽 반경, 굽힘 각도, K 계수를 지정합니다. 굽힘 여유는 `각도(rad) × (안쪽 반경 + K × 두께)`입니다. 전개 DXF의 CUT 층은 외곽, BEND 층은 굽힘 구간의 양쪽 경계입니다. 임의 솔리드 변환·다중 플랜지·릴리프·추가 절삭 피처의 전개는 아직 지원하지 않습니다.
 
 판금 계산의 정의: [Autodesk Sheet Metal Rule](https://help.autodesk.com/cloudhelp/ENU/Fusion-Sheet-Metal/files/SM-RULES-REF.htm), [전개 길이 계산식](https://help.autodesk.com/cloudhelp/2024/ENU/Inventor-Help/files/GUID-7B2525E4-8191-46F2-8CC3-FF422114EAE5.htm). K 계수는 소재·공구·공정에 맞게 입력하세요.
+
+
+## AI 초안의 간섭 수정
+
+간섭이 남은 경우 **미리보기 / 수정 → 부품 쌍 선택 → AI로 간섭 수정 계속**을 사용하세요. 원본은 유지하며 검증을 통과한 뒤 적용합니다. [상세 안내](AI_REPAIR_KO.md).

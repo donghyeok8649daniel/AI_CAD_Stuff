@@ -96,3 +96,8 @@ New AI face features use the selected face bounding-box midpoint, avoiding the s
 The app tests native rendering in a disposable process before opening the CAD viewport. If the default OpenGL driver fails or hangs, it tests the already-bundled software renderer and falls back automatically. Both failing shows a recovery window with retry and diagnostic buttons. The software renderer uses the CPU; large assemblies may display more slowly, while CAD geometry and project saving remain unchanged. No system graphics drivers or DLLs are replaced.
 
 Use **Help → Graphics startup diagnostics** to inspect the current backend. Diagnostic files live in `%LOCALAPPDATA%/PromptCADStudio`. For troubleshooting, `PromptCADStudio.exe --renderer software` forces the software path. Autosaved projects are not automatically restored or overwritten. This guards the reproduced startup failure and does not guarantee against every native driver/runtime crash.
+
+
+## Repair an AI draft with interference
+
+Renderable rejected drafts are retained separately from your document. Use **Preview / repair**, select a collision pair, optionally add instructions, and choose **Continue AI interference repair**. Apply stays disabled until validation passes. Repair resumes from the original request and baseline, with measured world/local overlap bounds and additional cutting tools. A cancelled or interrupted repair preserves the previous candidate. This is static geometry validation, not load, fatigue-life or manufacturing certification.

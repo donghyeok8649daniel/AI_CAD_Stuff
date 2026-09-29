@@ -15,12 +15,13 @@ SYSTEM = '''Select only CAD tools and geometric representations needed for the r
 intent: part=ONE connected component (its walls, sections, holes are NOT separate parts); assembly=multiple separate components; edit=modify existing components without creating a new part. When asked for a single object, prefer part unless separate moving or assembled components are necessary. A hollow body is one part.
 Tools: motion_link=connect existing joint rotations by ratio (create physical gears separately). create=new body including all its dimensions; dimensions=edit an existing body (not for a new design); pad=add material fused onto a face; pocket=remove material inside a profile, leaving a hole; hole=circular holes/patterns; shell=hollow a solid inward to uniform wall/floor thickness, optionally removing a face to make an opening; fillet=edge rounding; chamfer=edge bevel; solid=boolean/mirror/pattern/split/draft; appearance=color/material; transform=body placement; thread=helical thread; joint=connect assembly bodies; parameter=dimension variable.
 Shapes: spur_gear=real external involute spur gear teeth, optional integral shaft, 18..80 teeth. cylinder=constant OUTSIDE diameter along Z, optional bore. revolve=OUTSIDE diameter changing along Z, including stepped or tapered rotational forms, specified by height/diameter segments, automatically ONE solid. plate=rectangular block. extrusion=arbitrary planar boundary extruded. loft=transition BETWEEN profiles at different heights, all sections in ONE body. sweep=profile along a bent path. bracket=simple L; link=rounded flat bar; sheetmetal=one bend; round_specimen/flat_specimen=tensile test.
-Select the minimal set. A new shape uses create only unless extra features are requested. Uniform walls and an open top use create+shell, not separate plates/pads. Repeated holes use hole with a pattern. A constant cross-section uses create/extrusion only, not another pad. Never choose dimensions just to state dimensions of a NEW body. Cutting a smaller center circle makes a bore, NOT a smaller solid external diameter. Use actual IDs and geometry in current_design to understand edits. Shapes may be empty for edits without create.'''
+Select the minimal sufficient set. For a mechanism select the moving/drive relationships FIRST, then static mounts. Plan no more than 32 new bodies and 32 connections within the total 64-operation budget, including geometry cuts and features. Avoid optional fasteners when they prevent fitting all essential driven joints and clearance cuts. Select the minimal set. A new shape uses create only unless extra features are requested. Uniform walls and an open top use create+shell, not separate plates/pads. Repeated holes use hole with a pattern. A constant cross-section uses create/extrusion only, not another pad. Never choose dimensions just to state dimensions of a NEW body. Cutting a smaller center circle makes a bore, NOT a smaller solid external diameter. Use actual IDs and geometry in current_design to understand edits. Shapes may be empty for edits without create.'''
 SYSTEM += '''
 edit_feature edits an EXISTING hole, pad, pocket, fillet, chamfer, shell, pattern or thread. Use it for changing an existing feature's dimensions or suppression instead of creating another cut or body. dimensions edits only BASE geometry. parameter edits dimensions driven by variables. Current features include IDs, editable fields and dimensions; selected_feature identifies the user's selected feature.
 edit_joint changes EXISTING joint angles or sliding positions, preserving its connection and limits. Use it instead of transform for joint-driven parts. joint creates a NEW connection only. selected_joint identifies the selected joint. Current motion_axes show allowed axes, units, values, limits and any driving joint or loop closure. Never change a dependent axis directly.
 new_parts: list descriptive ASCII IDs for ALL parts to create, one for a single part, multiple for an assembly, [] for edits that create nothing. These are the exact IDs used by create and by every later operation. Include unconnected components too. Existing IDs are already available; do not include them in new_parts.
 connections: extract the assembly relationships required by the ORIGINAL request, before generating geometry. Each entry is {kind,parent,child}. parent is the supporting/reference component; child is the component moving relative to it. Use descriptive ASCII part IDs and preserve existing IDs for edits. These IDs will be mandatory in the later plan. revolute=rotation only (회전), slider=translation only, cylindrical=rotation AND translation, rigid=NO relative motion (고정 결합). Fixing the parent to ground does NOT make its moving child's joint rigid. Include new joints only; for geometry/appearance edits preserve existing joints and return connections=[]. For a single part or no assembly relationships return []. Never interchange parent and child.'''
+SYSTEM += '\nConnections must form an acyclic parent/child forest: every child has exactly ONE parent joint. Never attach one connecting rod to two parent joints; that would require a separate loop-closure tool, which is currently not available to the AI planner. Prefer a physically meaningful supported mechanism when the user leaves the mechanism unspecified; declare contacts and deformation that are not simulated. Include both driving and driven revolute joints when using motion_link.'
 
 
 def scope_schema():
@@ -28,8 +29,8 @@ def scope_schema():
         'intent': dict(type='string', enum=['part', 'assembly', 'edit']),
         'tools': dict(type='array', items=dict(type='string', enum=list(TOOLS)), minItems=1, maxItems=len(TOOLS)),
         'shapes': dict(type='array', items=dict(type='string', enum=list(SHAPES)), maxItems=len(SHAPES)),
-        'new_parts': dict(type='array', maxItems=16, items=dict(type='string', pattern='^[a-zA-Z0-9_-]{1,40}$')),
-        'connections': dict(type='array', maxItems=8, items=dict(type='object', properties={
+        'new_parts': dict(type='array', maxItems=32, items=dict(type='string', pattern='^[a-zA-Z0-9_-]{1,40}$')),
+        'connections': dict(type='array', maxItems=32, items=dict(type='object', properties={
             'kind': dict(type='string', enum=list(JOINTS)),
             'parent': dict(type='string', pattern='^[a-zA-Z0-9_-]{1,40}$'),
             'child': dict(type='string', pattern='^[a-zA-Z0-9_-]{1,40}$'),
@@ -73,7 +74,7 @@ class Scope:
         if intent == 'part' and 'create' not in selected['tools']:
             raise ValueError('A new part needs create.')
         connections = data.get('connections', [])
-        if not isinstance(connections, list) or len(connections) > 8:
+        if not isinstance(connections, list) or len(connections) > 32:
             raise ValueError('Invalid assembly requirements.')
         for joint in connections:
             if (not isinstance(joint, dict) or set(joint) != {'kind', 'parent', 'child'}
@@ -86,7 +87,7 @@ class Scope:
         if len({j['child'] for j in connections}) != len(connections):
             raise ValueError('Each child needs one parent joint.')
         new_parts = data.get('new_parts', [])
-        if (not isinstance(new_parts, list) or len(new_parts)>16
+        if (not isinstance(new_parts, list) or len(new_parts)>32
                 or any(not isinstance(v,str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,40}',v) for v in new_parts)
                 or len(set(new_parts)) != len(new_parts)):
             raise ValueError('Invalid new part IDs.')

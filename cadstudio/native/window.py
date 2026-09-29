@@ -554,6 +554,9 @@ class MainWindow(QMainWindow,PartSelectionUI):
         def work():
             with KERNEL_LOCK:
                 d=Design.model_validate(raw);r=preview(d)
+                if context.get('tool')=='prompt':
+                    from ..interference import validate_candidate
+                    validate_candidate(d,baseline,collisions=r['stats']['collisions'])
                 from ..interference import check_joint_travel,travel_message
                 if baseline:
                     travel=check_joint_travel(baseline,d)
@@ -1029,12 +1032,16 @@ class MainWindow(QMainWindow,PartSelectionUI):
         from .ai_setup import AISetupDialog
         dialog=AISetupDialog(self);dialog.exec()
         if dialog.model_name:self.ollama_models.models.setCurrentIndex(-1);self.ollama_models.preferred=dialog.model_name;self.provider.setCurrentIndex(self.provider.findData('ollama'));self.ollama_models.refresh()
-    def generate_draft(self):
+    def generate_draft(self,*,repair_draft=None):
         if self.busy or self.sketching or self.ai_task:return
-        prompt=self.prompt.toPlainText().strip()
+        if repair_draft and repair_draft['serial']!=self.operation_serial:self.show_error('초안 생성 이후 설계가 변경되었습니다. 다시 생성하세요.');return
+        prompt=repair_draft['prompt'] if repair_draft else self.prompt.toPlainText().strip()
         if not prompt:self.ai_result.setPlainText('설계 명령을 입력하세요. 예: 직경 20 mm, 높이 10 mm인 원통을 만들어줘.');self.prompt.setFocus();return
         if len(prompt)>4000:self.show_error('명령은 4,000자 이내로 입력하세요.');return
         provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,selected_feature=getattr(self,'selected_feature',None),selected_joint=getattr(self,'selected_joint',None),mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();effort=self.cloud_effort.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
+        if repair_draft:request=DraftRequest.model_validate(repair_draft['request'])
+        repair=deepcopy(repair_draft['response'].get('repair')) if repair_draft else None
+        self.ai_retained_draft=repair_draft
         if provider=='ollama' and not model:self.ai_settings_toggle.setChecked(True);self.ai_result.setPlainText('Ollama 모델을 먼저 선택하세요. 설정에서 새로 찾기 또는 로컬 AI 설치 / 모델 다운로드를 사용하세요.');self.ai_scroll.ensureWidgetVisible(self.ollama_models);return
         codex_config=dict(self.codex_config)
         if provider=='codex' and not codex_config['model']:self.ai_result.setPlainText('Codex 연결 버튼에서 ChatGPT로 로그인하고 모델을 선택하세요.');return
@@ -1049,20 +1056,20 @@ class MainWindow(QMainWindow,PartSelectionUI):
             if provider=='local':result=local_draft(request)
             elif provider=='ollama':
                 from .local_ai import ollama_draft
-                result=ollama_draft(request,model,control=control,progress=progress,deadline=deadline)
+                result=ollama_draft(request,model,control=control,progress=progress,deadline=deadline,repair=repair)
             elif provider=='codex':
                 from .codex_ai import generate
-                result=generate(request,codex_config['model'],executable=codex_config['executable'],control=control,progress=progress,deadline=deadline,effort=effort)
+                result=generate(request,codex_config['model'],executable=codex_config['executable'],control=control,progress=progress,deadline=deadline,effort=effort,repair=repair)
             else:
                 if not key:raise ValueError('API 키를 입력하거나 OPENAI_API_KEY 환경변수를 설정하세요.')
                 from .local_ai import cloud_draft
-                result=cloud_draft(request,model,api_key=key,control=control,progress=progress,deadline=deadline,effort=effort)
+                result=cloud_draft(request,model,api_key=key,control=control,progress=progress,deadline=deadline,effort=effort,repair=repair)
             control.check();progress('생성 완료 · CAD 형상 검증 중…')
             with KERNEL_LOCK:
                 d=Design.model_validate(result['design']);r=preview(d)
-                from ..interference import validate_candidate
-                validate_candidate(d,request.current,collisions=r['stats']['collisions'],check=control.check)
-            return dict(response=result,design=d.model_dump(),preview=r,serial=serial,provider=provider,prompt=prompt)
+                from .draft_repair import review_candidate
+                result['validation']=review_candidate(d,request.current,r,control.check)
+            return dict(response=result,design=d.model_dump(),preview=r,serial=serial,provider=provider,prompt=prompt,request=request.model_dump())
         from .ai_task import AITask
         self.ai_task=AITask(work,self);self.ai_task.completed.connect(self.ai_complete,Qt.ConnectionType.QueuedConnection);self.ai_task.failed.connect(self.ai_failed,Qt.ConnectionType.QueuedConnection);self.ai_task.progress.connect(self.ai_progress,Qt.ConnectionType.QueuedConnection)
         self.ai_started=time.monotonic();self.ai_stage='모델 연결 / 준비 중…';self.ai_controls(True);self.ai_tick();self.ai_timer.start();self.ai_task.start()
@@ -1088,17 +1095,29 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def cancel_ai(self):
         if self.ai_task:
             self.ai_task.cancel();self.finish_ai_task();self.last_draft=None;self.accept_draft.setEnabled(False);self.ai_result.setPlainText('설계 초안 생성을 취소했습니다. 현재 설계는 변경되지 않았습니다.');self.message('AI 생성 취소 완료')
+            self.restore_repair_draft('수정을 취소했습니다. 이전 초안은 미리보기에서 다시 볼 수 있습니다.')
+    def restore_repair_draft(self,message):
+        retained=getattr(self,'ai_retained_draft',None);self.ai_retained_draft=None
+        if retained and retained['serial']==self.operation_serial:
+            from .draft_summary import draft_summary
+            self.last_draft=retained;self.accept_draft.setText('미리보기 / 수정');self.accept_draft.setEnabled(not self.busy and not self.sketching);self.ai_result.setPlainText(message+'\n\n'+draft_summary(retained['response'],retained['preview']));return True
+        return False
     @Slot(object)
     def ai_failed(self,packet):
         task,text=packet
         if task is not self.ai_task:return
-        if self.provider.currentData()=='codex':self.codex_status.setText('Codex · 연결 재확인 필요');self.codex_status.setStyleSheet('color:#f5c26b;')
-        self.finish_ai_task();self.ai_result.setPlainText('초안 생성 실패\n\n'+text[:2400]);self.message('초안 생성 실패 · AI 패널의 오류 안내를 확인하세요.')
+        self.finish_ai_task()
+        if self.restore_repair_draft('추가 수정이 완료되지 않았습니다. 이전 초안을 보존했습니다.\n'+text[:1200]):return
+        if self.provider.currentData()=='codex':
+            cad_error='치수·형상 검증' in text
+            self.codex_status.setText('✓ Codex 연결 완료' if cad_error else 'Codex · 연결 재확인 필요');self.codex_status.setStyleSheet('color:#8dd7c0;' if cad_error else 'color:#f5c26b;')
+        self.ai_result.setPlainText('초안 생성 실패\n\n'+text[:2400]);self.message('초안 생성 실패 · AI 패널의 오류 안내를 확인하세요.')
     @Slot(object)
     def ai_complete(self,packet):
         task,draft=packet
         if task is not self.ai_task:return
         self.finish_ai_task()
+        self.ai_retained_draft=None
         if draft.get('kind')=='answer':
             if draft['identity'][0]=='codex':self.codex_status.setText('✓ Codex 연결 완료');self.codex_status.setStyleSheet('color:#8dd7c0;')
             self.chat_identity=draft['identity'];self.chat_history=(draft['history']+[dict(role='user',content=draft['prompt']),dict(role='assistant',content=draft['answer'])])[-10:]
@@ -1109,18 +1128,25 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if draft['serial']!=self.operation_serial:
             self.ai_result.setPlainText('초안 생성 중 현재 설계가 바뀌었습니다. 새 설계를 기준으로 다시 생성하세요.');return
         from .draft_summary import draft_summary
-        self.last_draft=draft;self.ai_result.setPlainText(draft_summary(response,r));self.accept_draft.setEnabled(not self.busy and not self.sketching);self.message('설계 초안 생성 완료 · 내용을 확인하고 적용하세요.')
+        self.last_draft=draft;self.ai_result.setPlainText(draft_summary(response,r));self.accept_draft.setEnabled(not self.busy and not self.sketching);self.message('미리보기 준비 · 간섭 부위를 확인하고 AI로 수정을 계속하세요.' if response.get('validation',{}).get('status')=='needs_repair' else '설계 초안 생성 완료 · 내용을 확인하고 적용하세요.')
+        self.accept_draft.setText('미리보기 / 수정' if response.get('validation',{}).get('status')=='needs_repair' else '미리보기 / 적용')
         self.ai_scroll.ensureWidgetVisible(self.ai_result,0,8)
     def preview_draft(self):
         draft=self.last_draft
         if not draft or self.busy or self.sketching:return
         if draft['serial']!=self.operation_serial:self.show_error('초안 생성 이후 설계가 변경되었습니다. 다시 생성하세요.');return
         from .draft_preview import DraftPreviewDialog
-        dialog=DraftPreviewDialog(self,self.result,draft['preview'],self.ai_result.toPlainText())
-        if dialog.exec()==QDialog.DialogCode.Accepted:self.apply_draft()
+        dialog=DraftPreviewDialog(self,self.result,draft['preview'],self.ai_result.toPlainText(),validation=draft['response'].get('validation'),repairable=bool(draft['response'].get('repair')))
+        outcome=dialog.exec()
+        if outcome==QDialog.DialogCode.Accepted:self.apply_draft()
+        elif outcome==2:
+            retry=deepcopy(draft)
+            if dialog.repair_note.text().strip():retry['response']['repair']['user_instruction']=dialog.repair_note.text().strip()
+            self.generate_draft(repair_draft=retry)
     def apply_draft(self):
         draft=self.last_draft
         if not draft or self.busy or self.sketching:return
+        if draft['response'].get('validation',{}).get('status')=='needs_repair':self.message('간섭이 남은 초안입니다. 미리보기에서 AI로 수정한 후 적용하세요.');return
         if draft['serial']!=self.operation_serial:self.show_error('초안 생성 이후 설계가 변경되었습니다. 현재 설계로 초안을 다시 생성하세요.');return
         self.document.prompt=draft['prompt'];context=dict(source='openai' if draft['provider'] in ('openai','codex') else 'local',provider=draft['provider'],prompt=draft['prompt'],summary=draft['response']['summary'],assumptions=draft['response'].get('assumptions',[]),tool='prompt',tool_actions=draft['response'].get('tool_actions',[]),journal_base=draft['response'].get('journal_base'),journal_steps=draft['response'].get('journal_steps',[]));self.apply_design(draft['design'],'설계 명령 적용',context,fit=True);self.last_draft=None;self.accept_draft.setEnabled(False)
     def help_dialog(self):

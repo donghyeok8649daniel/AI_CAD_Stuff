@@ -26,7 +26,7 @@ def test_model_selection_restricts_grammar_preserves_original_request_and_reuses
             assert body['stream'] and body['think'] is False and body['options']['num_ctx'] == 8192
             assert json.loads(body['messages'][1]['content'])['prompt'] == '내가 요청한 형상'
             if is_scope(request):
-                assert body['options']['num_predict'] == 512
+                assert body['options']['num_predict'] == 4096
                 return scope_response(['create', 'dimensions'], ['cylinder'])
             assert [a['properties']['tool']['const'] for a in body['format']['properties']['actions']['items']['anyOf']] == ['create']
             assert [s['properties']['kind']['const'] for s in body['format']['$defs']['Geometry']['anyOf']] == ['cylinder']
@@ -82,7 +82,7 @@ def test_repetitive_explanation_is_bounded_and_repaired_before_execution():
         body=json.loads(request.content);generated.append(body)
         schema=body['format']['properties']
         assert schema['construction']['items']['maxLength']==80
-        assert schema['actions']['maxItems']==32
+        assert schema['actions']['maxItems']==64
         plan=dict(summary='cylinder',construction=['repeat a dimension. '*50] if len(generated)==1 else ['Cylinder: diameter 30, height 20 mm'],
             actions=[dict(tool='create',target='p',args=dict(name='p',geometry=dict(kind='cylinder',diameter=30,height=20)))])
         return httpx.Response(200,json=dict(done=True,message=dict(content=json.dumps(plan))))

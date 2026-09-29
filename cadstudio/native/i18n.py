@@ -8,7 +8,13 @@ from PySide6.QtWidgets import QApplication,QWidget,QLabel,QAbstractButton,QCombo
 from shiboken6 import isValid
 
 
-PAIRS = '''기어 모듈|Gear module
+PAIRS = '''AI로 간섭 수정 계속|Continue AI interference repair
+미리보기 / 수정|Preview / repair
+검증 통과 후 적용 가능|Apply after validation passes
+전체 초안 보기|Show the whole draft
+간섭이 남은 초안입니다. 원본은 그대로이며, 수정 후 검증을 통과하면 적용할 수 있습니다.|This draft has interference. The original is unchanged; apply after repair and validation.
+추가 수정 지시 (선택) · 예: 시편 치수는 유지하고 클램프 홈을 넓혀줘|Optional instructions: e.g. keep the specimen dimensions and widen the clamp slot
+기어 모듈|Gear module
 잇수|Tooth count
 압력각|Pressure angle
 쌍의 피치원 백래시|Pair pitch-circle backlash

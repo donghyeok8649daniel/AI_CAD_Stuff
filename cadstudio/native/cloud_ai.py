@@ -103,8 +103,10 @@ async def _content(client, model, messages, schema, name, control, progress, eff
     return ''.join(chunks)
 
 
-def generate(request,model,*,api_key,control=None,progress=None,deadline=600,effort='medium',transport=None):
+def generate(request,model,*,api_key,control=None,progress=None,deadline=600,effort='medium',transport=None,repair=None):
     from openai import APIError
+    from .draft_repair import DraftRepair
+    repairs=DraftRepair(request,repair)
     control=control or DraftControl();progress=progress or (lambda message:None)
     api_key,model=credentials(api_key,model)
     if effort not in ('low','medium','high','xhigh','max'):raise ValueError('지원되지 않는 추론 강도입니다.')
@@ -112,16 +114,17 @@ def generate(request,model,*,api_key,control=None,progress=None,deadline=600,eff
         raise ValueError('대기 시간은 양수 또는 무제한이어야 합니다.')
     async def run():
         async with make_client(api_key,deadline,transport) as client:
-            progress('OpenAI · 요청의 부품과 CAD 도구 선택 중…')
-            content=await _content(client,model,scope_messages(request),scope_schema(),'cad_scope',control,progress,effort,api_key)
-            try:scope=Scope.parse(content,request)
-            except (ValueError,TypeError):
-                scope=Scope();progress('전체 CAD 도구로 계획합니다…')
-            schema=plan_schema(scope.tools,scope.shapes,single_part=scope.intent=='part',connections=scope.connections,
-                               new_parts=scope.new_parts,existing_parts=[p.id for p in request.current.parts] if request.current else ())
-            messages=scope.plan_messages(request)
-            messages[0]['content']+='\nFor this strict output schema: optional fields use null when unused. dimensions.args.values is an array of {key,value_json}; encode each actual dimension value as JSON text. Do not invent unused values.'
+            scope=repairs.initial_scope()
+            if scope is None:
+                progress('OpenAI · 요청의 부품과 CAD 도구 선택 중…')
+                content=await _content(client,model,scope_messages(request),scope_schema(),'cad_scope',control,progress,effort,api_key)
+                try:scope=Scope.parse(content,request)
+                except (ValueError,TypeError):
+                    scope=Scope();progress('전체 CAD 도구로 계획합니다…')
+            messages=repairs.messages(scope)
             for attempt in range(3):
+                schema=plan_schema(scope.tools,scope.shapes,single_part=scope.intent=='part',connections=scope.connections,
+                                   new_parts=scope.new_parts,existing_parts=[p.id for p in request.current.parts] if request.current else ())
                 control.check();progress('OpenAI · CAD 작업 계획 생성 중…' if not attempt else 'OpenAI · CAD 검증 오류 수정 중…')
                 content=await _content(client,model,messages,schema,'cad_plan',control,progress,effort,api_key)
                 try:
@@ -130,18 +133,23 @@ def generate(request,model,*,api_key,control=None,progress=None,deadline=600,eff
                         result=scope.validate_result(execute_plan(decode_plan(content),request,check=control.check,progress=progress,single_part=scope.intent=='part'))
                         verified=preview(result.design)
                     control.check()
-                    from ..interference import validate_candidate
-                    collision_report=validate_candidate(result.design,request.current,collisions=verified['stats']['collisions'],check=control.check)
-                    if collision_report['existing']:result.assumptions.append('기존 설계의 간섭이 남아 있습니다. 새 간섭은 없으나 조립 전 수정하세요.')
                     restore_sketch_display(result.design,request.current)
-                    return {**result.model_dump(),'provider':'openai','attempts':attempt+1,
+                    reviewed=repairs.check(result,verified,content,scope,control.check)
+                    return {**reviewed,'provider':'openai','attempts':attempt+1,
                             'changes':[f"{s['step']}. {TOOL_LABELS[s['tool']]} · {s['target']}" for s in result.tool_actions],
                             'planning':dict(intent=scope.intent,tools=scope.tools,shapes=scope.shapes,connections=scope.connections,new_parts=scope.new_parts)}
                 except (ValueError,RuntimeError) as exc:
                     reason=validation_feedback(exc)
-                    if attempt==2:raise ValueError('OpenAI 설계가 3차례의 치수·형상 검증을 통과하지 못했습니다. 현재 설계는 변경되지 않았습니다.\n\n검증 원인:\n'+reason) from None
-                    messages=messages[:2]+[{'role':'assistant','content':content[:30000]},
-                        {'role':'user','content':'CAD 검증 오류를 수정한 전체 계획을 반환하세요. 원래 요청과 올바른 작업을 유지하세요.\n'+reason}]
+                    if attempt==2:
+                        pending=repairs.pending('openai',attempt+1)
+                        if pending:return pending
+                        raise ValueError('OpenAI 설계가 3차례의 치수·형상 검증을 통과하지 못했습니다. 현재 설계는 변경되지 않았습니다.\n\n검증 원인:\n'+reason) from None
+                    scope,messages=repairs.next(scope,content,exc)
     try:
         return asyncio.run(control.execute(run,deadline,'OpenAI가 제한 시간 안에 완료하지 못했습니다. AI 최대 대기를 늘리거나 무제한으로 설정할 수 있습니다.'))
-    except APIError as exc:raise ValueError(api_error_message(exc,model,api_key=api_key)) from None
+    except (APIError,ValueError) as exc:
+        control.check()
+        message=api_error_message(exc,model,api_key=api_key) if isinstance(exc,APIError) else str(exc)
+        pending=repairs.interrupted('openai',message)
+        if pending:return pending
+        raise ValueError(message) from None

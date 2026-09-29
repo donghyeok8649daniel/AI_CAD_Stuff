@@ -1,0 +1,28 @@
+{
+  "checks": [
+    "Rejected but renderable draft retained",
+    "Interference flagged as needing repair",
+    "Rejected draft leaves current document unchanged",
+    "Pending draft has accessible preview",
+    "CAD validation is not a lost account connection",
+    "Real local overlap coordinates reach repair prompt",
+    "Repair tool instructions include missing pocket operation",
+    "Direct apply cannot bypass pending review",
+    "Repair button replaces blocked apply action",
+    "Accept call cannot bypass guard",
+    "Conflict pair highlights both actual bodies",
+    "Before mode displays original empty workspace",
+    "Review dismiss preserves original",
+    "Continue repair obtains clear geometry",
+    "Resume uses one plan call without repeating capability selection",
+    "Extra repair instruction reaches provider",
+    "Real corrected solids have zero overlap",
+    "Repaired preview still requires explicit apply",
+    "Validated corrected draft applies once",
+    "Specimen dimensions retained",
+    "Clamp has an actual editable clearance cut",
+    "Repair history recorded"
+  ],
+  "live_ai_calls": 0,
+  "passed": true
+}

@@ -20,7 +20,7 @@ def plan(x):
 @pytest.mark.parametrize('provider',['codex','openai','ollama'])
 @pytest.mark.parametrize('repair',[False,True])
 def test_ai_overlap_is_repaired_or_rejected_never_silently_accepted(provider,repair):
-    req=DraftRequest(prompt='별개 부품 두 개를 만들어줘');bad=plan(5);replies=[bad,plan(20)] if repair else [bad,bad,bad]
+    req=DraftRequest(prompt='별개 부품 두 개를 만들어줘');bad=plan(5);replies=[bad,plan(20)] if repair else [bad]*(6 if provider=='codex' else 3)
     calls=[];selected=scope(intent='assembly',tools=('create',),shapes=('plate',),new_parts=('a','b'))
     if provider=='codex':
         session=Session([selected]+replies)
@@ -40,5 +40,8 @@ def test_ai_overlap_is_repaired_or_rejected_never_silently_accepted(provider,rep
     if repair:
         result=invoke();assert result['attempts']==2 and len(result['design']['parts'])==2
     else:
-        with pytest.raises(ValueError,match='간섭'):invoke()
+        result=invoke()
+        assert result['validation']['status']=='needs_repair'
+        assert result['validation']['collisions'] and result['repair']['plan']
+        assert len(result['design']['parts'])==2
     assert any('간섭' in json.dumps(c,ensure_ascii=False) for c in calls[1:])

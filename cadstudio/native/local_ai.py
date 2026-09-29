@@ -80,30 +80,35 @@ def restore_sketch_display(result,current):
                 face.outline=deepcopy(old.outline);face.projected_entities=deepcopy(old.projected_entities);face.projection_unsupported=old.projection_unsupported
 
 
-def ollama_draft(request,model,transport=None,*,control=None,progress=None,deadline=600):
+def ollama_draft(request,model,transport=None,*,control=None,progress=None,deadline=600,repair=None):
     control=control or DraftControl();progress=progress or (lambda message:None)
     if not model or len(model)>120:raise ValueError('Ollama에 설치된 모델 이름을 입력하세요.')
     if deadline is not None and (not isinstance(deadline,(int,float)) or not math.isfinite(deadline) or deadline<=0):raise ValueError('대기 시간은 양수 또는 무제한이어야 합니다.')
     from .cad_tools import execute_plan
     from .cad_schema import plan_schema
     from .cad_scope import Scope,scope_schema,scope_messages
+    from .draft_repair import DraftRepair
+    repairs=DraftRepair(request,repair)
     async def generate():
         # Selection and generation share one cancellable task, client and total
         # deadline. No blocking model call occurs on the GUI thread.
         async with httpx.AsyncClient(base_url='http://127.0.0.1:11434',timeout=httpx.Timeout(deadline,connect=4),trust_env=False,follow_redirects=False,transport=transport) as client:
-            control.check();progress('요청에 필요한 CAD 도구 선택 중…')
-            content=await _chat_content(client,_chat_body(model,scope_messages(request),scope_schema(),512,8192),control,progress,'도구 선택')
-            try:scope=Scope.parse(content,request)
-            except (ValueError,TypeError):
-                # Invalid selection only broadens the available tools. It never
-                # fabricates a design or hides network/cancellation failures.
-                scope=Scope();progress('도구 선택을 해석하지 못해 전체 CAD 도구로 계획합니다…')
+            scope=repairs.initial_scope()
+            if scope is None:
+                control.check();progress('요청에 필요한 CAD 도구 선택 중…')
+                content=await _chat_content(client,_chat_body(model,scope_messages(request),scope_schema(),4096,8192),control,progress,'도구 선택')
+                try:scope=Scope.parse(content,request)
+                except (ValueError,TypeError):
+                    scope=Scope();progress('도구 선택을 해석하지 못해 전체 CAD 도구로 계획합니다…')
             control.check()
-            result=await _ollama_reply(client,model,scope.plan_messages(request),control,progress,request.current,
-                schema=plan_schema(scope.tools,scope.shapes,single_part=scope.intent=='part',connections=scope.connections,new_parts=scope.new_parts,existing_parts=[p.id for p in request.current.parts] if request.current else ()),parser=lambda content:scope.validate_result(execute_plan(content,request,check=control.check,progress=progress,single_part=scope.intent=='part')),context_size=8192)
+            result=await _ollama_reply(client,model,repairs.messages(scope),control,progress,request.current,
+                schema=plan_schema(scope.tools,scope.shapes,single_part=scope.intent=='part',connections=scope.connections,new_parts=scope.new_parts,existing_parts=[p.id for p in request.current.parts] if request.current else ()),parser=lambda content:scope.validate_result(execute_plan(content,request,check=control.check,progress=progress,single_part=scope.intent=='part')),context_size=16384 if scope.intent=='assembly' or repair else 8192,repairs=repairs,scope=scope)
             result['planning']=dict(intent=scope.intent,tools=scope.tools,shapes=scope.shapes,connections=scope.connections,new_parts=scope.new_parts)
             return result
-    result=asyncio.run(control.execute(generate,deadline))
+    try:result=asyncio.run(control.execute(generate,deadline))
+    except ValueError as exc:
+        control.check();result=repairs.interrupted('ollama',str(exc))
+        if not result:raise
     if request.current:
         from ..models import Design
         design=Design.model_validate(result['design']);restore_sketch_display(design,request.current);result['design']=design.model_dump()
@@ -154,21 +159,35 @@ async def _chat_content(client,body,control,progress,phase='설계 생성'):
     except (json.JSONDecodeError,UnicodeDecodeError,AttributeError,TypeError):raise ValueError('Ollama에서 잘못된 응답을 받았습니다. 모델을 확인하고 다시 시도하세요.') from None
 
 
-async def _ollama_reply(client,model,messages,control,progress,current=None,*,schema=None,parser=None,context_size=16384):
+async def _ollama_reply(client,model,messages,control,progress,current=None,*,schema=None,parser=None,context_size=16384,repairs=None,scope=None):
+    from .draft_repair import DraftRepair
+    from .cad_scope import Scope
+    from .cad_schema import plan_schema
+    from ..models import DraftRequest
+    repairs=repairs or DraftRepair(DraftRequest(prompt=messages[1]['content'][:4000],current=current))
+    scoped=scope is not None;scope=scope or Scope()
     for attempt in range(3):
         control.check();progress('CAD 작업 순서와 치수 생성 중…' if not attempt else '검증 오류 반영 후 설계 수정 재시도 중…')
         content=await _chat_content(client,_chat_body(model,messages,schema or AIReply.model_json_schema(),8192 if attempt else 4096,context_size),control,progress)
         try:
             control.check();progress('생성 완료 · 치수와 실제 CAD 형상 검증 중…')
-            with KERNEL_LOCK:result=parser(content) if parser else parse_ai_reply(content,current);verified=preview(result.design)
+            with KERNEL_LOCK:
+                if scoped:
+                    from .cad_tools import execute_plan
+                    result=scope.validate_result(execute_plan(content,repairs.request,check=control.check,progress=progress,single_part=scope.intent=='part'))
+                else:result=parser(content) if parser else parse_ai_reply(content,current)
+                verified=preview(result.design)
             control.check()
-            from ..interference import validate_candidate
-            collision_report=validate_candidate(result.design,current,collisions=verified['stats']['collisions'],check=control.check)
-            if collision_report['existing']:result.assumptions.append('기존 설계의 간섭이 남아 있습니다. 새 간섭은 없으나 조립 전 수정하세요.')
+            reviewed=repairs.check(result,verified,content,scope,control.check)
             steps=getattr(result,'tool_actions',[])
             from .cad_tools import TOOL_LABELS
-            return {**result.model_dump(),'changes':[f"{s['step']}. {TOOL_LABELS[s['tool']]} · {s['target']}" for s in steps],'provider':'ollama','attempts':attempt+1}
+            return {**reviewed,'changes':[f"{s['step']}. {TOOL_LABELS[s['tool']]} · {s['target']}" for s in steps],'provider':'ollama','attempts':attempt+1}
         except (ValueError,RuntimeError) as exc:
             reason=validation_feedback(exc)
-            if attempt==2:raise ValueError('로컬 AI 설계가 3차례의 치수·형상 검증을 통과하지 못했습니다. 현재 설계는 변경되지 않았습니다.\n\n검증 원인:\n'+reason) from None
-            messages=messages[:2]+[{'role':'assistant','content':content[:30000]},{'role':'user','content':'CAD 실행에서 다음 오류가 발생했습니다. 해당 작업의 필드와 치수 관계를 수정하세요. 원래 요청을 유지하고 처음부터 실행할 수정된 전체 actions 계획 JSON을 반환하세요. 이미 올바른 작업은 유지하고, 요청 없는 부품을 추가하지 마세요.\n'+reason}]
+            if attempt==2:
+                pending=repairs.pending('ollama',attempt+1)
+                if pending:return pending
+                raise ValueError('로컬 AI 설계가 3차례의 치수·형상 검증을 통과하지 못했습니다. 현재 설계는 변경되지 않았습니다.\n\n검증 원인:\n'+reason) from None
+            scope,messages=repairs.next(scope,content,exc)
+            if repairs.best:context_size=16384
+            if scoped:schema=plan_schema(scope.tools,scope.shapes,single_part=scope.intent=='part',connections=scope.connections,new_parts=scope.new_parts,existing_parts=[p.id for p in current.parts] if current else ())

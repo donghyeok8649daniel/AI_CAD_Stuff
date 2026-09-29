@@ -1,3 +1,13 @@
+# 2.11.1 AI interference repair
+
+Source regression: **231 passed, 52 warnings in 73.88s (0:01:13)**. Real clamp/specimen pocket repair, expanded repair schema, exact world/local overlap extents including rotated parts, preserved dimensions and colors, original baseline replay, retained candidates after invalid revisions, timeout/cancellation, request fingerprint, grouping cannot hide overlap, UI and direct apply guards. Existing CAD, startup, AI responsiveness and print/mechanism regressions included.
+
+Frozen EXE: **222 native checks**, with new22-check repair workflows in automatic and software rendering plus prior startup, selection, mechanism/printing and chat flows. Every bundled CAD module (**124**) and native entry matches tested source. Both repair flows exercise the actual preview-to-continue UI, actual clearance pocket and final apply/history. Native UI captures in this guide composite Qt controls with separately captured WGL pixels (plain QWidget.grab omits the viewport); they were visually checked in the identical source workflow.
+
+Live reproduction used only the public built-in flat specimen and the user's fatigue-machine/color request through existing ChatGPT-authenticated Codex; no user project or API key was sent. One development run required3 model calls (selection plus2 plans), produced17 parts and passed actual static interference validation. This evidence is not an arbitrary-prompt success guarantee. The assembly is a mechanical concept: load/contact/fatigue-life, torque transmission details and full travel are not certified. A further 64-operation assembly evaluation did not complete: an unsupported cylinder-bound slider joint was rejected. It is logged locally and is not counted as a pass.
+
+[Repair guide](docs/AI_REPAIR_KO.md) · [Validation](docs/native2111-validation.json) · [Auto renderer](docs/draft-repair-auto2111.json) · [Software renderer](docs/draft-repair-software2111.json)
+
 # 2.11.0 Real gear geometry, print placement and cursor zoom
 
 Source regression: **185 passed, 50 warnings in 121.12s (0:02:01)**. Checked real involute spur solids (bores/integral shafts), three gear ratios with intermediate tooth phases and actual volume collisions, shaft/bore readiness including missing hardware and eccentric interference, per-part print rotation/placement and STL bounds, invalid inputs and overlap/out-of-bed warnings, cursor invariance under parallel/perspective cameras, AI shape/tool schema and transactional execution. Existing constraints, CAD foundations, joint hardware/alignment, printer profile, interference, AI, startup and native usability regression are included.
