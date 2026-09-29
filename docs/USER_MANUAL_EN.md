@@ -1,3 +1,5 @@
+[2.12.0 · AI / usage / roles / research](RESEARCH_AI_EN.md)
+
 # 2.11.0 update
 
 Mouse-wheel zoom keeps the hovered part surface under the pointer; empty space uses the focal plane. Sketch zoom also preserves the cursor coordinate.

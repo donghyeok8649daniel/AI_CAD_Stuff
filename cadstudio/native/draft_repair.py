@@ -89,7 +89,7 @@ class DraftRepair:
             messages += [dict(role='assistant', content=plan), dict(role='user', content='CAD 검증 오류를 수정한 전체 CAD 계획을 반환하세요. 원래 요청을 유지하세요.\n' + feedback)]
         return messages
 
-    def check(self, result, verified, plan, scope, check=lambda: None):
+    def check(self, result, verified, plan, scope, check=lambda: None, *, checkpoint=None, provider='', attempts=0):
         review = review_candidate(result.design, self.request.current, verified, check)
         result_data = result.model_dump()
         result_data['validation'] = review
@@ -109,6 +109,7 @@ class DraftRepair:
                 identifiers=tuple(p.id for p in result.design.parts if p.id not in old_ids)
                 if len(identifiers)<=32:retained_scope = replace(retained_scope, new_parts=identifiers)
             self.best = dict(result=result_data, plan=plan, feedback=feedback, scope=asdict(retained_scope))
+            if checkpoint:checkpoint(self.pending(provider, attempts), verified)
         raise ValueError(feedback)
 
     def pending(self, provider, attempts):

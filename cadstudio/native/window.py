@@ -65,6 +65,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         file=self.menuBar().addMenu('파일(&F)');file.addAction(self.action('new','새 설계',self.new_document,'Ctrl+N','file'));file.addAction(self.action('open','열기…',lambda:self.open_project(),'Ctrl+O','open'));file.addAction(self.action('save','저장',self.save,'Ctrl+S','save'));file.addAction(self.action('save_as','다른 이름으로 저장…',lambda:self.save(True),'Ctrl+Shift+S'));file.addSeparator()
         file.addAction(self.action('recover','최근 자동저장 복구…',self.recover_autosave,None,'history'))
         export_menu=file.addMenu('내보내기')
+        export_menu.addAction(self.action('research_package','피로시험 조건 / 데이터 양식…',self.research_package_dialog))
         file.addAction(self.action('import_model','CAD 부품 가져오기 · STEP / IGES / STL…',self.import_model,'Ctrl+Shift+I','open'))
         for fmt,title in [('step','STEP · CAD 교환'),('stl','STL · 메시'),('f3d','F3D · Fusion 변환'),('ipt','IPT · Inventor 부품 변환'),('zip','Fusion / Inventor 변환 패키지')]:export_menu.addAction(title,lambda f=fmt:self.export_file(f))
         examples=file.addMenu('예제 열기')
@@ -308,6 +309,19 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if not self.document.design or not self.document.design['parts']:self.message('출력할 부품을 먼저 만드세요.');return
         from .print_dialog import PrintDialog
         PrintDialog(self,self.document.design,self.selected_parts).exec()
+    def research_package_dialog(self):
+        if self.busy or self.sketching or not self.document.design:return
+        from .research_dialog import ResearchDialog
+        dialog=ResearchDialog(self,self.document.design,self.selected)
+        try:
+            if dialog.exec()!=QDialog.DialogCode.Accepted:return
+            path,_=QFileDialog.getSaveFileName(self,'피로시험 준비 패키지 저장','fatigue-research.zip','ZIP (*.zip)')
+            if not path:return
+            from ..research_package import export_package
+            raw=deepcopy(self.document.design);part_id=dialog.part.currentData();protocol=dialog.protocol
+            self.run(lambda:export_package(raw,part_id,protocol,path),lambda p:self.message('연구 패키지 내보내기 완료: '+str(p)),'시편 형상과 데이터 양식 내보내는 중…')
+        finally:dialog.deleteLater()
+
     def specimen_dialog(self):
         if self.busy or self.sketching:return
         from .workflows import SpecimenDialog
@@ -386,7 +400,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             payload=dialog.candidate();payload.pop('raw');self.apply_design(dialog.checked.model_dump(),'실제 회전 관절 구조 추가',{'tool':'joint-hardware',**payload},fit=True,after=lambda:self.select_parts(dialog.part_ids))
     def joint_alignment_dialog(self):
         if self.busy or self.sketching:return
-        if not self.document.design or not any(m['kind'] in ('revolute','cylindrical') for m in self.document.design['mates']):self.message('회전 또는 원통 관절을 먼저 만드세요.');return
+        if not self.document.design or not any(m['kind'] in ('revolute','cylindrical','slider') for m in self.document.design['mates']):self.message('회전, 원통 또는 슬라이더 관절을 먼저 만드세요.');return
         from .joint_alignment_dialog import JointAlignmentDialog
         dialog=JointAlignmentDialog(self,self.document.design,self.selected_joint)
         if dialog.exec()==QDialog.DialogCode.Accepted and dialog.checked:
@@ -435,7 +449,9 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.codex_config=codex_settings();self.codex_catalog=[]
         self.codex_model_label=label('Codex 모델: '+(self.codex_config['model'] or '연결 후 선택'),True);v.addWidget(self.codex_model_label)
         self.codex_status=label('Codex · 연결 확인 전',True);v.addWidget(self.codex_status);self.codex_probe_task=None
-        self.codex_check_button=button('Codex 연결 상태 확인',self.check_codex_status);v.addWidget(self.codex_check_button)
+        from .codex_usage import USAGE_NOTE
+        self.codex_usage=label('Codex 주간 · 잔여량 확인 전',True);self.codex_usage.setToolTip(USAGE_NOTE);v.addWidget(self.codex_usage)
+        self.codex_check_button=button('Codex 연결·사용량 새로고침',self.check_codex_status);v.addWidget(self.codex_check_button)
         self.ai_info=label('',True);v.addWidget(self.ai_info)
         self.ai_result=QPlainTextEdit();self.ai_result.setReadOnly(True);self.ai_result.setPlaceholderText('생성 진행과 검증 결과가 여기에 표시됩니다.');self.ai_result.setMinimumHeight(100)
         self.ai_settings_toggle=button('모델 · 대기 설정',lambda:None);self.ai_settings_toggle.setCheckable(True);self.ai_settings_toggle.setToolTip('모델 선택, 최대 대기 시간, API 키 설정');header=QHBoxLayout();header.addWidget(self.ai_mode);header.addStretch();header.addWidget(self.ai_settings_toggle);v.insertLayout(0,header)
@@ -448,6 +464,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         from .model_picker import LocalModelPicker
         self.ollama_models=LocalModelPicker(self);self.ollama_models.hide();settings.addWidget(self.ollama_models)
         self.ai_timeout=combo([(180,'AI 최대 대기 · 3분'),(300,'AI 최대 대기 · 5분'),(600,'AI 최대 대기 · 10분'),(1200,'AI 최대 대기 · 20분'),(None,'AI 최대 대기 · 무제한 (취소 가능)')]);self.ai_timeout.setCurrentIndex(2);settings.addWidget(self.ai_timeout)
+        self.ai_timeout.setToolTip('Codex·Ollama 무제한: 검증을 통과하거나 취소할 때까지 수정합니다. 구독 사용량은 계속 사용됩니다. 연결·로그인·사용량 문제는 중단 후 재개하세요. 유료 API는 검증 재시도 횟수를 제한합니다.')
         settings.addWidget(button('로컬 AI 설치 / 모델 다운로드',self.install_local_ai))
         v.addWidget(self.ai_result,1)
         self.ai_scroll=QScrollArea();self.ai_scroll.setWidgetResizable(True);self.ai_scroll.setMinimumWidth(270);self.ai_scroll.setWidget(w)
@@ -479,6 +496,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
         try:
             if dialog.exec()!=QDialog.DialogCode.Accepted:return
             self.codex_config=dict(executable=dialog.executable_path,model=dialog.model_name);self.codex_catalog=dialog.catalog
+            from .codex_usage import usage_text
+            self.codex_usage.setText(usage_text(dialog.usage))
             self.codex_status.setText('✓ Codex 연결 완료');self.codex_status.setStyleSheet('color:#8dd7c0;')
             self.provider.setCurrentIndex(self.provider.findData('codex'));self.provider_changed()
             self.ai_dock.show();self.ai_dock.raise_();self.message('Codex에 연결했습니다. 설계 명령을 입력하고 초안 생성을 누르세요.')
@@ -488,12 +507,15 @@ class MainWindow(QMainWindow,PartSelectionUI):
         from .codex_connection import connect
         from .ai_task import AITask
         config=dict(self.codex_config);self.codex_status.setText('Codex · 연결 확인 중…');self.codex_check_button.setEnabled(False)
+        self.codex_usage.setText('Codex 주간 · 조회 중…')
         task=AITask(lambda control,progress:connect(config['executable'],control=control,progress=progress),self);self.codex_probe_task=task
         def completed(packet):
             sender,result=packet
             if sender is not self.codex_probe_task:return
             self.codex_probe_task=None;self.codex_check_button.setEnabled(True)
-            if config!=self.codex_config:self.codex_status.setText('Codex · 설정 변경됨 · 다시 확인하세요.');return
+            if config!=self.codex_config:self.codex_status.setText('Codex · 설정 변경됨 · 다시 확인하세요.');self.codex_usage.setText('Codex 주간 · 잔여량 확인 전');return
+            from .codex_usage import usage_text
+            self.codex_usage.setText(usage_text(result.get('usage')))
             self.codex_catalog=result['models'];available={m['model'] for m in result['models']}
             ready=config['model'] in available
             self.codex_status.setText('✓ Codex 연결 완료 · '+result['account'].get('plan','') if ready else 'Codex · 로그인 확인됨 · 사용할 모델을 선택하세요.')
@@ -502,6 +524,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             sender,message=packet
             if sender is not self.codex_probe_task:return
             self.codex_probe_task=None;self.codex_check_button.setEnabled(True);self.codex_status.setText('Codex · 연결 확인 실패');self.codex_status.setStyleSheet('color:#ffab91;');self.codex_status.setToolTip(message)
+            self.codex_usage.setText('Codex 주간 · 잔여량 확인 불가')
         task.completed.connect(completed,Qt.ConnectionType.QueuedConnection);task.failed.connect(failed,Qt.ConnectionType.QueuedConnection);task.start()
     def refresh_ai_target(self):
         if not hasattr(self,'ai_target'):return
@@ -688,10 +711,13 @@ class MainWindow(QMainWindow,PartSelectionUI):
             signal.connect(lambda *args,field=key:changed_dimensions.add(field))
         self.property_layout.addWidget(button('이동 / 회전 · M',self.move_parts))
         color_button=button('●  부품 색상 변경',lambda:self.color_part(part['id']));color_button.setObjectName('partColorButton');color_button.setStyleSheet(f"border-left:6px solid {part['color']};text-align:left;padding:8px;");self.property_layout.addWidget(color_button);self.property_layout.addWidget(button('재질 / 물성',self.material_dialog));self.property_layout.addLayout(form)
+        self.property_layout.insertWidget(2,button('부품 역할 / 기본색…',self.role_selection))
         if part.get('source_part_id'):
             self.property_layout.addWidget(label('연결된 원본: '+part['source_part_id']+' · 형상은 원본을 따라갑니다.',True));self.property_layout.addWidget(button('원본 편집',lambda:self.select_part(part['source_part_id'])));self.property_layout.addWidget(button('연결 해제 · 독립 부품으로',self.unlink_part))
             for w in inputs.values():w.setEnabled(False)
-        if g['kind'] in ('round_specimen','flat_specimen','wafer'):self.property_layout.insertWidget(1,button('시편 치수 · 3D 미리보기',self.specimen_dialog,True))
+        if g['kind'] in ('round_specimen','flat_specimen','wafer'):
+            self.property_layout.insertWidget(1,button('시편 치수 · 3D 미리보기',self.specimen_dialog,True))
+            self.property_layout.insertWidget(2,button('피로시험 조건 / 데이터 양식…',self.research_package_dialog))
         if any(m['child']==part['id'] and m['kind']!='rigid' for m in self.document.design['mates']):self.property_layout.insertWidget(1,button('관절 구동 · 간섭 확인',self.drive_joints,True))
         if g['kind']=='extrusion':self.property_layout.addWidget(button('돌출 깊이 · 3D 편집 E',self.extrude_dialog,True));self.property_layout.addWidget(button('기본 스케치 편집',lambda:self.edit_sketch()))
         if g['kind'] in ('sweep','loft'):self.property_layout.insertWidget(1,button(TITLES[g['kind']]+' 단면 / 경로 편집',lambda:self.modelling_dialog(g['kind'],part_id=part['id']),True))
@@ -864,7 +890,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
             if face.get('reference'):f['reference']=face['reference']
         else:
             from ..sketch_frames import extrusion_transform
-            p=Part(id='part-'+uid(),name='스케치 돌출 '+str(len(data['parts'])+1),geometry=g,transform=extrusion_transform(context)).model_dump();data['parts'].append(p);context['part_id']=p['id']
+            from ..part_roles import new_part_style
+            p=Part(id='part-'+uid(),name='스케치 돌출 '+str(len(data['parts'])+1),geometry=g,transform=extrusion_transform(context),**new_part_style('extrusion')).model_dump();data['parts'].append(p);context['part_id']=p['id']
         if not source_context.get('edit_base') and not source_context.get('feature_id'):
             identifier=source_context.get('sketch_id') or 'sketch-'+uid();saved_context={k:deepcopy(v) for k,v in source_context.items() if k not in ('tool_actions','sketch_id','source_sketch_id')};saved_context['operation']=operation
             old=next((s for s in data.get('sketches',[]) if s['id']==identifier),None)
@@ -928,7 +955,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             from ..joint_readiness import COLORS
             color=COLORS[readiness['state']];status.setStyleSheet('color:rgb('+','.join(str(round(v*255)) for v in color)+');')
         if mate['kind']=='revolute':self.property_layout.addWidget(button('이 관절에 실제 축 / 하우징 구조 추가',self.joint_hardware_dialog,True))
-        if mate['kind'] in ('revolute','cylindrical'):self.property_layout.addWidget(button('관절 축 · 구멍 동심 정렬…',self.joint_alignment_dialog))
+        if mate['kind'] in ('revolute','cylindrical','slider'):self.property_layout.addWidget(button('관절 축 · 구멍 동심 정렬…',self.joint_alignment_dialog))
         def remove():data=deepcopy(self.document.design);data['mates']=[m for m in data['mates'] if m['id']!=identifier];data['joint_frames']=[f for f in data.get('joint_frames',[]) if f['mate_id']!=identifier];prune_joint_references(data);self.apply_design(data,'조립 구속 삭제',{'mate_id':identifier})
         self.property_layout.addWidget(button('구속 삭제',remove));self.property_layout.addStretch()
     def mate_dialog(self,identifier=None):
@@ -1015,6 +1042,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         provider=self.provider.currentData();self.astra_button.setVisible(provider=='openai');self.cloud_effort.setVisible(provider in ('openai','codex'));self.key.setVisible(provider=='openai');self.model.setVisible(provider=='openai');self.ollama_models.setVisible(provider=='ollama')
         self.openai_setup_button.setVisible(provider=='openai');self.codex_setup_button.setVisible(provider=='codex');self.codex_model_label.setVisible(provider=='codex')
         self.codex_status.setVisible(provider=='codex');self.codex_check_button.setVisible(provider=='codex')
+        self.codex_usage.setVisible(provider=='codex')
         self.codex_model_label.setText('Codex 모델: '+(self.codex_config['model'] or '연결 후 선택'))
         self.ai_info.setText({'local':'이름·치수를 해석하는 오프라인 명령입니다. 자유로운 문장용 AI는 아닙니다.','codex':'ChatGPT 구독의 Codex 사용량 적용 · 프롬프트와 현재 설계를 전송합니다. API로 자동 전환하지 않습니다.','openai':'유료 API · 프롬프트와 설계를 OpenAI로 전송합니다. 키는 저장하지 않습니다.','ollama':'이 PC의 모델로 실행 · API 키 불필요. 설치된 모델을 자동으로 찾습니다.'}[provider])
         self.ai_info.setToolTip('OpenAI 초안 생성은 최대 4회 요청으로 계획과 형상을 검증합니다. 취소 전 사용량은 청구될 수 있습니다.' if provider=='openai' else self.ai_info.text())
@@ -1042,6 +1070,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if repair_draft:request=DraftRequest.model_validate(repair_draft['request'])
         repair=deepcopy(repair_draft['response'].get('repair')) if repair_draft else None
         self.ai_retained_draft=repair_draft
+        self.ai_draft_context=dict(serial=serial,provider=provider,prompt=prompt,request=request.model_dump())
         if provider=='ollama' and not model:self.ai_settings_toggle.setChecked(True);self.ai_result.setPlainText('Ollama 모델을 먼저 선택하세요. 설정에서 새로 찾기 또는 로컬 AI 설치 / 모델 다운로드를 사용하세요.');self.ai_scroll.ensureWidgetVisible(self.ollama_models);return
         codex_config=dict(self.codex_config)
         if provider=='codex' and not codex_config['model']:self.ai_result.setPlainText('Codex 연결 버튼에서 ChatGPT로 로그인하고 모델을 선택하세요.');return
@@ -1094,8 +1123,15 @@ class MainWindow(QMainWindow,PartSelectionUI):
     @Slot()
     def cancel_ai(self):
         if self.ai_task:
+            self.retain_ai_checkpoint()
             self.ai_task.cancel();self.finish_ai_task();self.last_draft=None;self.accept_draft.setEnabled(False);self.ai_result.setPlainText('설계 초안 생성을 취소했습니다. 현재 설계는 변경되지 않았습니다.');self.message('AI 생성 취소 완료')
             self.restore_repair_draft('수정을 취소했습니다. 이전 초안은 미리보기에서 다시 볼 수 있습니다.')
+    def retain_ai_checkpoint(self):
+        control=getattr(self.ai_task,'control',None)
+        checkpoint=control.checkpoint() if control else None
+        context=getattr(self,'ai_draft_context',None)
+        if checkpoint and context and context['serial']==self.operation_serial:
+            self.ai_retained_draft={**context,**checkpoint,'design':checkpoint['response']['design']}
     def restore_repair_draft(self,message):
         retained=getattr(self,'ai_retained_draft',None);self.ai_retained_draft=None
         if retained and retained['serial']==self.operation_serial:
@@ -1106,6 +1142,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def ai_failed(self,packet):
         task,text=packet
         if task is not self.ai_task:return
+        self.retain_ai_checkpoint()
         self.finish_ai_task()
         if self.restore_repair_draft('추가 수정이 완료되지 않았습니다. 이전 초안을 보존했습니다.\n'+text[:1200]):return
         if self.provider.currentData()=='codex':

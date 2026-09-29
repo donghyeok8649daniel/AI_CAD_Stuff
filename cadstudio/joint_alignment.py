@@ -34,7 +34,7 @@ def options(raw,mate_id):
     with KERNEL_LOCK:
         design=Design.model_validate(deepcopy(raw));build(design)
         mate=next((m for m in design.mates if m.id==mate_id),None)
-        if mate is None or mate.kind not in ('revolute','cylindrical'):raise ValueError('회전 또는 원통 관절을 선택하세요.')
+        if mate is None or mate.kind not in ('revolute','cylindrical','slider'):raise ValueError('회전, 원통 또는 슬라이더 관절을 선택하세요.')
         parts={p.id:p for p in design.parts}
         return [[r.model_dump() for r in cylinder_records(local_shape(design,parts[pid]))] for pid in (mate.parent,mate.child)]
 
@@ -50,7 +50,7 @@ def align(raw,mate_id,parent_face,child_face,*,gap=None,angle=None,flipped=False
     with KERNEL_LOCK:
         design=Design.model_validate(deepcopy(raw));build(design)
         mate=next((m for m in design.mates if m.id==mate_id),None)
-        if mate is None or mate.kind not in ('revolute','cylindrical'):raise ValueError('회전 또는 원통 관절을 선택하세요.')
+        if mate is None or mate.kind not in ('revolute','cylindrical','slider'):raise ValueError('회전, 원통 또는 슬라이더 관절을 선택하세요.')
         if any(mate_id in loop.passive_joints for loop in design.loops):raise ValueError('폐루프 수동 관절은 폐루프 구성을 먼저 편집하세요.')
         if any(link.driven==mate_id for link in design.motion_links):raise ValueError('모션 연결로 구동되는 관절은 모션 연결을 먼저 편집하세요.')
         parts={p.id:p for p in design.parts};frames=[];world=[]

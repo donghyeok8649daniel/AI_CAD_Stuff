@@ -37,12 +37,13 @@ def generate(request, model, *, executable='', control=None, progress=None, dead
                 except (ValueError, TypeError):
                     scope = Scope(); progress('Codex · 전체 CAD 도구로 계획합니다…')
             messages = repairs.messages(scope)
-            for attempt in range(6):
+            attempt = 0
+            while True:
                 control.check()
                 schema = plan_schema(scope.tools, scope.shapes, single_part=scope.intent == 'part',
                     connections=scope.connections, new_parts=scope.new_parts,
                     existing_parts=[p.id for p in request.current.parts] if request.current else ())
-                progress('Codex · CAD 작업 계획 생성 중…' if not attempt and not repair else f'Codex · CAD 검증 오류 수정 중… {attempt+1}/6')
+                progress('Codex · CAD 작업 계획 생성 중…' if not attempt and not repair else f'Codex · CAD 검증 오류 수정 중… {attempt+1}회'+(' · 무제한' if deadline is None else '/6'))
                 raw = await content(messages, schema)
                 try:
                     control.check(); progress('Codex 생성 완료 · 실제 CAD 형상 검증 중…')
@@ -53,18 +54,21 @@ def generate(request, model, *, executable='', control=None, progress=None, dead
                         verified = preview(result.design)
                     control.check()
                     restore_sketch_display(result.design, request.current)
-                    reviewed = repairs.check(result, verified, raw, scope, control.check)
+                    reviewed = repairs.check(result, verified, raw, scope, control.check,
+                        checkpoint=control.keep_draft, provider='codex', attempts=attempt+1)
                     return {**reviewed, 'provider': 'codex', 'attempts': attempt + 1,
                         'changes': [f"{s['step']}. {TOOL_LABELS[s['tool']]} · {s['target']}" for s in result.tool_actions],
                         'planning': dict(intent=scope.intent, tools=scope.tools, shapes=scope.shapes,
                                          connections=scope.connections, new_parts=scope.new_parts)}
                 except (ValueError, RuntimeError) as exc:
                     reason = validation_feedback(exc)
-                    if attempt == 5 or (attempt >= 2 and not repairs.best):
+                    if deadline is not None and (attempt == 5 or (attempt >= 2 and not repairs.best)):
                         pending = repairs.pending('codex', attempt+1)
                         if pending: return pending
                         raise ValueError('Codex 설계가 3차례의 치수·형상 검증을 통과하지 못했습니다. 현재 설계는 변경되지 않았습니다.\n\n검증 원인:\n' + reason) from None
                     scope, messages = repairs.next(scope, raw, exc)
+                    attempt += 1
+                    await asyncio.sleep(.1)
     try:return asyncio.run(control.execute(run, deadline, 'Codex가 제한 시간 안에 완료하지 못했습니다. AI 최대 대기를 늘리거나 무제한으로 설정하세요.'))
     except ValueError as exc:
         control.check()

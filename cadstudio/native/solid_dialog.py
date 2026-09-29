@@ -123,5 +123,7 @@ class RevolveDialog(PreviewDialog):
     def candidate(self):
         raw=self.base.model_dump();g=RevolveGeometry(profile=self.profile.value(),angle=self.angle.value(),axis_start=[w.value() for w in self.origin],axis_direction=[w.value() for w in self.direction]);p=next((p for p in raw['parts'] if p['id']==self.part_id),None)
         if p:p['geometry']=g.model_dump()
-        else:raw['parts'].append(Part(id=self.part_id,name='회전 부품',geometry=g).model_dump())
+        else:
+            from ..part_roles import new_part_style
+            raw['parts'].append(Part(id=self.part_id,name='회전 부품',geometry=g,**new_part_style('revolve')).model_dump())
         return raw

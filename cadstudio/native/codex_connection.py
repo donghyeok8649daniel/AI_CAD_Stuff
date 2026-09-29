@@ -236,6 +236,10 @@ class CodexSession:
         if not result: raise ValueError('사용 가능한 Codex 모델이 없습니다. 계정 접근 권한과 CLI 버전을 확인하세요.')
         return result
 
+    async def rate_limits(self):
+        from .codex_usage import normalize_usage
+        return normalize_usage(await self.rpc('account/rateLimits/read', {}, timeout=10))
+
     async def login(self, progress):
         result = await self.rpc('account/login/start', {'type': 'chatgpt'})
         self.login_id = result.get('loginId')
@@ -316,5 +320,8 @@ def connect(executable='', *, login=False, control=None, progress=None, session_
     async def run():
         async with session_factory(executable) as session:
             account = await session.login(progress) if login else await session.account()
-            return {'account': account, 'models': await session.models(), 'executable': session.executable}
+            models = await session.models()
+            try:usage = await session.rate_limits()
+            except (ValueError, asyncio.TimeoutError):usage = {'buckets':[]}
+            return {'account': account, 'models': models, 'executable': session.executable, 'usage': usage}
     return asyncio.run(control.execute(run, 300 if login else 40, 'Codex 연결 시간이 초과되었습니다. 인터넷 연결을 확인하고 다시 시도하세요.'))

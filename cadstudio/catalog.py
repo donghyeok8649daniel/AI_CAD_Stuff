@@ -38,7 +38,8 @@ EXAMPLES = {
 
 
 def part_default(kind, identifier="part-1", name=None):
-    return Part(id=identifier, name=name or TITLES[kind], geometry=GEOMETRY_TYPES[kind]())
+    from .part_roles import new_part_style
+    return Part(id=identifier, name=name or TITLES[kind], geometry=GEOMETRY_TYPES[kind](), **new_part_style(kind))
 
 
 def preset(kind):
@@ -53,6 +54,9 @@ def preset(kind):
             Part(id="pin-2", name="팔꿈치 핀", geometry={"kind": "cylinder", "diameter": 8, "height": 19}, transform=Transform(x=end[0], y=end[1], z=9), color="#c4cdd4"),
         ]
         parts[0].fixed = True
+        from .part_roles import assign_role
+        for i,part in enumerate(parts):
+            data=part.model_dump();assign_role(data,'structure' if i==0 else 'transmission');parts[i]=Part.model_validate(data)
         return Design(name="2링크 로봇 조립", mode="robot", parts=parts, mates=[
             dict(id="shoulder", kind="revolute", parent="base", child="link-1", parent_anchor="top", child_anchor="hole_1_bottom", rz=25),
             dict(id="elbow", kind="revolute", parent="link-1", child="link-2", parent_anchor="hole_2_top", child_anchor="hole_1_bottom", z=1, rz=-55),

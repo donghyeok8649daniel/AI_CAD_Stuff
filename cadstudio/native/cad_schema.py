@@ -50,13 +50,14 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
     def tool(name,fields,required=()):
         actions.append(obj(dict(tool={'const':name},target={'type':'string','pattern':'^[a-zA-Z0-9_-]+$'},
             args=obj(fields,required)),('tool','target','args')))
-    tool('create',dict(name=text,geometry=ref('Geometry'),color=color,transform=ref('Transform')),('name','geometry'))
+    role=enum('unspecified','structure','electrical','transmission','specimen')
+    tool('create',dict(name=text,geometry=ref('Geometry'),color=color,role=role,transform=ref('Transform')),('name','geometry'))
     tool('dimensions',dict(values={'type':'object','additionalProperties':{}}),('values',))
     from .cad_feature_edits import schema_fields
     tool('edit_feature',schema_fields(),('feature_id',))
     tool('transform',transform['properties'])
     tool('edit_joint',transform['properties'])
-    tool('appearance',dict(name=text,color=color,material=obj(dict(name=text,density=number,youngs_modulus=number,poisson=number))))
+    tool('appearance',dict(name=text,color=color,role=role,material=obj(dict(name=text,density=number,youngs_modulus=number,poisson=number))))
     pattern={'anyOf':[obj(dict(kind={'const':'rectangular'},count_x={'type':'integer'},count_y={'type':'integer'},
         spacing_x=number,spacing_y=number,center=array(number,2,2)),('kind','count_x','count_y','spacing_x','spacing_y')),
         obj(dict(kind={'const':'circular'},count={'type':'integer'},diameter=number,start_angle=number,center=array(number,2,2)),('kind','count','diameter'))]}

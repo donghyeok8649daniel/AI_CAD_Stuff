@@ -1,3 +1,5 @@
+[2.12.0 · AI / usage / roles / research](RESEARCH_AI_KO.md)
+
 # 2.11.0 빠른 안내
 
 - 휠: 커서 아래 표면 중심 확대·축소.

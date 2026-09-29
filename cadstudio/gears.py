@@ -51,9 +51,10 @@ def add_gear_pair(raw=None,*,module=2,teeth_a=20,teeth_b=40,thickness=8,backlash
     left=-module*(teeth_a+2)/2-5;right=a+module*(teeth_b+2)/2+5
     base=dict(kind='extrusion',thickness=length,sketch_mode='polygon',points=[dict(x=x,y=y) for x,y in [(left,-width/2),(right,-width/2),(right,width/2),(left,width/2)]],holes=[dict(x=x,y=0,diameter=shaft_diameter+clearance) for x in (0,a)])
     x,y,z=origin
-    parts=[Part(id=prefix+'base',name='기어 축 지지판',geometry=base,fixed=True,transform=dict(x=x,y=y,z=z-length-gap),color='#58748a'),
-           Part(id=prefix+'input',name=f'입력 기어 · {teeth_a}T',geometry=specs[0],transform=dict(x=x,y=y,z=z),color='#65bea9'),
-           Part(id=prefix+'output',name=f'출력 기어 · {teeth_b}T',geometry=specs[1],transform=dict(x=x+a,y=y,z=z,rz=phase),color='#e3b367')]
+    from .part_roles import new_part_style
+    parts=[Part(id=prefix+'base',name='기어 축 지지판',geometry=base,fixed=True,transform=dict(x=x,y=y,z=z-length-gap),**new_part_style('extrusion','structure')),
+           Part(id=prefix+'input',name=f'입력 기어 · {teeth_a}T',geometry=specs[0],transform=dict(x=x,y=y,z=z),**new_part_style('spur_gear')),
+           Part(id=prefix+'output',name=f'출력 기어 · {teeth_b}T',geometry=specs[1],transform=dict(x=x+a,y=y,z=z,rz=phase),**new_part_style('spur_gear'))]
     ids=[p.id for p in parts]
     if set(ids)&{p['id'] for p in data['parts']}:raise ValueError('기어 부품 ID가 중복됩니다.')
     data['parts'].extend(p.model_dump() for p in parts)

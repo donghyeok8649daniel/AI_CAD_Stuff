@@ -672,6 +672,7 @@ class Part(StrictModel):
     geometry: Geometry
     transform: Transform = Field(default_factory=Transform)
     color: str = Field(default="#70aebf", pattern=r"^#[0-9a-fA-F]{6}$")
+    role: Literal['unspecified','structure','electrical','transmission','specimen'] = 'unspecified'
     fixed: bool = False
     features: list[Union[SketchFeature,EdgeFeature,ThreadFeature,SolidFeature]] = Field(default_factory=list, max_length=128)
     profile_sketch_id: str = Field(default='',max_length=40)
@@ -684,6 +685,7 @@ class Part(StrictModel):
         if not self.profile_sketch_id:data.pop('profile_sketch_id',None)
         if not self.source_part_id:data.pop('source_part_id',None)
         if self.material is None:data.pop('material',None)
+        if self.role=='unspecified':data.pop('role',None)
         return data
 
 

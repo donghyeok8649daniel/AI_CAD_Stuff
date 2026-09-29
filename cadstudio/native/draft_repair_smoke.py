@@ -70,6 +70,8 @@ def run(app,w,path):
         check(len(w.document.design['parts'][0]['features'])==1,'Clamp has an actual editable clearance cut')
         w.grab().save(str(path.with_name('repair2111-applied.png')))
         check(w.document.journal is not None and len(w.document.journal.data['entries'])>=4,'Repair history recorded')
+        from .research_upgrade_smoke import run_checks
+        run_checks(app,w,path,check,wait,original)
         report['passed']=True
     except Exception:report.update(passed=False,error=traceback.format_exc())
     finally:

@@ -153,6 +153,7 @@ class PartSelectionUI(PartInspectionUI):
         self.property_layout.addWidget(button('선택만 보기 / 돌아오기',self.isolate_parts))
         self.property_layout.addWidget(button('선택 부품별 STEP / STL 내보내기',self.export_selected_parts))
         self.property_layout.addWidget(button('● 선택 부품 색상',self.color_selection,True))
+        self.property_layout.addWidget(button('부품 역할 / 기본색…',self.role_selection))
         self.property_layout.addWidget(button('선택 부품 그룹 · Ctrl+G',self.group_parts))
         for group in groups:
             name=QLineEdit(group['name']);name.setMaxLength(80);name.setToolTip('그룹 이름 · Enter로 적용');self.property_layout.addWidget(name)
@@ -174,6 +175,23 @@ class PartSelectionUI(PartInspectionUI):
         for p in data['parts']:
             if p['id'] in ids:p['color']=color.name()
         self.apply_design(data,'선택 부품 색상 변경',{'part_ids':ids},after=lambda:self.select_parts(ids))
+
+    def role_selection(self):
+        if self.busy or self.sketching:return
+        ids=self.selected_ids()
+        if not ids:return
+        from .part_role_dialog import PartRoleDialog
+        from ..part_roles import assign_role
+        from PySide6.QtWidgets import QDialog
+        parts=[p for p in self.document.design['parts'] if p['id'] in ids]
+        dialog=PartRoleDialog(self,parts)
+        try:
+            if dialog.exec()!=QDialog.DialogCode.Accepted:return
+            data=deepcopy(self.document.design)
+            for part in data['parts']:
+                if part['id'] in ids:assign_role(part,dialog.role.currentData(),dialog.use_color.isChecked())
+            self.apply_design(data,'부품 역할 / 기본색 변경',{'part_ids':ids,'role':dialog.role.currentData()},after=lambda:self.select_parts(ids))
+        finally:dialog.deleteLater()
 
     def write_part_clipboard(self,payload):
         encoded=json.dumps(payload,ensure_ascii=False).encode('utf-8')

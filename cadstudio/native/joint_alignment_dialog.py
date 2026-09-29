@@ -11,7 +11,7 @@ class JointAlignmentDialog(PreviewDialog):
     def __init__(self,parent,raw,selected=None):
         super().__init__(parent,'관절 축 · 구멍 동심 정렬','실제 구멍과 축의 원통 면을 선택하세요. 미리보기와 간섭 검사 후 적용합니다.')
         self.base=deepcopy(raw);self.alignment=None
-        self.mate=choice([(m['id'],m['id']) for m in raw.get('mates',[]) if m['kind'] in ('revolute','cylindrical')])
+        self.mate=choice([(m['id'],m['id']) for m in raw.get('mates',[]) if m['kind'] in ('revolute','cylindrical','slider')])
         self.mate.setCurrentIndex(max(0,self.mate.findData(selected)))
         self.parent_face=choice([]);self.child_face=choice([])
         self.keep_pose=QCheckBox('현재 축 방향 위치 / 회전 각도 유지');self.keep_pose.setChecked(True)

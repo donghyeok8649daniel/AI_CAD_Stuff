@@ -1,3 +1,15 @@
+# 2.12.0 Unlimited AI repair, roles and research handoff
+
+Source regression: **307 passed, 58 warnings in 132.35s (0:02:12)**. Real CAD geometry with mocked provider replies verifies recovery on the eighth attempt for Codex and Ollama, bounded repair context, cancellation and retained first-draft preview, original preservation, no invalid-apply bypass, and service/quota errors without a retry storm. Ollama optional nulls use the same declarative decoder as Codex. Weekly limits are identified by window duration (including weekly primary windows); missing values remain unavailable, and other model buckets cannot replace the main Codex allowance. Read-only official account/rateLimits/read was also verified through the existing local ChatGPT login with no model generation or reset.
+
+A previously recorded public fatigue-fixture plan that stopped at cylinder-bound slider action 39 now replays all 64 actions: 37 total parts and zero static intersections. This offline replay does not establish full travel/load readiness (11 joints, many free parts), and is not the new round-specimen MTS machine. No extra model call was used.
+
+Tests cover part-role persistence and old/custom colors, batch UI/undo, AI roles, tilted cylinder-bound sliders at -10/0/+10mm with actual shape intersections, fixed clocking/limits, research STEP/JSON/CSV export, unknown ratings, separate wafer handling, and prior CAD/stability regressions.
+
+Frozen EXE: **276 native checks**, including extended repair/role/usage/research flows on automatic and software rendering plus startup, selection, mechanism/printing and chat flows. All **130** bundled CAD modules and native entry match tested source. The Mesa driver hash matches the unchanged Qt distribution. New native UI flows use simulated account/model responses; the saved example usage screenshot is fixture data, not a live account balance. Native geometry and STEP export are real.
+
+No arbitrary-prompt success claim, experimental fatigue result, physical anti-rotation certification, MCU simulation or research solver integration is implied. Unlimited mode still stops on service/auth/quota failure; repairable previews remain in memory for the current app session. See [Korean guide](docs/RESEARCH_AI_KO.md), [English guide](docs/RESEARCH_AI_EN.md), [machine-readable checks](docs/native2120-validation.json).
+
 # 2.11.1 AI interference repair
 
 Source regression: **231 passed, 52 warnings in 73.88s (0:01:13)**. Real clamp/specimen pocket repair, expanded repair schema, exact world/local overlap extents including rotated parts, preserved dimensions and colors, original baseline replay, retained candidates after invalid revisions, timeout/cancellation, request fingerprint, grouping cannot hide overlap, UI and direct apply guards. Existing CAD, startup, AI responsiveness and print/mechanism regressions included.

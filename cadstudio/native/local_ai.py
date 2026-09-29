@@ -29,7 +29,14 @@ def validation_feedback(error):
 class DraftControl:
     """Cancel blocked async network reads, including before the first token."""
     def __init__(self):
-        self.cancelled=threading.Event();self.lock=threading.Lock();self.loop=None;self.task=None
+        self.cancelled=threading.Event();self.lock=threading.Lock();self.loop=None;self.task=None;self.retained=None
+    def keep_draft(self,response,verified):
+        """One complete, renderable checkpoint; never publish partial execution."""
+        checkpoint=dict(response=deepcopy(response),preview=verified)
+        with self.lock:
+            if not self.cancelled.is_set():self.retained=checkpoint
+    def checkpoint(self):
+        with self.lock:return self.retained
     def cancel(self):
         self.cancelled.set()
         with self.lock:
@@ -102,7 +109,7 @@ def ollama_draft(request,model,transport=None,*,control=None,progress=None,deadl
                     scope=Scope();progress('도구 선택을 해석하지 못해 전체 CAD 도구로 계획합니다…')
             control.check()
             result=await _ollama_reply(client,model,repairs.messages(scope),control,progress,request.current,
-                schema=plan_schema(scope.tools,scope.shapes,single_part=scope.intent=='part',connections=scope.connections,new_parts=scope.new_parts,existing_parts=[p.id for p in request.current.parts] if request.current else ()),parser=lambda content:scope.validate_result(execute_plan(content,request,check=control.check,progress=progress,single_part=scope.intent=='part')),context_size=16384 if scope.intent=='assembly' or repair else 8192,repairs=repairs,scope=scope)
+                schema=plan_schema(scope.tools,scope.shapes,single_part=scope.intent=='part',connections=scope.connections,new_parts=scope.new_parts,existing_parts=[p.id for p in request.current.parts] if request.current else ()),parser=lambda content:scope.validate_result(execute_plan(content,request,check=control.check,progress=progress,single_part=scope.intent=='part')),context_size=16384 if scope.intent=='assembly' or repair else 8192,repairs=repairs,scope=scope,unlimited=deadline is None)
             result['planning']=dict(intent=scope.intent,tools=scope.tools,shapes=scope.shapes,connections=scope.connections,new_parts=scope.new_parts)
             return result
     try:result=asyncio.run(control.execute(generate,deadline))
@@ -159,35 +166,45 @@ async def _chat_content(client,body,control,progress,phase='설계 생성'):
     except (json.JSONDecodeError,UnicodeDecodeError,AttributeError,TypeError):raise ValueError('Ollama에서 잘못된 응답을 받았습니다. 모델을 확인하고 다시 시도하세요.') from None
 
 
-async def _ollama_reply(client,model,messages,control,progress,current=None,*,schema=None,parser=None,context_size=16384,repairs=None,scope=None):
+async def _ollama_reply(client,model,messages,control,progress,current=None,*,schema=None,parser=None,context_size=16384,repairs=None,scope=None,unlimited=False):
     from .draft_repair import DraftRepair
     from .cad_scope import Scope
     from .cad_schema import plan_schema
     from ..models import DraftRequest
     repairs=repairs or DraftRepair(DraftRequest(prompt=messages[1]['content'][:4000],current=current))
     scoped=scope is not None;scope=scope or Scope()
-    for attempt in range(3):
-        control.check();progress('CAD 작업 순서와 치수 생성 중…' if not attempt else '검증 오류 반영 후 설계 수정 재시도 중…')
+    attempt=0
+    while True:
+        control.check();progress('CAD 작업 순서와 치수 생성 중…' if not attempt else f'검증 오류 반영 후 설계 수정 중 · {attempt+1}회'+(' · 무제한' if unlimited else '/3'))
         content=await _chat_content(client,_chat_body(model,messages,schema or AIReply.model_json_schema(),8192 if attempt else 4096,context_size),control,progress)
         try:
             control.check();progress('생성 완료 · 치수와 실제 CAD 형상 검증 중…')
             with KERNEL_LOCK:
                 if scoped:
                     from .cad_tools import execute_plan
-                    result=scope.validate_result(execute_plan(content,repairs.request,check=control.check,progress=progress,single_part=scope.intent=='part'))
+                    from .cloud_ai import decode_plan
+                    # Models may emit strict-style null optionals or key/value
+                    # dimension pairs. Use the same declarative decoder as Codex.
+                    result=scope.validate_result(execute_plan(decode_plan(content),repairs.request,check=control.check,progress=progress,single_part=scope.intent=='part'))
                 else:result=parser(content) if parser else parse_ai_reply(content,current)
                 verified=preview(result.design)
             control.check()
-            reviewed=repairs.check(result,verified,content,scope,control.check)
+            reviewed=repairs.check(result,verified,content,scope,control.check,
+                checkpoint=control.keep_draft,provider='ollama',attempts=attempt+1)
             steps=getattr(result,'tool_actions',[])
             from .cad_tools import TOOL_LABELS
             return {**reviewed,'changes':[f"{s['step']}. {TOOL_LABELS[s['tool']]} · {s['target']}" for s in steps],'provider':'ollama','attempts':attempt+1}
         except (ValueError,RuntimeError) as exc:
             reason=validation_feedback(exc)
-            if attempt==2:
+            if not unlimited and attempt==2:
                 pending=repairs.pending('ollama',attempt+1)
                 if pending:return pending
                 raise ValueError('로컬 AI 설계가 3차례의 치수·형상 검증을 통과하지 못했습니다. 현재 설계는 변경되지 않았습니다.\n\n검증 원인:\n'+reason) from None
             scope,messages=repairs.next(scope,content,exc)
             if repairs.best:context_size=16384
             if scoped:schema=plan_schema(scope.tools,scope.shapes,single_part=scope.intent=='part',connections=scope.connections,new_parts=scope.new_parts,existing_parts=[p.id for p in current.parts] if current else ())
+            attempt+=1
+            # Yield even when a local transport returns immediately. The context
+            # contains only the retained/best plan and latest feedback, not an
+            # ever-growing transcript. Service/auth errors are outside this loop.
+            await asyncio.sleep(.1)

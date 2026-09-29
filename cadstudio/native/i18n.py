@@ -8,7 +8,39 @@ from PySide6.QtWidgets import QApplication,QWidget,QLabel,QAbstractButton,QCombo
 from shiboken6 import isValid
 
 
-PAIRS = '''AI로 간섭 수정 계속|Continue AI interference repair
+PAIRS = '''피로시험 조건 / 데이터 양식…|Fatigue test protocol / data template…
+피로시험 조건 / 데이터 양식|Fatigue test protocol / data template
+피로시험 준비 패키지 저장|Save fatigue experiment package
+시편 STEP + 시험 조건 + 실측 CSV 양식|Specimen STEP + protocol + measurement CSV template
+아직 정하지 않은 하중·속도·왕복거리는 비워두세요. 입력값은 장비 성능이 아닌 시험 계획이며 설계를 변경하지 않습니다.|Leave undecided load, frequency and stroke blank. These are planned settings, not machine ratings. The design is unchanged.
+인장·압축 반복|Cyclic tension / compression
+미정 · 방식 확인 필요|Undecided · validate the method
+미정 · 비워두기|Undecided · leave blank
+재료 배치 / 상태|Material batch / condition
+목표 최대 하중 · N|Planned maximum force · N
+목표 반복 속도 · Hz|Planned frequency · Hz
+목표 왕복거리 · peak-to-peak mm|Planned peak-to-peak stroke · mm
+시험 방식|Test method
+실측 초·Hz와 연구 모델 시간은 자동 변환하지 않습니다. 크로스헤드 변위를 시편 변형률로 대신하지 않습니다. 웨이퍼의 시험·고정구 검증은 별도로 필요합니다.|Physical seconds/Hz are not automatically mapped to model time. Crosshead displacement is not gauge strain. Wafer tests and fixtures require separate validation.
+입력값을 확인하세요. 치수는 양수이며 미정은 비워둡니다. 웨이퍼의 시험 방식은 미정이어야 합니다.|Check the inputs. Use positive numbers or leave undecided values blank. The wafer method must remain undecided.
+부품 역할 / 기본색…|Part role / default color…
+부품 역할 / 기본색|Part role / default color
+미지정 · 기존 색상|Unspecified · existing color
+구조 / 보호 · 흰색|Structure / guard · white
+전장 / 센서 · 노란색|Electrical / sensor · yellow
+구동 / 하중 전달 · 초록색|Drive / load transfer · green
+시편 · 회색|Specimen · gray
+선택 부품에 역할 기본색도 적용|Also apply the role color to selected parts
+선택을 끄면 직접 지정한 색상은 그대로 유지합니다.|Uncheck to preserve custom colors.
+현재 색상 유지|Keep current colors
+역할에 맞는 기본 색상을 선택하세요. 재질·물성과 관절 상태 표시는 별도로 유지됩니다.|Choose a color by role. Materials, properties and joint status remain separate.
+Codex 연결·사용량 새로고침|Refresh Codex connection / usage
+Codex 주간 · 잔여량 확인 전|Codex weekly · not checked
+Codex 주간 · 조회 중…|Codex weekly · checking…
+Codex 주간 · 잔여량 확인 불가|Codex weekly · remaining usage unavailable
+잔여율·초기화 시각은 기존 로그인 사용 버튼으로 새로고침합니다.|Refresh remaining usage and reset time using the existing login button.
+계정 전체에서 공유하는 Codex 사용량입니다. 실제 남은 토큰 개수는 제공되지 않습니다. 새로고침으로 확인하며 자동 구매나 한도 초기화는 하지 않습니다.|Codex usage is shared across the account. An exact remaining token count is unavailable. Refresh to check; this never purchases credits or resets limits.
+AI로 간섭 수정 계속|Continue AI interference repair
 미리보기 / 수정|Preview / repair
 검증 통과 후 적용 가능|Apply after validation passes
 전체 초안 보기|Show the whole draft
@@ -439,7 +471,10 @@ EN.update({
 def translate(text,language):
     if language!='en' or not isinstance(text,str):return text
     if text in EN:return EN[text]
-    if '\n' in text:return '\n'.join(EN.get(line,line) for line in text.split('\n'))
+    if '\n' in text:return '\n'.join(translate(line,language) for line in text.split('\n'))
+    if text.startswith('Codex ') and ('남음' in text or '한도' in text or '잔여량 확인 불가' in text):
+        return text.replace('주간','weekly').replace('시간',' hours').replace('분',' minutes').replace('기타 한도','other limit').replace('% 남음','% remaining').replace('초기화','resets').replace('잔여량 확인 불가','remaining usage unavailable')
+    if re.fullmatch(r'조회 \d{2}/\d{2} \d{2}:\d{2}',text):return text.replace('조회','Checked',1)
     match=re.fullmatch(r'형상 유효 · (\d+)개 부품 · 체적 ([\d,.]+) mm³ · 간섭 (\d+)건',text)
     if match:return f'Geometry valid · {match[1]} parts · Volume {match[2]} mm³ · {match[3]} interferences'
     if re.match(r'^\d+개 부품',text):

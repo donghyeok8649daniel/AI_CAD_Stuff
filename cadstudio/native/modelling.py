@@ -119,7 +119,8 @@ class ModellingDialog(PreviewDialog):
             geometry=LoftGeometry(sections=[self.sections.widget(i).value() for i in range(self.sections.count())],solid=self.solid.isChecked(),ruled=self.ruled.isChecked())
         raw=self.base.model_dump();part=next((p for p in raw['parts'] if p['id']==self.identifier),None)
         if part is None:
-            part=Part(id=self.identifier,name=self.name.text().strip() or self.kind,geometry=geometry).model_dump();raw['parts'].append(part)
+            from ..part_roles import new_part_style
+            part=Part(id=self.identifier,name=self.name.text().strip() or self.kind,geometry=geometry,**new_part_style(self.kind)).model_dump();raw['parts'].append(part)
         else:part['geometry']=geometry.model_dump();part['name']=self.name.text().strip() or self.kind
         return raw
 

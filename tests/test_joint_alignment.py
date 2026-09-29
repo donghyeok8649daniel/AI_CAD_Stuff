@@ -70,3 +70,31 @@ def test_alignment_preserves_limits_and_rejects_planar_selection():
     with pytest.raises(ValueError,match='운동 한계'):align(raw,'j',pi,ci,angle=190)
     d=Design.model_validate(raw);plane=next(i for i,f in enumerate(local_shape(d,d.parts[0]).Faces()) if f.geomType()=='PLANE')
     with pytest.raises(ValueError,match='원통'):align(raw,'j',plane,ci)
+
+
+def test_tilted_cylinder_slider_follows_real_axis_preserves_clocking_and_limits():
+    raw=eccentric().model_dump();raw['mates'][0].update(kind='slider',limits={'z':[-10,10]})
+    pi,ci=selected(raw);d,_=align(raw,'j',pi,ci,gap=0,angle=25)
+    original=d.model_dump();positions=[]
+    for offset in (-10,0,10):
+        data=deepcopy(original);set_joint_motion(data,'j',{'z':offset})
+        pose=Design.model_validate_json(Design.model_validate(data).model_dump_json());shapes=build(pose)
+        assert shapes[0].intersect(shapes[1]).Volume()<1e-7
+        a=next(c for c in cylinder_records(shapes[0]) if c.internal);b=cylinder_records(shapes[1])[0]
+        axis=np.array(a.frame.normal);delta=np.array(b.frame.origin)-a.frame.origin
+        assert np.linalg.norm(np.cross(delta,axis))<1e-7
+        positions.append(np.array(b.frame.origin));assert pose.mates[0].rz==25
+    assert np.linalg.norm(positions[-1]-positions[0])==pytest.approx(20)
+    with pytest.raises(ValueError,match='운동 축'):set_joint_motion(original,'j',{'rz':30})
+    with pytest.raises(ValueError,match='운동 한계'):set_joint_motion(original,'j',{'z':11})
+
+
+def test_ai_can_bind_slider_to_cylinders_on_tilted_guide():
+    a=create('cylinder',target='guide',diameter=30,height=20,bore_diameter=12.4)
+    a['args']['transform']=dict(rx=70,ry=20)
+    b=create('cylinder',target='shaft',diameter=12,height=20,bore_diameter=0)
+    pc=dict(center=[0,0,0],direction=[0,0,1],diameter=12.4);cc={**pc,'diameter':12}
+    reply=execute(a,b,action('joint','linear',kind='slider',parent='guide',child='shaft',parent_cylinder=pc,child_cylinder=cc,z=3,rz=20,limits={'z':[-5,5]}))
+    d=reply.design;assert d.mates[0].kind=='slider' and len(d.joint_frames)==1
+    shapes=build(d);assert shapes[0].intersect(shapes[1]).Volume()<1e-7
+    with pytest.raises(ValueError,match='rx/ry'):execute(a,b,action('joint','linear',kind='slider',parent='guide',child='shaft',rx=70))

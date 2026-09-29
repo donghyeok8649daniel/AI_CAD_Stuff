@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QDialog, QDialogButtonBox, QComboBox, QFileDialog,
 
 from .widgets import button, label
 from .codex_connection import INSTALL_URL, find_executable, settings, save_settings, login_url
+from .codex_usage import usage_text, USAGE_NOTE
 
 
 class CodexSetupDialog(QDialog):
@@ -12,6 +13,7 @@ class CodexSetupDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle('Codex 연결 · ChatGPT 구독'); self.resize(530, 610)
         self.task = None; self.catalog = []; self.model_name = ''; self.executable_path = ''; self.auth_url = ''
+        self.usage = None
         saved = settings(); self.preferred = saved['model']
         root = QVBoxLayout(self); scroll = QScrollArea(); scroll.setWidgetResizable(True)
         body = QWidget(); layout = QVBoxLayout(body); scroll.setWidget(body); root.addWidget(scroll, 1)
@@ -31,6 +33,8 @@ class CodexSetupDialog(QDialog):
         self.browser_button = button('로그인 페이지 다시 열기 ↗', self.open_login); self.browser_button.hide(); layout.addWidget(self.browser_button)
         layout.addWidget(label('사용할 모델 · 계정에서 조회한 목록'))
         self.models = QComboBox(); self.models.setEnabled(False); layout.addWidget(self.models)
+        self.usage_label=label('Codex 주간 · 잔여량 확인 전',True);self.usage_label.setToolTip(USAGE_NOTE);layout.addWidget(self.usage_label)
+        layout.addWidget(label('잔여율·초기화 시각은 기존 로그인 사용 버튼으로 새로고침합니다.',True))
         layout.addWidget(label('로그인·모델 조회만으로 설계를 생성하지 않습니다. 초안 생성을 누르면 프롬프트와 현재 설계 정보가 Codex로 전송됩니다.', True))
         layout.addStretch()
         self.status = QPlainTextEdit(); self.status.setReadOnly(True); self.status.setMinimumHeight(80); self.status.setMaximumHeight(130)
@@ -49,6 +53,7 @@ class CodexSetupDialog(QDialog):
 
     def invalidate(self):
         self.catalog = []; self.models.clear(); self.models.setEnabled(False); self.use_button.setEnabled(False)
+        self.usage=None;self.usage_label.setText('Codex 주간 · 잔여량 확인 전')
 
     def controls(self, running):
         for widget in (self.path, self.browse_button, self.login_button, self.check_button): widget.setEnabled(not running)
@@ -93,6 +98,7 @@ class CodexSetupDialog(QDialog):
         selected = self.models.findData(self.preferred)
         if selected < 0: selected = next((i for i, model in enumerate(self.catalog) if model['default']), 0)
         self.models.setCurrentIndex(selected); self.controls(False)
+        self.usage=result.get('usage');self.usage_label.setText(usage_text(self.usage))
         self.status.setPlainText(f"ChatGPT 연결 완료 · 구독: {result['account']['plan']}\n모델을 선택하고 ‘Codex 모드 사용’을 누르세요. 설계 생성은 아직 요청하지 않았습니다.")
 
     @Slot(object)
@@ -100,6 +106,7 @@ class CodexSetupDialog(QDialog):
         task, message = packet
         if task is not self.task: return
         self.task = None; self.auth_url = ''; self.browser_button.hide(); self.controls(False); self.status.setPlainText(message)
+        self.usage=None;self.usage_label.setText(usage_text(None))
 
     def cancel(self):
         if self.task: self.task.cancel(); self.task = None
