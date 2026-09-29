@@ -42,6 +42,9 @@ def neck_profile(g, flat=False):
 
 
 def construct(g):
+    if g.kind=='spur_gear':
+        from .gears import construct_gear
+        return construct_gear(g)
     if g.kind=='sheetmetal':
         from .sheetmetal import construct_sheet
         return construct_sheet(g)
@@ -316,12 +319,14 @@ def preview(design: Design):
         maximum = [max(p[i] for p in points) for i in range(3)]
         from .interference import exact_collisions
         collisions = exact_collisions(design, shapes)
+        from .joint_readiness import joint_readiness
         return {"meshes": meshes, "sketches": saved_sketches, "stats": {
             "valid": all(m["valid"] for m in meshes), "parts": len(shapes),
             "volume": sum(m["volume"] for m in meshes),
             "bounds": [b-a for a,b in zip(minimum,maximum)],
             "min": minimum, "max": maximum,
             "triangles": sum(len(m["triangles"])//3 for m in meshes), "collisions": collisions,"assembly_constraints":solve_assembly(design),
+            "joint_readiness":joint_readiness(design,shapes,collisions),
         }}
 
 

@@ -8,7 +8,39 @@ from PySide6.QtWidgets import QApplication,QWidget,QLabel,QAbstractButton,QCombo
 from shiboken6 import isValid
 
 
-PAIRS = '''소프트웨어 3D · 안정 모드|Software 3D · safe mode
+PAIRS = '''기어 모듈|Gear module
+잇수|Tooth count
+압력각|Pressure angle
+쌍의 피치원 백래시|Pair pitch-circle backlash
+▸ 출력할 부품 선택|▸ Choose parts to print
+▾ 출력할 부품 선택|▾ Choose parts to print
+▸ 프린터 / 자동 배치 설정|▸ Printer / automatic layout settings
+▾ 프린터 / 자동 배치 설정|▾ Printer / automatic layout settings
+출력할 부품 선택|Choose parts to print
+프린터 / 자동 배치 설정|Printer / automatic layout settings
+실제 스퍼 기어 구동…|Physical spur gear drive…
+스퍼 기어 구동 설계|Spur gear drive design
+모듈|Module
+입력 잇수|Input teeth
+출력 잇수|Output teeth
+기어 두께|Gear thickness
+기어 쌍 백래시|Gear pair backlash
+일체형 축 지름|Integral shaft diameter
+일체형 축 길이|Integral shaft length
+축 지름 여유|Diametral shaft clearance
+배치할 부품|Part to arrange
+바닥 중심 X|Bed center X
+바닥 중심 Y|Bed center Y
+부품 X 회전|Part X rotation
+부품 Y 회전|Part Y rotation
+부품 Z 회전|Part Z rotation
+부품을 드래그해서 바닥에 배치|Drag parts on the build plate
+상면에서 배치|Arrange from top view
+전체 자동 배치 / 방향 초기화|Auto arrange all / reset orientation
+지지 형상 확인 · 현재 자세|Support geometry checked · current pose
+구조 미확인|Structure unverified
+간섭 / 구조 오류|Interference / structural error
+소프트웨어 3D · 안정 모드|Software 3D · safe mode
 그래픽 시작 진단…|Graphics startup diagnostics…
 그래픽 시작 진단|Graphics startup diagnostics
 진단 폴더 열기|Open diagnostics folder

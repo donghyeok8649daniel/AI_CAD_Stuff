@@ -159,6 +159,27 @@ class Cylinder(StrictModel):
         return self
 
 
+class SpurGear(StrictModel):
+    kind: Literal['spur_gear'] = 'spur_gear'
+    module: float = Field(default=2,ge=.5,le=10)
+    teeth: int = Field(default=20,ge=18,le=80)
+    pressure_angle: Literal[20,25] = 20
+    thickness: Dimension = 8
+    bore_diameter: Nonnegative = 0
+    backlash: float = Field(default=.2,ge=0,le=2)
+    shaft_diameter: Nonnegative = 0
+    shaft_length: Nonnegative = 0
+
+    @model_validator(mode='after')
+    def proportions(self):
+        root=self.module*(self.teeth-2.5)
+        if max(self.bore_diameter,self.shaft_diameter)>root-1:raise ValueError('기어 뿌리와 축 / 내경 사이에 재료가 부족합니다.')
+        if self.backlash>self.module*.4:raise ValueError('백래시는 모듈의 40% 이하여야 합니다.')
+        if bool(self.shaft_length)!=bool(self.shaft_diameter):raise ValueError('일체형 축은 길이와 지름을 함께 지정하세요.')
+        if self.shaft_length and self.bore_diameter:raise ValueError('일체형 축과 관통 내경은 동시에 사용할 수 없습니다.')
+        return self
+
+
 class Point2D(StrictModel):
     x: Annotated[float, Field(ge=-1000, le=1000)]
     y: Annotated[float, Field(ge=-1000, le=1000)]
@@ -424,7 +445,7 @@ class ShapeAsset(StrictModel):
     data: str = Field(min_length=1,max_length=24_000_000)
     sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
 
-Geometry = Annotated[Union[RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, Extrusion, SweepGeometry, LoftGeometry,RevolveGeometry,ImportedGeometry,SheetMetalGeometry], Field(discriminator="kind")]
+Geometry = Annotated[Union[RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, SpurGear, Extrusion, SweepGeometry, LoftGeometry,RevolveGeometry,ImportedGeometry,SheetMetalGeometry], Field(discriminator="kind")]
 
 class FaceReference(StrictModel):
     index: int = Field(ge=0,le=100000)
@@ -876,4 +897,4 @@ class DraftRequest(StrictModel):
     selected_joint: str | None = Field(default=None, max_length=40)
 
 
-GEOMETRY_TYPES = {c.model_fields["kind"].default: c for c in (RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, Extrusion, SweepGeometry, LoftGeometry)}
+GEOMETRY_TYPES = {c.model_fields["kind"].default: c for c in (RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, SpurGear, Extrusion, SweepGeometry, LoftGeometry)}

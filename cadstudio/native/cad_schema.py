@@ -31,6 +31,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
     shapes=[]
     def shape(kind,fields,required):
         shapes.append(obj({'kind':{'const':kind},**fields},('kind',*required)))
+    shape('spur_gear',dict(module=number,teeth={'type':'integer'},thickness=number,pressure_angle={'type':'integer','enum':[20,25]},backlash=number,bore_diameter=number,shaft_diameter=number,shaft_length=number),('module','teeth','thickness'))
     shape('cylinder',dict(diameter=number,height=number,bore_diameter=number),('diameter','height'))
     shape('plate',dict(length=number,width=number,thickness=number,hole_count={'const':0}),('length','width','thickness'))
     shape('extrusion',dict(thickness=number,profile=ref('Profile'),taper=number,symmetric=boolean,thin_wall=number),('thickness','profile'))
@@ -79,6 +80,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         flipped=boolean,
         limits=obj({axis:array(number,2,2) for axis in ('x','y','z','rx','ry','rz')}),
         **transform['properties']),('kind','parent','child'))
+    tool('motion_link',dict(driver=text,driven=text,ratio=number,offset=number,driver_axis=enum('x','y','z','rx','ry','rz'),driven_axis=enum('x','y','z','rx','ry','rz')),('driver','driven','ratio'))
     tool('parameter',dict(value=text),('value',))
     # Editing-only plans cannot invent another part ID. In particular, a
     # feature ID is not its owning part ID (small models confuse the two).
@@ -87,7 +89,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         for action in actions:
             name=action['properties']['tool']['const']
             if name=='create' and new_parts:action['properties']['target']=enum(*new_parts)
-            elif name not in ('joint','edit_joint','parameter'):action['properties']['target']=enum(*dict.fromkeys((*existing_parts,*new_parts)))
+            elif name not in ('joint','edit_joint','parameter','motion_link'):action['properties']['target']=enum(*dict.fromkeys((*existing_parts,*new_parts)))
     if connections:
         joint = next(a for a in actions if a['properties']['tool']['const'] == 'joint')
         actions.remove(joint)
@@ -110,7 +112,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
     schema['required']=['construction','summary','actions']
     if single_part:
         create=next(a for a in actions if a['properties']['tool']['const']=='create')
-        features=[a for a in actions if a['properties']['tool']['const'] not in ('create','joint','edit_joint')]
+        features=[a for a in actions if a['properties']['tool']['const'] not in ('create','joint','edit_joint','motion_link')]
         schema['properties'].pop('actions')
         schema['properties']['base']=create
         schema['properties']['actions']=array({'anyOf':features} if features else {},0,31 if features else 0)

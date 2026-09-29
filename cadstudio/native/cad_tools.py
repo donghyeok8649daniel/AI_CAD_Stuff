@@ -12,7 +12,7 @@ from ..planner import AIReply
 
 class CADAction(StrictModel):
     tool: Literal['create','dimensions','transform','appearance','hole','pocket','pad',
-                  'fillet','chamfer','shell','solid','thread','joint','parameter','edit_feature','edit_joint']
+                  'fillet','chamfer','shell','solid','thread','joint','parameter','edit_feature','edit_joint','motion_link']
     target: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
     args: dict[str,Any] = Field(default_factory=dict,max_length=24)
 
@@ -43,7 +43,7 @@ class ToolReply(AIReply):
     measurements: list[dict] = Field(default_factory=list)
 
 
-TOOL_LABELS={'create':'부품 생성','dimensions':'치수 변경','transform':'이동·회전','appearance':'색상·재질',
+TOOL_LABELS={'motion_link':'기어 / 관절 운동 연결','create':'부품 생성','dimensions':'치수 변경','transform':'이동·회전','appearance':'색상·재질',
              'hole':'구멍','pocket':'포켓 절삭','pad':'돌출','fillet':'필렛','chamfer':'모따기',
              'shell':'셸','solid':'솔리드 작업','thread':'나사산','joint':'조립 구속','parameter':'변수','edit_feature':'기존 피처 편집','edit_joint':'관절 자세 편집'}
 
@@ -54,6 +54,7 @@ CATALOG = '''You design CAD models by composing tools, for ANY object the user d
 For a vague request, start with a minimal useful mechanical concept, normally one body and 1..6 actions. Do not invent decorative details, fillets, spokes or repeated features unless needed or requested. State the chosen dimensions and omitted functional details briefly; the user can refine them. Explicit requested features always take priority over this simplicity preference. construction contains at most 4 short technical fragments, each at most 80 characters. No paragraphs or repeated explanation. summary is at most 160 characters. assumptions contains only necessary choices, at most 4 short items of 120 characters each. The actual dimensions belong in actions, not extended narration.
 
 TOOLS (only these args are accepted):
+motion_link: {driver,driven,ratio,offset?,driver_axis?:"rz",driven_axis?:"rz"}. target is a NEW motion-link ID; driver/driven are existing joint IDs. This is only a motion relation; create REAL gear geometry and shafts/supports for physical gear-drive requests. External spur gears need matching module/pressure_angle, center distance module*(teeth1+teeth2)/2, ratio=-teeth1/teeth2, and driven phase offset=180-180/teeth2 when the driven center lies at +X and input angle is zero. Model necessary shaft support/retention separately. Choose clearance/backlash explicitly.
 create: {name,geometry,color?,transform?}. geometry is one of the shapes below. This adds one new editable part; target is its new ID. transform={x,y,z,rx,ry,rz}, defaults zero. Base primitives are centered in XY with bottom at Z=0. Separate independent parts using transform; leave intended assembly positions aligned.
 dimensions: {values:{dimension:value,...}}. Patch actual fields of an EXISTING part's base geometry, preserving all other fields. A new create ALREADY includes its dimensions; do not add a redundant dimensions action after create. Never invent fields such as diameter_top on a loft (its dimensions are inside sections). No kind change. Parameter-bound dimensions must be edited using parameter instead.
 edit_feature: {feature_id,...changed_fields}. target is the owning PART ID, never the feature ID; args.feature_id is the feature ID inside that part. Edit an EXISTING feature, keeping its ID, support faces and downstream history. Use its actual editable fields and dimensions from current_design. depth edits sketch extrusion/cut depth; for a blind hole specify through_all=false AND depth. diameter edits a circular sketch profile; entity_id is mandatory when there is more than one circle, use one action per circle. This can SHRINK an existing hole by rebuilding its original cut; do not add a new hole on top. size is edge radius/chamfer distance or shell thickness; thread uses pitch,length,offset,clearance,handedness,reverse. Pattern uses count,count_y,spacing or angle as listed in editable. suppressed=true disables a feature reversibly, false restores it; dependent features must remain valid. name renames it. Do not change IDs, support references or operation types. A variable-driven field needs parameter instead; a linked profile needs its original sketch edited manually. Do not guess which feature when the request is ambiguous; selected_feature identifies the user's current feature selection.
@@ -71,6 +72,7 @@ parameter: {value:"expression"}. target=parameter name; update/add a dimension v
 
 SHAPES for create.geometry (kind and dimensions only, no tool/target inside geometry):
 cylinder: {kind:"cylinder",diameter,height,bore_diameter?:0}. Axial bore must be < diameter-0.2. bore_diameter already CUTS the center hole: never drill that same hole again. Disk, shaft, tube, wheel, spacer are combinations of this and other tools, not separate kinds.
+spur_gear: {kind:"spur_gear",module,teeth,thickness,pressure_angle?:20|25,backlash?:0.2,bore_diameter?:0,shaft_diameter?:0,shaft_length?:0}. Actual external involute spur teeth, 18..80 integer teeth, module .5..10 mm. Root relief is radial, not generated hob trochoid. backlash is TOTAL pair pitch-circle clearance shared across both gears; set equal values, at most .4*module. Optional integral shaft extends below Z=0; shaft length/diameter both positive, with no bore. Otherwise bore_diameter cuts a through hole. No helical/bevel/internal gear or certified load rating.
 plate: {kind:"plate",length,width,thickness,hole_count:0}. Use hole for precisely positioned holes. This is also a rectangular block.
 extrusion: {kind:"extrusion",thickness,profile:PROFILE}. Example: {kind:"extrusion",thickness:6,profile:{points:[{x:0,y:0},{x:30,y:0},{x:30,y:10},{x:0,y:10}]}}. Arbitrary closed planar shape, not limited to named products. Optional taper (-60..60),symmetric,thin_wall.
 revolve: PREFER {kind:"revolve",segments:[{length:15,diameter:24},{length:8,diameter:14}],bore_diameter?:0,angle:360}. Each segment has CONSTANT outside diameter over its length; CAD joins them into ONE solid about Z. Optional end_diameter makes that segment a taper. Total height is sum of lengths. This creates solid outside material, not a bore. Alternative stations form: {kind:"revolve",stations:[[z,OUTSIDE_DIAMETER],...],bore_diameter?:0,angle:360}. Stations ordered bottom to top; repeat z for an abrupt shoulder (e.g. [[0,24],[15,24],[15,14],[23,14]]); differing diameter at differing z makes a taper, NOT a step. Arbitrary axis/profile form: {kind:"revolve",profile:{sketch:PROFILE,frame?:FRAME},axis_start:[0,0,0],axis_direction:[0,1,0],angle:360}; profile must stay on ONE side of the axis.
@@ -262,6 +264,11 @@ def hole_centers(args):
 
 def _apply(raw,action):
     tool=action.tool;args=deepcopy(action.args);target=action.target
+    if tool=='motion_link':
+        from ..models import MotionLink
+        _keys(args,set(MotionLink.model_fields)-{'id'},('driver','driven','ratio'))
+        if any(v['id']==target for v in raw.get('motion_links',[])):raise ValueError('운동 연결 ID가 이미 존재합니다.')
+        raw.setdefault('motion_links',[]).append(MotionLink(id=target,**args).model_dump());return
     if tool=='edit_joint':
         from ..assembly_motion import set_joint_motion
         set_joint_motion(raw,target,args);return
@@ -416,7 +423,7 @@ def execute_plan(content,request,*,check=lambda:None,progress=lambda text:None,s
     if single_part:
         base=payload.pop('base',None);features=payload.get('actions',[])
         if not isinstance(base,dict) or base.get('tool')!='create':raise ValueError('Single-part output requires ONE base create object, followed by feature actions. Do not create separate walls or sections.')
-        if not isinstance(features,list) or any(not isinstance(a,dict) or a.get('tool') in ('create','joint','edit_joint') or (a.get('target')!=base.get('target') and a.get('tool')!='parameter') for a in features):
+        if not isinstance(features,list) or any(not isinstance(a,dict) or a.get('tool') in ('create','joint','edit_joint','motion_link') or (a.get('target')!=base.get('target') and a.get('tool')!='parameter') for a in features):
             raise ValueError('Single-part actions must modify the SAME base target; no separate creates or joints. Use shell/pocket to remove material, pad to fuse material.')
         payload['actions']=[base]+features
     plan=CADPlan.model_validate(payload)

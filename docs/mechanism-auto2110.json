@@ -1,0 +1,29 @@
+{
+  "checks": [
+    "real three-part gear pair builds in native preview",
+    "gear pair preview has no actual volume overlap",
+    "both physical shaft/bore pairs checked",
+    "checked gear assembly can apply",
+    "gear command available in native assembly UI",
+    "joint markers use current geometry readiness",
+    "checked joint glyph actually renders green",
+    "joint inspection remains available",
+    "one Qt wheel event applies one cursor zoom increment",
+    "surface under mouse stays at same screen location",
+    "sketch zoom preserves arbitrary cursor coordinates",
+    "initial automatic print packing fits",
+    "changing placement immediately invalidates STL export",
+    "individual orientation and position revalidate",
+    "per-part orientation and bed center stored in checked preview",
+    "direct drag blocks exporting stale placement",
+    "actual mouse drag moves part on plate in world millimeters",
+    "dragged placement is checked before export",
+    "manual placement outside bed blocks STL",
+    "native export writes actual arranged STL",
+    "STL bounds agree with manual plate preview",
+    "preview, drag, orientation and export preserve original assembly",
+    "print preview closes safely after export"
+  ],
+  "live_ai_calls": 0,
+  "success": true
+}

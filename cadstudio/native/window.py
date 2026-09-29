@@ -86,6 +86,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         model.addAction(self.action('solid_tools','셸 / 구배 / 몸체 연산 / 패턴…',self.solid_dialog,None,'extrude'))
         model.addAction(self.action('sheetmetal','판금 · 단일 절곡 / 전개…',self.sheetmetal_dialog,None,'extrude'))
         model.addAction(self.action('feature_manager','피처 순서 / 삽입 / 억제…',self.feature_manager,None,'history'))
+        assembly.addAction(self.action('gears','실제 스퍼 기어 구동…',self.gear_dialog,None,'assembly'))
         assembly.addAction(self.action('motion_links','관절 운동 한계 / 모션 연결…',self.motion_dialog,None,'assembly'))
         assembly.addAction(self.action('joint_alignment','관절 축 · 구멍 동심 정렬…',self.joint_alignment_dialog,None,'assembly'))
         engineering=self.menuBar().addMenu('도면 / 해석');engineering.addAction(self.action('drawing','정투상 도면…',lambda:self.study_dialog('drawing'),None,'file'));engineering.addAction(self.action('robot_study','로봇 도달 / 토크 / 운동…',lambda:self.study_dialog('robot'),None,'assembly'));engineering.addAction(self.action('tensile','시편 응력 / 변형…',lambda:self.study_dialog('tensile'),None,'specimen'))
@@ -131,7 +132,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         b=QToolButton();b.setText('부품 추가');b.setIcon(icon('extrude'));b.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);b.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup);menu=QMenu(b)
         for kind,title in TITLES.items():menu.addAction(title,lambda k=kind:self.add_preset(k))
         b.setMenu(menu);self.add_part_action=self.toolbar.addWidget(b)
-        for key in ('face_joint','drive','joint_hardware','robot','mate'):self.add_mode_tool('assembly',key)
+        for key in ('face_joint','drive','joint_hardware','gears','robot','mate'):self.add_mode_tool('assembly',key)
         self.add_mode_tool('assembly','loop');self.add_mode_tool('assembly','robot_study')
         self.add_mode_tool('print','print_mode');self.add_mode_tool('print','print_profile');self.add_mode_tool('print','interference');self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure']);self.toolbar.addAction(self.actions['color']);self.toolbar.addAction(self.actions['parameters']);self.toolbar.addSeparator()
         for key in ('undo','redo','fit'):self.toolbar.addAction(self.actions[key])
@@ -369,6 +370,13 @@ class MainWindow(QMainWindow,PartSelectionUI):
         from .print_profile_dialog import PrintProfileDialog
         dialog=PrintProfileDialog(self,self.document.design,self.selected_ids())
         if dialog.exec()==QDialog.DialogCode.Accepted:self.apply_design(dialog.checked.model_dump(),'프린터 전체 여유 / 공차 적용',{'tool':'print-profile'},fit=True)
+
+    def gear_dialog(self):
+        if self.busy or self.sketching:return
+        from .gear_dialog import GearDialog
+        dialog=GearDialog(self,self.document.design)
+        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.checked:
+            self.apply_design(dialog.checked.model_dump(),'실제 스퍼 기어 구동 추가',{'tool':'gear-pair'},fit=True)
 
     def joint_hardware_dialog(self):
         if self.busy or self.sketching:return
@@ -668,8 +676,10 @@ class MainWindow(QMainWindow,PartSelectionUI):
         for key,value in g.items():
             if key not in FIELDS:continue
             title,unit=FIELDS[key]
-            if key=='hole_count':w=combo([(n,str(n)) for n in (0,2,4)]);w.setCurrentIndex(w.findData(value))
-            else:w=ExpressionField(value,0 if key in ('bore_diameter','flat_depth') else .01,2000,' '+unit,variables=parameter_values(self.document.design.get('parameters',{})),expression=binding_for(self.document.design,['parts',part['id'],'geometry',key]) or (g.get('thickness_expression','') if key=='thickness' else ''))
+            if key=='pressure_angle':w=combo([(n,str(n)+'°') for n in (20,25)]);w.setCurrentIndex(w.findData(value))
+            elif key=='teeth':w=combo([(n,str(n)) for n in range(18,81)]);w.setCurrentIndex(w.findData(value))
+            elif key=='hole_count':w=combo([(n,str(n)) for n in (0,2,4)]);w.setCurrentIndex(w.findData(value))
+            else:w=ExpressionField(value,0 if key in ('bore_diameter','flat_depth','backlash','shaft_diameter','shaft_length') else .01,2000,' '+unit,variables=parameter_values(self.document.design.get('parameters',{})),expression=binding_for(self.document.design,['parts',part['id'],'geometry',key]) or (g.get('thickness_expression','') if key=='thickness' else ''))
             inputs[key]=w;w.setObjectName('partDimension_'+key);form.addRow(title,w)
             signal=w.currentIndexChanged if isinstance(w,QComboBox) else w.valueChanged
             signal.connect(lambda *args,field=key:changed_dimensions.add(field))
@@ -909,6 +919,11 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.selected_joint=identifier;self.selected_feature=None;self.refresh_ai_target()
         from ..assembly_motion import JOINT_TITLES,JOINT_AXES
         mate=next(m for m in self.document.design['mates'] if m['id']==identifier);names={p['id']:p['name'] for p in self.document.design['parts']};clear_layout(self.property_layout);self.property_layout.addWidget(label('조립 구속 · '+JOINT_TITLES[mate['kind']]));self.property_layout.addWidget(label(names[mate['parent']]+' → '+names[mate['child']]));self.property_layout.addWidget(label('운동 축: '+(', '.join(a.upper() for a in JOINT_AXES[mate['kind']]) or '없음 · 강체 연결')+'\n이동 XYZ: '+', '.join(f"{mate[k]:g}" for k in ('x','y','z'))+' mm\n회전 XYZ: '+', '.join(f"{mate[k]:g}" for k in ('rx','ry','rz'))+' °',True));self.property_layout.addWidget(button('연결된 부품 선택',lambda:self.select_parts([mate['parent'],mate['child']])));self.property_layout.addWidget(button('관절 구동 · 간섭 확인',self.drive_joints,True));self.property_layout.addWidget(button('고급 구속 / 오프셋 편집',lambda:self.mate_dialog(identifier)))
+        readiness=(self.result or {}).get('stats',{}).get('joint_readiness',{}).get(identifier,{})
+        if readiness:
+            status=label(readiness['title']+'\n'+'\n'.join(readiness['details']),True);self.property_layout.addWidget(status)
+            from ..joint_readiness import COLORS
+            color=COLORS[readiness['state']];status.setStyleSheet('color:rgb('+','.join(str(round(v*255)) for v in color)+');')
         if mate['kind']=='revolute':self.property_layout.addWidget(button('이 관절에 실제 축 / 하우징 구조 추가',self.joint_hardware_dialog,True))
         if mate['kind'] in ('revolute','cylindrical'):self.property_layout.addWidget(button('관절 축 · 구멍 동심 정렬…',self.joint_alignment_dialog))
         def remove():data=deepcopy(self.document.design);data['mates']=[m for m in data['mates'] if m['id']!=identifier];data['joint_frames']=[f for f in data.get('joint_frames',[]) if f['mate_id']!=identifier];prune_joint_references(data);self.apply_design(data,'조립 구속 삭제',{'mate_id':identifier})

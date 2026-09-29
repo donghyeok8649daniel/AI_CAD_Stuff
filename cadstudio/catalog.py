@@ -4,6 +4,7 @@ import math
 from .models import Design, GEOMETRY_TYPES, Part, Transform
 
 TITLES = {
+    'spur_gear':'스퍼 기어',
     "round_specimen": "원통형 시편", "flat_specimen": "평판형 시편", "wafer": "웨이퍼",
     "link": "양단 링크", "plate": "구멍판", "bracket": "L 브래킷", "cylinder": "원통 · 튜브",
     "robot_arm": "2링크 조립", "extrusion": "스케치 돌출",
@@ -11,6 +12,7 @@ TITLES = {
     "revolve":"회전", "imported":"가져온 부품",
 }
 FIELDS = {
+    'module':('기어 모듈','mm'),'teeth':('잇수','개'),'pressure_angle':('압력각','°'),'backlash':('쌍의 피치원 백래시','mm'),'shaft_diameter':('일체형 축 지름','mm'),'shaft_length':('일체형 축 길이','mm'),
     "length": ("전체 길이", "mm"), "gauge_length": ("평행부 길이", "mm"),
     "grip_diameter": ("그립 직경", "mm"), "gauge_diameter": ("목 직경", "mm"),
     "transition_length": ("전이 길이 (한쪽)", "mm"), "grip_width": ("그립 폭", "mm"),
@@ -22,6 +24,7 @@ FIELDS = {
     "hole_inset": ("구멍 가장자리 거리", "mm"), "bore_diameter": ("내경 (0 = 막힘)", "mm"),
 }
 EXAMPLES = {
+    'spur_gear':'스퍼 기어 모듈 2, 잇수 20, 두께 8 mm',
     "round_specimen": "원통형 시편 전체 길이 100, 목 직경 8, 그립 직경 16, 평행부 길이 30, 전이 길이 15 mm",
     "flat_specimen": "평판형 시편 전체 길이 120, 목 폭 10, 그립 폭 25, 두께 3 mm",
     "wafer": "웨이퍼 직경 100 mm, 두께 525 um, 플랫 깊이 3 mm",

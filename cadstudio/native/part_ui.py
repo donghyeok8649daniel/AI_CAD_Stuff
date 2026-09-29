@@ -219,7 +219,7 @@ class PartSelectionUI(PartInspectionUI):
         from .assembly_display import JOINT_NAMES
         clear_layout(self.property_layout);rows=self.viewport.joints.records
         self.property_layout.addWidget(label(f'조립 연결 {len(rows)}개'))
-        self.property_layout.addWidget(label('청록: 관절 / 강체 연결 · 주황: 폐루프\n표식은 부품에 가려져도 표시됩니다. 표식이나 목록을 눌러 연결된 부품을 확인하세요.',True))
+        self.property_layout.addWidget(label('초록: 현재 지지 형상 확인 · 노랑: 구조 미확인 · 빨강: 간섭 / 오류 · 회색: 강체 · 주황: 폐루프\n초록은 전 구동 범위·축 이탈 방지·강도 인증이 아닙니다. 표식은 부품에 가려져도 표시됩니다. 표식이나 목록을 눌러 연결된 부품을 확인하세요.',True))
         for row in rows:
             title=f"{row['label']} · {JOINT_NAMES.get(row['kind'],row['kind'])}\n{row['parent_name']} ↔ {row['child_name']}"
             self.property_layout.addWidget(button(title,lambda _,r=row:self.inspect_connection(r['type'],r['id'])))

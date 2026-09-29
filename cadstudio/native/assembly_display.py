@@ -46,7 +46,10 @@ class AssemblyDisplay:
         if self.enabled:
             size=max(2,min(10,max((self.view.result or {}).get('stats',{}).get('bounds',[50]))*.045))
             for row in self.records:
-                color=(1,.64,.23) if row['type']=='loop' else (.25,.95,.85)
+                from ..joint_readiness import COLORS
+                status=(self.view.result or {}).get('stats',{}).get('joint_readiness',{}).get(row['id'],{})
+                state=status.get('state','unverified');row['readiness']=status
+                color=(1,.64,.23) if row['type']=='loop' else COLORS[state]
                 p=np.array(row['origin']);basis=np.array(row['basis']);x,y,z=basis.T
                 paths=[[row['a'],row['b']],[p-z*size,p+z*size]]
                 if row['kind'] in ('revolute','cylindrical','pin_slot','ball'):
@@ -55,7 +58,8 @@ class AssemblyDisplay:
                 glyph=line_actor(paths,color,3);dot=line_actor([[p]],color,points=True);dot.GetProperty().SetPointSize(13)
                 for actor in (glyph,dot):
                     actor.GetProperty().SetLighting(False);self.renderer.AddActor(actor);self.actors.append(actor);self.pickables[actor]=(row['type'],row['id'])
-                text=vtkBillboardTextActor3D();text.SetInput(row['label']+' '+row['kind']);text.SetPosition(*(p+x*size));text.GetTextProperty().SetFontSize(13);text.GetTextProperty().SetColor(*color);text.GetTextProperty().SetBackgroundColor(.04,.08,.12);text.GetTextProperty().SetBackgroundOpacity(.8);text.PickableOff();self.renderer.AddActor(text);self.actors.append(text)
+                badge={'ready':'[OK pose]','blocked':'[!]','unverified':'[?]','rigid':'[fixed]'}[state]
+                text=vtkBillboardTextActor3D();text.SetInput(row['label']+' '+badge);text.SetPosition(*(p+x*size));text.GetTextProperty().SetFontSize(13);text.GetTextProperty().SetColor(*color);text.GetTextProperty().SetBackgroundColor(.04,.08,.12);text.GetTextProperty().SetBackgroundOpacity(.8);text.PickableOff();self.renderer.AddActor(text);self.actors.append(text)
         self.view.window.Render()
 
     def pick(self,x,y):

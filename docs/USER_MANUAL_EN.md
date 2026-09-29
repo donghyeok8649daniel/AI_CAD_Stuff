@@ -1,3 +1,13 @@
+# 2.11.0 update
+
+Mouse-wheel zoom keeps the hovered part surface under the pointer; empty space uses the focal plane. Sketch zoom also preserves the cursor coordinate.
+
+Assembly → Physical spur gear drive creates two real external involute gears with integral shafts, a bored support plate, two revolute joints and a tooth-ratio motion link. The AI tool catalogue also supports spur_gear and motion_link. Defaults: module 2, 20/40 teeth, 0.2 mm pair backlash and 0.2 mm diametral shaft clearance. This is a prototype with radial root relief, not a certified hob profile or rated gearbox. Add axial retention, motor coupling and load-appropriate bearings as needed. Editing tooth counts later requires matching centers, phase and motion ratio.
+
+Print preview allows direct part dragging and per-part bed-center X/Y plus XYZ rotation. Printer/automatic layout options are collapsible. Every placement change invalidates export until the latest solids are checked. Interference or an out-of-bed part blocks export. The STL uses the same checked layout, in mm; the original assembly is unchanged. Layout remains local to this dialog. Use a slicer for support, infill, layers and G-code.
+
+J toggles joint glyphs: green means current-pose coaxial shaft/bore support with positive clearance and no connected-part volume interference; amber means unverified; red means interference/structural error; gray means rigid. Green is NOT full-travel, retention, assembly-path or load certification. Inspect the joint to read measured diametral clearance and axial overlap. Motion edits continue to use sampled path collision checks.
+
 # Prompt CAD Studio — English quick guide
 
 ## Starting and navigating

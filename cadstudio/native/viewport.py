@@ -44,6 +44,15 @@ class ViewportCaption(QLabel):
         super().resizeEvent(event);self._refresh_text()
 
 
+class CursorInteractor(QVTKRenderWindowInteractor):
+    def wheelEvent(self,event):
+        # VTK's Qt adapter otherwise uses the last mouse-move coordinates,
+        # which can be stale after a resize, touchpad event or focus change.
+        p=event.position();ctrl,shift=self._GetCtrlShift(event)
+        self._setEventInformation(p.x(),p.y(),ctrl,shift,chr(0),0,None)
+        super().wheelEvent(event);event.accept()
+
+
 class CADStyle(vtkInteractorStyleTrackballCamera):
     def __init__(self,owner):
         self.owner=owner;self.down=None
@@ -51,6 +60,10 @@ class CADStyle(vtkInteractorStyleTrackballCamera):
         self.AddObserver('LeftButtonReleaseEvent',self.release)
         self.AddObserver('KeyPressEvent',self.key)
         self.AddObserver('MouseMoveEvent',self.move)
+        self.AddObserver('MouseWheelForwardEvent',lambda *_:self.wheel(1.18))
+        self.AddObserver('MouseWheelBackwardEvent',lambda *_:self.wheel(1/1.18))
+    def wheel(self,factor):
+        self.owner.zoom_at_cursor(self.GetInteractor().GetEventPosition(),factor)
     def press(self,caller,event):
         self.down=self.GetInteractor().GetEventPosition()
         self.axis_drag=self.owner.axis_at(self.down);self.axis_last=self.down
@@ -119,8 +132,8 @@ class CADViewport(QWidget,SelectionTools):
             # Use exactly the backend tested by the isolated graphics probe.
             # VTK's automatic OSMesa fallback may itself crash on Windows.
             from vtkmodules.vtkRenderingOpenGL2 import vtkWin32OpenGLRenderWindow
-            self.widget=QVTKRenderWindowInteractor(self,rw=vtkWin32OpenGLRenderWindow())
-        else:self.widget=QVTKRenderWindowInteractor(self)
+            self.widget=CursorInteractor(self,rw=vtkWin32OpenGLRenderWindow())
+        else:self.widget=CursorInteractor(self)
         self.widget.setObjectName('nativeOpenGLViewport');self.widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus);layout.addWidget(self.widget,1)
         self.renderer=vtkRenderer();self.renderer.SetBackground(.07,.105,.15);self.renderer.SetBackground2(.16,.22,.28);self.renderer.GradientBackgroundOn()
         # A single headlight gives perpendicular faces the same brightness in
@@ -349,6 +362,15 @@ class CADViewport(QWidget,SelectionTools):
             a=self.result['stats']['min'];b=self.result['stats']['max'];bounds=[v for pair in zip(a,b) for v in pair];self.renderer.ResetCamera(bounds if max(self.result['stats']['bounds'])>1e-6 else [-25,25,-25,25,0,0])
         else:self.renderer.ResetCamera(-50,50,-50,50,0,0)
         self.renderer.ResetCameraClippingRange();self.window.Render()
+
+    def zoom_at_cursor(self,position,factor):
+        from .navigation import zoom_camera
+        picker=vtkCellPicker();picker.SetTolerance(.002);picker.PickFromListOn()
+        for identifier,(actor,_) in self.actors.items():
+            if identifier not in self.hidden:picker.AddPickList(actor)
+        anchor=picker.GetPickPosition() if picker.Pick(*position,0,self.renderer) else None
+        zoom_camera(self.renderer,position,factor,anchor)
+        self.window.Render()
 
     def set_view(self,name,render=True):
         camera=self.renderer.GetActiveCamera();camera.ParallelProjectionOn()
