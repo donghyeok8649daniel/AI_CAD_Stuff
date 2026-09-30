@@ -5,6 +5,7 @@ import math
 from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator, model_serializer
+from .electrical import ElectricalWorkspace
 
 
 class StrictModel(BaseModel):
@@ -803,6 +804,7 @@ class Design(StrictModel):
     configurations: dict[str,dict[str,str]] = Field(default_factory=dict,max_length=64)
     part_groups: list[PartGroup] = Field(default_factory=list,max_length=256)
     print_profile: PrintProfile | None = None
+    electrical: ElectricalWorkspace | None = None
 
     @model_validator(mode='before')
     @classmethod
@@ -814,7 +816,7 @@ class Design(StrictModel):
     @model_serializer(mode='wrap')
     def compatible_parameters(self,handler):
         data=handler(self)
-        for key in ('parameters','dimension_bindings','assets','motion_links','configurations','part_groups','print_profile'):
+        for key in ('parameters','dimension_bindings','assets','motion_links','configurations','part_groups','print_profile','electrical'):
             if not data.get(key):data.pop(key,None)
         return data
 

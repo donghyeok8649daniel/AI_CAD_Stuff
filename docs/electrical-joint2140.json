@@ -1,0 +1,20 @@
+{
+  "checks": [
+    "starts with a blank design",
+    "electrical command is in native menu",
+    "example contains a battery, switch, wire, and motor",
+    "explicit startup current is checked separately",
+    "DC report presents measured dimensions and results",
+    "example nodes are valid identifiers",
+    "electrical workbench is committed to the CAD document",
+    "motor and wiring survive project save and reload",
+    "changing mechanical geometry preserves electrical workspace",
+    "joint drive offers a motion-range control",
+    "both travel directions show sampled geometric clearance",
+    "travel result discloses sampling and safety limit",
+    "rendered joint solids are captured from the real VTK viewport",
+    "read-only range survey preserves document and joint limits"
+  ],
+  "live_ai_calls": 0,
+  "success": true
+}

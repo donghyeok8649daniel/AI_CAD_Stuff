@@ -143,6 +143,56 @@ def check_joint_travel(before, after, *, check=lambda: None, max_samples=1440):
         return dict(blocked=[], samples=steps+1, last_clear=last_clear, step_degrees=2, step_mm=.5)
 
 
+def survey_joint_drive(design, mate_id, axis, *, check=lambda: None, max_samples=1440):
+    """Probe both sides of one independent joint's configured travel.
+
+    This is a read-only, sampled exact-solid check. It gives the operator the
+    last clear *sample* before a collision in each direction; it must not be
+    used as a certified mechanical stop or silently rewrite joint limits.
+    The same linked joints and loop closures as ordinary motion are evaluated.
+    """
+    from .assembly_motion import motion_controls, set_joint_motion
+
+    original = Design.model_validate(design).model_copy(deep=True)
+    controls = motion_controls(original.model_dump(), mate_id)
+    if axis not in controls:
+        raise ValueError('관절의 운동 축을 선택하세요.')
+    control = controls[axis]
+    if 'driven_by' in control:
+        raise ValueError(f'{mate_id}.{axis}는 {control["driven_by"]}가 구동합니다. 구동 관절을 선택하세요.')
+    current = control['value']
+    lower, upper = control['limits']
+    directions = {}
+    for direction, target in (('negative', lower), ('positive', upper)):
+        check()
+        if abs(target-current) <= 1e-9:
+            directions[direction] = dict(requested=target, safe=current, blocked=False,
+                                         first_hit=None, collisions=[], samples=0)
+            continue
+        raw = original.model_dump()
+        set_joint_motion(raw, mate_id, {axis: target})
+        travel = check_joint_travel(original, Design.model_validate(raw), check=check,
+                                    max_samples=max_samples)
+        if travel is None:
+            raise ValueError('관절 구동 범위를 검사하지 못했습니다.')
+        blocked = bool(travel['blocked'])
+        # check_joint_travel checks the initial pose too. A collision at the
+        # start has no last-clear sample, so report the current coordinate.
+        last = travel['last_clear']
+        safe = current if last is None else next(v['value'] for v in last
+                                                if v['mate_id'] == mate_id and v['axis'] == axis)
+        first = (next(v['value'] for v in travel['values']
+                      if v['mate_id'] == mate_id and v['axis'] == axis)
+                 if blocked else None)
+        directions[direction] = dict(requested=target, safe=safe if blocked else target,
+                                     blocked=blocked, first_hit=first,
+                                     collisions=travel['blocked'], samples=travel['samples'])
+    return dict(mate_id=mate_id, axis=axis, unit=control['unit'], current=current,
+                negative=directions['negative'], positive=directions['positive'],
+                samples=sum(row['samples'] for row in directions.values()),
+                step_degrees=2, step_mm=.5)
+
+
 def travel_message(design, travel):
     if not travel or not travel['blocked']:
         return ''

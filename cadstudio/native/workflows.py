@@ -1,6 +1,7 @@
 """Native, validated previews for specimens, robot dimensions and real joints."""
 from copy import deepcopy
 import math
+import time
 from PySide6.QtCore import Qt, QTimer, QThreadPool, QPointF
 from PySide6.QtGui import QPainter, QPainterPath, QPen, QColor
 from PySide6.QtWidgets import (QDialog,QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QScrollArea,QSplitter,QLineEdit,QComboBox,QCheckBox,QSlider,QLabel)
@@ -224,7 +225,91 @@ class JointDriveDialog(PreviewDialog):
         self.joint_filter.setCurrentIndex(max(0,self.joint_filter.findData(selected_joint)));filter_joints()
         self.collisions=label('',True);self.controls.addWidget(self.collisions)
         self.stop_button=button('마지막 확인 자세로 이동',self.use_last_clear);self.stop_button.setEnabled(False);self.controls.addWidget(self.stop_button)
+        self.controls.addWidget(label('관절 구동 가능 범위 · 실제 형상 표본 검사'))
+        self.range_axis=choice([]);self.controls.addWidget(self.range_axis)
+        self.survey_button=button('선택 관절 양쪽 한계 검사',self.survey_range)
+        self.survey_button.setEnabled(False);self.controls.addWidget(self.survey_button)
+        self.range_cancel=button('범위 검사 취소',self.cancel_range_survey)
+        self.range_cancel.hide();self.controls.addWidget(self.range_cancel)
+        self.range_report=label('현재 자세를 검사한 뒤 사용 가능합니다.',True)
+        self.range_report.setObjectName('jointDriveRangeReport');self.controls.addWidget(self.range_report)
+        self.range_revision=0;self.range_running=False
+        self.range_timer=QTimer(self);self.range_timer.setInterval(1000)
+        self.range_timer.timeout.connect(self.range_elapsed)
+        self.joint_filter.currentIndexChanged.connect(self.refresh_range_axes)
+        self.range_axis.currentIndexChanged.connect(self.range_axis_changed)
+        self.refresh_range_axes()
         self.controls.addWidget(label('현재 자세부터 입력한 자세까지 최대 2° / 0.5 mm 간격으로 검사합니다. 충돌을 발견하면 적용을 막습니다. 얇은 장애물의 연속 충돌·제작 오차는 별도 검토가 필요합니다.',True));self.controls.addStretch();self.schedule()
+    def schedule(self,*args):
+        super().schedule(*args)
+        if hasattr(self,'survey_button'):
+            self.range_revision+=1
+            self.survey_button.setEnabled(False)
+            self.range_report.setText('자세가 바뀌었습니다. 미리보기를 확인한 뒤 범위를 다시 검사하세요.')
+    def refresh_range_axes(self,*args):
+        selected=self.joint_filter.currentData()
+        previous=self.range_axis.currentData()
+        self.range_axis.clear()
+        names={p['id']:p['name'] for p in self.base['parts']}
+        for mate in self.base['mates']:
+            if selected and mate['id']!=selected:continue
+            for mid,axis in self.inputs:
+                if mid==mate['id'] and self.inputs[(mid,axis)].isEnabled():
+                    self.range_axis.addItem(f"{names[mate['child']]} · {mate['id']}.{axis.upper()}",(mid,axis))
+        if previous is not None:
+            index=self.range_axis.findData(previous)
+            if index>=0:self.range_axis.setCurrentIndex(index)
+        if hasattr(self,'survey_button'):
+            self.survey_button.setEnabled(bool(self.checked and self.range_axis.count() and not self.range_running))
+            self.range_report.setText('검사할 관절 축을 선택하세요.' if self.range_axis.count() else '직접 움직일 수 있는 관절 축이 없습니다.')
+    def range_axis_changed(self,*args):
+        if hasattr(self,'range_report') and self.range_axis.currentData():
+            self.range_report.setText('선택한 축의 구동 범위는 아직 검사하지 않았습니다.')
+    def cancel_range_survey(self):
+        if not self.range_running:return
+        self.range_revision+=1
+        self.range_report.setText('범위 검사 취소 중… 현재 형상 검사 단계가 끝나면 중단합니다.')
+        self.range_cancel.setEnabled(False)
+    def range_elapsed(self):
+        if self.range_running and self.range_cancel.isEnabled():
+            self.range_report.setText(f'양쪽 구동 한계의 실제 형상을 검사 중… {time.monotonic()-self.range_started:.0f}초 경과 · 취소 가능')
+    def survey_range(self):
+        if self.range_running or self.checked is None or not self.range_axis.currentData():return
+        from ..interference import survey_joint_drive
+        mate_id,axis=self.range_axis.currentData();source=self.checked.model_dump();revision=self.range_revision
+        self.range_running=True;self.survey_button.setEnabled(False)
+        self.range_cancel.setEnabled(True);self.range_cancel.show()
+        self.range_started=time.monotonic();self.range_timer.start()
+        self.range_report.setText('음·양쪽 한계까지 형상 간섭을 검사 중…')
+        def check():
+            if not self.alive or revision!=self.range_revision:raise RuntimeError('구동 범위 검사가 취소되었습니다.')
+        worker=Worker(lambda:survey_joint_drive(source,mate_id,axis,check=check));self.range_worker=worker
+        def done(result):
+            self.range_running=False;self.range_timer.stop();self.range_cancel.hide()
+            if not self.alive:return
+            if revision!=self.range_revision:
+                self.survey_button.setEnabled(bool(self.checked and self.range_axis.count()))
+                return
+            unit='°' if axis.startswith('r') else 'mm'
+            def side(name,section):
+                if section['blocked']:
+                    if abs(section['first_hit']-result['current'])<1e-9:
+                        return f"{name}: 시작 자세 {section['first_hit']:.4g}{unit}부터 간섭 · 장착 위치를 수정하세요"
+                    return f"{name}: {section['safe']:.4g}{unit}까지 표본상 간섭 없음 · {section['first_hit']:.4g}{unit}에서 첫 간섭"
+                return f"{name}: 설정 한계 {section['requested']:.4g}{unit}까지 표본상 간섭 없음"
+            self.range_report.setText('\n'.join([f"현재 {result['current']:.4g}{unit} · {result['samples']}개 자세 검사",
+                side('음의 방향',result['negative']),side('양의 방향',result['positive']),
+                '2° / 0.5 mm 표본 검사 결과입니다. 연속 운동·제작 공차·실제 하중 안전성은 보증하지 않습니다.']))
+            self.survey_button.setEnabled(True)
+        def failed(message):
+            self.range_running=False;self.range_timer.stop();self.range_cancel.hide()
+            if not self.alive:return
+            if revision!=self.range_revision:
+                self.survey_button.setEnabled(bool(self.checked and self.range_axis.count()))
+                return
+            self.range_report.setText('구동 범위 검사 실패: '+message[:350]);self.survey_button.setEnabled(True)
+        worker.signals.done.connect(done);worker.signals.failed.connect(failed)
+        QThreadPool.globalInstance().start(worker)
     def present_interference(self):
         super().present_interference()
         self.stop_button.setEnabled(bool(self.travel and self.travel['blocked'] and self.travel['last_clear']))
@@ -243,6 +328,9 @@ class JointDriveDialog(PreviewDialog):
         return raw
     def present(self):
         super().present();names={p.id:p.name for p in self.checked.parts};collisions=self.result['stats']['collisions'];self.collisions.setText('체적 간섭 없음' if not collisions else '간섭 부품\n'+'\n'.join(f"{names[c['a']]} ↔ {names[c['b']]}\n{c['volume']:.3f} mm³" for c in collisions));self.collisions.setStyleSheet('color:#f3ac97;' if collisions else 'color:#89d6c0;')
+        self.survey_button.setEnabled(bool(self.range_axis.count() and not self.range_running))
+        if self.range_report.text().startswith('자세가 바뀌었습니다.'):
+            self.range_report.setText('현재 자세가 유효합니다. 선택한 축의 양쪽 한계를 검사할 수 있습니다.')
         self.apply_button.setEnabled(any(self.inputs[(mid,key)].value()!=next(m for m in self.base['mates'] if m['id']==mid)[key] for mid,key in self.changed_axes))
         for mate in self.checked.mates:
             if mate.id in self.passive or any(mate.id==j for j,k in self.linked_axes):
@@ -254,6 +342,10 @@ class JointDriveDialog(PreviewDialog):
         for collision in collisions:
             for identifier in (collision['a'],collision['b']):self.viewport.actors[identifier][0].GetProperty().SetColor(.83,.30,.20)
         self.viewport.window.Render()
+    def done(self,result):
+        self.range_revision+=1
+        self.range_timer.stop()
+        super().done(result)
 
 
 def frame_record(part,face):

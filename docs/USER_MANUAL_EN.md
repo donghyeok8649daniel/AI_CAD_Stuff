@@ -1,4 +1,4 @@
-# 2.13.0 update
+# 2.14.0 update
 
 The AI panel's research references dialog connects a GitHub repository, previews selected documents, and attaches them to design or Q&A requests. Local PDF/text attachments are supported. Codex retries transient disconnections with cancellable backoff and retains the interrupted request and validation context.
 

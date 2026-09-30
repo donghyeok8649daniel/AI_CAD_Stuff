@@ -217,7 +217,13 @@ def local_shape(design,part,_stack=()):
             if angle:tool=tool.rotate((0,0,0),axis,-angle)
         from .imported import encode_shape
         encoded=encode_shape(tool,'tool');tools.append((f.id,(encoded.data,encoded.sha256)))
-    return _part_cached(part.model_dump_json(),asset,tuple(tools))
+    # Local BRep construction does not depend on the part's world pose. A
+    # moving joint used to rebuild expensive gear teeth at every sample because
+    # transform was included in this cache key. Boolean feature tools above
+    # still include their relative placement in `tools`, so moving one against
+    # the other invalidates the local result as it should.
+    local_part=part.model_copy(update={'transform':type(part.transform)()})
+    return _part_cached(local_part.model_dump_json(),asset,tuple(tools))
 
 
 @lru_cache(maxsize=8)

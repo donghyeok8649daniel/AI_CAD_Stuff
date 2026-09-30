@@ -7,7 +7,11 @@ datas=[(str(root/'static/app.ico'),'assets'),(str(root/'integrations'),'integrat
 datas+=copy_metadata('cadquery')+copy_metadata('cadquery-ocp')
 binaries=collect_dynamic_libs('OCP')+[(str(p),'cadquery_ocp.libs') for p in (site/'cadquery_ocp.libs').glob('*') if p.is_file()]
 hidden=collect_submodules('OCP')+['anyio._backends._asyncio','vtkmodules.qt.QVTKRenderWindowInteractor','vtkmodules.vtkRenderingOpenGL2','vtkmodules.vtkRenderingFreeType','vtkmodules.vtkInteractionStyle','vtkmodules.vtkInteractionWidgets','vtkmodules.vtkIOImage']
-excluded=['pytest','tkinter','matplotlib','IPython','jupyter','webview','uvicorn','fastapi','starlette','PyQt5','PyQt6','PySide2','PySide6.QtWebEngineCore','PySide6.QtWebEngineWidgets','PySide6.QtWebEngineQuick','PySide6.QtQml','PySide6.QtQuick','PySide6.QtQuickWidgets','PySide6.QtMultimedia','PySide6.QtMultimediaWidgets','PySide6.Qt3DCore','PySide6.QtCharts','PySide6.QtDataVisualization','PySide6.QtPdf','PySide6.QtPdfWidgets','cadstudio.server']
+# The app renders with its own VTK viewport. CadQuery's optional vis helper is
+# never called; it is the only importer of its NURBS helper, which pulls in
+# Numba and the 115 MiB LLVM runtime. Keep CadQuery's assembly solver and
+# CasADi: they are used for real STEP assembly export.
+excluded=['pytest','tkinter','matplotlib','IPython','jupyter','webview','uvicorn','fastapi','starlette','PyQt5','PyQt6','PySide2','PySide6.QtWebEngineCore','PySide6.QtWebEngineWidgets','PySide6.QtWebEngineQuick','PySide6.QtQml','PySide6.QtQuick','PySide6.QtQuickWidgets','PySide6.QtMultimedia','PySide6.QtMultimediaWidgets','PySide6.Qt3DCore','PySide6.QtCharts','PySide6.QtDataVisualization','PySide6.QtPdf','PySide6.QtPdfWidgets','cadstudio.server','cadquery.vis','cadquery.occ_impl.nurbs','numba','llvmlite']
 a=Analysis([str(root/'native_desktop.py')],pathex=[str(root)],binaries=binaries,datas=datas,hiddenimports=hidden,excludes=excluded)
 # Qt on Windows uses the operating system's unversioned ICU exports. Build hosts
 # with Poppler on PATH can otherwise contribute an incompatible ICU 78 DLL.

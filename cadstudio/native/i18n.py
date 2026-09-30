@@ -502,6 +502,46 @@ EN.update({
     'Codex · 연결 대기 · 자동 재시도':'Codex / Waiting for connection / Automatic retry',
 })
 
+EN.update({
+    '전장 회로 · 배선 / 전압강하…':'Electrical circuit / wiring / voltage drop…',
+    '전장 회로 / 배선 설계':'Design electrical circuit / wiring',
+    '전장 · 배선 / 전압강하 검사':'Electrical wiring / voltage drop check',
+    '전장 부품 / 배선 편집':'Edit electrical component / wiring',
+    '회로 이름':'Circuit name',
+    '배터리 / DC 전원':'Battery / DC source',
+    '전선':'Wire','스위치':'Switch','저항':'Resistor',
+    '일반 부하':'Generic load','모터':'Motor','MCU 전원 부하':'MCU power load',
+    '첫 번째 단자 / 노드':'First terminal / node',
+    '두 번째 단자 / 노드':'Second terminal / node',
+    'CAD 부품에 연결하지 않음':'No linked CAD part',
+    '공급 전압':'Supply voltage','배터리 내부저항':'Battery internal resistance',
+    '저항값':'Resistance','정격 전압':'Rated voltage','정격 전류':'Rated current',
+    '명시한 기동 전류 · 0은 미입력':'Entered startup current / 0 = unspecified',
+    '전선 길이':'Wire length','도체 단면적':'Conductor cross section',
+    '도체 저항률':'Conductor resistivity',
+    '닫힌 접점 저항':'Closed contact resistance',
+    '허용 전류 · 0은 미입력':'Maximum current / 0 = unspecified',
+    '스위치 닫힘':'Switch closed',
+    '초기 수치는 가상 예시입니다. 실제 정격·전선 치수로 바꾸세요. 노드 이름은 영문·숫자·_·-만 쓰며 회로 계산은 DC 정상 상태 근사입니다.':'Initial values are illustrative. Replace them with actual ratings and wire dimensions. Node names use letters, digits, _ and -. The circuit calculation is a DC steady-state estimate.',
+    '배터리·전선·모터·MCU의 두 단자를 노드 이름으로 연결합니다. 실제 제품 정격과 전선 치수를 입력하세요.':'Connect battery, wire, motor and MCU terminals by node name. Enter actual product ratings and wire dimensions.',
+    '첫 단자':'Terminal A','둘째 단자':'Terminal B','CAD 부품':'CAD part',
+    '주요 입력':'Key input',
+    '부품 / 전선 추가…':'Add component / wire…',
+    '선택 편집…':'Edit selected…','선택 제거':'Remove selected',
+    '예시 회로 · 가상값':'Example circuit / illustrative values',
+    'GND는 기준 전위입니다. 이름이 다른 단자는 이어지지 않습니다. 적색 경고는 초과·단선·검증 불가를 뜻합니다.':'GND is the voltage reference. Terminals with different node names are not connected. Red warnings indicate exceeded limits, open circuits or unverified results.',
+    '회로 다시 계산':'Recalculate circuit','설계에 저장':'Save to design',
+    '관절 구동 가능 범위 · 실제 형상 표본 검사':'Joint travel range / sampled solid check',
+    '선택 관절 양쪽 한계 검사':'Check both travel limits',
+    '범위 검사 취소':'Cancel range check',
+    '검사할 관절 축을 선택하세요.':'Select a joint axis to check.',
+    '직접 움직일 수 있는 관절 축이 없습니다.':'No directly driven joint axis is available.',
+    '현재 자세가 유효합니다. 선택한 축의 양쪽 한계를 검사할 수 있습니다.':'The current pose is valid. You can check both limits of the selected axis.',
+    '현재 자세를 검사한 뒤 사용 가능합니다.':'Available after checking the current pose.',
+    '선택한 축의 구동 범위는 아직 검사하지 않았습니다.':'This axis travel range has not been checked yet.',
+    '현재 자세부터 입력한 자세까지 최대 2° / 0.5 mm 간격으로 검사합니다. 충돌을 발견하면 적용을 막습니다. 얇은 장애물의 연속 충돌·제작 오차는 별도 검토가 필요합니다.':'Checks samples up to 2° / 0.5 mm apart between the current and requested poses. Detected collisions block application. Continuous motion past thin obstacles and manufacturing tolerances need separate review.',
+})
+
 def translate(text,language):
     if language!='en' or not isinstance(text,str):return text
     if text in EN:return EN[text]

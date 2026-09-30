@@ -58,8 +58,18 @@ def add_gear_pair(raw=None,*,module=2,teeth_a=20,teeth_b=40,thickness=8,backlash
     ids=[p.id for p in parts]
     if set(ids)&{p['id'] for p in data['parts']}:raise ValueError('기어 부품 ID가 중복됩니다.')
     data['parts'].extend(p.model_dump() for p in parts)
-    travel=min(180,(360-abs(phase))/(teeth_a/teeth_b))
-    data['mates'].extend([dict(id=prefix+'drive',kind='revolute',parent=ids[0],child=ids[1],z=length+gap,limits={'rz':[-travel,travel]}),dict(id=prefix+'driven',kind='revolute',parent=ids[0],child=ids[2],x=a,z=length+gap,rz=phase)])
+    # The linked output coordinate is phase - input * teeth_a / teeth_b.
+    # Bound the input by both joints' supported coordinate range. The former
+    # fixed +/-180 degree cap prevented even a clear 1:2 pair from making one
+    # full turn. Unequal ends are useful when the initial tooth phase is not 0.
+    ratio=teeth_a/teeth_b
+    drive_lower=max(-360.,(phase-360.)/ratio)
+    drive_upper=min(360.,(phase+360.)/ratio)
+    # Keep the driven coordinate just inside an output boundary. The linked
+    # floating-point multiply otherwise occasionally produces 360+epsilon.
+    if drive_lower>-360:drive_lower+=1e-9
+    if drive_upper<360:drive_upper-=1e-9
+    data['mates'].extend([dict(id=prefix+'drive',kind='revolute',parent=ids[0],child=ids[1],z=length+gap,limits={'rz':[drive_lower,drive_upper]}),dict(id=prefix+'driven',kind='revolute',parent=ids[0],child=ids[2],x=a,z=length+gap,rz=phase)])
     data.setdefault('motion_links',[]).append(dict(id=prefix+'ratio',driver=prefix+'drive',driven=prefix+'driven',ratio=-teeth_a/teeth_b,offset=phase))
     data.setdefault('part_groups',[]).append(dict(id=prefix+'group',name='스퍼 기어 구동',part_ids=ids))
     return Design.model_validate(data)

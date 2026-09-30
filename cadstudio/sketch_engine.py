@@ -6,8 +6,6 @@ import math
 import os
 from pathlib import Path
 import numpy as np
-from scipy.interpolate import BSpline, make_interp_spline
-from scipy.optimize import least_squares, minimize_scalar
 
 
 def parameter_paths(e):
@@ -37,6 +35,7 @@ def values(e):
 def spline_curve(coordinates,style,closed):
     pts=np.array(coordinates,dtype=float).reshape((-1,2));n=len(pts);degree=min(3,n-1)
     if np.min(np.linalg.norm(np.diff(pts,axis=0),axis=1))<1e-7:raise ValueError('스플라인의 연속 점이 중복됩니다.')
+    from scipy.interpolate import BSpline, make_interp_spline
     if style=='control':
         if closed:
             return BSpline(np.arange(-degree,n+degree+1)/n,np.vstack([pts,pts[:degree]]),degree)
@@ -88,6 +87,7 @@ def nearest_parameter(e,p):
         return t if t<=1 else min((0,1),key=lambda u:np.linalg.norm(curve(e,u)-p))
     samples=np.linspace(0,1,65);i=int(np.argmin([np.linalg.norm(curve(e,u)-p) for u in samples]))
     lo,hi=samples[max(0,i-1)],samples[min(64,i+1)]
+    from scipy.optimize import minimize_scalar
     result=minimize_scalar(lambda t:float(np.sum((curve(e,t)-p)**2)),bounds=(lo,hi),method='bounded',options={'xatol':1e-12})
     return min((lo,hi,result.x),key=lambda t:np.linalg.norm(curve(e,t)-p))
 def cross(a,b):return float(a[0]*b[1]-a[1]*b[0])
@@ -150,6 +150,7 @@ def constraint_residual(c,entities):
             return [(math.hypot(local[0]/b['radius_x'],local[1]/b['radius_y'])-1)*min(b['radius_x'],b['radius_y'])]
         if b['kind']=='spline':
             samples=np.linspace(0,1,33);i=int(np.argmin([np.linalg.norm(curve(b,u)-pa) for u in samples]))
+            from scipy.optimize import minimize_scalar
             nearest=minimize_scalar(lambda u:float(np.sum((curve(b,u)-pa)**2)),bounds=(samples[max(0,i-1)],samples[min(32,i+1)]),method='bounded',options={'xatol':1e-12})
             tangent=curve(b,nearest.x,1);delta=pa-curve(b,nearest.x)
             return [cross(tangent/max(np.linalg.norm(tangent),1e-9),delta)]
@@ -198,6 +199,7 @@ def _solve_entities(entities,constraints):
     maximum=0;rank=0;solved=np.array(original);null=np.eye(len(original));redundant=[]
     if constraints:
         origin=np.array(original)
+        from scipy.optimize import least_squares
         result=least_squares(lambda v:np.r_[residual(v),(v-origin)*1e-7],origin,bounds=(lower,upper),max_nfev=200,ftol=1e-10,xtol=1e-10,gtol=1e-10)
         errors=residual(result.x);maximum=float(np.max(np.abs(errors))) if len(errors) else 0
         blocks=[(c,len(constraint_residual(c,{e['id']:e for e in unpack(result.x)}))) for c in constraints]

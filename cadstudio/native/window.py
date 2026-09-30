@@ -98,6 +98,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
         file.addAction(self.action('print_mode','3D 프린팅 · STL 미리보기…',self.print_mode_dialog,None,'file'))
         file.addAction(self.action('print_profile','3D 프린터 · 전체 여유 / 공차…',self.print_profile_dialog,None,'dimension'));assembly.addAction(self.actions['print_profile'])
         model.addAction(self.action('electronics_mount','전장부품 장착 자리…',self.electronics_mount_dialog,None,'assembly'));assembly.addAction(self.actions['electronics_mount'])
+        engineering.addAction(self.action('electrical','전장 회로 · 배선 / 전압강하…',self.electrical_dialog,None,'assembly'))
+        assembly.addAction(self.actions['electrical'])
         assembly.addAction(self.action('component_specs','제품 스펙 · URL 가져오기…',self.component_specs_dialog,None,'open'))
         self.make_selection_tools(edit,assembly)
         edit.addAction(self.action('configurations','설계 구성표…',self.configuration_dialog,None,'dimension'))
@@ -139,6 +141,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         for kind,title in TITLES.items():menu.addAction(title,lambda k=kind:self.add_preset(k))
         b.setMenu(menu);self.add_part_action=self.toolbar.addWidget(b)
         for key in ('face_joint','drive','joint_hardware','gears','robot','mate'):self.add_mode_tool('assembly',key)
+        self.add_mode_tool('assembly','electrical')
         self.add_mode_tool('assembly','loop');self.add_mode_tool('assembly','robot_study')
         self.add_mode_tool('print','print_mode');self.add_mode_tool('print','print_profile');self.add_mode_tool('print','interference');self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure']);self.toolbar.addAction(self.actions['color']);self.toolbar.addAction(self.actions['parameters']);self.toolbar.addSeparator()
         for key in ('undo','redo','fit'):self.toolbar.addAction(self.actions[key])
@@ -283,6 +286,15 @@ class MainWindow(QMainWindow,PartSelectionUI):
         identifier,face=self.viewport.face
         dialog=ElectronicsMountDialog(self,self.document.design,identifier,face)
         if dialog.exec()==QDialog.DialogCode.Accepted:self.apply_design(dialog.checked.model_dump(),'전장부품 장착 자리',{'tool':'electronics-mount','part_id':identifier,'face':face,'dimensions':dialog.candidate()['spec'],'product_source':dialog.source_record})
+
+    def electrical_dialog(self):
+        if self.busy or self.sketching:return
+        from .electrical_dialog import ElectricalDialog
+        dialog=ElectricalDialog(self,self.document.design)
+        if dialog.exec()==QDialog.DialogCode.Accepted:
+            raw=deepcopy(self.document.design) if self.document.design else Design().model_dump()
+            raw['electrical']=dialog.workspace.model_dump()
+            self.apply_design(raw,'전장 회로 / 배선 편집',{'tool':'electrical','component_ids':[c.id for c in dialog.workspace.components]})
 
     def component_specs_dialog(self):
         from .component_specs_dialog import ComponentSpecsDialog
@@ -654,6 +666,14 @@ class MainWindow(QMainWindow,PartSelectionUI):
             for loop in self.document.design.get('loops',[]):
                 item=QTreeWidgetItem(mates,['폐루프 · '+loop['name']]);item.setData(0,Qt.ItemDataRole.UserRole,('loop',loop['id']))
             mates.setExpanded(True)
+            electrical=self.document.design.get('electrical')
+            if electrical:
+                circuit=QTreeWidgetItem(root,[electrical['name']+f" · 전장 {len(electrical['components'])}개"])
+                circuit.setIcon(0,icon('assembly'));circuit.setData(0,Qt.ItemDataRole.UserRole,('electrical',))
+                for component in electrical['components']:
+                    item=QTreeWidgetItem(circuit,[component['name']+' · '+component['kind']])
+                    item.setData(0,Qt.ItemDataRole.UserRole,('electrical',component['id']))
+                circuit.setExpanded(True)
             studies=QTreeWidgetItem(root,['도면 / 해석']);studies.setExpanded(True)
             for study in self.document.design.get('studies',[]):
                 item=QTreeWidgetItem(studies,[study['name']]);item.setData(0,Qt.ItemDataRole.UserRole,('study',study['id'],study['kind']))
@@ -670,6 +690,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         elif data[0]=='mate':self.show_mate(data[1])
         elif data[0]=='loop':self.show_loop(data[1])
         elif data[0]=='study':self.show_study(data[1],data[2])
+        elif data[0]=='electrical':self.message('전장 회로를 더블클릭하면 배선과 전압강하를 확인할 수 있습니다.')
         elif data[0]=='plane':self.plane.setCurrentIndex(self.plane.findData(data[1]));self.message(data[1]+' 평면 선택 · 스케치 작성 버튼을 누르세요.')
     def tree_edit(self,item,column):
         data=item.data(0,Qt.ItemDataRole.UserRole)
@@ -681,6 +702,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         elif data[0]=='mate':self.mate_dialog(data[1])
         elif data[0]=='loop':self.closure_dialog(data[1])
         elif data[0]=='study' and data[2] in ('robot','tensile','drawing','fit'):self.study_dialog(data[2],data[1])
+        elif data[0]=='electrical':self.electrical_dialog()
         elif data[0]=='base' and self.part()['geometry']['kind'] in ('sweep','loft'):self.modelling_dialog(self.part()['geometry']['kind'],part_id=data[1])
     def select_part(self,identifier):
         self.select_clicked_parts([identifier] if identifier else [])
@@ -719,12 +741,15 @@ class MainWindow(QMainWindow,PartSelectionUI):
         clear_layout(self.property_layout);part=self.part()
         if len(self.selected_parts)>1:self.selection_properties();return
         if not part:
-            self.property_layout.addWidget(label('사람이 설계하고, 필요할 때 AI를 사용하세요.'));self.property_layout.addWidget(label('① 기준 평면 선택\n② 스케치 작성\n③ 닫힌 영역 돌출\n④ 면 선택 → 스케치 → 구멍 / 돌출',True));self.property_layout.addWidget(button('XY 평면에 스케치',lambda:self.start_sketch('XY'),True));self.property_layout.addWidget(button('시편 치수 설계',self.specimen_dialog));self.property_layout.addWidget(button('로봇 조립 설계',self.robot_dialog));self.property_layout.addStretch();return
+            self.property_layout.addWidget(label('사람이 설계하고, 필요할 때 AI를 사용하세요.'));self.property_layout.addWidget(label('① 기준 평면 선택\n② 스케치 작성\n③ 닫힌 영역 돌출\n④ 면 선택 → 스케치 → 구멍 / 돌출',True));self.property_layout.addWidget(button('XY 평면에 스케치',lambda:self.start_sketch('XY'),True));self.property_layout.addWidget(button('시편 치수 설계',self.specimen_dialog));self.property_layout.addWidget(button('로봇 조립 설계',self.robot_dialog));self.property_layout.addWidget(button('전장 회로 / 배선 설계',self.electrical_dialog));self.property_layout.addStretch();return
         heading=label(part['name'],user_text=True);heading.setStyleSheet('font-size:17px;font-weight:600;');self.property_layout.addWidget(heading);form=QFormLayout();name=QLineEdit(part['name']);name.setObjectName('partName');form.addRow('부품 이름',name);inputs={};g=part['geometry'];changed_dimensions=set()
         self.property_layout.addWidget(button('부품 이름 변경 · F2',self.rename_part))
         group=next((g for g in self.document.design.get('part_groups',[]) if part['id'] in g['part_ids']),None)
         self.property_layout.addWidget(button('선택 부품만 보기 / 돌아오기',self.isolate_parts))
         self.property_layout.addWidget(button('이 부품 STEP / STL 내보내기',self.export_selected_parts))
+        electrical=(self.document.design.get('electrical') or {}).get('components',[])
+        linked=[c['name'] for c in electrical if c.get('part_id')==part['id']]
+        if linked:self.property_layout.addWidget(button('전장 연결 · '+', '.join(linked[:2]),self.electrical_dialog))
         if group:
             self.property_layout.addWidget(button(group['name']+' · 그룹 전체 선택',lambda:self.select_parts(group['part_ids'])))
             self.property_layout.addWidget(button('그룹 해제 · Ctrl+Shift+G',self.ungroup_parts))

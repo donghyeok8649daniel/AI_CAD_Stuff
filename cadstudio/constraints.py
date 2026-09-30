@@ -2,8 +2,6 @@
 from __future__ import annotations
 import math
 import numpy as np
-from scipy.optimize import least_squares
-from scipy.spatial.transform import Rotation
 
 
 def solve_sketch(points, constraints):
@@ -37,6 +35,7 @@ def solve_sketch(points, constraints):
         return original.reshape((-1,2)).tolist(), {"dof":2*count,"rank":0,"max_error":0,"constraints":0}
     def objective(values):
         return np.concatenate((residual(values), (values-original)*1e-7))
+    from scipy.optimize import least_squares
     result = least_squares(objective, original, bounds=(-1000,1000), max_nfev=250, ftol=1e-11, xtol=1e-11, gtol=1e-11)
     errors = residual(result.x)
     maximum = float(np.max(np.abs(errors)))
@@ -67,6 +66,7 @@ def anchors(geometry):
 
 
 def transform_matrix(t):
+    from scipy.spatial.transform import Rotation
     return Rotation.from_euler("xyz",[t.rx,t.ry,t.rz],degrees=True).as_matrix()
 
 
@@ -93,6 +93,7 @@ def solve_assembly(design,solve_loops=True):
             pa,ca=anchors(parent.geometry),anchors(child.geometry)
             if mate.parent_anchor not in pa or mate.child_anchor not in ca:
                 raise ValueError("조립 구속의 기준점이 현재 형상에 없습니다.")
+            from scipy.spatial.transform import Rotation
             parent_rotation=transform_matrix(parent.transform)
             relative=Rotation.from_euler("xyz",[mate.rx,mate.ry,mate.rz],degrees=True).as_matrix()
             parent_pos=np.array([parent.transform.x,parent.transform.y,parent.transform.z])
