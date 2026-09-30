@@ -8,6 +8,7 @@ The native Windows package uses unmodified upstream libraries. The portable layo
 - **cadquery-ocp 7.9.3.1.1**, Apache-2.0 Python bindings. [Source and build tooling](https://github.com/CadQuery/OCP).
 - **Open CASCADE Technology 7.9.3**, LGPL-2.1 with the OCCT exception. Shared libraries are in `_internal/cadquery_ocp.libs`. Notices in `licenses/OCCT-*`. [Corresponding source](https://github.com/Open-Cascade-SAS/OCCT/tree/V7_9_3).
 - **PyInstaller 6.22.3**, GPL with bootloader exception. Python, NumPy, SciPy, Pydantic, HTTPX, OpenAI SDK and dependencies retain upstream notices in `licenses/`.
+- **pypdf 6.19.0**, BSD-3-Clause, for bounded PDF reference text extraction. Notice in `licenses/pypdf-LICENSE.txt`. [Source](https://github.com/py-pdf/pypdf).
 
 `requirements-lock.txt` and `licenses/distribution-versions.txt` record the complete build environment, including packages not bundled in the native executable. The license collection also retains notices from the legacy web development environment.
 

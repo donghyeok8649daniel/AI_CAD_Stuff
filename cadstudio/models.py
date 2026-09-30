@@ -889,6 +889,16 @@ class Project(StrictModel):
         return self
 
 
+class ReferenceMaterial(StrictModel):
+    name: str = Field(min_length=1, max_length=240)
+    source: str = Field(min_length=1, max_length=1500)
+    revision: str = Field(default='', max_length=80)
+    sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    text: str = Field(min_length=1, max_length=20000)
+    truncated: bool = False
+    note: str = Field(default='', max_length=500)
+
+
 class DraftRequest(StrictModel):
     prompt: str = Field(min_length=1, max_length=4000)
     mode: Literal["specimen", "robot"] = "specimen"
@@ -897,6 +907,13 @@ class DraftRequest(StrictModel):
     selected_part: str | None = Field(default=None, max_length=40)
     selected_feature: str | None = Field(default=None, max_length=40)
     selected_joint: str | None = Field(default=None, max_length=40)
+    references: list[ReferenceMaterial] = Field(default_factory=list, max_length=8)
+
+    @model_validator(mode='after')
+    def reference_budget(self):
+        if sum(len(r.text) for r in self.references)>60000:
+            raise ValueError('참고자료는 합계 60,000자 이하여야 합니다. 필요한 문서를 선택하세요.')
+        return self
 
 
 GEOMETRY_TYPES = {c.model_fields["kind"].default: c for c in (RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, SpurGear, Extrusion, SweepGeometry, LoftGeometry)}

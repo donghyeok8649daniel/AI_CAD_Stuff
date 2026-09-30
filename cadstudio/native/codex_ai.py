@@ -19,7 +19,8 @@ def generate(request, model, *, executable='', control=None, progress=None, dead
     if deadline is not None and (not isinstance(deadline, (int, float)) or not math.isfinite(deadline) or deadline <= 0):
         raise ValueError('대기 시간은 양수 또는 무제한이어야 합니다.')
     async def run():
-        async with session_factory(executable) as session:
+        from .codex_reconnect import RecoveringSession
+        async with RecoveringSession(session_factory,executable,control,progress) as session:
             await session.account()
             available = {item['model']: item for item in await session.models()}
             if model not in available:

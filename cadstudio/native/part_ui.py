@@ -3,7 +3,7 @@ import json
 from copy import deepcopy
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor,QAction
-from PySide6.QtWidgets import QApplication,QAbstractItemView,QToolBar,QMenu,QTreeWidgetItemIterator,QLineEdit,QColorDialog
+from PySide6.QtWidgets import QApplication,QAbstractItemView,QToolBar,QMenu,QTreeWidgetItemIterator,QLineEdit,QColorDialog,QInputDialog
 from ..part_operations import group_parts,ungroup_parts,part_clipboard,paste_parts,delete_parts
 from .widgets import label,button,clear_layout
 from . import clipboard
@@ -16,6 +16,7 @@ CLIPBOARD_LIMIT=32_000_000
 class PartSelectionUI(PartInspectionUI):
     def make_selection_tools(self,edit,assembly):
         edit.addAction(self.action('move_parts','이동 / 회전 · M',self.move_parts))
+        edit.addAction(self.action('rename_part','부품 이름 변경 · F2',self.rename_part))
         for key,title,fn in [('copy','복사 · Ctrl+C',self.copy_parts),('cut','잘라내기 · Ctrl+X',self.cut_parts),('paste','붙여넣기 · Ctrl+V',self.paste_parts),('select_all','모든 부품 선택 · Ctrl+A',self.select_all_parts),('group','그룹 · Ctrl+G',self.group_parts),('ungroup','그룹 해제 · Ctrl+Shift+G',self.ungroup_parts)]:
             edit.addAction(self.action(key,title,fn))
         assembly.addAction(self.action('joints','관절 표시 · J',self.toggle_joints));self.actions['joints'].setCheckable(True)
@@ -68,11 +69,29 @@ class PartSelectionUI(PartInspectionUI):
 
     def selection_menu(self,pos,widget=None):
         menu=QMenu(self)
-        for key in ('orbit','isolate','show_all','explode','export_parts','move_parts','copy','cut','paste','group','ungroup','group_select','color','delete'):menu.addAction(self.actions[key])
+        for key in ('orbit','isolate','show_all','explode','export_parts','rename_part','move_parts','copy','cut','paste','group','ungroup','group_select','color','delete'):menu.addAction(self.actions[key])
         menu.exec((widget or self.tree).mapToGlobal(pos))
 
     def selected_ids(self):
         return [p['id'] for p in (self.document.design or {}).get('parts',[]) if p['id'] in self.selected_parts]
+
+    def rename_part(self):
+        if self.busy or self.sketching:return
+        parts=[p for p in (self.document.design or {}).get('parts',[]) if p['id'] in self.selected_ids()]
+        if not parts:self.message('이름을 바꿀 부품을 선택하세요.');return
+        target=parts[0]
+        if len(parts)>1:
+            choices=[p['name']+'  ['+p['id']+']' for p in parts]
+            chosen,ok=QInputDialog.getItem(self,'부품 이름 변경','이름을 바꿀 개별 부품',choices,0,False)
+            if not ok:return
+            target=parts[choices.index(chosen)]
+        value,ok=QInputDialog.getText(self,'부품 이름 변경','새 부품 이름 · 최대 80자',QLineEdit.EchoMode.Normal,target['name'])
+        if not ok:return
+        value=value.strip()
+        if not value or len(value)>80 or any(ord(c)<32 for c in value):self.show_error('부품 이름은 줄바꿈 없이 1~80자로 입력하세요.');return
+        if value==target['name']:return
+        data=deepcopy(self.document.design);part=next(p for p in data['parts'] if p['id']==target['id']);part['name']=value
+        self.apply_design(data,'부품 이름 변경',{'tool':'rename','part_id':target['id'],'old_name':target['name'],'new_name':value})
 
     def move_parts(self):
         if self.busy or self.sketching:return

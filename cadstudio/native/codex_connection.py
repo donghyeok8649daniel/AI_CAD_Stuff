@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 from .local_ai import DraftControl
 from .. import __version__
+from .codex_reconnect import ConnectionInterrupted,classified_error
 
 INSTALL_URL = 'https://learn.chatgpt.com/docs/codex/cli'
 IDENTIFIER = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}')
@@ -171,18 +172,19 @@ class CodexSession:
             raise
 
     async def send(self, value):
-        if self.process.returncode is not None: raise ValueError('Codex 연결이 종료되었습니다. 연결 창에서 다시 확인하세요.')
+        if self.process.returncode is not None: raise ConnectionInterrupted('Codex 연결이 종료되었습니다. 다시 연결합니다.')
         self.process.stdin.write((json.dumps(value, ensure_ascii=False) + '\n').encode('utf-8'))
         await self.process.stdin.drain()
 
     async def _read(self):
+        failure=None
         try:
             while line := await self.process.stdout.readline():
                 packet = json.loads(line)
                 if 'id' in packet and 'method' not in packet:
                     future = self.pending.pop(packet['id'], None)
                     if future and not future.done():
-                        if 'error' in packet: future.set_exception(ValueError(safe_error(packet['error'])))
+                        if 'error' in packet: future.set_exception(classified_error(packet['error']))
                         else: future.set_result(packet.get('result', {}))
                 elif 'id' in packet:
                     # This integration only consumes declarative CAD plans.
@@ -194,13 +196,13 @@ class CodexSession:
         except asyncio.CancelledError:
             return
         except Exception:
-            pass
+            failure=ValueError('Codex 응답 형식을 읽지 못했습니다. CLI를 업데이트하고 다시 연결하세요.')
         finally:
-            error = ValueError('Codex 연결이 종료되었거나 응답 형식이 올바르지 않습니다. CLI를 업데이트하고 다시 연결하세요.')
+            error = failure or ConnectionInterrupted('Codex 연결이 끊겼습니다. 다시 연결합니다.')
             for future in self.pending.values():
                 if not future.done(): future.set_exception(error)
             self.pending.clear()
-            if not self.events.full(): self.events.put_nowait({'method': '_closed'})
+            if not self.events.full(): self.events.put_nowait({'method': '_closed','error':error})
 
     async def rpc(self, method, params, timeout=30):
         self.serial += 1; identifier = self.serial
@@ -213,7 +215,7 @@ class CodexSession:
 
     async def event(self):
         item = await self.events.get()
-        if item['method'] == '_closed': raise ValueError('Codex 연결이 끊겼습니다. 현재 설계는 변경되지 않았습니다.')
+        if item['method'] == '_closed': raise item.get('error',ConnectionInterrupted('Codex 연결이 끊겼습니다.'))
         return item
 
     async def account(self):
@@ -290,11 +292,12 @@ class CodexSession:
                 turn = params.get('turn', {})
                 if turn.get('id') != self.active_turn: continue
                 self.active_turn = None
-                if turn.get('status') != 'completed': raise ValueError(safe_error(turn.get('error', {})))
+                if turn.get('status') != 'completed': raise classified_error(turn.get('error', {}))
                 if not final: raise ValueError('Codex가 CAD 작업 계획을 반환하지 않았습니다. 요청을 다시 확인하세요.')
                 return final
-            elif method == 'error' and not params.get('willRetry', False):
-                raise ValueError(safe_error(params))
+            elif method == 'error':
+                if params.get('willRetry', False):progress('Codex 연결 대기 · 서버 자동 재연결 중 · 취소 가능')
+                else:raise classified_error(params)
 
     async def __aexit__(self, *args):
         if self.process:

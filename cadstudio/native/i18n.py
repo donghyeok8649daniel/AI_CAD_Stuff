@@ -468,9 +468,44 @@ EN.update({
     '삽입 지름 여유 · 플랜지/칼라 − 축':'Insertion fit / flange/collar minus shaft',
 })
 
+EN.update({
+    '연구 저장소 · AI 참고자료…':'Research repository / AI references…',
+    '연구 저장소 · AI 참고자료':'Research repository / AI references',
+    'GitHub 연구자료 · 파일 첨부…':'GitHub research / Attach files…',
+    '참고자료 없음':'No reference materials',
+    'GitHub 연구 저장소':'GitHub research repository',
+    '로컬 파일 첨부':'Local files',
+    '저장소':'Repository','브랜치 / 태그':'Branch / tag','GitHub 토큰':'GitHub token',
+    '비워 두면 기본 브랜치':'Leave blank for the default branch',
+    '비공개 저장소: Contents 읽기 토큰 · 이번 실행 동안만 사용':'Private repository: Contents read token / this session only',
+    '연결 · 문서 목록 새로고침':'Connect / Refresh documents',
+    '기존 Git 로그인 사용':'Use existing Git sign-in',
+    '읽기 토큰 발급 ↗':'Create read token ↗',
+    '문서 경로 검색 · 예: README, specimen, material':'Filter document paths: README, specimen, material',
+    '선택 문서를 참고자료에 추가':'Add selected documents',
+    '저장소 연결 해제':'Disconnect repository',
+    '파일 선택…':'Choose files…','선택 자료 삭제':'Remove selected reference',
+    '자료 모두 비우기':'Clear references','자료 사용':'Use references','조회 취소':'Cancel lookup',
+    '연구 저장소에서 필요한 문서를 선택하세요. 첨부 내용은 다음 설계·질문과 함께 선택한 AI 서비스로 전송됩니다.':'Select documents from your research repository. Attached content is sent to the selected AI service with your next design or question.',
+    '공개 저장소는 토큰 없이 연결합니다. 비공개 저장소는 해당 저장소의 Contents: Read 권한만 필요합니다. 저장소를 변경하거나 코드를 실행하지 않습니다.':'Public repositories need no token. Private repositories need Contents: Read permission. Repositories are never modified and code is never executed.',
+    'PDF·TXT·MD·CSV·JSON·YAML·TOML·텍스트 코드 파일을 첨부할 수 있습니다. PDF는 텍스트만 읽으며 스캔·도면·그림은 해석하지 않습니다.':'Attach PDF, TXT, MD, CSV, JSON, YAML, TOML or text source code. PDF text only; scans, drawings and images are not interpreted.',
+    'AI가 읽을 자료 · 최대 8개 / 합계 60,000자 · 파일당 앞부분 20,000자':'AI references / up to 8 files, 60,000 characters total, first 20,000 characters per file',
+    '자료를 선택하면 실제로 전달할 내용과 출처를 확인할 수 있습니다.':'Select a reference to preview its source and the exact content to be sent.',
+    '첨부 본문과 토큰은 프로젝트·설정에 저장하지 않습니다. 앱 재시작이나 새 설계에서는 자료를 다시 선택하세요. 연결 주소와 브랜치만 기억합니다.':'Reference bodies and tokens are not saved in projects or settings. Reattach after restart or a new document. Only repository address and branch are remembered.',
+    '부품 이름 변경 · F2':'Rename part / F2','부품 이름 변경':'Rename part',
+    '이름을 바꿀 개별 부품':'Choose the individual part to rename','새 부품 이름 · 최대 80자':'New part name / up to 80 characters',
+    '부품 / 기능 검색…':'Find parts / commands…','부품 / 기능 검색 · Ctrl+F':'Find parts / commands / Ctrl+F',
+    '부품 이름, 구멍, 측정, fillet…':'Part name, hole, measure, fillet…',
+    '기능 / 명령':'Commands','전체':'All',
+    '↑↓로 선택 · Enter: 부품/피처 선택 또는 기능 실행 · Esc: 닫기':'Up/Down: select / Enter: select object or run command / Esc: close',
+    'AI 설계 완료 알림':'AI design completion notifications',
+    'Codex · 연결 대기 · 자동 재시도':'Codex / Waiting for connection / Automatic retry',
+})
+
 def translate(text,language):
     if language!='en' or not isinstance(text,str):return text
     if text in EN:return EN[text]
+    if text.startswith('참고자료 ') and 'AI에 전송' in text:return text.replace('참고자료 ','References: ').replace('개',' files').replace('자',' characters').replace('AI에 전송','sent to AI')
     if '\n' in text:return '\n'.join(translate(line,language) for line in text.split('\n'))
     if text.startswith('Codex ') and ('남음' in text or '한도' in text or '잔여량 확인 불가' in text):
         return text.replace('주간','weekly').replace('시간',' hours').replace('분',' minutes').replace('기타 한도','other limit').replace('% 남음','% remaining').replace('초기화','resets').replace('잔여량 확인 불가','remaining usage unavailable')

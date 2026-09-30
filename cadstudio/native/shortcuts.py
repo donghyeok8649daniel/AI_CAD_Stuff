@@ -28,6 +28,7 @@ class ShortcutRouter(QObject):
         if mods==Qt.KeyboardModifier.ControlModifier and key==Qt.Key.Key_D:w.duplicate_part();return True
         if mods==Qt.KeyboardModifier.ShiftModifier and key==Qt.Key.Key_E:w.edit_sketch();return True
         if mods!=Qt.KeyboardModifier.NoModifier:return False
+        if key==Qt.Key.Key_F2:w.rename_part();return True
         if key in (Qt.Key.Key_B,Qt.Key.Key_J):w.actions['box_select' if key==Qt.Key.Key_B else 'joints'].trigger();return True
         if key==Qt.Key.Key_Escape:
             w.return_to_orbit();return True

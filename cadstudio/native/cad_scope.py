@@ -39,8 +39,9 @@ def scope_schema():
 
 
 def scope_messages(request):
-    return [dict(role='system', content=SYSTEM+'\n'+PHYSICAL_ASSEMBLY_GUIDANCE), dict(role='user', content=json.dumps(
-        dict(prompt=request.prompt, selected_part=request.selected_part, selected_feature=request.selected_feature, selected_joint=request.selected_joint, current_design=context(request.current)),
+    from ..references import GUIDANCE,reference_payload
+    return [dict(role='system', content=SYSTEM+'\n'+PHYSICAL_ASSEMBLY_GUIDANCE+'\n'+GUIDANCE), dict(role='user', content=json.dumps(
+        dict(prompt=request.prompt, selected_part=request.selected_part, selected_feature=request.selected_feature, selected_joint=request.selected_joint, current_design=context(request.current),reference_materials=reference_payload(request)),
         ensure_ascii=False, separators=(',', ':')))]
 
 
@@ -130,6 +131,8 @@ class Scope:
             keep.append(line)
         result = messages(request)
         result[0]['content'] = '\n'.join(keep) + '\n'+PHYSICAL_ASSEMBLY_GUIDANCE+'\nThe tools listed here are AVAILABLE, not a required sequence. Use only operations needed for the ORIGINAL request; do not use every tool just because it is listed.'
+        from ..references import GUIDANCE
+        result[0]['content'] += '\n'+GUIDANCE
         if self.new_parts:
             result[0]['content'] += '\nNEW PART IDs: '+json.dumps(self.new_parts)+'. Create every listed part using EXACTLY its declared target ID. Reuse that ID for holes, features, appearance and joints. Synonyms belong only in the display name, never in target IDs.'
         if self.connections:

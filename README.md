@@ -1,3 +1,5 @@
+**2.13.0:** GitHub 연구 저장소·로컬 문서를 AI 참고자료로 연결, Codex 통신 단절 후 자동 재연결, F2 부품 이름 변경, Ctrl+F 부품/기능 검색, AI 설계 완료 알림. [사용법 / 한계](docs/RESEARCH_REFERENCES_KO.md) · [English](docs/RESEARCH_REFERENCES_EN.md).
+
 **2.12.0:** Codex/Ollama 무제한 검증 수정·취소 후 초안 보존, Codex 주간 사용량, 부품 역할 기본색, 원통 가이드 슬라이더, 피로시험 조건/측정 양식 내보내기. [사용법](docs/RESEARCH_AI_KO.md).
 
 **2.11.1:** 간섭이 남은 AI 초안을 미리보기로 보존하고 실제 겹침 좌표로 수정 계속. 기본 시편 원점·기울어진 회전축 안내와 조립 계획 용량 개선. [AI 간섭 수정 사용법](docs/AI_REPAIR_KO.md).
@@ -12,7 +14,7 @@
 
 **2.8.0:** 선택 해제·회전, 클릭 가능한 XYZ 축, 실제 관절 구조, AI 커스텀 조립, 선택만/분해 보기와 부품별 STEP·STL 출력. [사용 방법](docs/ASSEMBLY_PARTS_KO.md)
 
-# Prompt CAD Studio · Native 2.12.0
+# Prompt CAD Studio · Native 2.13.0
 
 **v2.7.0 — Codex · ChatGPT 구독 모드:** 기존 Codex 로그인으로 설계 요청을 실행합니다. AI 패널에서 Codex 선택 → Codex 연결 → 기존 로그인 사용 → 모델 선택. API 키가 필요하지 않으며 Codex 구독 사용량이 적용됩니다. [연결 방법과 한계](docs/CODEX_MODE_KO.md).
 

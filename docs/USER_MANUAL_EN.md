@@ -1,3 +1,11 @@
+# 2.13.0 update
+
+The AI panel's research references dialog connects a GitHub repository, previews selected documents, and attaches them to design or Q&A requests. Local PDF/text attachments are supported. Codex retries transient disconnections with cancellable backoff and retains the interrupted request and validation context.
+
+**F2** renames a part. **Ctrl+F** searches parts, features, groups, sketches, joints and commands. **View → AI design completion notifications** toggles Windows notifications (on by default).
+
+[Connection instructions, reading limits and reconnect behavior](RESEARCH_REFERENCES_EN.md)
+
 [2.12.0 · AI / usage / roles / research](RESEARCH_AI_EN.md)
 
 # 2.11.0 update
