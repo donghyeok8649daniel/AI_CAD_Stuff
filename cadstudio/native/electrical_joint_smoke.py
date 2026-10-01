@@ -6,11 +6,13 @@ import traceback
 
 from PySide6.QtCore import QThreadPool
 from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QDialog
 
 
 def run(app, window, path):
     from .document import read_project
-    from .electrical_dialog import ElectricalDialog
+    from .electrical_dialog import CatalogDialog, ComponentDialog, ElectricalDialog
+    from ..electrical_catalog import get_catalog_entry
     from .workflows import JointDriveDialog
     from ..gears import add_gear_pair
     from ..models import Design
@@ -63,6 +65,69 @@ def run(app, window, path):
         reopened = read_project(target)
         check(reopened.design.electrical.components[3].kind == 'motor',
               'motor and wiring survive project save and reload')
+
+        fault = ElectricalDialog(window, None)
+        dialogs.append(fault)
+        fault.show()
+        fault.components = [
+            dict(id='fault-source', name='5 V source', kind='battery', a='VPLUS', b='GND', voltage_v=5),
+            dict(id='fault-lead', name='VCC lead', kind='wire', a='VPLUS', b='MCU_VCC',
+                 length_mm=100, cross_section_mm2=.5, closed=False),
+            dict(id='fault-mcu', name='controller', kind='mcu', a='MCU_VCC', b='GND',
+                 rated_voltage_v=5, rated_current_a=.1, signal_pins={'GPIO1': 'SIGNAL'}),
+            dict(id='fault-signal', name='GPIO lead', kind='wire', a='SIGNAL', b='LOAD_SIGNAL',
+                 length_mm=100, cross_section_mm2=.5, closed=False),
+            dict(id='fault-receiver', name='sensor input model', kind='resistor',
+                 a='LOAD_SIGNAL', b='GND', resistance_ohm=1000),
+        ]
+        fault.refresh(); fault.calculate()
+        report_text = fault.report.toPlainText()
+        check('FAIL · VCC lead: 전선 단선' in report_text and 'FAIL · GPIO lead: 전선 단선' in report_text,
+              'native report identifies both named broken wires')
+        check('FAIL · controller: VCC → DC 전원 양극 경로' in report_text,
+              'native report identifies missing MCU supply path')
+        check('PASS · controller: GND/리턴 → DC 전원 음극 경로' in report_text,
+              'native report distinguishes connected MCU return path')
+        check('FAIL · controller GPIO1 (SIGNAL)' in report_text,
+              'native report identifies open MCU signal path')
+        fault.components[1]['closed'] = True
+        fault.components[3]['closed'] = True
+        fault.refresh(); fault.calculate()
+        report_text = fault.report.toPlainText()
+        check('PASS · controller: VCC → DC 전원 양극 경로' in report_text and
+              'PASS · controller GPIO1 (SIGNAL)' in report_text,
+              'native report changes to connected after both leads are repaired')
+        fault.grab().save(str(path.with_name('electrical-fault2141.png')))
+
+        catalog = CatalogDialog(window, 'Raspberry Pi 4')
+        dialogs.append(catalog)
+        catalog.show()
+        check(catalog.entries and catalog.entries[0].catalog_id == 'rpi4b' and
+              catalog.use_button.isEnabled() and catalog.open_button.isEnabled(),
+              'native catalog finds the exact Raspberry Pi 4 and its official source')
+        catalog.grab().save(str(path.with_name('electrical-catalog2141.png')))
+        catalog.query.setText('STM32 Nucleo')
+        catalog.search()
+        check(catalog.entries and catalog.entries[0].reference_only and
+              not catalog.use_button.isEnabled() and catalog.open_button.isEnabled(),
+              'native catalog keeps the unidentified STM32 family reference-only')
+
+        original_exec = CatalogDialog.exec
+        def choose_pi(self):
+            self.entry = get_catalog_entry('rpi4b')
+            return QDialog.DialogCode.Accepted
+        try:
+            CatalogDialog.exec = choose_pi
+            selected = ComponentDialog(window, [])
+            dialogs.append(selected)
+            selected.select_catalog()
+            candidate = selected.candidate()
+        finally:
+            CatalogDialog.exec = original_exec
+        check(candidate['kind'] == 'mcu' and candidate['catalog_id'] == 'rpi4b' and
+              candidate['rated_voltage_v'] == 5 and candidate['rated_current_a'] == 0 and
+              candidate['source_url'].startswith('https://www.raspberrypi.com/'),
+              'exact-model prefill keeps the documented voltage without inventing current')
 
         gears = add_gear_pair(prefix='native2140-').model_dump()
         gears['mates'][0]['limits'] = {'rz': [-4, 4]}

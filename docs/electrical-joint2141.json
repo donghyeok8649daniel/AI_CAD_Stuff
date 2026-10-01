@@ -1,0 +1,28 @@
+{
+  "checks": [
+    "starts with a blank design",
+    "electrical command is in native menu",
+    "example contains a battery, switch, wire, and motor",
+    "explicit startup current is checked separately",
+    "DC report presents measured dimensions and results",
+    "example nodes are valid identifiers",
+    "electrical workbench is committed to the CAD document",
+    "motor and wiring survive project save and reload",
+    "native report identifies both named broken wires",
+    "native report identifies missing MCU supply path",
+    "native report distinguishes connected MCU return path",
+    "native report identifies open MCU signal path",
+    "native report changes to connected after both leads are repaired",
+    "native catalog finds the exact Raspberry Pi 4 and its official source",
+    "native catalog keeps the unidentified STM32 family reference-only",
+    "exact-model prefill keeps the documented voltage without inventing current",
+    "changing mechanical geometry preserves electrical workspace",
+    "joint drive offers a motion-range control",
+    "both travel directions show sampled geometric clearance",
+    "travel result discloses sampling and safety limit",
+    "rendered joint solids are captured from the real VTK viewport",
+    "read-only range survey preserves document and joint limits"
+  ],
+  "live_ai_calls": 0,
+  "success": true
+}

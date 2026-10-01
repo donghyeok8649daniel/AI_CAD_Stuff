@@ -126,12 +126,14 @@ def test_invalid_netlists_are_rejected_before_a_study(bad):
         ElectricalWorkspace.model_validate(bad)
 
 
-def test_floating_active_branch_and_conflicting_ideal_sources_fail_clearly():
+def test_floating_passive_branch_warns_without_inventing_a_node_voltage_and_conflicting_sources_fail():
     floating = dict(nodes=["GND", "A", "B"], components=[
         dict(id="r", name="floating", kind="resistor", a="A", b="B", resistance_ohm=10),
     ])
-    with pytest.raises(ValueError, match="GND"):
-        evaluate_electrical(floating)
+    result = evaluate_electrical(floating)
+    assert result.node_voltages_v == {"GND": 0}
+    assert branch(result, "r").current_a == 0
+    assert any("무전원 회로" in warning and "GND" in warning for warning in result.warnings)
     conflicting = dict(nodes=["GND", "A"], components=[
         dict(id="b1", name="b1", kind="battery", a="A", b="GND", voltage_v=5),
         dict(id="b2", name="b2", kind="battery", a="A", b="GND", voltage_v=9),
@@ -148,3 +150,145 @@ def test_unpowered_load_is_explicitly_unverified():
     ]))
     assert result.node_voltages_v['LOAD'] == 0
     assert any('전원이 없어' in warning for warning in result.warnings)
+
+
+def test_open_series_wire_reports_unpowered_mcu_supply_and_no_false_current():
+    result = evaluate_electrical(dict(nodes=["GND", "BAT", "VCC"], components=[
+        dict(id="battery", name="Cell", kind="battery", a="BAT", b="GND", voltage_v=5),
+        dict(id="wire", name="Power lead", kind="wire", a="BAT", b="VCC", closed=False,
+             length_mm=100, cross_section_mm2=.5),
+        dict(id="mcu", name="Controller", kind="mcu", a="VCC", b="GND",
+             rated_voltage_v=5, rated_current_a=.1),
+    ]))
+    assert branch(result, "wire").current_a == 0
+    assert branch(result, "wire").voltage_drop_v == pytest.approx(5)
+    assert branch(result, "mcu").current_a == 0
+    assert branch(result, "mcu").supply_connected is False
+    assert branch(result, "mcu").return_connected is True
+    assert any("Power lead" in warning and "단선" in warning for warning in result.warnings)
+    assert any("Controller" in warning and "VCC" in warning for warning in result.warnings)
+
+
+def test_disconnected_mcu_return_warns_even_when_the_solver_sees_both_nodes():
+    result = evaluate_electrical(dict(nodes=["GND", "BAT", "RET"], components=[
+        dict(id="battery", name="Cell", kind="battery", a="BAT", b="GND", voltage_v=5),
+        dict(id="mcu", name="Controller", kind="mcu", a="BAT", b="RET",
+             rated_voltage_v=5, rated_current_a=.1),
+        dict(id="return", name="Return lead", kind="wire", a="RET", b="GND", closed=False,
+             length_mm=100, cross_section_mm2=.5),
+    ]))
+    assert result.node_voltages_v["RET"] == pytest.approx(5)
+    assert branch(result, "mcu").voltage_drop_v == pytest.approx(0)
+    assert branch(result, "mcu").current_a == pytest.approx(0)
+    assert branch(result, "mcu").supply_connected is True
+    assert branch(result, "mcu").return_connected is False
+    assert any("Controller" in warning and "리턴" in warning for warning in result.warnings)
+
+
+def test_parallel_mcu_branch_stays_powered_when_another_branch_wire_breaks():
+    result = evaluate_electrical(dict(nodes=["GND", "BAT", "VCC2"], components=[
+        dict(id="battery", name="Cell", kind="battery", a="BAT", b="GND", voltage_v=5),
+        dict(id="healthy", name="Healthy MCU", kind="mcu", a="BAT", b="GND",
+             rated_voltage_v=5, rated_current_a=.1),
+        dict(id="lead", name="Broken lead", kind="wire", a="BAT", b="VCC2", closed=False,
+             length_mm=100, cross_section_mm2=.5),
+        dict(id="lost", name="Isolated MCU", kind="mcu", a="VCC2", b="GND",
+             rated_voltage_v=5, rated_current_a=.1),
+    ]))
+    assert branch(result, "healthy").current_a == pytest.approx(.1)
+    assert branch(result, "battery").current_a == pytest.approx(.1)
+    assert branch(result, "healthy").supply_connected is True
+    assert branch(result, "healthy").return_connected is True
+    assert branch(result, "lost").current_a == 0
+    assert branch(result, "lost").supply_connected is False
+
+
+def test_unpowered_mcu_and_open_battery_output_are_explicit():
+    no_source = evaluate_electrical(dict(nodes=["GND", "VCC"], components=[
+        dict(id="mcu", name="Board", kind="mcu", a="VCC", b="GND",
+             rated_voltage_v=3.3, rated_current_a=.08),
+    ]))
+    assert branch(no_source, "mcu").supply_connected is False
+    assert branch(no_source, "mcu").return_connected is False
+    assert any("전원이 없어" in warning for warning in no_source.warnings)
+    open_battery = evaluate_electrical(dict(nodes=["GND", "BAT"], components=[
+        dict(id="battery", name="Cell", kind="battery", a="BAT", b="GND", voltage_v=5),
+    ]))
+    assert branch(open_battery, "battery").current_a == 0
+    assert any("Cell" in warning and "개방 회로" in warning for warning in open_battery.warnings)
+
+
+def test_floating_battery_loop_calculates_relative_drop_without_fake_ground_reference():
+    result = evaluate_electrical(dict(nodes=["GND", "PLUS", "MINUS"], components=[
+        dict(id="battery", name="Floating supply", kind="battery", a="PLUS", b="MINUS", voltage_v=5),
+        dict(id="mcu", name="Controller", kind="mcu", a="PLUS", b="MINUS",
+             rated_voltage_v=5, rated_current_a=.1),
+    ]))
+    assert result.node_voltages_v == {"GND": 0}
+    assert branch(result, "mcu").voltage_drop_v == pytest.approx(5)
+    assert branch(result, "mcu").current_a == pytest.approx(.1)
+    assert branch(result, "mcu").supply_connected is True
+    assert branch(result, "mcu").return_connected is True
+    assert any("절대 노드 전위는 미정" in warning for warning in result.warnings)
+
+
+def test_mcu_signal_pins_report_passive_continuity_separately_from_power():
+    base = dict(nodes=["GND", "BAT", "SIG", "REMOTE", "FLOAT"], components=[
+        dict(id="battery", name="Cell", kind="battery", a="BAT", b="GND", voltage_v=3.3),
+        dict(id="mcu", name="Board", kind="mcu", a="BAT", b="GND",
+             rated_voltage_v=3.3, rated_current_a=.1,
+             signal_pins={"GPIO1": "SIG", "GPIO2": "FLOAT"}),
+        dict(id="lead", name="Signal lead", kind="wire", a="SIG", b="REMOTE",
+             length_mm=100, cross_section_mm2=.5),
+        dict(id="pull", name="Pull resistor", kind="resistor", a="REMOTE", b="GND", resistance_ohm=1000),
+    ])
+    connected = evaluate_electrical(base)
+    assert branch(connected, "mcu").signal_pin_connected == {"GPIO1": True, "GPIO2": False}
+    assert branch(connected, "mcu").supply_connected is True
+    assert branch(connected, "mcu").return_connected is True
+    broken = dict(base, components=[dict(c) for c in base["components"]])
+    broken["components"][2]["closed"] = False
+    disconnected = evaluate_electrical(broken)
+    assert branch(disconnected, "mcu").signal_pin_connected == {"GPIO1": False, "GPIO2": False}
+    assert branch(disconnected, "mcu").current_a == pytest.approx(.1)
+    assert any("GPIO1" in warning and "단선" in warning for warning in disconnected.warnings)
+    alias = dict(base, components=[dict(c) for c in base["components"]])
+    alias["components"][1]["signal_pins"] = {"a": "FLOAT"}
+    assert branch(evaluate_electrical(alias), "mcu").signal_pin_connected == {"a": False}
+
+
+def test_optional_catalog_and_signal_fields_round_trip_without_changing_v1_defaults():
+    old = ElectricalWorkspace.model_validate(dict(nodes=["GND", "BAT"], components=[
+        dict(id="mcu", name="Board", kind="mcu", a="BAT", b="GND",
+             rated_voltage_v=3.3, rated_current_a=.1),
+    ]))
+    assert old.components[0].signal_pins == {}
+    assert old.components[0].catalog_id == ""
+    assert old.components[0].source_url == ""
+    new = old.model_copy(deep=True)
+    new.components[0].signal_pins = {"GPIO0": "BAT"}
+    new.components[0].catalog_id = "vendor:board-123"
+    new.components[0].source_url = "https://example.org/board-123"
+    assert ElectricalWorkspace.model_validate_json(new.model_dump_json()) == new
+    with pytest.raises(ValidationError, match="HTTPS"):
+        ElectricalWorkspace.model_validate(dict(nodes=["GND", "BAT"], components=[
+            dict(id="mcu", name="Board", kind="mcu", a="BAT", b="GND",
+                 rated_voltage_v=3.3, rated_current_a=.1, source_url="http://example.org/board"),
+        ]))
+    with pytest.raises(ValidationError, match="등록된 노드"):
+        ElectricalWorkspace.model_validate(dict(nodes=["GND", "BAT"], components=[
+            dict(id="mcu", name="Board", kind="mcu", a="BAT", b="GND",
+                 rated_voltage_v=3.3, rated_current_a=.1, signal_pins={"GPIO0": "MISSING"}),
+        ]))
+
+
+def test_extreme_wire_values_fail_cleanly_instead_of_producing_nonfinite_dc_results():
+    circuit = dict(nodes=["GND", "BAT", "VCC"], components=[
+        dict(id="battery", name="Cell", kind="battery", a="BAT", b="GND", voltage_v=5),
+        dict(id="wire", name="Tiny lead", kind="wire", a="BAT", b="VCC",
+             length_mm=1e-300, cross_section_mm2=1e5),
+        dict(id="mcu", name="Board", kind="mcu", a="VCC", b="GND",
+             rated_voltage_v=5, rated_current_a=.1),
+    ])
+    with pytest.raises(ValueError, match="Tiny lead.*저항값"):
+        evaluate_electrical(circuit)

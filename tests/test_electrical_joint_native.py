@@ -10,7 +10,7 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog
 
 from cadstudio.native.document import read_project
-from cadstudio.native.electrical_dialog import ComponentDialog, ElectricalDialog
+from cadstudio.native.electrical_dialog import CatalogDialog, ComponentDialog, ElectricalDialog
 from cadstudio.native.workflows import JointDriveDialog
 from test_joint_edits import joint_design
 
@@ -94,6 +94,103 @@ def test_component_form_and_demo_show_real_voltage_drop(app):
     finally:
         dialog.deleteLater()
         app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
+def test_wire_open_toggle_and_mcu_signal_pin_editor(app):
+    wire = ComponentDialog(None, [], dict(id='w1',name='신호선',kind='wire',a='SIGNAL_A',b='INPUT',
+        length_mm=50,cross_section_mm2=.5,closed=False))
+    try:
+        assert not wire.wire_connected.isChecked()
+        assert not wire.candidate()['closed']
+        wire.wire_connected.setChecked(True)
+        assert wire.candidate()['closed']
+    finally:
+        wire.reject()
+
+    mcu = ComponentDialog(None, [], dict(id='u1',name='제어기',kind='mcu',a='VCC',b='GND',
+        rated_voltage_v=5,rated_current_a=.1,signal_pins={'GPIO1':'SIGNAL_A'}))
+    try:
+        assert 'VCC' in mcu.a_caption.text() and '리턴' in mcu.b_caption.text()
+        assert mcu.candidate()['signal_pins']=={'GPIO1':'SIGNAL_A'}
+        mcu.signal_pins.setPlainText('GPIO1=SIGNAL_A\nGPIO2=INPUT')
+        assert mcu.candidate()['signal_pins']=={'GPIO1':'SIGNAL_A','GPIO2':'INPUT'}
+        mcu.signal_pins.setPlainText('GPIO1=SIGNAL_A\nGPIO1=INPUT')
+        with pytest.raises(ValueError,match='중복'):
+            mcu.candidate()
+    finally:
+        mcu.reject()
+
+
+def test_electrical_report_shows_open_wire_and_mcu_connectivity(app):
+    design=dict(parts=[],electrical=dict(name='MCU 연결 검사',components=[
+        dict(id='b1',name='가상 5 V',kind='battery',a='BATPLUS',b='GND',voltage_v=5),
+        dict(id='w1',name='MCU 공급선',kind='wire',a='BATPLUS',b='VCC',length_mm=50,
+             cross_section_mm2=.5,closed=False),
+        dict(id='u1',name='제어기',kind='mcu',a='VCC',b='GND',rated_voltage_v=5,
+             rated_current_a=.1,signal_pins={'GPIO1':'SIGNAL_A'})]))
+    dialog=ElectricalDialog(None,design)
+    try:
+        assert 'SIGNAL_A' in dialog.candidate().nodes
+        assert '단선' in dialog.table.item(1,5).text()
+        report=dialog.report.toPlainText()
+        assert 'FAIL · MCU 공급선: 전선 단선' in report
+        assert 'FAIL · 제어기: VCC' in report
+        assert 'FAIL · 제어기 GPIO1' in report
+        assert '펌웨어' not in report  # The report makes connectivity claims, not behavior claims.
+    finally:
+        dialog.reject()
+
+
+def test_catalog_search_only_prefills_confirmed_model_values(app, monkeypatch):
+    from cadstudio.electrical_catalog import get_catalog_entry
+    from cadstudio.electrical import ElectricalComponent
+
+    catalog=CatalogDialog(None,'Raspberry Pi 4')
+    try:
+        assert catalog.entries and catalog.entries[0].catalog_id=='rpi4b'
+        assert catalog.use_button.isEnabled()
+        catalog.query.setText('STM32 Nucleo')
+        catalog.search()
+        assert catalog.entries and catalog.entries[0].reference_only
+        assert not catalog.use_button.isEnabled()
+        assert 'https://' in catalog.details.toPlainText()
+    finally:
+        catalog.reject()
+
+    def select_pi(self):
+        self.entry=get_catalog_entry('rpi4b')
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(CatalogDialog,'exec',select_pi)
+    form=ComponentDialog(None,[])
+    try:
+        form.select_catalog()
+        candidate=form.candidate()
+        assert candidate['kind']=='mcu'
+        assert candidate['catalog_id']=='rpi4b'
+        assert candidate['source_url'].startswith('https://www.raspberrypi.com/')
+        assert candidate['rated_voltage_v']==5
+        assert candidate['rated_current_a']==0  # PSU recommendation is not board current.
+        with pytest.raises(ValueError):ElectricalComponent.model_validate(candidate)
+        form.inputs['rated_current_a'].setValue(.35)
+        assert ElectricalComponent.model_validate(form.candidate()).catalog_id=='rpi4b'
+    finally:
+        form.reject()
+
+    def select_wire(self):
+        self.entry=get_catalog_entry('alpha_3050')
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(CatalogDialog,'exec',select_wire)
+    wire=ComponentDialog(None,[])
+    try:
+        wire.select_catalog()
+        candidate=wire.candidate()
+        assert candidate['kind']=='wire'
+        assert candidate['length_mm']==0 and candidate['cross_section_mm2']==0
+        with pytest.raises(ValueError):ElectricalComponent.model_validate(candidate)
+    finally:
+        wire.reject()
 
 
 def test_blank_window_electrical_save_recovery_and_undo(app, graphics_free, monkeypatch, tmp_path):
