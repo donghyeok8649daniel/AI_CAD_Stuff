@@ -26,7 +26,7 @@ FIELDS=[
     ('resistivity_ohm_mm2_per_m','도체 저항률',' Ω·mm²/m',('wire',)),
     ('contact_resistance_ohm','닫힌 접점 저항',' Ω',('switch',)),
     ('max_current_a','허용 전류 · 0은 미입력',' A',('battery','wire','switch'))]
-DEFAULTS={'battery':dict(voltage_v=12,internal_resistance_ohm=.08,max_current_a=2),
+DEFAULTS={'battery':{},
           'wire':dict(length_mm=500,cross_section_mm2=.5,resistivity_ohm_mm2_per_m=.01724,max_current_a=2),
           'switch':dict(contact_resistance_ohm=.01,closed=True),
           'resistor':dict(resistance_ohm=100),
@@ -156,6 +156,8 @@ class ComponentDialog(QDialog):
         self.closed=QCheckBox('스위치 닫힘');self.closed.setChecked(old.get('closed',True));form.addRow(self.closed)
         self.wire_connected=QCheckBox('전선 연결됨 · 해제하면 단선')
         self.wire_connected.setChecked(old.get('closed',True));form.addRow(self.wire_connected)
+        self.power_enabled=QCheckBox('전원 인가 · 배터리 출력 켜기')
+        self.power_enabled.setChecked(old.get('closed',True));form.addRow(self.power_enabled)
         pins=old.get('signal_pins') or {}
         self.signal_pins=QPlainTextEdit('\n'.join(f'{pin}={node}' for pin,node in pins.items()))
         self.signal_pins.setPlaceholderText('예: GPIO1=SIGNAL_A\nGPIO2=SIGNAL_B')
@@ -174,14 +176,15 @@ class ComponentDialog(QDialog):
         kind=self.kind.currentData()
         if self.catalog_id and kind!=self.catalog_kind:
             self.catalog_id='';self.source_url='';self.update_catalog_note()
-        self.a_caption.setText('MCU VCC / 노드' if kind=='mcu' else '첫 번째 단자 / 노드')
-        self.b_caption.setText('MCU GND / 리턴 노드' if kind=='mcu' else '두 번째 단자 / 노드')
+        self.a_caption.setText('MCU VCC / 노드' if kind=='mcu' else '배터리 + / 공급 노드' if kind=='battery' else '첫 번째 단자 / 노드')
+        self.b_caption.setText('MCU GND / 리턴 노드' if kind=='mcu' else '배터리 - / 리턴 노드' if kind=='battery' else '두 번째 단자 / 노드')
         for key,(caption,field,kinds) in self.rows.items():
             caption.setVisible(kind in kinds);field.setVisible(kind in kinds)
             if kind in kinds and field.value()==0 and key in DEFAULTS.get(kind,{}):
                 field.setValue(DEFAULTS[kind][key])
         self.closed.setVisible(kind=='switch')
         self.wire_connected.setVisible(kind=='wire')
+        self.power_enabled.setVisible(kind=='battery')
         self.signal_caption.setVisible(kind=='mcu');self.signal_pins.setVisible(kind=='mcu')
 
     def update_catalog_note(self):
@@ -237,7 +240,7 @@ class ComponentDialog(QDialog):
         return dict(id=self.identifier,name=self.name.text().strip() or KIND_NAMES[kind],kind=kind,
                     a=self.a.text().strip(),b=self.b.text().strip(),part_id=self.part.currentData(),
                     catalog_id=self.catalog_id,source_url=self.source_url,
-                    closed=(self.wire_connected.isChecked() if kind=='wire' else self.closed.isChecked()),
+                    closed=(self.wire_connected.isChecked() if kind=='wire' else self.power_enabled.isChecked() if kind=='battery' else self.closed.isChecked()),
                     **({'signal_pins':self.parsed_signal_pins()} if kind=='mcu' else {}),**values)
 
     def accept(self):
@@ -251,7 +254,8 @@ class ElectricalDialog(QDialog):
     def __init__(self,parent,design):
         super().__init__(parent);self.setWindowTitle('전장 · 배선 / 전압강하 검사');self.resize(900,730)
         self.parts=(design or {}).get('parts',[]);self.components=deepcopy((design or {}).get('electrical',{} ) or {}).get('components',[])
-        layout=QVBoxLayout(self);layout.addWidget(label('배터리·전선·모터·MCU의 두 단자를 노드 이름으로 연결합니다. 실제 제품 정격과 전선 치수를 입력하세요.',True))
+        self.original_nodes=tuple(((design or {}).get('electrical') or {}).get('nodes',()))
+        layout=QVBoxLayout(self);layout.addWidget(label('배터리 +는 공급, -는 리턴입니다. 같은 노드 이름으로 단자를 연결하고 실제 배터리 전압·정격·전선 치수를 입력하세요.',True))
         header=QHBoxLayout();self.name=QLineEdit(((design or {}).get('electrical') or {}).get('name','전장 회로'))
         header.addWidget(QLabel('회로 이름'));header.addWidget(self.name,1);layout.addLayout(header)
         self.table=QTableWidget(0,6);self.table.setHorizontalHeaderLabels(['이름','종류','첫 단자','둘째 단자','CAD 부품','주요 입력'])
@@ -261,6 +265,18 @@ class ElectricalDialog(QDialog):
         self.table.horizontalHeader().setStretchLastSection(True);layout.addWidget(self.table,1)
         row=QHBoxLayout();row.addWidget(button('부품 / 전선 추가…',self.add,True));row.addWidget(button('선택 편집…',self.edit));row.addWidget(button('선택 제거',self.remove));
         row.addWidget(button('예시 회로 · 가상값',self.demo));layout.addLayout(row)
+        circuit_actions=QHBoxLayout()
+        self.power_path_button=button('전원 연결 설계…',self.new_power_path)
+        self.power_path_button.setObjectName('electricalPowerPathButton')
+        circuit_actions.addWidget(self.power_path_button)
+        self.power_button=button('선택 배터리 전원 켜기/끄기',self.toggle_power)
+        self.power_button.setObjectName('electricalPowerToggle')
+        circuit_actions.addWidget(self.power_button)
+        self.schematic_button=button('회로도 보기…',self.show_schematic)
+        self.schematic_button.setObjectName('electricalSchematicButton')
+        circuit_actions.addWidget(self.schematic_button)
+        circuit_actions.addStretch(1)
+        layout.addLayout(circuit_actions)
         layout.addWidget(label('GND는 기준 전위입니다. 이름이 다른 단자는 이어지지 않습니다. 보고서의 PASS / WARN / FAIL은 입력한 배선 모델에 대한 결과입니다.',True))
         self.report=QPlainTextEdit();self.report.setReadOnly(True);self.report.setMinimumHeight(130);layout.addWidget(self.report)
         self.report.setObjectName('electricalReport')
@@ -269,20 +285,64 @@ class ElectricalDialog(QDialog):
         bottom.addButton('닫기',QDialogButtonBox.ButtonRole.RejectRole)
         self.check_button.clicked.connect(self.calculate);self.apply_button.clicked.connect(self.accept)
         bottom.rejected.connect(self.reject);layout.addWidget(bottom)
-        self.name.textChanged.connect(self.stale);self.table.doubleClicked.connect(self.edit);self.refresh();self.calculate()
+        self.name.textChanged.connect(self.stale);self.table.doubleClicked.connect(self.edit)
+        self.table.itemSelectionChanged.connect(self.update_power_button)
+        self.refresh();self.calculate()
 
     def stale(self):self.report.setPlainText('입력이 바뀌었습니다. 회로를 다시 계산하세요.')
     def refresh(self):
         names={part['id']:part['name'] for part in self.parts};self.table.setRowCount(len(self.components))
         for row,part in enumerate(self.components):
             notable=next((f'{part[key]:g} {unit}' for key,unit in [('voltage_v','V'),('resistance_ohm','Ω'),('rated_current_a','A'),('length_mm','mm')] if part.get(key)), '')
+            if part['kind']=='battery':notable=('전원 ON · ' if part.get('closed',True) else '전원 OFF · ')+notable
             if part['kind']=='wire' and not part.get('closed',True):notable='단선 · '+notable
             if part['kind']=='mcu' and part.get('signal_pins'):notable+=f" · 신호 {len(part['signal_pins'])}핀"
             linked=names.get(part.get('part_id'),'')
             if part.get('part_id') and not linked:linked='없는 CAD 부품 · '+part['part_id']
             for col,text in enumerate((part['name'],KIND_NAMES[part['kind']],part['a'],part['b'],linked,notable)):
                 item=QTableWidgetItem(str(text));item.setFlags(item.flags()&~Qt.ItemFlag.ItemIsEditable);self.table.setItem(row,col,item)
-        self.table.resizeColumnsToContents();self.stale()
+        self.table.resizeColumnsToContents();self.update_power_button();self.stale()
+
+    def update_power_button(self):
+        row=self.table.currentRow()
+        battery=0<=row<len(self.components) and self.components[row]['kind']=='battery'
+        self.power_button.setEnabled(battery)
+        if battery:
+            self.power_button.setText('선택 배터리 전원 차단' if self.components[row].get('closed',True) else '선택 배터리 전원 인가')
+        else:self.power_button.setText('배터리를 선택해 전원 전환')
+
+    def toggle_power(self):
+        row=self.table.currentRow()
+        if row<0 or self.components[row]['kind']!='battery':return
+        self.components[row]['closed']=not self.components[row].get('closed',True)
+        self.refresh();self.table.selectRow(row);self.calculate()
+
+    def show_schematic(self):
+        from ..electrical import evaluate_electrical
+        from .electrical_schematic import ElectricalSchematicDialog
+
+        try:workspace=self.candidate()
+        except (ValueError,TypeError) as exc:
+            QMessageBox.warning(self,'회로도 입력 확인',str(exc)[:800]);return
+        try:result=evaluate_electrical(workspace)
+        except (ValueError,TypeError):result=None
+        schematic=ElectricalSchematicDialog(self,workspace,result)
+        schematic.exec()
+
+    def new_power_path(self):
+        from .power_path_dialog import PowerPathDialog
+
+        try:workspace=self.candidate()
+        except (ValueError,TypeError) as exc:
+            QMessageBox.warning(self,'전원 연결 입력 확인',str(exc)[:800]);return
+        dialog=PowerPathDialog(self,workspace,self.parts)
+        if dialog.exec()!=QDialog.DialogCode.Accepted or dialog.build is None:return
+        # Preserve the exact serialized shape of existing rows. The preview's
+        # validated model expands defaults, but those need not rewrite old data.
+        new_ids=set(dialog.build.ids.values())
+        self.components.extend(component.model_dump() for component in dialog.build.workspace.components
+                               if component.id in new_ids)
+        self.refresh();self.calculate()
 
     def add(self):
         dialog=ComponentDialog(self,self.parts)
@@ -309,7 +369,7 @@ class ElectricalDialog(QDialog):
 
     def candidate(self):
         from ..electrical import ElectricalWorkspace
-        nodes=sorted({'GND',*(name for item in self.components for name in (item['a'],item['b'])),
+        nodes=sorted({'GND',*self.original_nodes,*(name for item in self.components for name in (item['a'],item['b'])),
                       *(node for item in self.components for node in item.get('signal_pins',{}).values())})
         return ElectricalWorkspace.model_validate(dict(name=self.name.text().strip() or '전장 회로',nodes=nodes,components=self.components))
 
@@ -324,8 +384,29 @@ class ElectricalDialog(QDialog):
                 drop='미확정' if part.voltage_drop_v is None else f'{part.voltage_drop_v:.4g} V'
                 power=f'공급 {abs(part.power_w):.4g} W' if part.kind=='battery' else f'소비 {part.power_w:.4g} W'
                 lines.append(f'{part.name}: {part.current_a:.4g} A · 전압차 {drop} · {power}')
-            lines.append('결선 점검 · 입력한 모델의 도통과 MCU 전원 경로만 확인')
+                if part.kind=='battery':
+                    source=next(item for item in workspace.components if item.id==part.id)
+                    lines.append(f"{'POWER ON' if source.closed else 'POWER OFF'} · {part.name}: 지정 전압 {source.voltage_v:.4g} V · "
+                                 +('출력 허용' if source.closed else '출력 차단 · 저장된 전압 정격은 유지'))
+            lines.append('전원·배선 정격 점검 · 입력값 기준이며 실제 제품 안전 인증은 아닙니다')
             source_by_id={part.id:part for part in workspace.components}
+            for branch in result.components:
+                source=source_by_id[branch.id]
+                current=abs(branch.current_a)
+                if branch.kind=='battery':
+                    open_power=source.voltage_v*branch.current_a
+                    internal_loss=branch.current_a**2*source.internal_resistance_ohm
+                    lines.append(f'{branch.name}: 개방전압×전류 {open_power:.4g} W · 단자 출력 {-branch.power_w:.4g} W · 배터리 내부 I²R {internal_loss:.4g} W')
+                elif branch.kind=='wire':
+                    lines.append(f'{branch.name}: 배선 전압강하 {abs(branch.voltage_drop_v or 0):.4g} V · 도체 I²R {branch.power_w:.4g} W')
+                if branch.kind in ('battery','wire','switch'):
+                    if source.max_current_a is None:
+                        lines.append(f'WARN · {branch.name}: 허용 전류 미입력 · 용량 미검증')
+                    elif current>source.max_current_a*(1+1e-8):
+                        lines.append(f'FAIL · {branch.name}: {current:.4g} A > 입력 한계 {source.max_current_a:.4g} A')
+                    else:
+                        lines.append(f'CHECK · {branch.name}: 입력 한계까지 {source.max_current_a-current:.4g} A 여유')
+            lines.append('결선 점검 · 입력한 모델의 도통과 MCU 전원 경로만 확인')
             for branch in result.components:
                 source=source_by_id[branch.id]
                 if branch.kind=='wire' and not source.closed:
@@ -351,12 +432,19 @@ class ElectricalDialog(QDialog):
                     status='PASS' if connected is True else 'FAIL' if connected is False else 'WARN'
                     description='다른 단자까지 수동 도통 경로 있음' if connected is True else '다른 단자까지 도통 경로 없음' if connected is False else '미확정'
                     lines.append(f'{status} · {branch.name} {pin} ({node}): {description}')
-            lines.append(f'공급 / 소비 전력: {result.source_power_w:.4g} / {result.absorbed_power_w:.4g} W')
+            lines.append(f'전원 단자 출력 / 부하·저항 소비: {result.source_power_w:.4g} / {result.absorbed_power_w:.4g} W')
             if result.warnings:lines.extend(['주의: '+warning for warning in result.warnings])
             if result.startup:
                 lines.append('모터 기동 · 입력한 기동 전류로 별도 근사')
                 lines.extend(f'{part.name}: {part.current_a:.4g} A · 전압차 {part.voltage_drop_v:.4g} V'
                     for part in result.startup.components if part.kind=='motor' and part.voltage_drop_v is not None)
+                for branch in result.startup.components:
+                    source=source_by_id[branch.id]
+                    if branch.kind not in ('battery','wire','switch'):continue
+                    if source.max_current_a is None:
+                        lines.append(f'WARN · 기동 {branch.name}: 허용 전류 미입력 · 용량 미검증')
+                    elif abs(branch.current_a)>source.max_current_a*(1+1e-8):
+                        lines.append(f'FAIL · 기동 {branch.name}: {abs(branch.current_a):.4g} A > 입력 한계 {source.max_current_a:.4g} A')
                 lines.extend(['기동 주의: '+warning for warning in result.startup.warnings])
             missing={part.part_id for part in workspace.components if part.part_id and part.part_id not in {p['id'] for p in self.parts}}
             if missing:lines.append('주의: 연결된 CAD 부품을 찾지 못함 · '+', '.join(sorted(missing)))

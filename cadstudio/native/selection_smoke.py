@@ -81,7 +81,7 @@ def run(app,w,path):
         v.set_view('iso');app.processEvents();row=v.joints.records[0];x,y=screen(row['origin']);check(v.joints.pick(x,y),'occluded joint marker is pickable')
         check(set(w.selected_parts)=={'a','b'},'joint click highlights connected pair')
         w.connection_overview();snapshot('selection250-workbench')
-        w.resize(820,560);app.processEvents();check(w.width()==820 and v.widget.width()>=250 and v.widget.height()>=180,'compact layout retains usable viewport')
+        w.resize(820,560);app.processEvents();check(w.width()==820 and v.widget.width()>=250 and v.widget.height()>=180,f'compact layout retains usable viewport (window={w.width()}x{w.height()}, viewport={v.widget.width()}x{v.widget.height()})')
         joint_button=w.selection_toolbar.widgetForAction(w.joint_toolbar_action);check(joint_button.isVisible() and w.selection_toolbar.rect().contains(joint_button.geometry()),'joint toggle remains visible at 820 pixels');snapshot('selection250-compact')
         w.resize(1180,780);w.select_parts(['a','b']);w.group_parts();wait(lambda:not w.busy);w.document.write(path.with_suffix('.cad.json'));saved=read_project(path.with_suffix('.cad.json'));check(len(saved.design.part_groups)==1 and len(saved.design.mates)==2,'groups and joints survive project save/reopen')
         key(Qt.Key.Key_A);key(Qt.Key.Key_Delete,Qt.KeyboardModifier.NoModifier);check(not w.document.design['parts'],'delete all parts yields valid empty design');key(Qt.Key.Key_Z);check(len(w.document.design['parts'])==3,'undo empty design restores assembly')

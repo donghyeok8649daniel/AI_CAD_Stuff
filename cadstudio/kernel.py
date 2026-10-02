@@ -222,7 +222,8 @@ def local_shape(design,part,_stack=()):
     # transform was included in this cache key. Boolean feature tools above
     # still include their relative placement in `tools`, so moving one against
     # the other invalidates the local result as it should.
-    local_part=part.model_copy(update={'transform':type(part.transform)()})
+    local_part=part.model_copy(update={'transform':type(part.transform)(),
+                                      'name':'Geometry','color':'#AEB6BF','role':'unspecified'})
     return _part_cached(local_part.model_dump_json(),asset,tuple(tools))
 
 
@@ -326,7 +327,8 @@ def preview(design: Design):
         from .interference import exact_collisions
         collisions = exact_collisions(design, shapes)
         from .joint_readiness import joint_readiness
-        return {"meshes": meshes, "sketches": saved_sketches, "stats": {
+        from .preview_metadata import geometry_key
+        return {"_geometry_key":geometry_key(design),"meshes": meshes, "sketches": saved_sketches, "stats": {
             "valid": all(m["valid"] for m in meshes), "parts": len(shapes),
             "volume": sum(m["volume"] for m in meshes),
             "bounds": [b-a for a,b in zip(minimum,maximum)],

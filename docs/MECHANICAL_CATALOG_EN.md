@@ -1,0 +1,15 @@
+# Mechanical and power reference catalog
+
+This small offline catalog helps find **exact part numbers or named standards references** while designing. Each record carries manufacturer or standards-body links checked on 2026-10-03, along with dimensions and the conditions attached to ratings. The native browser searches part numbers, manufacturers, terms such as `M6 clearance hole`, and wire gauges. It can open a primary source and copy a source-linked specification for the CAD AI prompt.
+
+The 21 records cover JST XH and VH assemblies, Molex Mini-Fit Jr., the Phoenix Contact 1757019/1759017 pair, Kycon KLDLX-A/B, Switchcraft 712A, six Belden wires, ISO 273 medium clearance holes M4/M5/M6/M8, and ISO 4762 socket-head outside diameters M4/M5/M6/M8. Connector records name the known mating pieces. They do not invent an unverified crimp contact or panel cutout.
+
+Dimension labels retain the meaning in the source drawing. JST dimension `B` is not a whole-part bounding box. The Ø8.1 mm value on the Kycon drawing is the **supplied washer's inside diameter**, not a verified panel cutout. An ISO 273 medium hole is separate from FDM process error and the user's PLA clearance setting of 0 or 0.2 mm. ISO 4762 `dK` is a screw-head outside diameter, not a finished counterbore diameter or depth.
+
+Electrical limits remain conditional. JST XH's 3 A value assumes AWG 22; VH's 10 A value assumes AWG 16 and a standard header. Molex's 9 A is a **maximum per contact** for its listed header; Phoenix's 12 A is **nominal** for the cited pair. The Belden current values are for a **single conductor in free air at 30 °C**. They are not an allowance for a bundled harness, connector, or enclosed case, and do not set a motor's or MCU's actual load current.
+
+The Belden records preserve the manufacturer's nominal DC conductor resistance in `Ω/1000 ft` and expose a derived `Ω/m` value. A voltage-drop calculation must include the supply and return wire lengths separately, using the actual operating current. Temperature rise, contact resistance, switches, and PCB traces need separate treatment.
+
+The core API in [`cadstudio/mechanical_catalog.py`](../cadstudio/mechanical_catalog.py) offers `search_catalog`, `get_catalog_entry`, `get_clearance_hole`, `get_socket_head`, and `format_ai_spec`. `get_clearance_hole("M6")` returns a `HoleSpec` with `diameter_mm=6.6`, `fit="medium"`, its standard, and its source URL. Unlisted threads and fine/coarse fits return `None`. `get_socket_head("M6")` returns `HeadSpec.diameter_mm=10.0`. The native [`MechanicalCatalogDialog`](../cadstudio/native/mechanical_catalog_dialog.py) sets `.entry` and, for a clearance-hole selection, `.hole_spec` when accepted. The dialog itself changes no CAD geometry or circuit.
+
+When extending the catalog, keep the exact SKU, source URL, retrieval date, unit, rating kind, and conditions together. Leave unknown loads, life estimates, panel cutouts, polarities, and harness ampacity unknown. Each record carries its own source and unresolved-condition notes.

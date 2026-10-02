@@ -4,8 +4,10 @@ from dataclasses import asdict, replace
 import hashlib
 import json
 
-from ..interference import assess, check_joint_travel, describe, travel_message
+from ..interference import assess, check_joint_travel, describe, exact_collisions, travel_message
 from ..kernel import KERNEL_LOCK, build, exact_bounds
+from ..models import Design
+from ..preview_metadata import geometry_key
 from .cad_scope import Scope
 
 
@@ -13,9 +15,13 @@ def fingerprint(request):
     return hashlib.sha256(request.model_dump_json().encode('utf-8')).hexdigest()
 
 
-def review_candidate(design, baseline, verified, check=lambda: None):
-    report = assess(design, baseline, collisions=verified['stats']['collisions'], check=check)
+def review_candidate(design, baseline, verified, check=lambda: None, *, baseline_collisions=None):
+    check()
+    report = assess(design, baseline, collisions=verified['stats']['collisions'],
+                    baseline_collisions=baseline_collisions, check=check)
+    check()
     travel = None if report['blocked'] or baseline is None else check_joint_travel(baseline, design, check=check)
+    check()
     issues = []
     if report['blocked']:
         issues.append('부품 간섭을 수정해야 합니다.\n' + describe(design, report['blocked']))
@@ -69,6 +75,8 @@ class DraftRepair:
         self.score = None
         self.prior_attempts = 0
         self.seed = deepcopy(resume)
+        self._baseline_geometry_key = None
+        self._baseline_collision_cache = None
         if resume:
             if resume.get('request_fingerprint') != fingerprint(request):
                 raise ValueError('초안의 원본 설계나 요청이 바뀌었습니다. 현재 설계로 새 초안을 생성하세요.')
@@ -89,8 +97,50 @@ class DraftRepair:
             messages += [dict(role='assistant', content=plan), dict(role='user', content='CAD 검증 오류를 수정한 전체 CAD 계획을 반환하세요. 원래 요청을 유지하세요.\n' + feedback)]
         return messages
 
+    def baseline_collisions(self, check=lambda: None):
+        """Keep one exact baseline result within this repair session only.
+
+        Build a validated copy: solving face references and assembly poses must
+        never modify request.current. Candidate collisions and joint travel are
+        deliberately not cached. A cancelled or changed calculation is not kept.
+        """
+        check()
+        baseline = self.request.current
+        if baseline is None:
+            self._baseline_geometry_key = None
+            self._baseline_collision_cache = None
+            check()
+            return None
+        key = geometry_key(baseline)
+        if key == self._baseline_geometry_key and self._baseline_collision_cache is not None:
+            collisions = deepcopy(self._baseline_collision_cache)
+            check()
+            if self.request.current is None or geometry_key(self.request.current) != key:
+                self._baseline_geometry_key = None
+                self._baseline_collision_cache = None
+                return None
+            return collisions
+        self._baseline_geometry_key = None
+        self._baseline_collision_cache = None
+        copied = Design.model_validate(deepcopy(baseline.model_dump()))
+        check()
+        with KERNEL_LOCK:
+            collisions = exact_collisions(copied, check=check)
+        check()
+        cached = deepcopy(collisions)
+        returned = deepcopy(collisions)
+        check()
+        if self.request.current is None or geometry_key(self.request.current) != key:
+            # Let assess freshly inspect the changed current baseline instead.
+            return None
+        self._baseline_collision_cache = cached
+        self._baseline_geometry_key = key
+        return returned
+
     def check(self, result, verified, plan, scope, check=lambda: None, *, checkpoint=None, provider='', attempts=0):
-        review = review_candidate(result.design, self.request.current, verified, check)
+        baseline_collisions = self.baseline_collisions(check)
+        review = review_candidate(result.design, self.request.current, verified, check,
+                                  baseline_collisions=baseline_collisions)
         result_data = result.model_dump()
         result_data['validation'] = review
         if review['existing']:

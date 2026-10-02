@@ -1,12 +1,26 @@
 # Electrical wiring and joint travel checks
 
-Open **Drawing / analysis → Electrical circuit / wiring / voltage drop**. Add a battery, wire, switch, resistor, generic load, motor or MCU/board power load. Give connected terminals the same node name; `GND` is the voltage reference. For example: battery `VPLUS`–`GND`, switch `VPLUS`–`SWITCHED`, wire `SWITCHED`–`MOTORPLUS`, motor `MOTORPLUS`–`GND`. Node names accept letters, digits, `_`, and `-`. Enter ratings and wire dimensions from the actual product data, then select **Recalculate circuit** and **Save to design**. A circuit item can be linked to a CAD part for identification; this does not create routed 3D wires or drive a mechanical joint. The illustrative example replaces an existing circuit only after confirmation.
+### View and select parts by role
+
+The 3D viewport has **All**, **Electrical only**, **Structure only**, and **Transmission only** buttons. A role button displays and selects only parts of that role. It does not bring in other parts from a mixed-role group. Select a part and use **Part role / default color…** to assign or change its role.
+
+The role view temporarily shows canonical colors to make parts easier to identify. **All** restores saved or custom part colors and the previous manually hidden state. Use the existing **Show all** command when you intend to reveal every hidden part. For legacy parts without role metadata, the app recognizes only an exact canonical role color or a CAD part ID explicitly linked to an electrical circuit. It does not infer roles from names. A yellow part or electrical role does not create a circuit component.
+
+### Build and inspect a circuit
+
+Open **Drawing / analysis → Electrical circuit / wiring / voltage drop**. Add a battery, wire, switch, resistor, generic load, motor or MCU/board power load. Enter the battery's **Battery + / supply node** and **Battery - / return node**; give connected terminals the same node name. `GND` is the voltage reference. For example: battery `VPLUS`–`GND`, switch `VPLUS`–`SWITCHED`, wire `SWITCHED`–`MOTORPLUS`, motor `MOTORPLUS`–`GND`. Node names accept letters, digits, `_`, and `-`.
+
+Enter ratings and wire dimensions from the actual product data. **Power on / enable battery output** controls whether the battery supplies its circuit path; turning it off retains the entered battery voltage and terminal names. You can also select a battery in the circuit list and use its power on/off control. Select **Recalculate circuit** to inspect the supply path to a load, its return path, node voltages, branch currents and warnings. Then **Save to design**. A circuit item can be linked to a CAD part for identification; this does not create routed 3D wires or drive a mechanical joint. The illustrative example replaces an existing circuit only after confirmation.
+
+Select **View schematic…** in the electrical editor to open **Electrical schematic / wiring connections** in a separate window. Use **Fit all**, **Zoom in**, and **Zoom out** to inspect the entered components, terminals, and nodes. Crossing lines connect only where a junction is marked. Edit components and node names in the electrical editor, then recalculate the circuit.
 
 The calculation is a **DC resistive operating-point estimate**. Wire resistance uses entered resistivity, length and conductor area. The initial resistivity approximates room-temperature copper. A motor's rated voltage and current define one equivalent resistance. An explicitly entered startup current gives a separate startup estimate, not a startup waveform. Results show node voltages, branch currents, voltage differences, power and warnings for entered current limits, MCU polarity and voltage more than 10% from a load's rating. Product datasheet limits still need review. Unsolvable wiring may be saved as an *unverified draft* after confirmation.
 
 ### Open wires and MCU connectivity
 
 Uncheck **Wire connected** in a wire item to model an open circuit. Its endpoints and node names stay in the project, but it no longer conducts current. Previously saved wires remain connected by default. In an MCU item, terminal A is **VCC** and terminal B is **GND/return**. The checker distinguishes a path to the DC supply, a return path, and the entered voltage relative to the MCU's rated value. A node merely named `GND` is the voltage reference; model the actual return wiring too.
+
+Uncheck **Power on / enable battery output** to disconnect a battery from the supply path without changing its entered voltage. With that source off, check the resulting current and MCU supply/return results. An off source is not a zero-volt product specification.
 
 Optional **MCU signal pin = node** entries use one `PIN=NODE` line each, such as `GPIO1=SIGNAL_A`. The check examines passive continuity through modeled connected wires and closed switches to another circuit terminal. Unlisted pins are not checked. PASS, WARN and FAIL refer only to the entered wiring model and ratings. No board fault is measured automatically; the checker does not establish GPIO direction, logic levels, pull resistors, communication protocols or firmware behavior.
 

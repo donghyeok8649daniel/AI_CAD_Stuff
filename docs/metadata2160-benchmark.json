@@ -1,0 +1,28 @@
+{
+  "version": "2.16.0",
+  "scenario": "12 cylinders warm name/color preview including validation",
+  "parts": 12,
+  "full_seconds": [
+    0.18344209995120764,
+    0.19064150005578995,
+    0.16730490000918508,
+    0.1718945000320673,
+    0.17408799985423684,
+    0.17536750016734004,
+    0.1706429000478238
+  ],
+  "reused_seconds": [
+    0.0005811001174151897,
+    0.0005695000290870667,
+    0.0005213997792452574,
+    0.0005101999267935753,
+    0.0005061000119894743,
+    0.000493000028654933,
+    0.0006319000385701656
+  ],
+  "full_median": 0.17408799985423684,
+  "reused_median": 0.0005213997792452574,
+  "reduction_percent": 99.7004964272771,
+  "scope": "Geometry-preview calculation only; not whole-app speed or startup",
+  "live_ai_calls": 0
+}

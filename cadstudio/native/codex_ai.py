@@ -3,6 +3,7 @@ import asyncio
 import math
 
 from ..kernel import KERNEL_LOCK, preview
+from ..power_paths import PowerInputRequired
 from .cad_scope import Scope, scope_schema, scope_messages
 from .cad_schema import plan_schema
 from .cad_tools import execute_plan, TOOL_LABELS
@@ -61,6 +62,7 @@ def generate(request, model, *, executable='', control=None, progress=None, dead
                         'changes': [f"{s['step']}. {TOOL_LABELS[s['tool']]} · {s['target']}" for s in result.tool_actions],
                         'planning': dict(intent=scope.intent, tools=scope.tools, shapes=scope.shapes,
                                          connections=scope.connections, new_parts=scope.new_parts)}
+                except PowerInputRequired:raise
                 except (ValueError, RuntimeError) as exc:
                     reason = validation_feedback(exc)
                     if deadline is not None and (attempt == 5 or (attempt >= 2 and not repairs.best)):
@@ -71,6 +73,7 @@ def generate(request, model, *, executable='', control=None, progress=None, dead
                     attempt += 1
                     await asyncio.sleep(.1)
     try:return asyncio.run(control.execute(run, deadline, 'Codex가 제한 시간 안에 완료하지 못했습니다. AI 최대 대기를 늘리거나 무제한으로 설정하세요.'))
+    except PowerInputRequired:raise
     except ValueError as exc:
         control.check()
         pending=repairs.interrupted('codex',str(exc))

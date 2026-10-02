@@ -1,0 +1,43 @@
+{
+  "version": "2.16.0",
+  "scenario": "12 overlapping cylinders, 11 existing exact collisions, unchanged repair baseline",
+  "parts": 12,
+  "baseline_collisions": 11,
+  "trials": 9,
+  "samples_seconds": {
+    "uncached": [
+      0.06451880000531673,
+      0.06209959997795522,
+      0.06580960005521774,
+      0.06696409988217056,
+      0.05899050016887486,
+      0.06263009994290769,
+      0.061173400143161416,
+      0.06056959996931255,
+      0.05714010004885495
+    ],
+    "cached": [
+      0.0011366000398993492,
+      0.0008954999502748251,
+      0.0012663998641073704,
+      0.0008041998371481895,
+      0.0008702001068741083,
+      0.000816000159829855,
+      0.0008789000567048788,
+      0.0008612999226897955,
+      0.0009569998364895582
+    ]
+  },
+  "uncached_median_seconds": 0.06209959997795522,
+  "cached_median_seconds": 0.0008789000567048788,
+  "reduction_percent": 98.58,
+  "source_hashes": {
+    "cadstudio/native/draft_repair.py": "9c50f04031d781c1057b66c7550614cb5ac994eaf50c0574f2a35e394c7f1c9f",
+    "cadstudio/interference.py": "29e60b5250d9a082cff137cc88485961b9da269f8d6383f12431a31d49d9e716",
+    "cadstudio/preview_metadata.py": "aafb72b8c1feb4c2661e3a5f192d741d8057b13c8298a542a01437a0bbc77161",
+    "cadstudio/kernel.py": "f7df65ad98b52f81755db5c91300dfd0852bba0aa665bbff198306a6ea9f3eac"
+  },
+  "live_ai_calls": 0,
+  "user_documents_changed": false,
+  "scope": "Repeated baseline collision review only; candidate exact preview precomputed in both paths. Not total AI repair, startup, network or whole-app speed."
+}

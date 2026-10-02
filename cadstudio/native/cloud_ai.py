@@ -105,6 +105,7 @@ async def _content(client, model, messages, schema, name, control, progress, eff
 
 def generate(request,model,*,api_key,control=None,progress=None,deadline=600,effort='medium',transport=None,repair=None):
     from openai import APIError
+    from ..power_paths import PowerInputRequired
     from .draft_repair import DraftRepair
     repairs=DraftRepair(request,repair)
     control=control or DraftControl();progress=progress or (lambda message:None)
@@ -138,6 +139,7 @@ def generate(request,model,*,api_key,control=None,progress=None,deadline=600,eff
                     return {**reviewed,'provider':'openai','attempts':attempt+1,
                             'changes':[f"{s['step']}. {TOOL_LABELS[s['tool']]} · {s['target']}" for s in result.tool_actions],
                             'planning':dict(intent=scope.intent,tools=scope.tools,shapes=scope.shapes,connections=scope.connections,new_parts=scope.new_parts)}
+                except PowerInputRequired:raise
                 except (ValueError,RuntimeError) as exc:
                     reason=validation_feedback(exc)
                     if attempt==2:
@@ -147,6 +149,7 @@ def generate(request,model,*,api_key,control=None,progress=None,deadline=600,eff
                     scope,messages=repairs.next(scope,content,exc)
     try:
         return asyncio.run(control.execute(run,deadline,'OpenAI가 제한 시간 안에 완료하지 못했습니다. AI 최대 대기를 늘리거나 무제한으로 설정할 수 있습니다.'))
+    except PowerInputRequired:raise
     except (APIError,ValueError) as exc:
         control.check()
         message=api_error_message(exc,model,api_key=api_key) if isinstance(exc,APIError) else str(exc)

@@ -75,6 +75,10 @@ class HoleDialog(PreviewDialog):
         super().__init__(parent,'구멍 뚫기','선택 면의 중심을 원점으로 위치를 지정하세요. 미리보기의 같은 평면을 클릭해 중심을 옮길 수 있습니다.')
         self.base=deepcopy(design);self.part_id=part_id;self.face=deepcopy(face);self.feature_id='hole-'+uid();self.x=number(0,-1000,1000,' mm');self.y=number(0,-1000,1000,' mm');self.diameter=number(6,.02,2000,' mm');self.depth=number(10,.01,2000,' mm');self.through=QCheckBox('전체 관통');form=QFormLayout();self.controls.addLayout(form)
         for title,w in [('중심 X',self.x),('중심 Y',self.y),('직경',self.diameter),('깊이',self.depth)]:form.addRow(title,w);w.valueChanged.connect(self.schedule)
+        self.hole_standard=None
+        self.standard_button=button('규격 관통홀 선택…',self.choose_standard)
+        self.standard_status=label('규격 미선택 · 치수는 직접 입력',True)
+        self.controls.addWidget(self.standard_button);self.controls.addWidget(self.standard_status)
         self.style=choice([('plain','직선 구멍'),('counterbore','원통 자리파기 · Counterbore'),('countersink','접시머리 · Countersink')]);self.head_diameter=number(10,.02,2000,' mm');self.head_depth=number(3,.01,2000,' mm');self.head_angle=number(90,10,170,' °');form.addRow('구멍 유형',self.style)
         for title,w in [('머리 지름',self.head_diameter),('자리파기 깊이',self.head_depth),('접시머리 각도',self.head_angle)]:form.addRow(title,w);w.valueChanged.connect(self.schedule)
         def head_fields():
@@ -86,6 +90,25 @@ class HoleDialog(PreviewDialog):
         with KERNEL_LOCK:
             shape=local_shape(d,part);box=shape.BoundingBox();self.through_depth=(box.xlen**2+box.ylen**2+box.zlen**2)**.5+.1
         self.viewport.point_selected.connect(self.center_clicked);self.schedule()
+    def choose_standard(self):
+        from .mechanical_catalog_dialog import MechanicalCatalogDialog
+        dialog=MechanicalCatalogDialog(self,query='ISO 273')
+        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.hole_spec is not None:
+            self.set_standard(dialog.hole_spec)
+    def set_standard(self,spec):
+        self.hole_standard=spec
+        self.style.setCurrentIndex(self.style.findData('plain'))
+        self.diameter.setValue(spec.diameter_mm);self.through.setChecked(True)
+        self.standard_status.setText(f'{spec.thread} · {spec.standard} {spec.fit} · 기준 Ø{spec.diameter_mm:g} mm\n프린터 보정은 별도 적용 · 재료/하중/체결 강도 인증은 포함하지 않습니다.')
+        self.schedule()
+    def standard_record(self):
+        if self.hole_standard is None:return None
+        from ..mechanical_catalog import RETRIEVED_ON
+        spec=self.hole_standard
+        return dict(thread=spec.thread,standard=spec.standard,fit=spec.fit,
+                    nominal_diameter_mm=spec.diameter_mm,entered_diameter_mm=self.diameter.value(),
+                    source_url=spec.source_url,retrieved_on=RETRIEVED_ON,
+                    user_override=abs(self.diameter.value()-spec.diameter_mm)>1e-8)
     def center_clicked(self,identifier,point):
         if identifier!=self.part_id:return
         relative=self.rotation.T@(np.array(point)-self.position)-self.origin

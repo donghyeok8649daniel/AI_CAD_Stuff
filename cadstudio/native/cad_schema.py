@@ -83,6 +83,21 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         **transform['properties']),('kind','parent','child'))
     tool('motion_link',dict(driver=text,driven=text,ratio=number,offset=number,driver_axis=enum('x','y','z','rx','ry','rz'),driven_axis=enum('x','y','z','rx','ry','rz')),('driver','driven','ratio'))
     tool('parameter',dict(value=text),('value',))
+    tool('power_path',dict(
+        name=text,source_voltage_v=number,source_internal_resistance_ohm=number,
+        source_max_current_a=number,source_enabled=boolean,source_part_id=text,
+        switch_closed=boolean,switch_contact_resistance_ohm=number,
+        switch_max_current_a=number,switch_part_id=text,
+        positive_wire_length_mm=number,positive_wire_cross_section_mm2=number,
+        positive_wire_resistivity_ohm_mm2_per_m=number,positive_wire_catalog_id=text,
+        positive_wire_max_current_a=number,positive_wire_part_id=text,
+        return_wire_length_mm=number,return_wire_cross_section_mm2=number,
+        return_wire_resistivity_ohm_mm2_per_m=number,return_wire_catalog_id=text,
+        return_wire_max_current_a=number,return_wire_part_id=text,
+        load_kind=enum('load','motor','mcu'),load_voltage_v=number,
+        load_current_a=number,load_startup_current_a=number,load_part_id=text),
+        ('source_voltage_v','positive_wire_length_mm','positive_wire_cross_section_mm2',
+         'return_wire_length_mm','return_wire_cross_section_mm2','load_voltage_v','load_current_a'))
     # Editing-only plans cannot invent another part ID. In particular, a
     # feature ID is not its owning part ID (small models confuse the two).
     # If create remains available without declared IDs, allow new targets.
@@ -90,7 +105,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         for action in actions:
             name=action['properties']['tool']['const']
             if name=='create' and new_parts:action['properties']['target']=enum(*new_parts)
-            elif name not in ('joint','edit_joint','parameter','motion_link'):action['properties']['target']=enum(*dict.fromkeys((*existing_parts,*new_parts)))
+            elif name not in ('joint','edit_joint','parameter','motion_link','power_path'):action['properties']['target']=enum(*dict.fromkeys((*existing_parts,*new_parts)))
     if connections:
         joint = next(a for a in actions if a['properties']['tool']['const'] == 'joint')
         actions.remove(joint)
@@ -102,6 +117,13 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
     schema=deepcopy(CADPlan.model_json_schema())
     if allowed_tools is not None:actions=[a for a in actions if a['properties']['tool']['const'] in allowed_tools]
     if allowed_shapes is not None:shapes=[s for s in shapes if s['properties']['kind']['const'] in allowed_shapes]
+    if len(actions)>12:
+        # The broad fallback grammar must stay small enough for local models.
+        # The backend still checks all seven required power inputs with
+        # PowerPathSpec; an electrical-only scope receives the full grammar.
+        actions=[({'properties':{'tool':{'const':'power_path'},'target':{},'args':{'type':'object'}},
+                  'required':['tool','target','args']} if action['properties']['tool']['const']=='power_path'
+                 else action) for action in actions]
     if not actions or not shapes:raise ValueError('At least one known tool and shape must be available.')
     # The kernel accepts explicit measurement contracts, but a small LLM's
     # guesses about bounding-box dimensions are not independent user specs.
@@ -113,7 +135,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
     schema['required']=['construction','summary','actions']
     if single_part:
         create=next(a for a in actions if a['properties']['tool']['const']=='create')
-        features=[a for a in actions if a['properties']['tool']['const'] not in ('create','joint','edit_joint','motion_link')]
+        features=[a for a in actions if a['properties']['tool']['const'] not in ('create','joint','edit_joint','motion_link','power_path')]
         schema['properties'].pop('actions')
         schema['properties']['base']=create
         schema['properties']['actions']=array({'anyOf':features} if features else {},0,31 if features else 0)

@@ -1,3 +1,9 @@
+# 2.16.0 Power paths, catalogs and native inspection
+
+Source regression: **485 passed** (484 passed, 87 warnings in 202.78s (0:03:22); lazy SciPy import: 1 passed in 2.88s). Frozen Windows EXE: **514 native checks**, including the new electrical/power-path/catalog workflow in automatic and software rendering, focused part roles, circuit schematic and source controls, joint ranges, startup, compact selection, print preview, draft repair and research references. All **152** bundled CAD modules and the native entry match the hash-locked tested source. The software renderer DLL matches Qt's unchanged distribution.
+
+Electrical results estimate DC behavior from entered values. GPIO continuity does not establish firmware or logic behavior. Mechanical power-path results use entered ratios and efficiencies; joint checks sample CAD-solid poses. These checks do not certify hardware, continuous collision freedom, motor dynamics, or strength. Catalog values retain their stated product scope. No paid API or live electrical hardware was used. See [Korean guide](docs/ELECTRICAL_JOINT_KO.md), [English guide](docs/ELECTRICAL_JOINT_EN.md), and [machine-readable validation](docs/native2160-validation.json).
+
 # 2.14.1 Electrical continuity and MCU connection checks
 
 Source regression: **390 passed** (389 passed, 85 warnings in 148.44s (0:02:28); lazy SciPy import: 1 passed in 3.89s). Frozen Windows EXE: **380 native checks** across automatic and software rendering, including named broken-wire reports, MCU VCC/GND/signal-pin paths, repaired connections, official-source catalog selection, project round-trip, CAD gear drive range, startup, selection, print preview, draft repair and research references. All **141** bundled CAD modules and the native entry match the hash-locked tested source. The software renderer DLL matches Qt's unchanged distribution.

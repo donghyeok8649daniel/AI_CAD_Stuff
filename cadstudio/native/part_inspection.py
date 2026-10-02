@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt,QTimer
 from PySide6.QtWidgets import QDialog,QVBoxLayout,QHBoxLayout,QFormLayout,QComboBox,QToolBar,QFileDialog
 from .viewport import CADViewport
 from .widgets import label,button,number
+from .role_view import RoleViewUI
 
 
 def exploded_preview(result,distance,axis='z'):
@@ -43,7 +44,7 @@ class ExplodedViewDialog(QDialog):
     def done(self,result):self.viewport.shutdown();super().done(result)
 
 
-class PartInspectionUI:
+class PartInspectionUI(RoleViewUI):
     def make_inspection_tools(self,edit,assembly):
         self.isolation_hidden=None
         bar=QToolBar('부품 보기 / 내보내기',self.viewport);bar.setObjectName('partInspectionToolbar');bar.setMovable(False)
@@ -51,20 +52,23 @@ class PartInspectionUI:
             action=self.action(key,title,fn);bar.addAction(action);assembly.addAction(action)
         self.actions['isolate'].setCheckable(True);self.actions['isolate'].setToolTip('선택 부품만 표시 · 다시 누르면 이전 표시 상태로 복귀')
         self.viewport.layout().insertWidget(3,bar);self.inspection_toolbar=bar
+        self.make_role_view_tools(assembly)
 
     def isolate_parts(self):
+        self.reset_role_view()
         if self.isolation_hidden is not None:
             hidden=self.isolation_hidden;self.isolation_hidden=None;self.actions['isolate'].setChecked(False)
         else:
             ids=self.selected_ids()
             if not ids:self.actions['isolate'].setChecked(False);self.message('따로 볼 부품을 먼저 선택하세요. 그룹 선택을 끄면 한 부품만 고를 수 있습니다.');return
             self.isolation_hidden=set(self.viewport.hidden);hidden=set(self.viewport.actors)-set(ids);self.actions['isolate'].setChecked(True)
-        for identifier in self.viewport.actors:self.viewport.visibility(identifier,identifier not in hidden,False)
+        self.viewport.set_hidden_parts(hidden,False)
         self.viewport.window.Render();self.rebuild_tree();self.sync_tree_selection()
 
     def show_all_parts(self):
+        self.reset_role_view()
         self.isolation_hidden=None;self.actions['isolate'].setChecked(False)
-        for identifier in self.viewport.actors:self.viewport.visibility(identifier,True,False)
+        self.viewport.set_hidden_parts(set(),False)
         self.viewport.window.Render();self.rebuild_tree();self.sync_tree_selection()
 
     def explode_parts(self):

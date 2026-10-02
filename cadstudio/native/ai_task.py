@@ -25,7 +25,8 @@ class AITask(QObject):
         except DraftCancelled:pass
         except Exception as exc:
             if not self.control.cancelled.is_set():
-                try:self.failed.emit((self,str(exc)))
+                from ..power_paths import PowerInputRequired
+                try:self.failed.emit((self,exc if isinstance(exc,PowerInputRequired) else str(exc)))
                 except RuntimeError:pass
         else:
             try:self.completed.emit((self,result))

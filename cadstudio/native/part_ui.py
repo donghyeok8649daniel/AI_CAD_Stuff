@@ -114,6 +114,7 @@ class PartSelectionUI(PartInspectionUI):
     def select_parts(self,ids,mode='replace',sync=True):
         if self.busy:return
         ids=[i for i in dict.fromkeys(ids) if any(p['id']==i for p in (self.document.design or {}).get('parts',[]))]
+        if self.role_view is not None:ids=[i for i in ids if i not in self.viewport.hidden]
         current=list(self.selected_parts)
         if mode=='toggle':ids=[i for i in current if i not in ids] if ids and set(ids)<=set(current) else list(dict.fromkeys([*current,*ids]))
         elif mode=='add':ids=list(dict.fromkeys([*current,*ids]))

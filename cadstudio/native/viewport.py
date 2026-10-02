@@ -206,6 +206,19 @@ class CADViewport(QWidget,SelectionTools):
         self.window.Render()
         text='\n'.join(f"{names.get(c['a'],c['a'])} ↔ {names.get(c['b'],c['b'])}: {c['volume']:.4g} mm³" for c in hits[:30])
         QMessageBox.warning(self,'부품 간섭 경고',text+'\n\n빨간색 부품의 장착 위치·구멍·조립 여유를 확인하세요. 그룹화는 간섭을 없애지 않습니다. 불리언 연산의 보관된 도구 몸체는 의도된 중첩일 수 있습니다.')
+    def update_metadata(self,result,fit=False):
+        """Preserve VTK geometry and pick actors after a verified metadata edit."""
+        if set(self.actors) != {mesh['id'] for mesh in result['meshes']}:
+            raise ValueError('Metadata preview does not match the displayed geometry.')
+        self.result=result
+        self.meshes={mesh['id']:mesh for mesh in result['meshes']}
+        for identifier,(actor,_) in self.actors.items():
+            value=self.meshes[identifier]['color']
+            actor.GetProperty().SetColor(*(int(value[i:i+2],16)/255 for i in (1,3,5)))
+        self.select_many(self.selected_ids,False)
+        if fit:self.fit()
+        else:self.window.Render()
+
     def load(self,result,fit=True):
         for actor in self.edge_candidates:self.renderer.RemoveActor(actor)
         self.edge_candidates={}
@@ -349,6 +362,16 @@ class CADViewport(QWidget,SelectionTools):
         else:self.hidden.add(identifier)
         if identifier in self.actors:
             actor,edge=self.actors[identifier];actor.SetVisibility(visible);edge.SetVisibility(visible and self.show_edges)
+        self.rebuild_pick_objects()
+        if render:self.window.Render()
+
+    def set_hidden_parts(self,identifiers,render=True):
+        """Batch visibility changes so a role view rebuilds picking just once."""
+        self.hidden=set(identifiers)
+        for identifier,(actor,edge) in self.actors.items():
+            visible=identifier not in self.hidden
+            actor.SetVisibility(visible)
+            edge.SetVisibility(visible and (self.show_edges or identifier in self.selected_ids))
         self.rebuild_pick_objects()
         if render:self.window.Render()
 

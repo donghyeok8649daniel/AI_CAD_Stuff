@@ -145,8 +145,8 @@ def _resistance(component: ElectricalComponent, startup: bool) -> float:
 
 def _is_active(component: ElectricalComponent) -> bool:
     # ``closed`` was already persisted for switches in v1. Applying the same
-    # default-True field to wires makes an open-circuit fault backwards-safe.
-    return component.kind not in ("wire", "switch") or component.closed
+    # default-True field to wires and battery output keeps old files powered.
+    return component.kind not in ("wire", "switch", "battery") or component.closed
 
 
 def _reachable(start: str, graph: dict[str, set[str]]) -> set[str]:
@@ -286,10 +286,12 @@ def _solve(workspace: ElectricalWorkspace, startup: bool) -> ElectricalScenario:
         if not _is_active(component):
             if component.kind == "wire":
                 warnings.append(f"{component.name}: 전선이 단선되어 전류가 흐르지 않습니다. 연결 상태를 확인하세요.")
+            elif component.kind == "battery":
+                warnings.append(f"{component.name}: 전원 인가가 꺼져 배터리 출력이 0 A입니다. 저장된 전압 정격은 변경되지 않았습니다.")
             same_network = component.b in _reachable(component.a, graph)
             results.append(ElectricalBranchResult(id=component.id, name=component.name, kind=component.kind,
                 a=component.a, b=component.b, part_id=component.part_id, current_a=0,
-                voltage_drop_v=(internal_voltages[component.a] - internal_voltages[component.b]) if same_network else None,
+                voltage_drop_v=(internal_voltages[component.a] - internal_voltages[component.b]) if same_network and component.kind!="battery" else None,
                 power_w=0, resistance_ohm=None, current_direction="a_to_b"))
             continue
         drop = internal_voltages[component.a] - internal_voltages[component.b]

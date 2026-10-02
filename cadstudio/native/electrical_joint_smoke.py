@@ -13,6 +13,7 @@ def run(app, window, path):
     from .document import read_project
     from .electrical_dialog import CatalogDialog, ComponentDialog, ElectricalDialog
     from ..electrical_catalog import get_catalog_entry
+    from ..electrical import evaluate_electrical
     from .workflows import JointDriveDialog
     from ..gears import add_gear_pair
     from ..models import Design
@@ -49,7 +50,10 @@ def run(app, window, path):
         wiring.demo()
         check(wiring.table.rowCount() == 4, 'example contains a battery, switch, wire, and motor')
         check('모터 기동' in wiring.report.toPlainText(), 'explicit startup current is checked separately')
-        check('공급 / 소비 전력' in wiring.report.toPlainText(), 'DC report presents measured dimensions and results')
+        dc=evaluate_electrical(wiring.candidate())
+        expected=f'전원 단자 출력 / 부하·저항 소비: {dc.source_power_w:.4g} / {dc.absorbed_power_w:.4g} W'
+        check(expected in wiring.report.toPlainText() and abs(dc.source_power_w-dc.absorbed_power_w)<1e-8,
+              'DC report presents actual terminal output consumption and energy balance')
         wiring.grab().save(str(path.with_name('electrical2140.png')))
         wiring.accept()
         check(wiring.workspace.components[0].a == 'VPLUS', 'example nodes are valid identifiers')

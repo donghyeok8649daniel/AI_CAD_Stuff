@@ -9,6 +9,7 @@ import httpx
 from pydantic import ValidationError
 from ..planner import AIReply,ai_design_context,parse_ai_reply
 from ..kernel import preview,KERNEL_LOCK
+from ..power_paths import PowerInputRequired
 
 def cloud_draft(request,model,**kwargs):
     from .cloud_ai import generate
@@ -124,6 +125,7 @@ def ollama_draft(request,model,transport=None,*,control=None,progress=None,deadl
             result['planning']=dict(intent=scope.intent,tools=scope.tools,shapes=scope.shapes,connections=scope.connections,new_parts=scope.new_parts)
             return result
     try:result=asyncio.run(control.execute(generate,deadline))
+    except PowerInputRequired:raise
     except ValueError as exc:
         control.check();result=repairs.interrupted('ollama',str(exc))
         if not result:raise
@@ -205,6 +207,7 @@ async def _ollama_reply(client,model,messages,control,progress,current=None,*,sc
             steps=getattr(result,'tool_actions',[])
             from .cad_tools import TOOL_LABELS
             return {**reviewed,'changes':[f"{s['step']}. {TOOL_LABELS[s['tool']]} · {s['target']}" for s in steps],'provider':'ollama','attempts':attempt+1}
+        except PowerInputRequired:raise
         except (ValueError,RuntimeError) as exc:
             reason=validation_feedback(exc)
             if not unlimited and attempt==2:

@@ -12,9 +12,9 @@ from ..planner import AIReply
 
 class CADAction(StrictModel):
     tool: Literal['create','dimensions','transform','appearance','hole','pocket','pad',
-                  'fillet','chamfer','shell','solid','thread','joint','parameter','edit_feature','edit_joint','motion_link']
+                  'fillet','chamfer','shell','solid','thread','joint','parameter','edit_feature','edit_joint','motion_link','power_path']
     target: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
-    args: dict[str,Any] = Field(default_factory=dict,max_length=24)
+    args: dict[str,Any] = Field(default_factory=dict,max_length=27)
 
 
 class CADCheck(StrictModel):
@@ -45,12 +45,13 @@ class ToolReply(AIReply):
 
 TOOL_LABELS={'motion_link':'기어 / 관절 운동 연결','create':'부품 생성','dimensions':'치수 변경','transform':'이동·회전','appearance':'색상·재질',
              'hole':'구멍','pocket':'포켓 절삭','pad':'돌출','fillet':'필렛','chamfer':'모따기',
-             'shell':'셸','solid':'솔리드 작업','thread':'나사산','joint':'조립 구속','parameter':'변수','edit_feature':'기존 피처 편집','edit_joint':'관절 자세 편집'}
+             'shell':'셸','solid':'솔리드 작업','thread':'나사산','joint':'조립 구속','parameter':'변수','edit_feature':'기존 피처 편집','edit_joint':'관절 자세 편집',
+             'power_path':'전원·배선 경로 추가'}
 
 PHYSICAL_ASSEMBLY_GUIDANCE = '''For a request to DESIGN a physical mechanism or joint structure, create separately editable mechanical bodies with actual mating geometry (supports/housings, bores, shafts, moving members and necessary retention) and then use ordinary joint constraints to assemble them. The joint tool creates only a kinematic relationship, NEVER physical hardware. Choose shapes and dimensions from the user's request, not a fixed named-joint template. Preserve user clearances, mounting dimensions and motion limits; state unspecified fit/retention assumptions. Design insertion paths, shaft/bore diametral clearance and axial gaps explicitly. Use the active printer allowances if present; distinguish nominal assembly clearance from additional printer compensation. Never overlap moving parts or use grouping to hide interference; final overlaps are rejected. Pure joint motions are also sampled for collisions, but new mechanisms require a separate travel review. Use assembly intent when separate moving bodies are needed. If the request only connects existing bodies or changes an existing joint pose, do not add unsolicited hardware. Customization of existing hardware uses normal dimensions, edit_feature, parameter and edit_joint tools while retaining unrelated geometry and connections.'''
 
 
-CATALOG = '''You design CAD models by composing tools, for ANY object the user describes. Return only one compact JSON plan. Never return a complete design file, Python, or a catalogue of unrelated parts. Choose only the operations needed by this request. All lengths are mm, all angles degrees. Respect explicit dimensions. If dimensions are missing choose practical dimensions and list these assumptions in Korean. Existing parts stay untouched unless the user asks to edit them. New IDs must be unique ASCII letters/digits/hyphens. The target is a part ID except joint/edit_joint (joint ID) and parameter (variable name). Each action has tool,target,args. Execute in listed order. At most 64 actions. Reserve actions for required mounting holes, clearances and joints; do not exhaust the budget on cosmetic details.
+CATALOG = '''You design CAD models by composing tools, for ANY object the user describes. Return only one compact JSON plan. Never return a complete design file, Python, or a catalogue of unrelated parts. Choose only the operations needed by this request. All lengths are mm, all angles degrees. Respect explicit dimensions. If dimensions are missing choose practical dimensions and list these assumptions in Korean; electrical operating inputs are exceptions and MUST be supplied or verified, never invented. Existing parts stay untouched unless the user asks to edit them. New IDs must be unique ASCII letters/digits/hyphens. The target is a part ID except joint/edit_joint and motion_link (connection ID), parameter (variable name), and power_path (descriptive circuit branch). Each action has tool,target,args. Execute in listed order. At most 64 actions. Reserve actions for required mounting holes, clearances and joints; do not exhaust the budget on cosmetic details.
 For a vague request, start with a minimal useful mechanical concept, normally one body and 1..6 actions. Do not invent decorative details, fillets, spokes or repeated features unless needed or requested. State the chosen dimensions and omitted functional details briefly; the user can refine them. Explicit requested features always take priority over this simplicity preference. construction contains at most 4 short technical fragments, each at most 80 characters. No paragraphs or repeated explanation. summary is at most 160 characters. assumptions contains only necessary choices, at most 4 short items of 120 characters each. The actual dimensions belong in actions, not extended narration.
 
 TOOLS (only these args are accepted):
@@ -69,6 +70,7 @@ thread: {diameter,pitch,length,internal?:false,offset?:0,handedness?:"right"|"le
 joint: {kind:"rigid"|"revolute"|"slider"|"cylindrical"|"ball"|"planar"|"pin_slot",parent,child,parent_anchor?:"origin",child_anchor?:"origin",x?,y?,z?,rx?,ry?,rz?,limits?:{rz:[minimum,maximum]}}. For revolute use rz limits in degrees (e.g. {rz:[-90,90]}), for slider use z limits in mm. Omit limits when no range was requested. Both anchors must be "origin"; use offsets for another location. The assembly is an acyclic forest: each child has ONE parent joint. A second parent requires loop closure, which is currently available only in manual CAD tools, not this AI action set. Never emulate loop closure with conflicting joints or claim an unmodeled contact/deformation is simulated. target=new joint ID. Parent/child are existing part IDs. Offsets relative to parent. Makes parent fixed if it has no parent joint. Do not join a part to itself. For physical shaft/bore mating, supply BOTH parent_cylinder and child_cylinder, each {center:[x,y,z],direction:[unitX,unitY,unitZ],diameter:mm} in PART LOCAL coordinates. These must match UNIQUE actual cylindrical surfaces; the kernel rejects guessed/misaligned axes. They bind the joint to actual cylinder centers. Cylinder axes are canonicalized toward the positive dominant local axis; use flipped=true to oppose the child cylinder direction (insert from the other end). With cylinders only z (axial gap between cylinder starts) and rz (rotation angle) may be nonzero. A tilted joint REQUIRES cylinder selectors; rx/ry merely tilt a body, they do not change its rotation axis.
 edit_joint: {x?,y?,z?,rx?,ry?,rz?}. target=EXISTING JOINT ID, never a part ID. Set absolute joint coordinates ONLY on its independent motion_axes, with mm or degrees as listed. For 'increase by' add to the current value first. Frame is the existing joint coordinate frame, not global XYZ. Existing limits, face frames, anchors, motion links and parent/child are preserved. Never transform a joint-driven child to move its joint. An axis marked driven_by must be moved using its driving joint instead; passive loop joints are solved automatically. Cannot alter connection kind or limits. selected_joint identifies the user's selected joint; when only selected_part is given find its parent joint by child ID. Do not claim a collision-free motion path; validation also samples pure joint motion for interference; it is not continuous collision certification.
 parameter: {value:"expression"}. target=parameter name; update/add a dimension variable. Existing dimension bindings use the new value.
+power_path: target is a NEW descriptive ASCII branch label, NOT a CAD part. Append one independent DC path to current_design.electrical: battery positive → switch → positive wire → load → return wire → battery negative/GND. Required args are source_voltage_v, positive_wire_length_mm, positive_wire_cross_section_mm2, return_wire_length_mm, return_wire_cross_section_mm2, load_voltage_v, load_current_a. ALL seven are actual user-provided or verified-source operating values; NEVER invent any missing voltage, current or wire dimensions. If missing, say which values need user input rather than fabricate a valid action. Optional args: name, source_internal_resistance_ohm (0 explicitly ideal), source_enabled, source_max_current_a, source_part_id, switch_closed, switch_contact_resistance_ohm (0.01 ohm approximation), switch_max_current_a, switch_part_id, positive_wire_resistivity_ohm_mm2_per_m, positive_wire_catalog_id, positive_wire_max_current_a, positive_wire_part_id, return_wire_resistivity_ohm_mm2_per_m, return_wire_catalog_id, return_wire_max_current_a, return_wire_part_id, load_kind:"load"|"motor"|"mcu", load_startup_current_a (motor only), load_part_id. Optional CAD part IDs MUST exist. Only exact wire catalog IDs may supply source-backed DCR; the wire ampacity remains unknown until the user enters a conditioned limit. This creates no physical battery, connector, PCB, cable routing or firmware simulation. The DC resistor-equivalent result and supply/return continuity are a preview, NOT certification. Do not create unrelated geometry for a circuit-only request.
 
 SHAPES for create.geometry (kind and dimensions only, no tool/target inside geometry):
 cylinder: {kind:"cylinder",diameter,height,bore_diameter?:0}. Axial bore must be < diameter-0.2. bore_diameter already CUTS the center hole: never drill that same hole again. Disk, shaft, tube, wheel, spacer are combinations of this and other tools, not separate kinds.
@@ -108,6 +110,11 @@ def context(design):
             local_bounds[p.id]={axis:[round(getattr(b,axis+'min'),6),round(getattr(b,axis+'max'),6)] for axis in 'xyz'}
     raw=dict(mates=[m.model_dump() for m in design.mates],loops=[m.model_dump() for m in design.loops],motion_links=[m.model_dump() for m in design.motion_links])
     # Never include imported binary assets, display meshes, history or the full schema.
+    electrical=design.electrical
+    electrical_context=(dict(name=electrical.name,components_count=len(electrical.components),
+                             components=[dict(id=c.id,name=c.name,kind=c.kind,a=c.a,b=c.b,
+                                              part_id=c.part_id,closed=c.closed)
+                                         for c in electrical.components[-24:]]) if electrical else None)
     return dict(name=design.name,parameters=design.parameters,print_profile=design.print_profile.model_dump() if design.print_profile else None,
                 parts=[dict(id=p.id,name=p.name,color=p.color,role=p.role,geometry=p.geometry.model_dump(exclude_none=True),
                             kind=p.geometry.kind,transform=p.transform.model_dump(),local_bounds_mm=local_bounds[p.id],
@@ -115,7 +122,8 @@ def context(design):
                             source_part_id=p.source_part_id) for p in design.parts],
                 mates=[dict(**m.model_dump(exclude_defaults=True),motion_axes=motion_controls(raw,m.id)) for m in design.mates],
                 joint_frames=[f.model_dump() for f in design.joint_frames],
-                dimension_bindings=[b.model_dump() for b in design.dimension_bindings])
+                dimension_bindings=[b.model_dump() for b in design.dimension_bindings],
+                electrical=electrical_context)
 
 
 def messages(request):
@@ -274,6 +282,25 @@ def hole_centers(args):
 
 def _apply(raw,action):
     tool=action.tool;args=deepcopy(action.args);target=action.target
+    if tool=='power_path':
+        from ..power_paths import PowerPathSpec, build_power_path, require_power_inputs
+        required=('source_voltage_v','positive_wire_length_mm','positive_wire_cross_section_mm2',
+                  'return_wire_length_mm','return_wire_cross_section_mm2','load_voltage_v','load_current_a')
+        require_power_inputs(args)
+        _keys(args,PowerPathSpec.model_fields,required)
+        spec=PowerPathSpec.model_validate({'name':target.replace('_',' ')+' · 전원 경로',**args})
+        known_parts={part['id'] for part in raw['parts']}
+        for field in ('source_part_id','switch_part_id','positive_wire_part_id',
+                      'load_part_id','return_wire_part_id'):
+            part_id=getattr(spec,field)
+            if part_id and part_id not in known_parts:
+                raise ValueError(f'{field}: CAD 부품 {part_id}가 없습니다. 먼저 실제 부품을 만들거나 연결을 비워 두세요.')
+        built=build_power_path(raw.get('electrical'),spec)
+        raw['electrical']=built.workspace.model_dump()
+        return dict(detail=f'입력한 전원 경로 5개 회로 요소를 추가하고 DC 모델을 확인했습니다. '
+                           f'전류 {built.report.current_a:.4g} A, 부하 단자 전압 '
+                           f'{built.report.load_voltage_v if built.report.load_voltage_v is not None else "미정"} V. '
+                           '실제 배선·부품 정격·코드 동작은 별도 검증이 필요합니다.')
     if tool=='motion_link':
         from ..models import MotionLink
         _keys(args,set(MotionLink.model_fields)-{'id'},('driver','driven','ratio'))
@@ -435,7 +462,7 @@ def execute_plan(content,request,*,check=lambda:None,progress=lambda text:None,s
     if single_part:
         base=payload.pop('base',None);features=payload.get('actions',[])
         if not isinstance(base,dict) or base.get('tool')!='create':raise ValueError('Single-part output requires ONE base create object, followed by feature actions. Do not create separate walls or sections.')
-        if not isinstance(features,list) or any(not isinstance(a,dict) or a.get('tool') in ('create','joint','edit_joint','motion_link') or (a.get('target')!=base.get('target') and a.get('tool')!='parameter') for a in features):
+        if not isinstance(features,list) or any(not isinstance(a,dict) or a.get('tool') in ('create','joint','edit_joint','motion_link','power_path') or (a.get('target')!=base.get('target') and a.get('tool')!='parameter') for a in features):
             raise ValueError('Single-part actions must modify the SAME base target; no separate creates or joints. Use shell/pocket to remove material, pad to fuse material.')
         payload['actions']=[base]+features
     plan=CADPlan.model_validate(payload)
@@ -447,13 +474,18 @@ def execute_plan(content,request,*,check=lambda:None,progress=lambda text:None,s
             step_before=deepcopy(raw);outcome=_apply(raw,action) or {}
             design=Design.model_validate(raw)
             # Validate exact shapes, not just schema; no meshing between steps.
-            shapes=build(design)
+            shapes=[] if action.tool=='power_path' else build(design)
             if any(not s.isValid() or not s.Faces() for s in shapes):raise ValueError('유효하지 않은 CAD 형상입니다.')
             if single_part:
                 shape=shapes[next(i for i,p in enumerate(design.parts) if p.id==base['target'])]
                 if len(shape.Solids())>1:raise ValueError('Single connected part required. The operation created disconnected solids; fuse touching additions or correct the feature placement.')
             raw=design.model_dump()
         except (ValueError,TypeError,KeyError,IndexError,AttributeError,RuntimeError) as exc:
+            from ..power_paths import PowerInputRequired
+            if isinstance(exc,PowerInputRequired):
+                # Providers must request measured/verified values rather than
+                # retrying a geometry fix that fabricates operating ratings.
+                raise
             from .local_ai import validation_feedback
             raise ValueError(f'작업 {number}/{len(plan.actions)} [{action.tool} → {action.target}] 실패: '+validation_feedback(exc)) from None
         check();step=dict(step=number,**action.model_dump(),validated=True,**outcome);steps.append(step)

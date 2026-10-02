@@ -11,8 +11,8 @@ QMenuBar,QMenu,QToolBar{background:#1b2531;color:#d7e2ec;}
 QMenuBar{padding:5px 8px;border-bottom:1px solid #2b3948;} QMenuBar::item{padding:5px 10px;border-radius:4px;} QMenuBar::item:selected{background:#2b3c4b;}
 QMenu{border:1px solid #3a4b5c;padding:5px;} QMenu::item{padding:8px 30px;border-radius:4px;} QMenu::item:selected{background:#234c4e;color:#d6fff5;} QMenu::separator{height:1px;background:#344453;margin:5px 8px;}
 QToolBar{border:0;border-bottom:1px solid #30404f;spacing:3px;padding:6px;} QToolBar::separator{width:1px;background:#354554;margin:8px;}
-QToolBar#selectionToolbar,QToolBar#partInspectionToolbar{padding:2px;spacing:2px;}
-QToolBar#selectionToolbar QToolButton,QToolBar#partInspectionToolbar QToolButton{padding:4px 7px;}
+QToolBar#selectionToolbar,QToolBar#partInspectionToolbar,QToolBar#roleViewToolbar{padding:2px;spacing:2px;}
+QToolBar#selectionToolbar QToolButton,QToolBar#partInspectionToolbar QToolButton,QToolBar#roleViewToolbar QToolButton{padding:4px 7px;}
 QToolButton{padding:7px 9px;border:1px solid transparent;border-radius:6px;background:transparent;} QToolButton:hover{background:#2a3b48;border-color:#365260;} QToolButton:checked{background:#204944;border-color:#3bb39f;color:#aef3e1;}
 QDockWidget{font-weight:600;} QDockWidget::title{background:#202c39;color:#a9bdce;padding:9px 12px;} QDockWidget::close-button,QDockWidget::float-button{padding:2px;}
 QTreeWidget,QListWidget,QTableWidget,QPlainTextEdit,QTextEdit{background:#17222e;border:1px solid #2c3d4c;border-radius:5px;selection-background-color:#244f50;selection-color:#d9fff6;alternate-background-color:#1c2935;}

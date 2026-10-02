@@ -99,7 +99,11 @@ class MainWindow(QMainWindow,PartSelectionUI):
         file.addAction(self.action('print_profile','3D 프린터 · 전체 여유 / 공차…',self.print_profile_dialog,None,'dimension'));assembly.addAction(self.actions['print_profile'])
         model.addAction(self.action('electronics_mount','전장부품 장착 자리…',self.electronics_mount_dialog,None,'assembly'));assembly.addAction(self.actions['electronics_mount'])
         engineering.addAction(self.action('electrical','전장 회로 · 배선 / 전압강하…',self.electrical_dialog,None,'assembly'))
+        engineering.addAction(self.action('power_path','전원 연결 설계…',self.power_path_dialog,None,'assembly'))
+        engineering.addAction(self.action('mechanical_catalog','기계 · 전원 규격 DB…',self.mechanical_catalog_dialog,None,'dimension'))
+        engineering.addAction(self.action('fastener_check','볼트 축방향 검토…',self.fastener_check_dialog,None,'dimension'))
         assembly.addAction(self.actions['electrical'])
+        assembly.addAction(self.actions['power_path']);model.addAction(self.actions['mechanical_catalog'])
         assembly.addAction(self.action('component_specs','제품 스펙 · URL 가져오기…',self.component_specs_dialog,None,'open'))
         self.make_selection_tools(edit,assembly)
         edit.addAction(self.action('configurations','설계 구성표…',self.configuration_dialog,None,'dimension'))
@@ -301,6 +305,32 @@ class MainWindow(QMainWindow,PartSelectionUI):
         dialog=ComponentSpecsDialog(self);dialog.use.hide()
         if dialog.exec()==QDialog.DialogCode.Accepted:self.use_component_source(dialog.record)
 
+    def power_path_dialog(self):
+        if self.busy or self.sketching:return
+        from .power_path_dialog import PowerPathDialog
+        raw=deepcopy(self.document.design) if self.document.design else Design().model_dump()
+        dialog=PowerPathDialog(self,raw.get('electrical') or {'nodes':['GND'],'components':[]},raw['parts'])
+        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.build is not None:
+            raw['electrical']=dialog.build.workspace.model_dump()
+            self.apply_design(raw,'전원 연결 설계',{'tool':'electrical-power-path','component_ids':list(dialog.build.ids.values())})
+
+    def mechanical_catalog_dialog(self):
+        if self.busy or self.sketching:return
+        from .mechanical_catalog_dialog import MechanicalCatalogDialog
+        from ..mechanical_catalog import format_ai_spec
+        dialog=MechanicalCatalogDialog(self)
+        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.entry is not None:
+            spec=format_ai_spec(dialog.entry)
+            current=self.prompt.toPlainText().strip()
+            self.prompt.setPlainText((current+'\n\n' if current else '')+spec)
+            self.ai_dock.show();self.ai_dock.raise_()
+            self.message('품번·치수·조건·출처를 AI 요청에 추가했습니다.')
+
+    def fastener_check_dialog(self):
+        if self.busy or self.sketching:return
+        from .fastener_check_dialog import FastenerCheckDialog
+        FastenerCheckDialog(self).exec()
+
     def use_component_source(self,record):
         from ..component_specs import spec_prompt
         self.prompt.setPlainText(spec_prompt(record));self.ai_dock.show();self.ai_dock.raise_();self.message('출처와 치수를 AI 요청에 넣었습니다. 요청을 확인하고 설계 초안 생성을 누르세요.')
@@ -313,7 +343,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         part_id,face=self.viewport.face
         try:dialog=HoleDialog(self,self.document.design,part_id,face)
         except Exception as exc:self.show_error(str(exc));return
-        if dialog.exec()==QDialog.DialogCode.Accepted:self.apply_design(dialog.checked.model_dump(),'구멍 절삭',{'tool':'hole','part_id':part_id,'feature_id':dialog.feature_id,'face':face})
+        if dialog.exec()==QDialog.DialogCode.Accepted:self.apply_design(dialog.checked.model_dump(),'구멍 절삭',{'tool':'hole','part_id':part_id,'feature_id':dialog.feature_id,'face':face,'standard_source':dialog.standard_record()})
     def study_dialog(self,kind,identifier=None):
         if self.busy or self.sketching:return
         if not self.document.design or not self.document.design['parts']:self.message('먼저 설계할 부품을 만드세요.');return
@@ -613,10 +643,13 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def show_error(self,text):
         self.message(text[:500]);QMessageBox.warning(self,'작업을 완료하지 못했습니다',text[:2400])
     def apply_design(self,data,title,context=None,fit=False,cursor=None,after=None):
-        context=context or {};raw=deepcopy(data);baseline=deepcopy(self.document.design)
+        context=context or {};raw=deepcopy(data);baseline=deepcopy(self.document.design);previous_result=self.result
         def work():
             with KERNEL_LOCK:
-                d=Design.model_validate(raw);r=preview(d)
+                from ..preview_metadata import reuse_preview
+                d=Design.model_validate(raw)
+                cached=reuse_preview(d,baseline,previous_result)
+                r=cached if cached is not None else preview(d)
                 if context.get('tool')=='prompt':
                     from ..interference import validate_candidate
                     validate_candidate(d,baseline,collisions=r['stats']['collisions'])
@@ -624,10 +657,14 @@ class MainWindow(QMainWindow,PartSelectionUI):
                 if baseline:
                     travel=check_joint_travel(baseline,d)
                     if travel and travel['blocked']:raise ValueError(travel_message(d,travel))
-                return d,r
+                return d,r,cached is not None
         def done(result):
-            d,self.result=result;self.document.commit(d,title,context,cursor);self.operation_serial+=1;self.viewport.load(self.result,fit or len(d.parts)==1 and not self.selected)
-            if not self.selected or all(p.id!=self.selected for p in d.parts):self.selected=d.parts[0].id if d.parts else None
+            d,preview_result,reused=result;self.document.commit(d,title,context,cursor)
+            self.result=preview_result;self.operation_serial+=1
+            render=self.viewport.update_metadata if reused else self.viewport.load
+            render(self.result,fit or len(d.parts)==1 and not self.selected)
+            self.refresh_role_view()
+            if self.role_view is None and (not self.selected or all(p.id!=self.selected for p in d.parts)):self.selected=d.parts[0].id if d.parts else None
             self.rebuild_tree();remaining=[i for i in self.selected_parts if any(p.id==i for p in d.parts)];self.select_parts(remaining or ([self.selected] if self.selected else []));self.viewport.joints.set_design(d);self.rebuild_timeline();self.autosave_document();self.title();self.message(title+(' · 간섭 경고: 뷰포트 위의 간섭 버튼을 눌러 확인하세요.' if self.result['stats']['collisions'] else ' · 저장 가능한 유효한 CAD 형상입니다.'))
             if after:after()
         self.run(work,done,failed=self.editor.error if self.sketching else None)
@@ -680,7 +717,11 @@ class MainWindow(QMainWindow,PartSelectionUI):
         root.setExpanded(True);self.tree.blockSignals(False)
     def visibility_changed(self,item,column):
         data=item.data(0,Qt.ItemDataRole.UserRole)
-        if data and data[0]=='part':self.viewport.visibility(data[1],item.checkState(0)==Qt.CheckState.Checked)
+        if data and data[0]=='part':
+            visible=item.checkState(0)==Qt.CheckState.Checked
+            if self.role_view is not None:
+                self.reset_role_view();self.viewport.visibility(data[1],visible);self.rebuild_tree();self.sync_tree_selection()
+            else:self.viewport.visibility(data[1],visible)
     def tree_clicked(self,item,column):
         data=item.data(0,Qt.ItemDataRole.UserRole)
         if not data:return
@@ -1044,6 +1085,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def new_document(self):
         if self.busy or self.sketching or not self.check_save():return
         self.cancel_ai();self.operation_serial+=1;self.accept_draft.setEnabled(False)
+        self.reset_role_view(restore=False)
         self.set_references([])
         self.document=Document();self.result=None;self.selected=None;self.selected_parts=[];self.selected_sketch=None;self.selected_profile=None;self.last_draft=None;self.viewport.load(None);self.viewport.joints.set_design(None);self.viewport.hidden.clear();self.isolation_hidden=None;self.actions['isolate'].setChecked(False);self.rebuild_tree();self.rebuild_timeline();self.show_properties();self.title()
     def recover_autosave(self):
@@ -1062,6 +1104,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             with KERNEL_LOCK:project=read_project(path);r=preview(project.design);return project,r
         def done(result):
             self.set_references([])
+            self.reset_role_view(restore=False)
             project,self.result=result;self.document.load(project,None if recovery else path);self.operation_serial+=1;self.last_draft=None;self.accept_draft.setEnabled(False);self.document.dirty=recovery;self.selected=project.design.parts[0].id if project.design.parts else None;self.selected_sketch=None;self.prompt.setPlainText(project.prompt);self.viewport.hidden.clear();self.isolation_hidden=None;self.actions['isolate'].setChecked(False);self.viewport.load(self.result,True);self.viewport.joints.set_design(project.design);self.rebuild_tree();self.select_parts([self.selected] if self.selected else []);self.rebuild_timeline();self.title();self.message('자동 저장한 설계를 복구했습니다.' if recovery else '프로젝트와 작업 기록을 열었습니다.')
         self.run(work,done,'프로젝트 · 작업 기록 검증 중…')
     def save(self,save_as=False):
@@ -1205,10 +1248,27 @@ class MainWindow(QMainWindow,PartSelectionUI):
         return False
     @Slot(object)
     def ai_failed(self,packet):
-        task,text=packet
+        task,error=packet
         if task is not self.ai_task:return
+        from ..power_paths import PowerInputRequired,REQUIRED_POWER_INPUTS
+        text=str(error)
         self.retain_ai_checkpoint()
         self.finish_ai_task()
+        if isinstance(error,PowerInputRequired):
+            if self.provider.currentData()=='codex':
+                self.codex_status.setText('✓ Codex 연결 완료');self.codex_status.setStyleSheet('color:#8dd7c0;')
+            fields=', '.join(REQUIRED_POWER_INPUTS[key] for key in error.missing_fields)
+            notice='전원 수치 입력 필요\n\n'+fields+' 값을 확인해 입력하세요.\n\n전원 연결 설계…에서 값을 입력해 DC 미리보기를 확인하거나, 확인한 수치를 프롬프트에 추가하세요. 현재 설계는 변경되지 않았습니다.'
+            if self.language_service.language=='en':
+                labels={'source_voltage_v':'battery voltage (V)','positive_wire_length_mm':'feed wire length (mm)',
+                        'positive_wire_cross_section_mm2':'feed wire area (mm²)','return_wire_length_mm':'return wire length (mm)',
+                        'return_wire_cross_section_mm2':'return wire area (mm²)','load_voltage_v':'load voltage (V)',
+                        'load_current_a':'load current (A)'}
+                fields=', '.join(labels[key] for key in error.missing_fields)
+                notice='Power operating inputs required\n\nSupply verified positive values for: '+fields+'.\n\nOpen Power path design… for a DC preview, or add the confirmed values to your prompt. The current design is unchanged.'
+            if not self.restore_repair_draft(notice):self.ai_result.setPlainText(notice)
+            self.message('Power operating inputs required · open Power path design…' if self.language_service.language=='en' else '전원 수치 입력 필요 · 전원 연결 설계…를 여세요.')
+            return
         if self.restore_repair_draft('추가 수정이 완료되지 않았습니다. 이전 초안을 보존했습니다.\n'+text[:1200]):return
         if self.provider.currentData()=='codex':
             cad_error='치수·형상 검증' in text

@@ -1,3 +1,5 @@
+**2.16.0 · 전원 연결·규격 DB·최적화:** 배터리→스위치→부하→리턴 전원 경로의 DC 미리보기와 실제 CAD 부품 연결, 제조사 품번별 전선 저항, 21개 출처 기반 기계/전원 규격 자료와 실제 규격 관통홀, 이름·색·회로 편집 시 형상 재사용 최적화를 추가했습니다. 역할별 보기와 별도 회로도도 함께 제공합니다. [사용법 / 검사 범위](docs/RELEASE_2_16_0_KO.md) · [전원 연결](docs/POWER_PATH_KO.md) · [볼트 축인장](docs/FASTENER_AXIAL_CHECK_KO.md) · [기계 자료](docs/MECHANICAL_CATALOG_KO.md) · [English](docs/MECHANICAL_CATALOG_EN.md).
+
 **2.14.1 · 단선·MCU 연결·부품 자료:** 전선 단선과 MCU 전원·리턴·지정 신호 핀의 회로 노드상 도통을 구분해 표시합니다. Raspberry Pi 3 B+/4, STM32·Arduino 보드, 엔코더·모터·전선·드라이버·다이오드·수동 소자 등 공식 출처가 연결된 오프라인 검색 카탈로그를 추가했습니다. 확인되지 않은 소비전류와 제품군 정격은 자동 입력하지 않습니다. [사용법과 검사 범위](docs/ELECTRICAL_JOINT_KO.md) · [English](docs/ELECTRICAL_JOINT_EN.md).
 
 **2.14.0 · 전장·관절·경량화:** 배터리·전선·스위치·모터·MCU의 연결과 DC 전압강하 근사, 입력한 모터 기동 전류의 별도 검사, 관절 양방향 구동 범위의 실제 형상 표본 검사, 기어쌍 입력 회전 범위 확장. 설치 번들에서 사용하지 않는 시각화 의존성을 제거했습니다.
@@ -18,7 +20,7 @@
 
 **2.8.0:** 선택 해제·회전, 클릭 가능한 XYZ 축, 실제 관절 구조, AI 커스텀 조립, 선택만/분해 보기와 부품별 STEP·STL 출력. [사용 방법](docs/ASSEMBLY_PARTS_KO.md)
 
-# Prompt CAD Studio · Native 2.14.1
+# Prompt CAD Studio · Native 2.16.0
 
 **v2.7.0 — Codex · ChatGPT 구독 모드:** 기존 Codex 로그인으로 설계 요청을 실행합니다. AI 패널에서 Codex 선택 → Codex 연결 → 기존 로그인 사용 → 모델 선택. API 키가 필요하지 않으며 Codex 구독 사용량이 적용됩니다. [연결 방법과 한계](docs/CODEX_MODE_KO.md).
 
