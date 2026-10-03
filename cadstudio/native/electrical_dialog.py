@@ -165,6 +165,14 @@ class ComponentDialog(QDialog):
         self.signal_pins.setMaximumHeight(110)
         form.addRow('MCU 신호 핀 = 노드 · 한 줄씩',self.signal_pins)
         self.signal_caption=form.labelForField(self.signal_pins)
+        ports=old.get('terminal_pins') or {}
+        self.terminal_pins=QPlainTextEdit('\n'.join(f'{pin}={node}' for pin,node in ports.items()))
+        self.terminal_pins.setObjectName('electricalSignalTerminals')
+        self.terminal_pins.setPlaceholderText('예: OUT_A=ENCODER_A\nPWM=MOTOR_PWM')
+        self.terminal_pins.setMinimumHeight(68);self.terminal_pins.setMaximumHeight(110)
+        form.addRow('추가 신호 단자 = 노드 · 센서 / 드라이버',self.terminal_pins)
+        self.terminal_caption=form.labelForField(self.terminal_pins)
+        self.pinout_catalog_id=old.get('pinout_catalog_id','')
         layout.addWidget(label('초기 수치는 가상 예시입니다. 실제 정격·전선 치수로 바꾸세요. 노드 이름은 영문·숫자·_·-만 쓰며 회로 계산은 DC 정상 상태 근사입니다.',True))
         layout.addWidget(label('MCU의 첫 단자는 VCC, 둘째 단자는 GND/리턴입니다. 신호 핀은 도통만 검사하며 코드·논리 동작은 검증하지 않습니다.',True))
         controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
@@ -186,6 +194,7 @@ class ComponentDialog(QDialog):
         self.wire_connected.setVisible(kind=='wire')
         self.power_enabled.setVisible(kind=='battery')
         self.signal_caption.setVisible(kind=='mcu');self.signal_pins.setVisible(kind=='mcu')
+        self.terminal_caption.setVisible(kind in ('load','motor'));self.terminal_pins.setVisible(kind in ('load','motor'))
 
     def update_catalog_note(self):
         from ..electrical_catalog import get_catalog_entry
@@ -204,6 +213,9 @@ class ComponentDialog(QDialog):
         if catalog.exec()!=QDialog.DialogCode.Accepted or not catalog.entry:return
         values=component_prefill(catalog.entry)
         if not values:return
+        if values['catalog_id']!=self.catalog_id and self.signal_pins.toPlainText().strip():
+            if QMessageBox.question(self,'핀 연결 해제 확인','모델을 바꾸면 기존 MCU 핀 연결을 해제합니다. 계속할까요?')!=QMessageBox.StandardButton.Yes:return
+            self.signal_pins.clear();self.pinout_catalog_id=''
         self.catalog_id=''
         kind=values['kind']
         self.kind.setCurrentIndex(self.kind.findData(kind))
@@ -219,8 +231,11 @@ class ComponentDialog(QDialog):
         self.update_catalog_note()
 
     def parsed_signal_pins(self):
+        return self.parsed_terminals(self.signal_pins)
+
+    def parsed_terminals(self,field):
         pins={}
-        for number,line in enumerate(self.signal_pins.toPlainText().splitlines(),1):
+        for number,line in enumerate(field.toPlainText().splitlines(),1):
             line=line.strip()
             if not line:continue
             if line.count('=')!=1:
@@ -241,7 +256,8 @@ class ComponentDialog(QDialog):
                     a=self.a.text().strip(),b=self.b.text().strip(),part_id=self.part.currentData(),
                     catalog_id=self.catalog_id,source_url=self.source_url,
                     closed=(self.wire_connected.isChecked() if kind=='wire' else self.power_enabled.isChecked() if kind=='battery' else self.closed.isChecked()),
-                    **({'signal_pins':self.parsed_signal_pins()} if kind=='mcu' else {}),**values)
+                    **({'signal_pins':self.parsed_signal_pins(),'pinout_catalog_id':self.pinout_catalog_id if self.pinout_catalog_id==self.catalog_id else ''} if kind=='mcu' else {}),
+                    **({'terminal_pins':self.parsed_terminals(self.terminal_pins)} if kind in ('load','motor') else {}),**values)
 
     def accept(self):
         from ..electrical import ElectricalComponent
@@ -277,6 +293,11 @@ class ElectricalDialog(QDialog):
         circuit_actions.addWidget(self.schematic_button)
         circuit_actions.addStretch(1)
         layout.addLayout(circuit_actions)
+        pin_actions=QHBoxLayout()
+        self.mcu_pin_button=button('MCU 선택 / 핀 연결…',self.edit_mcu_pins)
+        self.mcu_pin_button.setObjectName('electricalMcuPinsButton');pin_actions.addWidget(self.mcu_pin_button)
+        pin_actions.addWidget(label('MCU 핀을 클릭해 센서·드라이버·다른 보드 단자와 연결합니다.',True),1)
+        layout.addLayout(pin_actions)
         layout.addWidget(label('GND는 기준 전위입니다. 이름이 다른 단자는 이어지지 않습니다. 보고서의 PASS / WARN / FAIL은 입력한 배선 모델에 대한 결과입니다.',True))
         self.report=QPlainTextEdit();self.report.setReadOnly(True);self.report.setMinimumHeight(130);layout.addWidget(self.report)
         self.report.setObjectName('electricalReport')
@@ -326,8 +347,25 @@ class ElectricalDialog(QDialog):
             QMessageBox.warning(self,'회로도 입력 확인',str(exc)[:800]);return
         try:result=evaluate_electrical(workspace)
         except (ValueError,TypeError):result=None
-        schematic=ElectricalSchematicDialog(self,workspace,result)
-        schematic.exec()
+        schematic=ElectricalSchematicDialog(self,workspace,result,self.parts)
+        if schematic.exec()==QDialog.DialogCode.Accepted and schematic.accepted_workspace is not None:
+            self.adopt_workspace(schematic.accepted_workspace)
+
+    def adopt_workspace(self,workspace):
+        self.components=[component.model_dump() for component in workspace.components]
+        self.original_nodes=tuple(workspace.nodes)
+        self.refresh();self.calculate()
+
+    def edit_mcu_pins(self):
+        from .mcu_pin_dialog import McuPinDialog
+        try:workspace=self.candidate()
+        except (ValueError,TypeError) as exc:
+            QMessageBox.warning(self,'MCU 입력 확인',str(exc)[:800]);return
+        selected=self.table.currentRow()
+        mcu_id=self.components[selected]['id'] if 0<=selected<len(self.components) and self.components[selected]['kind']=='mcu' else None
+        dialog=McuPinDialog(self,workspace,self.parts,mcu_id)
+        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
+            self.adopt_workspace(dialog.accepted_workspace)
 
     def new_power_path(self):
         from .power_path_dialog import PowerPathDialog
@@ -370,7 +408,8 @@ class ElectricalDialog(QDialog):
     def candidate(self):
         from ..electrical import ElectricalWorkspace
         nodes=sorted({'GND',*self.original_nodes,*(name for item in self.components for name in (item['a'],item['b'])),
-                      *(node for item in self.components for node in item.get('signal_pins',{}).values())})
+                      *(node for item in self.components for node in item.get('signal_pins',{}).values()),
+                      *(node for item in self.components for node in item.get('terminal_pins',{}).values())})
         return ElectricalWorkspace.model_validate(dict(name=self.name.text().strip() or '전장 회로',nodes=nodes,components=self.components))
 
     def calculate(self):

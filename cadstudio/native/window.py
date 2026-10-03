@@ -99,10 +99,12 @@ class MainWindow(QMainWindow,PartSelectionUI):
         file.addAction(self.action('print_profile','3D 프린터 · 전체 여유 / 공차…',self.print_profile_dialog,None,'dimension'));assembly.addAction(self.actions['print_profile'])
         model.addAction(self.action('electronics_mount','전장부품 장착 자리…',self.electronics_mount_dialog,None,'assembly'));assembly.addAction(self.actions['electronics_mount'])
         engineering.addAction(self.action('electrical','전장 회로 · 배선 / 전압강하…',self.electrical_dialog,None,'assembly'))
+        engineering.addAction(self.action('mcu_pins','MCU 선택 / 핀 연결…',self.mcu_pin_dialog,None,'assembly'))
         engineering.addAction(self.action('power_path','전원 연결 설계…',self.power_path_dialog,None,'assembly'))
         engineering.addAction(self.action('mechanical_catalog','기계 · 전원 규격 DB…',self.mechanical_catalog_dialog,None,'dimension'))
         engineering.addAction(self.action('fastener_check','볼트 축방향 검토…',self.fastener_check_dialog,None,'dimension'))
         assembly.addAction(self.actions['electrical'])
+        assembly.addAction(self.actions['mcu_pins'])
         assembly.addAction(self.actions['power_path']);model.addAction(self.actions['mechanical_catalog'])
         assembly.addAction(self.action('component_specs','제품 스펙 · URL 가져오기…',self.component_specs_dialog,None,'open'))
         self.make_selection_tools(edit,assembly)
@@ -304,6 +306,16 @@ class MainWindow(QMainWindow,PartSelectionUI):
         from .component_specs_dialog import ComponentSpecsDialog
         dialog=ComponentSpecsDialog(self);dialog.use.hide()
         if dialog.exec()==QDialog.DialogCode.Accepted:self.use_component_source(dialog.record)
+
+    def mcu_pin_dialog(self):
+        if self.busy or self.sketching:return
+        from .mcu_pin_dialog import McuPinDialog
+        from ..models import Design
+        raw=deepcopy(self.document.design) if self.document.design else Design(name='전장 설계',parts=[]).model_dump()
+        dialog=McuPinDialog(self,raw.get('electrical') or {'nodes':['GND'],'components':[]},raw['parts'])
+        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
+            raw['electrical']=dialog.accepted_workspace.model_dump()
+            self.apply_design(raw,'MCU 핀 연결 편집',{'tool':'electrical-mcu-pins','component_ids':[c.id for c in dialog.accepted_workspace.components if c.kind=='mcu']})
 
     def power_path_dialog(self):
         if self.busy or self.sketching:return

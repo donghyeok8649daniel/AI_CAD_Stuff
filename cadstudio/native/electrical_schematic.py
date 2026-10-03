@@ -1,4 +1,4 @@
-"""Lightweight, read-only schematic of the saved electrical netlist.
+"""Lightweight schematic and explicit MCU connector map of an electrical netlist.
 
 The diagram is generated from node IDs and component endpoints. It is not a
 PCB layout, a routed 3D cable, or a simulation of firmware and signal logic.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPainter, QPen
-from PySide6.QtWidgets import QApplication, QDialog, QGraphicsScene, QGraphicsView, QHBoxLayout, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QGraphicsScene, QGraphicsView, QHBoxLayout, QLabel, QSplitter, QVBoxLayout, QWidget
 
 from ..electrical import ElectricalResult, ElectricalWorkspace
 from .widgets import button, label
@@ -39,11 +39,14 @@ class CircuitView(QGraphicsView):
 class ElectricalSchematicDialog(QDialog):
     """Separate native window showing the actual modeled netlist connections."""
 
-    def __init__(self, parent, workspace: ElectricalWorkspace | dict, result: ElectricalResult | dict | None = None):
+    def __init__(self, parent, workspace: ElectricalWorkspace | dict, result: ElectricalResult | dict | None = None, parts=()):
         super().__init__(parent)
         self.setWindowTitle('전장 회로도 · 배선 연결 보기')
         self.resize(1050, 690)
-        self.workspace = ElectricalWorkspace.model_validate(workspace)
+        self.workspace = ElectricalWorkspace.model_validate(workspace).model_copy(deep=True)
+        self.parts = tuple(parts)
+        self.workspace_changed = False
+        self.accepted_workspace = None
         self.result = ElectricalResult.model_validate(result) if result is not None else None
         language = getattr(QApplication.instance(), 'cad_language', None)
         self.english = getattr(language, 'language', 'ko') == 'en'
@@ -55,26 +58,80 @@ class ElectricalSchematicDialog(QDialog):
         self.branch_items: dict[str, list] = {}
 
         layout = QVBoxLayout(self)
-        layout.addWidget(label('읽기 전용 연결도 · 같은 노드 이름만 이어집니다. 교차선은 접점 표시가 있을 때만 연결됩니다.', True))
+        layout.addWidget(label('같은 노드 이름만 이어집니다. MCU를 고르고 핀을 클릭하면 연결을 편집합니다. 교차선은 접점 표시가 있을 때만 연결됩니다.', True))
         controls = QHBoxLayout()
+        self.pin_button = button('MCU 선택 / 핀 연결…', self.edit_mcu_pins)
+        self.pin_button.setObjectName('schematicMcuPins')
+        controls.addWidget(self.pin_button)
         controls.addWidget(button('전체 맞춤', self.fit_scene))
         controls.addWidget(button('확대', lambda: self.view.scale(1.25, 1.25)))
         controls.addWidget(button('축소', lambda: self.view.scale(.8, .8)))
         controls.addStretch(1)
         controls.addWidget(QLabel('드래그: 이동   휠: 커서 기준 확대/축소'))
         layout.addLayout(controls)
-        layout.addWidget(self.view, 1)
+        from .mcu_pin_dialog import PinDiagramView
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(self.view)
+        pin_panel = QWidget(); pin_layout = QVBoxLayout(pin_panel)
+        self.mcu_combo = QComboBox(); self.mcu_combo.setObjectName('schematicMcuSelection')
+        pin_layout.addWidget(self.mcu_combo)
+        self.pin_view = PinDiagramView(self); self.pin_view.setObjectName('schematicMcuDiagram')
+        pin_layout.addWidget(self.pin_view, 1)
+        pin_layout.addWidget(button('핀 모식도 전체 맞춤', self.pin_view.fit))
+        pin_layout.addWidget(label('핀을 클릭해 연결 편집 · GPIO와 전원 레일은 별도입니다.', True))
+        splitter.addWidget(pin_panel); splitter.setSizes([650, 400])
+        layout.addWidget(splitter, 1)
+        self.mcu_combo.currentIndexChanged.connect(self.refresh_pin_diagram)
+        self.pin_view.pin_clicked.connect(lambda key: self.edit_mcu_pins(pin=key))
         status = 'DC 계산 결과 표시' if self.result is not None else '회로 계산 미완료 · 연결과 입력값만 표시'
         layout.addWidget(label(status + ' · OFF 배터리와 단선된 전선은 전류를 공급하거나 전달하지 않습니다.', True))
         close_row = QHBoxLayout()
         close_row.addStretch(1)
+        self.apply_button = button('회로도 변경 저장', self.accept, True)
+        self.apply_button.setObjectName('schematicApply')
+        self.apply_button.setEnabled(False)
+        close_row.addWidget(self.apply_button)
         close_row.addWidget(button('닫기', self.reject))
         layout.addLayout(close_row)
         self._draw()
+        self.refresh_mcu_list()
+
+    def refresh_mcu_list(self, selected_id=None):
+        selected_id = selected_id or self.mcu_combo.currentData()
+        self.mcu_combo.blockSignals(True); self.mcu_combo.clear()
+        for component in self.workspace.components:
+            if component.kind == 'mcu': self.mcu_combo.addItem(component.name, component.id)
+        if selected_id: self.mcu_combo.setCurrentIndex(max(0, self.mcu_combo.findData(selected_id)))
+        self.mcu_combo.blockSignals(False)
+        self.refresh_pin_diagram()
+
+    def refresh_pin_diagram(self, *_):
+        from ..mcu_connections import pin_connections
+        component = next((c for c in self.workspace.components if c.id == self.mcu_combo.currentData()), None)
+        self.pin_view.draw(component, pin_connections(self.workspace, component.id) if component else ())
+        self.pin_view.fit()
+
+    def edit_mcu_pins(self, *_args, pin=None):
+        from ..electrical import evaluate_electrical
+        from .mcu_pin_dialog import McuPinDialog
+        selected_id = self.mcu_combo.currentData()
+        dialog = McuPinDialog(self, self.workspace, self.parts, selected_id)
+        if pin: dialog.select_pin(pin)
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.accepted_workspace is None: return
+        self.workspace = dialog.accepted_workspace.model_copy(deep=True)
+        self.workspace_changed = True; self.apply_button.setEnabled(True)
+        try: self.result = evaluate_electrical(self.workspace)
+        except (ValueError, TypeError): self.result = None
+        self._draw(); self.refresh_mcu_list(dialog.mcu_combo.currentData()); self.fit_scene()
+
+    def accept(self):
+        self.accepted_workspace = self.workspace.model_copy(deep=True)
+        super().accept()
 
     def showEvent(self, event):
         super().showEvent(event)
         self.fit_scene()
+        self.pin_view.fit()
 
     def fit_scene(self):
         rect = self.scene.sceneRect()
@@ -145,6 +202,7 @@ class ElectricalSchematicDialog(QDialog):
         return items
 
     def _draw(self):
+        self.scene.clear(); self.branch_layout.clear(); self.branch_items.clear()
         workspace = self.workspace
         ordered = [name for name in workspace.nodes if name != 'GND'] + ['GND']
         # Components connect only to their named node buses; crossing lines do
@@ -155,7 +213,7 @@ class ElectricalSchematicDialog(QDialog):
         rows = {}
         for component in workspace.components:
             rows[component.id] = y
-            y += 92.0 + (len(component.signal_pins) * 34.0 if component.kind == 'mcu' else 0.0)
+            y += 92.0 + ((len(component.signal_pins) + len(component.terminal_pins)) * 34.0)
         height = max(360.0, y + 50.0)
         self.scene.setSceneRect(0, 0, width, height)
         self._text(workspace.name, 24, 16, INK, 15, True)
@@ -205,23 +263,36 @@ class ElectricalSchematicDialog(QDialog):
             self._text(state, max(ax, bx) + 22, y - 16, color, 9, True)
             layout = dict(a=component.a, b=component.b, a_x=ax, b_x=bx,
                           row_y=y, kind=component.kind, active=active, signals={})
-            if component.kind == 'mcu':
-                for index, (pin, node) in enumerate(component.signal_pins.items(), 1):
+            mappings = component.signal_pins if component.kind == 'mcu' else component.terminal_pins
+            if mappings:
+                from ..board_pins import board_pinout
+                pinout = board_pinout(component.catalog_id) if component.kind == 'mcu' else None
+                pin_labels = {pin.key: pin.label for pin in pinout.pins} if pinout else {}
+                from ..mcu_connections import pin_connections
+                legacy_keys = {pin.key for pin in pin_connections(workspace, component.id) if pin.legacy} if component.kind == 'mcu' else set()
+                for index, (pin, node) in enumerate(mappings.items(), 1):
                     signal_y = y + 23 + index * 31
                     sx = self.node_positions[node]
                     pin_ok = branch.signal_pin_connected.get(pin) if branch else None
-                    signal_color = LIVE if pin_ok is True else OPEN if pin_ok is False else BUS
-                    items.extend((self._line(mid, y + 17, mid, signal_y, signal_color, 1, dashed=True),
-                                  self._line(mid, signal_y, sx, signal_y, signal_color, 2, dashed=True),
+                    legacy = pin in legacy_keys
+                    signal_color = SOURCE if legacy else LIVE if pin_ok is True else OPEN if pin_ok is False else BUS
+                    # Each named pin gets an independent row/stub. A shared
+                    # stem from the symbol would visually short separate GPIOs
+                    # together even though their saved nets are distinct.
+                    origin_x = 225.0
+                    items.extend((self._line(origin_x, signal_y, sx, signal_y, signal_color, 2, dashed=True),
+                                  self._endpoint(origin_x, signal_y, signal_color),
                                   self._endpoint(sx, signal_y, signal_color)))
                     signal_status = (self._word('도통 확인', 'Continuity found') if pin_ok is True else
                                      self._word('미연결', 'Disconnected') if pin_ok is False else
                                      self._word('미계산', 'Not calculated'))
-                    self._text(f'{pin} → {node} · {signal_status}',
-                               max(mid, sx) + 10, signal_y - 15, signal_color, 8)
-                    layout['signals'][pin] = dict(node=node, x=sx, y=signal_y, connected=pin_ok)
+                    if legacy: signal_status = self._word('기존 수동 연결 · 확인 필요', 'Legacy manual mapping · check required')
+                    self._text(pin_labels.get(pin, pin) + (' *' if legacy else ''), 22, signal_y - 15, signal_color, 8, max_width=190)
+                    self._text(f'{node} · {signal_status}', sx + 10, signal_y - 15, signal_color, 8)
+                    layout['signals'][pin] = dict(node=node, x=sx, y=signal_y, connected=pin_ok,
+                                                 origin_x=origin_x, origin_y=signal_y, legacy=legacy)
             self.branch_layout[component.id] = layout
             self.branch_items[component.id] = items
-        self._text(self._word('청록: 연결 · 빨강: 단선/열림/OFF · 주황: 전원 · 실제 제작 회로는 별도 검증',
-                              'Teal: connected · red: open/OFF · amber: source · check the physical circuit separately'),
+        self._text(self._word('청록: 연결 · 빨강: 단선/열림/OFF · 주황: 전원 또는 기존 수동 연결 확인 · 실제 제작 회로는 별도 검증',
+                              'Teal: connected · red: open/OFF · amber: source or legacy mapping · check the physical circuit separately'),
                    24, height - 35, BUS, 8)

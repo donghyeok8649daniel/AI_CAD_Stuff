@@ -1,0 +1,29 @@
+{
+  "checks": [
+    "owned CAD starts with a blank design",
+    "native inspection toolbar exposes All and three role buttons",
+    "electrical button shows and selects only matching parts",
+    "electrical inspection color matches its role",
+    "electrical selection does not pull in hidden mixed-group members",
+    "structure button shows and selects only matching parts",
+    "structure inspection color matches its role",
+    "structure selection does not pull in hidden mixed-group members",
+    "transmission button shows and selects only matching parts",
+    "transmission inspection color matches its role",
+    "transmission selection does not pull in hidden mixed-group members",
+    "all four role buttons remain visible in an 820-pixel CAD window",
+    "All restores manual visibility and original part colors",
+    "role-only inspection does not alter saved CAD geometry or groups",
+    "battery toggle and separate schematic buttons are available",
+    "energized battery supplies the MCU through a closed lead",
+    "native battery control reports disabled supply clearly",
+    "disabled battery produces zero DC current and no MCU supply path",
+    "schematic button opens a distinct drawn node-and-component window",
+    "schematic marks disabled supply, broken signal wire and disconnected GPIO",
+    "reenabling supply restores the DC current and MCU power report",
+    "schematic circuit still warns about the independent broken signal lead",
+    "electrical inspection and supply preview leave the CAD document unchanged"
+  ],
+  "live_ai_calls": 0,
+  "success": true
+}

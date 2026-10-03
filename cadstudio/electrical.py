@@ -45,9 +45,13 @@ class ElectricalComponent(ElectricalModel):
     resistivity_ohm_mm2_per_m: float = Field(default=0.01724, gt=0, le=100)
     closed: bool = True
     contact_resistance_ohm: float = Field(default=0.01, gt=0, le=1000)
-    # MCU signal pins are passive net labels. They are not included in the DC
-    # equivalent resistance of the MCU and do not simulate digital logic.
-    signal_pins: dict[str, Identifier] = Field(default_factory=dict, max_length=32)
+    # MCU signal pins and user-declared sensor/driver signal terminals are
+    # passive net labels. They add no GPIO output resistance or digital logic.
+    signal_pins: dict[str, Identifier] = Field(default_factory=dict, max_length=144)
+    terminal_pins: dict[str, Identifier] = Field(default_factory=dict, max_length=144)
+    # Opt-in physical board pin provenance. Legacy arbitrary labels remain
+    # readable until the user explicitly binds them to an exact board pinout.
+    pinout_catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
 
     @model_validator(mode="after")
     def required_values(self):
@@ -65,15 +69,24 @@ class ElectricalComponent(ElectricalModel):
             raise ValueError("기동 전류는 모터에만 지정할 수 있습니다.")
         if self.signal_pins and self.kind != "mcu":
             raise ValueError("신호 핀은 MCU에만 지정할 수 있습니다.")
+        if self.terminal_pins and self.kind not in ("load", "motor"):
+            raise ValueError("추가 신호 단자는 일반 부하·센서·드라이버 또는 모터 항목에만 지정할 수 있습니다.")
+        if self.pinout_catalog_id and self.kind != "mcu":
+            raise ValueError("물리 핀 모식도는 MCU / 보드 항목에만 연결할 수 있습니다.")
         if self.source_url:
             parsed = urlsplit(self.source_url)
             if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
                     or any(character.isspace() or ord(character) < 32 for character in self.source_url)):
                 raise ValueError("제품 사양 출처는 안전한 HTTPS 주소로 지정하세요.")
-        for pin, node in self.signal_pins.items():
+        for pin, node in (*self.signal_pins.items(), *self.terminal_pins.items()):
             if (not pin or len(pin) > 40 or not all(c.isascii() and (c.isalnum() or c in "_-") for c in pin)
-                    or not node or len(node) > 40):
+                    or not node or len(node) > 40
+                    or not all(c.isascii() and (c.isalnum() or c in "_-") for c in node)):
                 raise ValueError("MCU 핀 이름과 노드 ID는 영문·숫자·_·-만 사용할 수 있습니다.")
+        if self.pinout_catalog_id:
+            from .mcu_connections import validate_bound_pin_map
+
+            validate_bound_pin_map(self.catalog_id, self.pinout_catalog_id, self.signal_pins)
         return self
 
 
@@ -96,6 +109,8 @@ class ElectricalWorkspace(ElectricalModel):
             raise ValueError("전장 부품은 등록된 노드 두 개에 연결해야 합니다.")
         if any(node not in allowed for component in self.components for node in component.signal_pins.values()):
             raise ValueError("MCU 신호 핀은 등록된 노드에 연결해야 합니다.")
+        if any(node not in allowed for component in self.components for node in component.terminal_pins.values()):
+            raise ValueError("추가 신호 단자는 등록된 노드에 연결해야 합니다.")
         return self
 
 
@@ -184,6 +199,8 @@ def _connection_checks(workspace: ElectricalWorkspace, active: list[ElectricalCo
         if component.kind == "mcu":
             for pin, node in component.signal_pins.items():
                 signal_terminals[node].add((component.id, f"pin:{pin}"))
+        for pin, node in component.terminal_pins.items():
+            signal_terminals[node].add((component.id, f"port:{pin}"))
     sources = [component for component in active if component.kind == "battery"]
     checks: dict[str, tuple[bool, bool, bool, dict[str, bool]]] = {}
     for component in active:
@@ -196,9 +213,12 @@ def _connection_checks(workspace: ElectricalWorkspace, active: list[ElectricalCo
         paired = any(source.a in supply_nodes and source.b in return_nodes for source in sources)
         pins = {}
         for pin, node in component.signal_pins.items():
+            from .mcu_connections import pin_aliases
+
+            same_gpio = {f"pin:{alias}" for alias in pin_aliases(component, pin)}
             net_nodes = _reachable(node, signal_graph)
             pins[pin] = any(
-                any(owner != component.id or terminal in ("terminal:a", "terminal:b")
+                any(owner != component.id or terminal not in same_gpio
                     for owner, terminal in signal_terminals[reached])
                 for reached in net_nodes
             )
@@ -356,4 +376,11 @@ def evaluate_electrical(raw: ElectricalWorkspace | dict) -> ElectricalResult:
     workspace = ElectricalWorkspace.model_validate(raw)
     running = _solve(workspace, startup=False)
     starting = _solve(workspace, startup=True) if any(c.kind == "motor" and c.startup_current_a for c in workspace.components) else None
+    if any(component.signal_pins for component in workspace.components):
+        from .mcu_connections import topology_warnings
+
+        pin_warnings = topology_warnings(workspace)
+        running.warnings.extend(warning for warning in pin_warnings if warning not in running.warnings)
+        if starting is not None:
+            starting.warnings.extend(warning for warning in pin_warnings if warning not in starting.warnings)
     return ElectricalResult(**running.model_dump(), startup=starting)
