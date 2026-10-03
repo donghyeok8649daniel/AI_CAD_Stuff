@@ -619,9 +619,13 @@ EN.update({
     '모델을 바꾸면 기존 MCU 핀 연결을 해제합니다. 계속할까요?': 'Changing the model removes existing MCU pin assignments. Continue?',
 })
 
+EN.update({'CAD 부품 · 전장 등록 / 모식도…': 'CAD part · electrical registration / diagram…', '이 CAD 부품을 전장으로 등록…': 'Register this CAD part as electrical…', '전장 피처 · 모델 / 모식도 편집': 'Electrical feature · edit model / diagram', '정격 입력 완료 · DC 계산에 포함': 'Ratings entered · include in DC analysis', '정격 입력 전 · DC 계산 제외': 'Ratings pending · excluded from DC analysis', '전장으로 등록할 CAD 부품을 먼저 만들거나 가져오세요.': 'First create or import the CAD part to register as electrical.', '전장 피처를 더블클릭하면 모델·핀 모식도를 편집합니다.': 'Double-click the electrical feature to edit its model / pin diagram.', '사용자 정의': 'Custom', 'DC 계산 포함': 'Included in DC analysis'})
+
+
 def translate(text,language):
     if language!='en' or not isinstance(text,str):return text
     if text in EN:return EN[text]
+    if text.startswith('전장 피처 · '):return 'Electrical feature · '+text[len('전장 피처 · '):]
     if text.startswith('참고자료 ') and 'AI에 전송' in text:return text.replace('참고자료 ','References: ').replace('개',' files').replace('자',' characters').replace('AI에 전송','sent to AI')
     if '\n' in text:return '\n'.join(translate(line,language) for line in text.split('\n'))
     if text.startswith('Codex ') and ('남음' in text or '한도' in text or '잔여량 확인 불가' in text):

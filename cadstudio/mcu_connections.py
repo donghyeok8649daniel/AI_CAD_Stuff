@@ -41,6 +41,12 @@ def _pinout(catalog_id: str):
     return board_pinout(catalog_id)
 
 
+def _product_diagram(catalog_id: str):
+    from .product_diagrams import product_diagram
+
+    return product_diagram(catalog_id)
+
+
 def _safe_identifier(value: str) -> bool:
     return (isinstance(value, str) and 0 < len(value) <= 40
             and all(character.isascii() and (character.isalnum() or character in "_-") for character in value))
@@ -118,6 +124,17 @@ def validate_bound_pin_map(catalog_id: str, pinout_catalog_id: str, pins: dict[s
             raise ValueError("동일 GPIO의 물리 핀 별칭을 서로 다른 노드에 연결할 수 없습니다.")
 
 
+def validate_bound_terminal_map(catalog_id: str, product_pinout_catalog_id: str, pins: dict[str, str]) -> None:
+    if catalog_id != product_pinout_catalog_id:
+        raise ValueError("전장 제품 모델이 변경되었습니다. 기존 물리 단자 연결을 확인하고 모식도를 다시 지정하세요.")
+    diagram = _product_diagram(product_pinout_catalog_id)
+    if diagram is None:
+        raise ValueError("이 전장 제품 모델의 물리 단자 모식도가 등록되어 있지 않습니다.")
+    supported = {terminal.key for terminal in diagram.terminals}
+    if any(key not in supported for key in pins):
+        raise ValueError("선택한 제품의 물리 단자 목록에 없는 단자입니다.")
+
+
 def _resolved_node(component: ElectricalComponent, key: str, pinout=None) -> str | None:
     pinout = pinout if pinout is not None else _pinout(component.catalog_id)
     group = _pin_groups(pinout).get(key, frozenset((key,))) if pinout else frozenset((key,))
@@ -181,8 +198,13 @@ def connection_endpoints(raw: ElectricalWorkspace | dict, exclude_mcu_id: str = 
         for terminal, node in (("a", component.a), ("b", component.b)):
             suffix = ("VCC · DC 전원 모델" if terminal == "a" else "GND · DC 리턴 모델") if component.kind == "mcu" else ("+" if terminal == "a" else "−") if component.kind == "battery" else terminal.upper()
             endpoints.append(ConnectionEndpoint(component.id, terminal, f"{component.name} · {suffix}", node, component.kind, "power"))
+        diagram = _product_diagram(component.catalog_id)
+        known_ports = {terminal.key: terminal for terminal in diagram.terminals} if diagram else {}
+        for key, terminal in known_ports.items():
+            endpoints.append(ConnectionEndpoint(component.id, f"port:{key}", f"{component.name} · {terminal.label}", component.terminal_pins.get(key), component.kind, terminal.kind))
         for key, node in component.terminal_pins.items():
-            endpoints.append(ConnectionEndpoint(component.id, f"port:{key}", f"{component.name} · {key}", node, component.kind, "signal"))
+            if key not in known_ports:
+                endpoints.append(ConnectionEndpoint(component.id, f"port:{key}", f"{component.name} · {key}", node, component.kind, "signal"))
         if component.kind != "mcu":
             continue
         pinout = _pinout(component.catalog_id)
@@ -247,9 +269,14 @@ def assign_pin(raw: ElectricalWorkspace | dict, mcu_id: str, pin_key: str,
         node = getattr(target, target_terminal)
     elif target_terminal.startswith("port:"):
         key = target_terminal.partition(":")[2]
-        if key not in target.terminal_pins:
+        diagram = _product_diagram(target.catalog_id)
+        known_ports = {terminal.key for terminal in diagram.terminals} if diagram else set()
+        if key not in target.terminal_pins and key not in known_ports:
             raise ValueError("연결할 부품의 추가 신호 단자가 등록되어 있지 않습니다.")
-        node = target.terminal_pins[key]
+        node = target.terminal_pins.get(key) or _new_node(workspace)
+        target.terminal_pins[key] = node
+        if diagram and set(target.terminal_pins) <= known_ports:
+            target.product_pinout_catalog_id = target.catalog_id
     elif target_terminal.startswith("pin:"):
         if target.kind != "mcu":
             raise ValueError("연결 대상 신호 핀은 MCU / 보드 항목에만 지정할 수 있습니다.")
@@ -363,6 +390,23 @@ def topology_warnings(raw: ElectricalWorkspace | dict, language: str = "ko") -> 
                 elif target.kind == "mcu":
                     warn(f"{component.name} · {key}: 보드의 DC 전원·리턴 단자와 연결되어 있습니다. 신호 방향과 풀업·풀다운·허용 전압을 확인하세요.",
                          f"{component.name} · {key}: Connected to a board's DC supply/return terminal. Check signal direction, pull-up/pull-down and voltage limits.")
+            for target in workspace.components:
+                diagram = _product_diagram(target.catalog_id)
+                if not diagram:
+                    continue
+                power_ports = {terminal.key for terminal in diagram.terminals if terminal.kind in ("power", "ground")}
+                if any(target.terminal_pins.get(port) in net for port in power_ports):
+                    warn(f"{component.name} · {key}: {target.name}의 물리 전원·GND 단자와 연결되어 있습니다. 신호 단자와 전력 배선을 구분하고 허용 전압·신호 방향을 확인하세요.",
+                         f"{component.name} · {key}: Connected to a physical power/ground terminal of {target.name}. Separate signal and power wiring; check voltage limits and signal direction.")
+                for terminal in diagram.terminals:
+                    if (terminal.kind != "signal" or not terminal.signal_level_note
+                            or target.terminal_pins.get(terminal.key) not in net):
+                        continue
+                    reference = pinout.logic_voltage_v if pinout else None
+                    ko_reference = f" MCU 신호 기준은 {reference:g} V입니다." if reference is not None else ""
+                    en_reference = f" MCU logic reference is {reference:g} V." if reference is not None else ""
+                    warn(f"{component.name} · {key} ↔ {target.name} · {terminal.key}: {terminal.signal_level_note}{ko_reference} 실제 신호 전압·방향별 허용 입력·레벨 변환을 확인해야 하며 핀 연결만으로 호환성을 확인할 수 없습니다.",
+                         f"{component.name} · {key} ↔ {target.name} · {terminal.key}: {terminal.signal_level_note_en or terminal.signal_level_note}{en_reference} Verify actual signal voltage, direction-specific input limits and level translation; a pin connection alone does not establish compatibility.")
             if pinout:
                 for other in mcus:
                     if other.id == component.id:

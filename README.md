@@ -1,3 +1,5 @@
+**2.18.0 · CAD 전장 등록·AI 핀 연결:** 선택한 CAD 부품에 실제 MCU·모터·센서 제품 모델을 등록하고, 부품 트리의 전장 피처에서 공식 핀/단자 모식도를 엽니다. AI 등록과 단자 연결, 정격 미입력 상태, 기본색 선택, 모델 변경 확인, 저장·실행 취소를 제공합니다. 기존 8개 MCU 보드와 4개 특정 전자제품 모식도를 포함하며, 형상·그룹·사용자 색상을 보존합니다. [사용법](docs/CAD_ELECTRICAL_REGISTRATION_KO.md) · [English](docs/CAD_ELECTRICAL_REGISTRATION_EN.md) · [전자제품 출처](docs/ELECTRONIC_PRODUCT_DIAGRAM_SOURCES.md).
+
 **2.17.0 · MCU 핀 연결·모식도:** MCU/보드 모델을 선택하고 실제 헤더 위치가 표시된 핀을 클릭해 센서·드라이버·다른 보드 단자에 연결합니다. 공식 자료로 확인한 8개 보드 핀 배치, 추가 신호 단자, 모델 변경 확인, 연결 해제, GPIO 전원 오결선·기준 전압 경고와 프로젝트 저장을 제공합니다. 회로도에서도 직접 편집할 수 있습니다. [사용법](docs/MCU_PIN_CONNECTIONS_KO.md) · [English](docs/MCU_PIN_CONNECTIONS_EN.md) · [공식 핀 출처](docs/MCU_PIN_SOURCES.md).
 
 **2.16.0 · 전원 연결·규격 DB·최적화:** 배터리→스위치→부하→리턴 전원 경로의 DC 미리보기와 실제 CAD 부품 연결, 제조사 품번별 전선 저항, 21개 출처 기반 기계/전원 규격 자료와 실제 규격 관통홀, 이름·색·회로 편집 시 형상 재사용 최적화를 추가했습니다. 역할별 보기와 별도 회로도도 함께 제공합니다. [사용법 / 검사 범위](docs/RELEASE_2_16_0_KO.md) · [전원 연결](docs/POWER_PATH_KO.md) · [볼트 축인장](docs/FASTENER_AXIAL_CHECK_KO.md) · [기계 자료](docs/MECHANICAL_CATALOG_KO.md) · [English](docs/MECHANICAL_CATALOG_EN.md).

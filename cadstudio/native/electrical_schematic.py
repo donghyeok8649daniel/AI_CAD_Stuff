@@ -233,8 +233,9 @@ class ElectricalSchematicDialog(QDialog):
             ax, bx = self.node_positions[component.a], self.node_positions[component.b]
             mid = (ax + bx) / 2
             active = component.kind not in ('wire', 'switch', 'battery') or component.closed
-            color = OPEN if not active else SOURCE if component.kind == 'battery' else LIVE
+            color = SOURCE if not component.analysis_enabled else OPEN if not active else SOURCE if component.kind == 'battery' else LIVE
             tip = f'{component.name}\n{component.a} → {component.b}'
+            if not component.analysis_enabled:tip += '\n'+self._word('정격 입력 전 · DC 계산 제외','Ratings pending · excluded from DC')
             if not active:
                 tip += '\n' + (self._word('전원 OFF', 'Power OFF') if component.kind == 'battery' else
                                 self._word('단선', 'Open wire') if component.kind == 'wire' else
@@ -256,7 +257,7 @@ class ElectricalSchematicDialog(QDialog):
             if component.kind == 'battery':
                 self._text('+', ax + 7, y - 25, SOURCE, 12, True)
                 self._text('−', bx + 7, y - 25, SOURCE, 12, True)
-            state = ('OFF · 0 A' if component.kind == 'battery' and not active else
+            state = (self._word('정격 입력 전 · DC 계산 제외','Ratings pending · excluded from DC') if not component.analysis_enabled else 'OFF · 0 A' if component.kind == 'battery' and not active else
                      self._word('단선 · 0 A', 'Open · 0 A') if component.kind == 'wire' and not active else
                      self._word('열림 · 0 A', 'Open · 0 A') if component.kind == 'switch' and not active else
                      f'{branch.current_a:.4g} A' if branch else self._word('계산 미완료', 'Not calculated'))

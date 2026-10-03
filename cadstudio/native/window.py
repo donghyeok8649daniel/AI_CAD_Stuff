@@ -99,12 +99,13 @@ class MainWindow(QMainWindow,PartSelectionUI):
         file.addAction(self.action('print_profile','3D 프린터 · 전체 여유 / 공차…',self.print_profile_dialog,None,'dimension'));assembly.addAction(self.actions['print_profile'])
         model.addAction(self.action('electronics_mount','전장부품 장착 자리…',self.electronics_mount_dialog,None,'assembly'));assembly.addAction(self.actions['electronics_mount'])
         engineering.addAction(self.action('electrical','전장 회로 · 배선 / 전압강하…',self.electrical_dialog,None,'assembly'))
+        engineering.addAction(self.action('electrical_register','CAD 부품 · 전장 등록 / 모식도…',self.electrical_part_dialog,None,'assembly'))
         engineering.addAction(self.action('mcu_pins','MCU 선택 / 핀 연결…',self.mcu_pin_dialog,None,'assembly'))
         engineering.addAction(self.action('power_path','전원 연결 설계…',self.power_path_dialog,None,'assembly'))
         engineering.addAction(self.action('mechanical_catalog','기계 · 전원 규격 DB…',self.mechanical_catalog_dialog,None,'dimension'))
         engineering.addAction(self.action('fastener_check','볼트 축방향 검토…',self.fastener_check_dialog,None,'dimension'))
         assembly.addAction(self.actions['electrical'])
-        assembly.addAction(self.actions['mcu_pins'])
+        assembly.addAction(self.actions['mcu_pins']);assembly.addAction(self.actions['electrical_register'])
         assembly.addAction(self.actions['power_path']);model.addAction(self.actions['mechanical_catalog'])
         assembly.addAction(self.action('component_specs','제품 스펙 · URL 가져오기…',self.component_specs_dialog,None,'open'))
         self.make_selection_tools(edit,assembly)
@@ -301,6 +302,19 @@ class MainWindow(QMainWindow,PartSelectionUI):
             raw=deepcopy(self.document.design) if self.document.design else Design().model_dump()
             raw['electrical']=dialog.workspace.model_dump()
             self.apply_design(raw,'전장 회로 / 배선 편집',{'tool':'electrical','component_ids':[c.id for c in dialog.workspace.components]})
+
+    def electrical_part_dialog(self,part_id=None):
+        if self.busy or self.sketching:return
+        if isinstance(part_id,bool):part_id=None
+        if not self.document.design or not self.document.design['parts']:
+            self.message('전장으로 등록할 CAD 부품을 먼저 만들거나 가져오세요.');return
+        from .electrical_part_dialog import ElectricalPartDialog
+        try:dialog=ElectricalPartDialog(self,self.document.design,part_id or self.selected)
+        except (ValueError,TypeError) as exc:self.show_error(str(exc));return
+        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.checked is not None:
+            self.apply_design(dialog.checked.model_dump(),'CAD 부품 전장 등록 / 핀 연결',
+                              {'tool':'electrical-register','part_id':dialog.current_part_id()},
+                              after=lambda:self.select_parts([dialog.current_part_id()]))
 
     def component_specs_dialog(self):
         from .component_specs_dialog import ComponentSpecsDialog
@@ -708,6 +722,12 @@ class MainWindow(QMainWindow,PartSelectionUI):
                     else:
                         support=QTreeWidgetItem(item,[f"면 {f['face']+1} · 기준 {f['support_feature']} · {f['sketch']['thickness']:g} mm"])
                         for c in f['sketch'].get('entity_constraints',[]):QTreeWidgetItem(support,[f"{c['kind']} · {c['a'][:7]} → {c.get('b','')[:7]}"])
+                for component in (self.document.design.get('electrical') or {}).get('components',[]):
+                    if component.get('part_id')!=part['id']:continue
+                    feature=QTreeWidgetItem(node,['전장 피처 · '+component['name']]);feature.setIcon(0,icon('assembly'));feature.setData(0,Qt.ItemDataRole.UserRole,('electrical_feature',part['id'],component['id']))
+                    QTreeWidgetItem(feature,[component.get('catalog_id') or '사용자 정의'])
+                    QTreeWidgetItem(feature,['DC 계산 포함' if component.get('analysis_enabled',True) else '정격 입력 전 · DC 계산 제외'])
+                    feature.setExpanded(True)
                 node.setExpanded(True)
             mates=QTreeWidgetItem(root,['조립 구속']);mates.setIcon(0,icon('assembly'))
             for mate in self.document.design['mates']:
@@ -743,6 +763,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         elif data[0]=='mate':self.show_mate(data[1])
         elif data[0]=='loop':self.show_loop(data[1])
         elif data[0]=='study':self.show_study(data[1],data[2])
+        elif data[0]=='electrical_feature':self.select_parts([data[1]]);self.message('전장 피처를 더블클릭하면 모델·핀 모식도를 편집합니다.')
         elif data[0]=='electrical':self.message('전장 회로를 더블클릭하면 배선과 전압강하를 확인할 수 있습니다.')
         elif data[0]=='plane':self.plane.setCurrentIndex(self.plane.findData(data[1]));self.message(data[1]+' 평면 선택 · 스케치 작성 버튼을 누르세요.')
     def tree_edit(self,item,column):
@@ -755,6 +776,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         elif data[0]=='mate':self.mate_dialog(data[1])
         elif data[0]=='loop':self.closure_dialog(data[1])
         elif data[0]=='study' and data[2] in ('robot','tensile','drawing','fit'):self.study_dialog(data[2],data[1])
+        elif data[0]=='electrical_feature':self.electrical_part_dialog(data[1])
         elif data[0]=='electrical':self.electrical_dialog()
         elif data[0]=='base' and self.part()['geometry']['kind'] in ('sweep','loft'):self.modelling_dialog(self.part()['geometry']['kind'],part_id=data[1])
     def select_part(self,identifier):
@@ -802,6 +824,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.property_layout.addWidget(button('이 부품 STEP / STL 내보내기',self.export_selected_parts))
         electrical=(self.document.design.get('electrical') or {}).get('components',[])
         linked=[c['name'] for c in electrical if c.get('part_id')==part['id']]
+        registration=button('전장 피처 · 모델 / 모식도 편집' if linked else '이 CAD 부품을 전장으로 등록…',lambda:self.electrical_part_dialog(part['id']),not bool(linked));registration.setObjectName('partElectricalRegister');self.property_layout.addWidget(registration)
         if linked:self.property_layout.addWidget(button('전장 연결 · '+', '.join(linked[:2]),self.electrical_dialog))
         if group:
             self.property_layout.addWidget(button(group['name']+' · 그룹 전체 선택',lambda:self.select_parts(group['part_ids'])))

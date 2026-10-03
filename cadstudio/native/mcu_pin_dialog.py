@@ -63,12 +63,16 @@ class McuBoardDialog(QDialog):
         self.current = number(self.old.get('rated_current_a', 0), 0, 10000, ' A', decimals=6)
         form.addRow(word('실제 공급 전압', 'Actual supply voltage'), self.voltage)
         form.addRow(word('확인한 동작 전류', 'Verified operating current'), self.current)
+        from PySide6.QtWidgets import QCheckBox
+        self.analysis_enabled=QCheckBox(word('정격 입력 완료 · DC 계산에 포함','Ratings entered · include in DC analysis'));self.analysis_enabled.setChecked(self.old.get('analysis_enabled',True));form.addRow(self.analysis_enabled)
         self.part = QComboBox(); self.part.addItem(word('CAD 부품 연결 없음', 'No linked CAD part'), '')
         for item in parts: self.part.addItem(item['name'] + ' · ' + item['id'], item['id'])
         prior = self.old.get('part_id', '')
         if prior and self.part.findData(prior) < 0: self.part.addItem(prior, prior)
         self.part.setCurrentIndex(max(0, self.part.findData(prior)))
         form.addRow(word('연결할 CAD 부품', 'Linked CAD part'), self.part)
+        if self.old.get('part_registration'):
+            self.model_combo.setEnabled(False);self.part.setEnabled(False)
         layout.addLayout(form)
         self.notes = QLabel(); self.notes.setWordWrap(True)
         layout.addWidget(self.notes, 1)
@@ -115,7 +119,7 @@ class McuBoardDialog(QDialog):
         pinout = board_pinout(model_id)
         data.update(id=self.identifier, kind='mcu', name=self.name.text().strip() or self.model_combo.currentText(),
                     a=self.a.currentText().strip(), b=self.b.currentText().strip(),
-                    rated_voltage_v=self.voltage.value(), rated_current_a=self.current.value(),
+                    rated_voltage_v=self.voltage.value(), rated_current_a=self.current.value(),analysis_enabled=self.analysis_enabled.isChecked(),
                     part_id=self.part.currentData(), catalog_id=model_id,
                     pinout_catalog_id=model_id if pinout else '',
                     source_url=pinout.source_url if pinout else data.get('source_url', ''),
@@ -163,7 +167,7 @@ class PinDiagramView(QGraphicsView):
     def fit(self):
         self.fitInView(self.scene().sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-    def draw(self, component, connections, selected=''):
+    def draw(self, component, connections, selected='', diagram=None):
         from ..board_pins import board_pinout
         scene = self.scene(); scene.clear(); self.pin_items = {}; self.pin_positions = {}
         def text(value, x, y, color='#243346', bold=False, pin=''):
@@ -174,16 +178,17 @@ class PinDiagramView(QGraphicsView):
         if component is None:
             text(word('MCU를 추가하거나 선택하세요.', 'Add or select an MCU.'), 20, 20)
             scene.setSceneRect(0, 0, 600, 350); self.fit(); return
-        pinout = board_pinout(component.catalog_id)
-        position = {pin.key: (pin.side, pin.position) for pin in pinout.pins} if pinout else {}
+        pinout = diagram or board_pinout(component.catalog_id)
+        physical_pins = getattr(pinout,'terminals',getattr(pinout,'pins',()))
+        position = {pin.key: (pin.side, pin.position) for pin in physical_pins} if pinout else {}
         legacy = [pin for pin in connections if pin.key not in position]
         next_slot = max((slot for side, slot in position.values() if side == 'right'), default=-1) + 1
         for index, pin in enumerate(legacy): position[pin.key] = ('right', next_slot + index)
         height = max(270, 120 + max((slot for _, slot in position.values()), default=0) * 34)
         scene.addRect(285, 72, 330, height - 90, QPen(QColor('#A9B6C6'), 2), QBrush(QColor('#E9EFF7')))
         text(component.name, 292, 14, bold=True)
-        text(pinout.model if pinout else component.catalog_id or 'Custom MCU', 292, 36)
-        text('VCC: ' + component.a + '   GND: ' + component.b, 292, 57, '#566B84')
+        text(pinout.model if pinout else component.catalog_id or ('Custom MCU' if component.kind=='mcu' else 'Custom electronic component'), 292, 36)
+        text(('VCC: ' if component.kind=='mcu' else 'A: ') + component.a + ('   GND: ' if component.kind=='mcu' else '   B: ') + component.b, 292, 57, '#566B84')
         for pin in connections:
             side, slot = position[pin.key]; y = 94 + slot * 34
             x = 285 if side == 'left' else 615

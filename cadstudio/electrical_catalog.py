@@ -239,6 +239,12 @@ CATALOG: tuple[ElectricalCatalogEntry, ...] = (
         reference_only=True, aliases=("h bridge", "h-bridge", "h브리지", "구동기"),
     ),
     ElectricalCatalogEntry(
+        "pololu_2130", "모터 드라이버 보드", "Pololu", "#2130 DRV8833 Dual Motor Driver Carrier", "DRV8833 carrier",
+        "https://www.pololu.com/product/2130",
+        "정확한 Pololu #2130 보드의 단자명이 확인됩니다. 모터 전원 2.7–10.8 V, 약 1.2 A 연속/2 A 피크는 채널·방열 조건입니다. TI 칩 패키지나 다른 DRV8833 모듈과 구분하며 H 브리지/PWM 동작 해석은 미지원입니다.",
+        reference_only=True, aliases=("drv8833", "motor driver", "드라이버 보드", "h브리지", "pololu 2130"),
+    ),
+    ElectricalCatalogEntry(
         "toshiba_tb6612fng", "모터 드라이버", "Toshiba", "TB6612FNG", "TB6612",
         "https://toshiba.semicon-storage.com/info/datasheet_en_20141001.pdf?did=10660",
         "H 브리지 드라이버 공식 데이터시트. VM·VCC·채널 전류와 방열 조건을 부품 구성에 맞춰 확인하세요. 드라이버 동작 해석은 미지원입니다.",
@@ -297,6 +303,12 @@ CATALOG: tuple[ElectricalCatalogEntry, ...] = (
         "https://www.ia.omron.com/products/family/487/specification.html",
         "공급 5 V −5% ~ 24 V +15%, 소비전류 최대 80 mA, NPN 오픈 컬렉터. 출력 풀업과 상대 장치 입력 사양을 확인하세요.",
         reference_only=True, aliases=("encoder", "로터리 엔코더", "omron e6b2"),
+    ),
+    ElectricalCatalogEntry(
+        "ams_as5600_asot", "자기식 각도 센서 IC", "ams", "AS5600-ASOT SOIC-8 칩", "AS5600",
+        "https://look.ams-osram.com/m/7059eac7531a86fd/original/AS5600-DS000365.pdf",
+        "AS5600-ASOT SOIC-8 칩의 정확한 8핀 배치입니다. 3.3 V/5 V 전원 모드에서 전원·바이패스 연결이 다르며 외부 I²C 풀업 조건을 확인해야 합니다. 출처 불명 AS5600 모듈 핀과 혼동하지 마세요. 자기장·각도·프로토콜 동작은 미해석입니다.",
+        reference_only=True, aliases=("as5600", "encoder", "엔코더", "각도 센서", "magnetic sensor"),
     ),
     ElectricalCatalogEntry(
         "omron_e6b2_family", "엔코더", "Omron", "E6B2-C 제품군", "E6B2-C",

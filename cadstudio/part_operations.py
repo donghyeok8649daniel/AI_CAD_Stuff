@@ -117,6 +117,12 @@ def delete_parts(raw,ids):
     for s in data['sketches']:
         if s['context'].get('part_id') in ids:freeze_support(data,s)
     data['parts']=[p for p in data['parts'] if p['id'] not in ids]
+    if data.get('electrical'):
+        # Physical registrations belong to the removed bodies. Other circuit
+        # endpoints and named nets remain intact; their continuity is checked
+        # again instead of silently moving them to another physical component.
+        data['electrical']['components']=[component for component in data['electrical']['components']
+            if not (component.get('part_registration') and component.get('part_id') in ids)]
     data['mates']=[m for m in data['mates'] if not ids.intersection((m['parent'],m['child']))];mids={m['id'] for m in data['mates']}
     data['joint_frames']=[f for f in data['joint_frames'] if f['mate_id'] in mids]
     data['loops']=[c for c in data['loops'] if not ids.intersection((c['parent'],c['child'])) and set(c['passive_joints'])<=mids]

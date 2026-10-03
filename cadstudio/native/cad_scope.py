@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from .cad_tools import CATALOG, context, messages, PHYSICAL_ASSEMBLY_GUIDANCE
 
 TOOLS = ('create', 'dimensions', 'transform', 'appearance', 'hole', 'pocket',
-         'pad', 'fillet', 'chamfer', 'shell', 'solid', 'thread', 'joint', 'parameter', 'edit_feature', 'edit_joint', 'motion_link', 'power_path')
+         'pad', 'fillet', 'chamfer', 'shell', 'solid', 'thread', 'joint', 'parameter', 'edit_feature', 'edit_joint', 'motion_link', 'power_path', 'electrical_register', 'electrical_connect', 'electrical_unregister')
 SHAPES = ('spur_gear', 'cylinder', 'plate', 'extrusion', 'revolve', 'sweep', 'loft', 'bracket',
           'link', 'sheetmetal', 'round_specimen', 'flat_specimen')
 JOINTS = ('rigid', 'revolute', 'slider', 'cylindrical', 'ball', 'planar', 'pin_slot')
@@ -17,6 +17,7 @@ Tools: motion_link=connect existing joint rotations by ratio (create physical ge
 power_path=append a bounded battery→switch→positive wire→load→return wire DC circuit to the project, with no physical CAD body. Use intent=edit, tools=["power_path"], shapes=[], new_parts=[] for a circuit-only request. Requires the user's actual battery voltage, load voltage/current and both wire lengths/cross-sections; never invent absent electrical ratings or wire dimensions. Unknown current capacity stays unverified. No firmware, PCB routing, SPICE or physical assembly claim.
 Shapes: spur_gear=real external involute spur gear teeth, optional integral shaft, 18..80 teeth. cylinder=constant OUTSIDE diameter along Z, optional bore. revolve=OUTSIDE diameter changing along Z, including stepped or tapered rotational forms, specified by height/diameter segments, automatically ONE solid. plate=rectangular block. extrusion=arbitrary planar boundary extruded. loft=transition BETWEEN profiles at different heights, all sections in ONE body. sweep=profile along a bent path. bracket=simple L; link=rounded flat bar; sheetmetal=one bend; round_specimen/flat_specimen=tensile test.
 Select the minimal sufficient set. For a mechanism select the moving/drive relationships FIRST, then static mounts. Plan no more than 32 new bodies and 32 connections within the total 64-operation budget, including geometry cuts and features. Avoid optional fasteners when they prevent fitting all essential driven joints and clearance cuts. Select the minimal set. A new shape uses create only unless extra features are requested. Uniform walls and an open top use create+shell, not separate plates/pads. Repeated holes use hole with a pattern. A constant cross-section uses create/extrusion only, not another pad. Never choose dimensions just to state dimensions of a NEW body. Cutting a smaller center circle makes a bore, NOT a smaller solid external diameter. Use actual IDs and geometry in current_design to understand edits. Shapes may be empty for edits without create.'''
+SYSTEM += '\nelectrical_register=register an actual CAD body as a real electrical product model with a model-specific pin/terminal diagram; no additional solid. Missing operating ratings stay pending, excluded from DC calculations. electrical_connect=connect registered MCU GPIO to another registered CAD part signal terminal or pin. electrical_unregister=remove only the registration when explicitly requested. Circuit-only registration/wiring is intent=edit, shapes=[], new_parts=[]. Selecting role=electrical alone does NOT register a circuit component.\n'
 SYSTEM += '''
 edit_feature edits an EXISTING hole, pad, pocket, fillet, chamfer, shell, pattern or thread. Use it for changing an existing feature's dimensions or suppression instead of creating another cut or body. dimensions edits only BASE geometry. parameter edits dimensions driven by variables. Current features include IDs, editable fields and dimensions; selected_feature identifies the user's selected feature.
 edit_joint changes EXISTING joint angles or sliding positions, preserving its connection and limits. Use it instead of transform for joint-driven parts. joint creates a NEW connection only. selected_joint identifies the selected joint. Current motion_axes show allowed axes, units, values, limits and any driving joint or loop closure. Never change a dependent axis directly.
@@ -128,6 +129,15 @@ class Scope:
                 '\nVerified wire IDs (use only when the user selected the exact SKU; do not copy free-air '
                 'current into harness capacity): '+json.dumps(wire_ids,separators=(',', ':')))
             return result
+        electrical_tools={'electrical_register','electrical_connect','electrical_unregister'}
+        if set(self.tools) & electrical_tools and set(self.tools) <= electrical_tools | {'power_path','appearance'}:
+            from .cad_electrical_tools import GUIDANCE as electrical_guidance,model_context
+            from ..references import GUIDANCE
+            result=messages(request)
+            rules=[line for line in CATALOG.splitlines() if line.split(':')[0] in {'power_path','appearance'} & set(self.tools)]
+            result[0]['content']='Return a compact JSON CAD plan {construction,summary,assumptions,actions}. Register or wire the existing CAD parts only. Preserve every physical body, group, joint and custom color. Never invent operating current or a manufacturer pin map. At most 64 actions.\n'+electrical_guidance+'\n'+'\n'.join(rules)+'\n'+GUIDANCE
+            result[1]['content']=json.dumps({**json.loads(result[1]['content']),'available_electrical_models':model_context()},ensure_ascii=False,separators=(',',':'))
+            return result
         keep = []
         for line in CATALOG.splitlines():
             prefix = line.split(':')[0]
@@ -145,6 +155,9 @@ class Scope:
                 continue
             keep.append(line)
         result = messages(request)
+        if set(self.tools) & {'electrical_register','electrical_connect','electrical_unregister'}:
+            from .cad_electrical_tools import model_context
+            result[1]['content'] = json.dumps({**json.loads(result[1]['content']), 'available_electrical_models':model_context()},ensure_ascii=False,separators=(',',':'))
         result[0]['content'] = '\n'.join(keep) + '\n'+PHYSICAL_ASSEMBLY_GUIDANCE+'\nThe tools listed here are AVAILABLE, not a required sequence. Use only operations needed for the ORIGINAL request; do not use every tool just because it is listed.'
         from ..references import GUIDANCE
         result[0]['content'] += '\n'+GUIDANCE

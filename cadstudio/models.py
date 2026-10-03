@@ -833,6 +833,19 @@ class Design(StrictModel):
         ids = [p.id for p in self.parts]
         if len(ids) != len(set(ids)):
             raise ValueError("부품 ID는 중복될 수 없습니다.")
+        if self.electrical:
+            linked = {}
+            for component in self.electrical.components:
+                if component.part_id:
+                    linked.setdefault(component.part_id, []).append(component)
+            for part_id, components in linked.items():
+                # Legacy loose links remain readable. New explicit physical
+                # registrations must be unique and point to an actual body.
+                if any(component.part_registration for component in components):
+                    if part_id not in ids:
+                        raise ValueError("전장 등록이 삭제되었거나 존재하지 않는 CAD 부품을 참조합니다: " + part_id)
+                    if len(components) != 1:
+                        raise ValueError("CAD 부품 하나에는 전장 등록을 한 번만 연결할 수 있습니다: " + part_id)
         grouped=set();group_ids=set()
         for group in self.part_groups:
             if group.id in group_ids or len(set(group.part_ids))!=len(group.part_ids) or not set(group.part_ids)<=set(ids) or grouped.intersection(group.part_ids):

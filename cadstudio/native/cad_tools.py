@@ -12,9 +12,9 @@ from ..planner import AIReply
 
 class CADAction(StrictModel):
     tool: Literal['create','dimensions','transform','appearance','hole','pocket','pad',
-                  'fillet','chamfer','shell','solid','thread','joint','parameter','edit_feature','edit_joint','motion_link','power_path']
+                  'fillet','chamfer','shell','solid','thread','joint','parameter','edit_feature','edit_joint','motion_link','power_path','electrical_register','electrical_connect','electrical_unregister']
     target: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
-    args: dict[str,Any] = Field(default_factory=dict,max_length=27)
+    args: dict[str,Any] = Field(default_factory=dict,max_length=40)
 
 
 class CADCheck(StrictModel):
@@ -46,7 +46,7 @@ class ToolReply(AIReply):
 TOOL_LABELS={'motion_link':'기어 / 관절 운동 연결','create':'부품 생성','dimensions':'치수 변경','transform':'이동·회전','appearance':'색상·재질',
              'hole':'구멍','pocket':'포켓 절삭','pad':'돌출','fillet':'필렛','chamfer':'모따기',
              'shell':'셸','solid':'솔리드 작업','thread':'나사산','joint':'조립 구속','parameter':'변수','edit_feature':'기존 피처 편집','edit_joint':'관절 자세 편집',
-             'power_path':'전원·배선 경로 추가'}
+             'power_path':'전원·배선 경로 추가','electrical_register':'CAD 전장 부품 등록','electrical_connect':'전장 핀 연결','electrical_unregister':'전장 등록 해제'}
 
 PHYSICAL_ASSEMBLY_GUIDANCE = '''For a request to DESIGN a physical mechanism or joint structure, create separately editable mechanical bodies with actual mating geometry (supports/housings, bores, shafts, moving members and necessary retention) and then use ordinary joint constraints to assemble them. The joint tool creates only a kinematic relationship, NEVER physical hardware. Choose shapes and dimensions from the user's request, not a fixed named-joint template. Preserve user clearances, mounting dimensions and motion limits; state unspecified fit/retention assumptions. Design insertion paths, shaft/bore diametral clearance and axial gaps explicitly. Use the active printer allowances if present; distinguish nominal assembly clearance from additional printer compensation. Never overlap moving parts or use grouping to hide interference; final overlaps are rejected. Pure joint motions are also sampled for collisions, but new mechanisms require a separate travel review. Use assembly intent when separate moving bodies are needed. If the request only connects existing bodies or changes an existing joint pose, do not add unsolicited hardware. Customization of existing hardware uses normal dimensions, edit_feature, parameter and edit_joint tools while retaining unrelated geometry and connections.'''
 
@@ -101,6 +101,7 @@ CATALOG += '''\nEvery create may set role=structure/electrical/transmission/spec
 def context(design):
     if not design:return None
     from .cad_feature_edits import summary
+    from .cad_electrical_tools import feature_context
     from ..assembly_motion import motion_controls
     from ..kernel import KERNEL_LOCK,local_shape,exact_bounds
     local_bounds={}
@@ -123,7 +124,12 @@ def context(design):
                 mates=[dict(**m.model_dump(exclude_defaults=True),motion_axes=motion_controls(raw,m.id)) for m in design.mates],
                 joint_frames=[f.model_dump() for f in design.joint_frames],
                 dimension_bindings=[b.model_dump() for b in design.dimension_bindings],
-                electrical=electrical_context)
+                electrical=electrical_context,
+                registered_electrical_features=feature_context(design))
+
+
+from .cad_electrical_tools import GUIDANCE as ELECTRICAL_GUIDANCE
+CATALOG += '\n'+ELECTRICAL_GUIDANCE
 
 
 def messages(request):
@@ -282,6 +288,9 @@ def hole_centers(args):
 
 def _apply(raw,action):
     tool=action.tool;args=deepcopy(action.args);target=action.target
+    if tool in ('electrical_register','electrical_connect','electrical_unregister'):
+        from .cad_electrical_tools import apply_electrical_tool
+        return apply_electrical_tool(raw,action)
     if tool=='power_path':
         from ..power_paths import PowerPathSpec, build_power_path, require_power_inputs
         required=('source_voltage_v','positive_wire_length_mm','positive_wire_cross_section_mm2',
@@ -474,7 +483,7 @@ def execute_plan(content,request,*,check=lambda:None,progress=lambda text:None,s
             step_before=deepcopy(raw);outcome=_apply(raw,action) or {}
             design=Design.model_validate(raw)
             # Validate exact shapes, not just schema; no meshing between steps.
-            shapes=[] if action.tool=='power_path' else build(design)
+            shapes=[] if action.tool in ('power_path','electrical_register','electrical_connect','electrical_unregister') and not single_part else build(design)
             if any(not s.isValid() or not s.Faces() for s in shapes):raise ValueError('유효하지 않은 CAD 형상입니다.')
             if single_part:
                 shape=shapes[next(i for i,p in enumerate(design.parts) if p.id==base['target'])]

@@ -69,7 +69,7 @@ class PartSelectionUI(PartInspectionUI):
 
     def selection_menu(self,pos,widget=None):
         menu=QMenu(self)
-        for key in ('orbit','isolate','show_all','explode','export_parts','rename_part','move_parts','copy','cut','paste','group','ungroup','group_select','color','delete'):menu.addAction(self.actions[key])
+        for key in ('orbit','isolate','show_all','explode','export_parts','rename_part','move_parts','copy','cut','paste','group','ungroup','group_select','electrical_register','color','delete'):menu.addAction(self.actions[key])
         menu.exec((widget or self.tree).mapToGlobal(pos))
 
     def selected_ids(self):
@@ -144,7 +144,7 @@ class PartSelectionUI(PartInspectionUI):
         for item in self.tree.selectedItems():
             data=item.data(0,Qt.ItemDataRole.UserRole)
             if not data:continue
-            if data[0] in ('part','base','feature'):ids.append(data[1])
+            if data[0] in ('part','base','feature','electrical_feature'):ids.append(data[1])
             elif data[0]=='group':ids.extend(groups.get(data[1],[]))
         self.select_parts(ids,sync=False)
         selected=self.tree.selectedItems()

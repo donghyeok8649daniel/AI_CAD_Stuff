@@ -32,6 +32,10 @@ class ElectricalComponent(ElectricalModel):
     part_id: str = Field(default="", max_length=40, pattern=r"^[A-Za-z0-9_-]*$")
     catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
     source_url: str = Field(default="", max_length=500)
+    # A physical CAD registration may precede verified operating values. It is
+    # then a passive wiring/reference feature, not an invented DC load.
+    analysis_enabled: bool = True
+    part_registration: bool = False
     voltage_v: float = Field(default=0, ge=0, le=1000)
     internal_resistance_ohm: float = Field(default=0, ge=0, le=10000)
     resistance_ohm: float = Field(default=0, ge=0, le=1e9)
@@ -52,18 +56,19 @@ class ElectricalComponent(ElectricalModel):
     # Opt-in physical board pin provenance. Legacy arbitrary labels remain
     # readable until the user explicitly binds them to an exact board pinout.
     pinout_catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
+    product_pinout_catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
 
     @model_validator(mode="after")
     def required_values(self):
         if self.a == self.b:
             raise ValueError("전장 부품 양 끝은 서로 다른 노드에 연결해야 합니다.")
-        if self.kind == "battery" and self.voltage_v <= 0:
+        if self.analysis_enabled and self.kind == "battery" and self.voltage_v <= 0:
             raise ValueError("배터리의 개방 전압(V)을 입력하세요.")
-        if self.kind == "wire" and (self.length_mm <= 0 or self.cross_section_mm2 <= 0):
+        if self.analysis_enabled and self.kind == "wire" and (self.length_mm <= 0 or self.cross_section_mm2 <= 0):
             raise ValueError("전선의 길이(mm)와 단면적(mm²)을 입력하세요.")
-        if self.kind == "resistor" and self.resistance_ohm <= 0:
+        if self.analysis_enabled and self.kind == "resistor" and self.resistance_ohm <= 0:
             raise ValueError("저항값(Ω)을 입력하세요.")
-        if self.kind in ("load", "motor", "mcu") and (self.rated_voltage_v <= 0 or self.rated_current_a <= 0):
+        if self.analysis_enabled and self.kind in ("load", "motor", "mcu") and (self.rated_voltage_v <= 0 or self.rated_current_a <= 0):
             raise ValueError("부하의 정격 전압(V)과 전류(A)를 입력하세요.")
         if self.startup_current_a is not None and self.kind != "motor":
             raise ValueError("기동 전류는 모터에만 지정할 수 있습니다.")
@@ -73,6 +78,8 @@ class ElectricalComponent(ElectricalModel):
             raise ValueError("추가 신호 단자는 일반 부하·센서·드라이버 또는 모터 항목에만 지정할 수 있습니다.")
         if self.pinout_catalog_id and self.kind != "mcu":
             raise ValueError("물리 핀 모식도는 MCU / 보드 항목에만 연결할 수 있습니다.")
+        if self.part_registration and not self.part_id:
+            raise ValueError("전장 등록은 실제 CAD 부품 ID에 연결해야 합니다.")
         if self.source_url:
             parsed = urlsplit(self.source_url)
             if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
@@ -87,6 +94,29 @@ class ElectricalComponent(ElectricalModel):
             from .mcu_connections import validate_bound_pin_map
 
             validate_bound_pin_map(self.catalog_id, self.pinout_catalog_id, self.signal_pins)
+        if self.product_pinout_catalog_id:
+            from .mcu_connections import validate_bound_terminal_map
+
+            validate_bound_terminal_map(self.catalog_id, self.product_pinout_catalog_id, self.terminal_pins)
+        if self.part_registration and self.catalog_id:
+            from .board_pins import board_pinout
+            from .electrical_catalog import get_catalog_entry
+            from .product_diagrams import product_diagram
+
+            entry = get_catalog_entry(self.catalog_id)
+            board = board_pinout(self.catalog_id)
+            product = product_diagram(self.catalog_id)
+            if entry is None or (entry.reference_only and product is None):
+                raise ValueError("전장 등록에는 확인된 특정 제품 모델을 선택하세요. 제품군·미확인 모델은 수동 등록을 사용하세요.")
+            expected = entry.suggested_kind or ("mcu" if board else "load")
+            if self.kind != expected:
+                raise ValueError("등록된 실제 제품 모델과 전장 부품 종류가 일치하지 않습니다.")
+            if board and self.pinout_catalog_id != self.catalog_id:
+                raise ValueError("등록된 MCU 제품의 물리 핀 모식도 연결을 유지하세요.")
+            if product and self.product_pinout_catalog_id != self.catalog_id:
+                raise ValueError("등록된 실제 제품의 물리 단자 모식도 연결을 유지하세요.")
+            if self.analysis_enabled and (entry.reference_only or entry.suggested_kind is None):
+                raise ValueError("이 제품의 동작 회로 모델은 지원하지 않습니다. 물리 모식도·수동 결선으로 등록하고 DC 계산은 제외하세요.")
         return self
 
 
@@ -121,6 +151,7 @@ class ElectricalBranchResult(ElectricalModel):
     a: str
     b: str
     part_id: str = ""
+    analysis_enabled: bool = True
     current_a: float
     voltage_drop_v: float | None
     power_w: float
@@ -161,7 +192,7 @@ def _resistance(component: ElectricalComponent, startup: bool) -> float:
 def _is_active(component: ElectricalComponent) -> bool:
     # ``closed`` was already persisted for switches in v1. Applying the same
     # default-True field to wires and battery output keeps old files powered.
-    return component.kind not in ("wire", "switch", "battery") or component.closed
+    return component.analysis_enabled and (component.kind not in ("wire", "switch", "battery") or component.closed)
 
 
 def _reachable(start: str, graph: dict[str, set[str]]) -> set[str]:
@@ -186,13 +217,16 @@ def _connection_checks(workspace: ElectricalWorkspace, active: list[ElectricalCo
     power_graph: dict[str, set[str]] = defaultdict(set)
     signal_graph: dict[str, set[str]] = defaultdict(set)
     signal_terminals: dict[str, set[tuple[str, str]]] = defaultdict(set)
-    for component in active:
-        if component.kind in ("wire", "switch", "resistor"):
+    active_ids = {component.id for component in active}
+    for component in workspace.components:
+        if (component.kind in ("wire", "switch") and component.closed
+                or component.id in active_ids and component.kind == "resistor"):
             power_graph[component.a].add(component.b)
             power_graph[component.b].add(component.a)
         if component.kind in ("wire", "switch"):
-            signal_graph[component.a].add(component.b)
-            signal_graph[component.b].add(component.a)
+            if component.closed:
+                signal_graph[component.a].add(component.b)
+                signal_graph[component.b].add(component.a)
         else:
             signal_terminals[component.a].add((component.id, "terminal:a"))
             signal_terminals[component.b].add((component.id, "terminal:b"))
@@ -203,7 +237,7 @@ def _connection_checks(workspace: ElectricalWorkspace, active: list[ElectricalCo
             signal_terminals[node].add((component.id, f"port:{pin}"))
     sources = [component for component in active if component.kind == "battery"]
     checks: dict[str, tuple[bool, bool, bool, dict[str, bool]]] = {}
-    for component in active:
+    for component in workspace.components:
         if component.kind != "mcu":
             continue
         supply_nodes = _reachable(component.a, power_graph)
@@ -303,6 +337,21 @@ def _solve(workspace: ElectricalWorkspace, startup: bool) -> ElectricalScenario:
     source_power = 0.0
     absorbed_power = 0.0
     for component in workspace.components:
+        if not component.analysis_enabled:
+            supply_connected = return_connected = None
+            signal_pin_connected = {}
+            if component.kind == "mcu":
+                supply_connected, return_connected, _, signal_pin_connected = connections[component.id]
+                for pin, connected in signal_pin_connected.items():
+                    if not connected:
+                        warnings.append(f"{component.name}: 신호 핀 {pin}에 다른 활성 부품 단자가 연결되지 않았습니다. 단선 여부를 확인하세요.")
+            warnings.append(f"{component.name}: 정격 입력 전 · 회로 계산 제외. 수동 핀 연결만 표시하며 0 A는 확인된 소비전류가 아닙니다.")
+            results.append(ElectricalBranchResult(id=component.id, name=component.name, kind=component.kind,
+                a=component.a, b=component.b, part_id=component.part_id, analysis_enabled=False,
+                current_a=0, voltage_drop_v=None, power_w=0, resistance_ohm=None, current_direction="a_to_b",
+                supply_connected=supply_connected, return_connected=return_connected,
+                signal_pin_connected=signal_pin_connected))
+            continue
         if not _is_active(component):
             if component.kind == "wire":
                 warnings.append(f"{component.name}: 전선이 단선되어 전류가 흐르지 않습니다. 연결 상태를 확인하세요.")
@@ -375,7 +424,7 @@ def evaluate_electrical(raw: ElectricalWorkspace | dict) -> ElectricalResult:
     """
     workspace = ElectricalWorkspace.model_validate(raw)
     running = _solve(workspace, startup=False)
-    starting = _solve(workspace, startup=True) if any(c.kind == "motor" and c.startup_current_a for c in workspace.components) else None
+    starting = _solve(workspace, startup=True) if any(c.analysis_enabled and c.kind == "motor" and c.startup_current_a for c in workspace.components) else None
     if any(component.signal_pins for component in workspace.components):
         from .mcu_connections import topology_warnings
 

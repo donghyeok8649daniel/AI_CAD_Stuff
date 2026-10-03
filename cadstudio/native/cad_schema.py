@@ -98,6 +98,13 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         load_current_a=number,load_startup_current_a=number,load_part_id=text),
         ('source_voltage_v','positive_wire_length_mm','positive_wire_cross_section_mm2',
          'return_wire_length_mm','return_wire_cross_section_mm2','load_voltage_v','load_current_a'))
+    from ..electrical_registration import RegistrationSpec
+    registration_fields = RegistrationSpec.model_json_schema()['properties']
+    for field in ('signal_pins','terminal_pins'):
+        registration_fields[field]=array(obj(dict(pin=text,node=text),('pin','node')),0,144)
+    tool('electrical_register',registration_fields)
+    tool('electrical_connect',dict(pin=text,target_part_id=text,target_terminal=text),('pin','target_part_id','target_terminal'))
+    tool('electrical_unregister',{})
     # Editing-only plans cannot invent another part ID. In particular, a
     # feature ID is not its owning part ID (small models confuse the two).
     # If create remains available without declared IDs, allow new targets.
@@ -117,13 +124,14 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
     schema=deepcopy(CADPlan.model_json_schema())
     if allowed_tools is not None:actions=[a for a in actions if a['properties']['tool']['const'] in allowed_tools]
     if allowed_shapes is not None:shapes=[s for s in shapes if s['properties']['kind']['const'] in allowed_shapes]
-    if len(actions)>12:
+    broad_fallback=len(actions)>12
+    if broad_fallback:
         # The broad fallback grammar must stay small enough for local models.
-        # The backend still checks all seven required power inputs with
-        # PowerPathSpec; an electrical-only scope receives the full grammar.
-        actions=[({'properties':{'tool':{'const':'power_path'},'target':{},'args':{'type':'object'}},
-                  'required':['tool','target','args']} if action['properties']['tool']['const']=='power_path'
-                 else action) for action in actions]
+        # Electrical-only scopes receive complete arguments. Fallback plans
+        # still pass the same strict PowerPathSpec/RegistrationSpec validators.
+        for action in actions:
+            if action['properties']['tool']['const'] in ('power_path','electrical_register'):
+                action['properties']['args']={'type':'object'}
     if not actions or not shapes:raise ValueError('At least one known tool and shape must be available.')
     # The kernel accepts explicit measurement contracts, but a small LLM's
     # guesses about bounding-box dimensions are not independent user specs.
@@ -131,7 +139,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
     schema['properties'].pop('checks')
     schema['$defs']={'Profile':profile,'Frame':frame,'Section':section,'LoftSection':loft_section,'Transform':transform,'Geometry':{'anyOf':shapes}}
     schema['properties']['actions']['items']={'anyOf':actions}
-    schema['properties']['construction']['description']='Short dimensioned construction steps, then implement exactly these actions.'
+    schema['properties']['construction']['description']='Dimensioned steps, then implement these actions.'
     schema['required']=['construction','summary','actions']
     if single_part:
         create=next(a for a in actions if a['properties']['tool']['const']=='create')
@@ -140,4 +148,19 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         schema['properties']['base']=create
         schema['properties']['actions']=array({'anyOf':features} if features else {},0,31 if features else 0)
         schema['required']=['construction','summary','base','actions']
+    if broad_fallback:
+        # Repeated collection/text bounds and annotations consume the small
+        # model's context. Keep types, required fields, enums and references;
+        # native schemas/kernel enforce every size and geometry bound on output.
+        def compact(value):
+            if isinstance(value,dict):
+                return {key:compact(item) for key,item in value.items()
+                        if key not in ('title','default','minItems','maxItems','minLength','maxLength')}
+            if isinstance(value,list):return [compact(item) for item in value]
+            return value
+        action_bounds={key:value for key,value in schema['properties']['actions'].items()
+                       if key in ('minItems','maxItems')}
+        schema=compact(schema)
+        # Keep the overall operation budget explicit for provider planning.
+        schema['properties']['actions'].update(action_bounds)
     return schema
