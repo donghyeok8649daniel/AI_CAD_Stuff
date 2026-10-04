@@ -158,7 +158,7 @@ def register_part(raw: Design | dict, part_id: str, args: RegistrationSpec | dic
                 if len({component["signal_pins"][key] for key in group if key in component["signal_pins"]}) > 1:
                     dropped_signal.update(group & set(component["signal_pins"]))
         if product and "terminal_pins" not in supplied:
-            dropped_terminal = set(component["terminal_pins"]) - {terminal.key for terminal in product.terminals}
+            dropped_terminal = set(component.get("terminal_pins", {})) - {terminal.key for terminal in product.terminals}
         if (dropped_signal or dropped_terminal) and not spec.allow_drop_connections:
             raise ValueError("기존 사용자 핀·단자와 실제 제품 모식도가 다릅니다. 해당 연결 해제를 명시적으로 확인하세요.")
         for key in dropped_signal:

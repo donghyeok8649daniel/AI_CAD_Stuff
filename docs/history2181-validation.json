@@ -1,0 +1,19 @@
+{
+  "version": "2.18.1",
+  "contains_user_project_data": false,
+  "original_user_file_unchanged": true,
+  "source_native_checks": 27,
+  "fixture_part_count": 62,
+  "fixture_history_entry_count": 265,
+  "normal_open_and_current_geometry_valid": true,
+  "complete_timeline_preserved": true,
+  "undo_redo_values_preserved": true,
+  "separate_save_reopen_valid": true,
+  "focused_source_and_ui_tests_passed": 111,
+  "live_ai_calls": 0,
+  "native_file_flow_checks": {
+    "hardware": 27,
+    "software": 27
+  },
+  "software_framebuffer_verified": true
+}

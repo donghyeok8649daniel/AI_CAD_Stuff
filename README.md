@@ -1,3 +1,5 @@
+**2.18.1 · 이전 전장 프로젝트 열기 수정:** 전장 기본 필드 추가로 이전 버전의 작업 기록을 불일치로 판단하던 오류를 수정했습니다. 형상·구속·전장 값과 전체 타임라인을 보존하며, 잘못된 기록 검사는 유지합니다.
+
 **2.18.0 · CAD 전장 등록·AI 핀 연결:** 선택한 CAD 부품에 실제 MCU·모터·센서 제품 모델을 등록하고, 부품 트리의 전장 피처에서 공식 핀/단자 모식도를 엽니다. AI 등록과 단자 연결, 정격 미입력 상태, 기본색 선택, 모델 변경 확인, 저장·실행 취소를 제공합니다. 기존 8개 MCU 보드와 4개 특정 전자제품 모식도를 포함하며, 형상·그룹·사용자 색상을 보존합니다. [사용법](docs/CAD_ELECTRICAL_REGISTRATION_KO.md) · [English](docs/CAD_ELECTRICAL_REGISTRATION_EN.md) · [전자제품 출처](docs/ELECTRONIC_PRODUCT_DIAGRAM_SOURCES.md).
 
 **2.17.0 · MCU 핀 연결·모식도:** MCU/보드 모델을 선택하고 실제 헤더 위치가 표시된 핀을 클릭해 센서·드라이버·다른 보드 단자에 연결합니다. 공식 자료로 확인한 8개 보드 핀 배치, 추가 신호 단자, 모델 변경 확인, 연결 해제, GPIO 전원 오결선·기준 전압 경고와 프로젝트 저장을 제공합니다. 회로도에서도 직접 편집할 수 있습니다. [사용법](docs/MCU_PIN_CONNECTIONS_KO.md) · [English](docs/MCU_PIN_CONNECTIONS_EN.md) · [공식 핀 출처](docs/MCU_PIN_SOURCES.md).
@@ -24,7 +26,7 @@
 
 **2.8.0:** 선택 해제·회전, 클릭 가능한 XYZ 축, 실제 관절 구조, AI 커스텀 조립, 선택만/분해 보기와 부품별 STEP·STL 출력. [사용 방법](docs/ASSEMBLY_PARTS_KO.md)
 
-# Prompt CAD Studio · Native 2.17.0
+# Prompt CAD Studio · Native 2.18.1
 
 **v2.7.0 — Codex · ChatGPT 구독 모드:** 기존 Codex 로그인으로 설계 요청을 실행합니다. AI 패널에서 Codex 선택 → Codex 연결 → 기존 로그인 사용 → 모델 선택. API 키가 필요하지 않으며 Codex 구독 사용량이 적용됩니다. [연결 방법과 한계](docs/CODEX_MODE_KO.md).
 

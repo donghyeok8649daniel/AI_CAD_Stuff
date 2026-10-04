@@ -12,7 +12,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 
 class ElectricalModel(BaseModel):
@@ -57,6 +57,20 @@ class ElectricalComponent(ElectricalModel):
     # readable until the user explicitly binds them to an exact board pinout.
     pinout_catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
     product_pinout_catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
+
+    @model_serializer(mode="wrap")
+    def compatible_registration_fields(self, handler):
+        data = handler(self)
+        # These fields were added after circuit snapshots were already stored
+        # in journals. Keep absent legacy defaults absent, while retaining
+        # explicit defaults in newer snapshots and every nondefault value.
+        # Replaying history must still compare exact before/after values.
+        for field, default in (("analysis_enabled", True), ("part_registration", False),
+                               ("terminal_pins", {}), ("pinout_catalog_id", ""),
+                               ("product_pinout_catalog_id", "")):
+            if field not in self.model_fields_set and getattr(self, field) == default:
+                data.pop(field, None)
+        return data
 
     @model_validator(mode="after")
     def required_values(self):

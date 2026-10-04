@@ -1,3 +1,11 @@
+# 2.18.1 legacy project history loading hotfix
+
+Source regression: **604 passed** (603 passed, 87 warnings in 577.52s (0:09:37); lazy SciPy import: 1 passed in 6.84s). Frozen Windows EXE: **812 native checks**, including legacy history project loading and save/reopen under automatic and software rendering, plus all previous electrical registration, MCU pin wiring, electrical/power-path/catalog, part role, circuit, joint, startup, selection, print, draft repair and research reference workflows. All **162** bundled CAD modules and the native entry match the hash-locked tested source. The software renderer DLL matches Qt's unchanged distribution.
+
+The compatibility rule accepts newly introduced electrical fields that were absent in legacy records and take their model defaults. Explicitly saved non-default values and genuine history/geometry/constraint differences remain validated. Original user files are unchanged. No private project content, filenames, paths, raw history smoke reports or screenshots are published. See [aggregate history validation](docs/history2181-validation.json) and [machine-readable validation](docs/native2181-validation.json).
+
+Electrical results estimate DC behavior from entered values. GPIO continuity does not establish firmware or logic behavior. Joint checks sample CAD-solid poses. These checks do not certify hardware, continuous collision freedom, motor dynamics, or strength. No paid API or live electrical hardware was used.
+
 # 2.18.0 CAD part electrical registration and persistent diagrams
 
 Source regression: **590 passed** (589 passed, 87 warnings in 523.56s (0:08:43); lazy SciPy import: 1 passed in 10.47s). Frozen Windows EXE: **758 native checks**, including native CAD-part registration, persistent electronic diagrams and MCU pin wiring as well as electrical/power-path/catalog checks in automatic and software rendering, focused part roles, circuit schematic and source controls, joint ranges, startup, compact selection, print preview, draft repair and research references. All **161** bundled CAD modules and the native entry match the hash-locked tested source. The software renderer DLL matches Qt's unchanged distribution.
