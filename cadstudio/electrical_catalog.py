@@ -239,6 +239,12 @@ CATALOG: tuple[ElectricalCatalogEntry, ...] = (
         reference_only=True, aliases=("h bridge", "h-bridge", "h브리지", "구동기"),
     ),
     ElectricalCatalogEntry(
+        "st_b_g431b_esc1", "STM32 ESC / 모터 드라이버 보드", "STMicroelectronics", "B-G431B-ESC1", "STM32G431CB ESC",
+        "https://www.st.com/resource/en/user_manual/dm00564746-electronic-speed-controller-discovery-kit-for-drones-with-stm32g431cb-stmicroelectronics.pdf",
+        "STM32G431CB 기반 3상 BLDC/PMSM ESC. 3S–6S LiPo 입력, PWM/UART/CAN과 Hall/엔코더 단자. 40 A 피크는 프로펠러 강제 냉각 시험 조건이며 연속 전류·보드 소비전류가 아닙니다. BEC는 딸림 보드 상태를 확인하며 FOC/PWM 동작 해석은 미지원입니다.",
+        reference_only=True, aliases=("b-g431b-esc1", "b g431b esc1", "b-g431", "stm32g431", "g431b", "stm b", "stm32 b", "esc", "st esc"),
+    ),
+    ElectricalCatalogEntry(
         "pololu_2130", "모터 드라이버 보드", "Pololu", "#2130 DRV8833 Dual Motor Driver Carrier", "DRV8833 carrier",
         "https://www.pololu.com/product/2130",
         "정확한 Pololu #2130 보드의 단자명이 확인됩니다. 모터 전원 2.7–10.8 V, 약 1.2 A 연속/2 A 피크는 채널·방열 조건입니다. TI 칩 패키지나 다른 DRV8833 모듈과 구분하며 H 브리지/PWM 동작 해석은 미지원입니다.",

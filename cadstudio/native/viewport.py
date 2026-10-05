@@ -2,7 +2,7 @@
 import math
 import os
 import numpy as np
-from PySide6.QtCore import Qt,Signal,QTimer,QPoint,QRect
+from PySide6.QtCore import Qt,Signal,QTimer,QPoint,QRect,QEvent
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QToolButton,QSizePolicy,QComboBox,QRubberBand,QMessageBox
 import vtkmodules.qt
 vtkmodules.qt.PyQtImpl='PySide6'
@@ -45,7 +45,61 @@ class ViewportCaption(QLabel):
 
 
 class CursorInteractor(QVTKRenderWindowInteractor):
+    # The upstream Qt adapter renders/configures unconditionally. A parent may
+    # hide its native child only after our viewport has released the WGL
+    # context, and already queued events can still arrive during that interval.
+    _vtk_events=frozenset((QEvent.Type.Paint,QEvent.Type.Resize,QEvent.Type.UpdateRequest,
+        QEvent.Type.Timer,QEvent.Type.Enter,QEvent.Type.Leave,QEvent.Type.Wheel,
+        QEvent.Type.MouseButtonPress,QEvent.Type.MouseButtonRelease,
+        QEvent.Type.MouseButtonDblClick,QEvent.Type.MouseMove,
+        QEvent.Type.KeyPress,QEvent.Type.KeyRelease))
+
+    def __init__(self,parent=None,**kwargs):
+        self._finalized=False
+        super().__init__(parent,**kwargs)
+
+    def event(self,event):
+        if self._finalized and event.type() in self._vtk_events:
+            event.accept();return True
+        return super().event(event)
+
+    def Finalize(self):
+        if self._finalized:return
+        # Set the guard first: disabling the interactor can itself emit events.
+        self._finalized=True;self._Timer.stop();self.setUpdatesEnabled(False)
+        self._Iren.Disable()
+        self._Iren.RemoveObservers('CreateTimerEvent');self._Iren.RemoveObservers('DestroyTimerEvent')
+        self._RenderWindow.RemoveObservers('CursorChangedEvent')
+        super().Finalize()
+
+    def closeEvent(self,event):
+        self.Finalize();event.accept()
+
+    def paintEvent(self,event):
+        if self._finalized:event.accept();return
+        super().paintEvent(event)
+
+    def resizeEvent(self,event):
+        if self._finalized:event.accept();return
+        super().resizeEvent(event)
+
+    def Render(self):
+        if not self._finalized:super().Render()
+
+    def CreateTimer(self,obj,event):
+        if not self._finalized:super().CreateTimer(obj,event)
+
+    def TimerEvent(self):
+        if not self._finalized:super().TimerEvent()
+
+    def CursorChangedEvent(self,obj,event):
+        if not self._finalized:super().CursorChangedEvent(obj,event)
+
+    def ShowCursor(self):
+        if not self._finalized:super().ShowCursor()
+
     def wheelEvent(self,event):
+        if self._finalized:event.accept();return
         # VTK's Qt adapter otherwise uses the last mouse-move coordinates,
         # which can be stale after a resize, touchpad event or focus change.
         p=event.position();ctrl,shift=self._GetCtrlShift(event)

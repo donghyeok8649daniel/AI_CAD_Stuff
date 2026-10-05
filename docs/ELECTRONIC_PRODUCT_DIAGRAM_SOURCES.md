@@ -17,6 +17,7 @@ in [MCU_PIN_SOURCES.md](MCU_PIN_SOURCES.md).
 | `pololu_2130` | Pololu #2130 DRV8833 Dual Motor Driver Carrier; 15 named terminal functions | [Pololu exact product](https://www.pololu.com/product/2130), Using the motor driver, Pinout table, Current limiting and carrier schematic |
 | `pololu_4755` | Pololu #4755 100:1 37D 12 V motor with quadrature encoder; 6 lead colors/functions | [Pololu exact product](https://www.pololu.com/product/4755), Using the Encoder color/function table and encoder supply/output conditions |
 | `vishay_1n5819` | Vishay 1N5819, DO-204AL/DO-41 axial package; anode/cathode-band polarity | [Vishay document 88525](https://www.vishay.com/docs/88525/1n5817.pdf), Mechanical Data, polarity and package |
+| `st_b_g431b_esc1` | ST B-G431B-ESC1 STM32G431CB ESC; 19 external power, command, CAN, motor-phase and Hall/encoder terminals (checked 2026-10-05) | [ST UM2516 Rev 4](https://www.st.com/resource/en/user_manual/dm00564746-electronic-speed-controller-discovery-kit-for-drones-with-stm32g431cb-stmicroelectronics.pdf), sections 5.3-5.5 and 6.1, Figures 9-11/14 and Table 5; [MB1419-C01 schematic](https://www.st.com/resource/en/schematic_pack/mb1419-g431cbu6-c01_schematic.pdf), MCU/CAN/power/sensing sheets |
 
 ## Interpretation and conditions
 
@@ -58,7 +59,19 @@ forward-drop, reverse-leakage, thermal or switching model is added. The existing
 catalog's voltage/current limits remain source conditions, not a complete
 operating-point equivalent.
 
-The two new catalog entries (AS5600-ASOT and #2130) are **reference-only**. They
+**B-G431B-ESC1:** this is an ESC board with an embedded STM32G431CB, not a
+generic STM32 GPIO header. J5/J6 are battery positive/negative; J3.1-5 are
+5 V BEC, UART TX, UART RX, PWM input and ground. J7 uses named U/V/W motor
+phases and J8 uses A+/H1, B+/H2, Z+/H3, sensor 5 V and ground. J1 CAN and
+J7/J8 terminals deliberately omit unverified numerical pad order. Reserved
+J2 and debug J4 are excluded. BEC requires the daughterboard. Input is
+3S-6S LiPo; the manufacturer's 40 A peak with propeller cooling is not a
+continuous rating or the board's consumption current. The ESC is registered
+as a pending reference-only `load` with no fabricated DC current, voltage,
+FOC, commutation or firmware simulation. CAN H/L are transceiver bus
+terminals, and must not be treated as raw MCU GPIO TX/RX.
+
+AS5600-ASOT, #2130 and B-G431B-ESC1 are **reference-only**. They
 provide exact registration metadata and terminal references, but do not acquire
 automatic DC supply/load values. Unknown product families and clone-module
 layouts have no verified product diagram. Power/ground/control terminals remain

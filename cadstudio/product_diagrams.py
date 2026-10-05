@@ -49,6 +49,10 @@ AS5600_SOURCE = "https://look.ams-osram.com/m/7059eac7531a86fd/original/AS5600-D
 POLOLU_DRV8833_SOURCE = "https://www.pololu.com/product/2130"
 POLOLU_4755_SOURCE = "https://www.pololu.com/product/4755"
 VISHAY_1N5819_SOURCE = "https://www.vishay.com/docs/88525/1n5817.pdf"
+ST_BG431_ESC_SOURCE = (
+    "https://www.st.com/resource/en/user_manual/"
+    "dm00564746-electronic-speed-controller-discovery-kit-for-drones-with-stm32g431cb-stmicroelectronics.pdf"
+)
 
 _NOTE_KO = (
     "제조사에서 확인한 단자 기능을 자체 벡터 모식도로 표시합니다. 치수가 있는 "
@@ -66,6 +70,68 @@ _NOTE_EN = (
 
 
 PRODUCT_DIAGRAMS: tuple[ProductDiagram, ...] = (
+    ProductDiagram(
+        "st_b_g431b_esc1", "ST B-G431B-ESC1 · STM32G431CB ESC", ST_BG431_ESC_SOURCE,
+        (
+            ProductTerminal("BAT_POS", "J5 · V+", "power", "left", 0, ("3S–6S LiPo positive input",)),
+            ProductTerminal("BAT_NEG", "J6 · V−", "ground", "left", 1, ("Battery negative / return",)),
+            ProductTerminal("J3_BEC_5V", "J3.1 · 5V BEC", "power", "left", 2,
+                            ("5 V external-board supply; daughterboard required",)),
+            ProductTerminal("J3_UART_TX", "J3.2 · UART TX", "signal", "left", 3,
+                            ("USART2_TX telemetry",),
+                            signal_level_note="UART 입력 허용 전압과 상대 보드의 논리 전압을 확인하세요. PWM 핀의 5 V 허용을 UART 핀에 적용하지 않습니다.",
+                            signal_level_note_en="Verify UART levels for each device. The PWM input's 5 V tolerance does not establish UART compatibility."),
+            ProductTerminal("J3_UART_RX", "J3.3 · UART RX", "signal", "left", 4,
+                            ("USART2_RX firmware/update interface",),
+                            signal_level_note="UART 입력 허용 전압과 상대 보드의 논리 전압을 확인하세요. PWM 핀의 5 V 허용을 UART 핀에 적용하지 않습니다.",
+                            signal_level_note_en="Verify UART levels for each device. The PWM input's 5 V tolerance does not establish UART compatibility."),
+            ProductTerminal("J3_PWM", "J3.4 · PWM IN", "signal", "left", 5,
+                            ("Speed command input", "3.3 V or 5 V PWM input, per UM2516 §6.1",),
+                            signal_level_note="이 핀은 속도 명령 입력이며 GPIO 전원 출력이 아닙니다. 펌웨어 설정과 PWM 타이밍을 확인하세요.",
+                            signal_level_note_en="Speed-command input, not a GPIO power output. Verify firmware configuration and PWM timing."),
+            ProductTerminal("J3_GND", "J3.5 · GND", "ground", "left", 6, ("PWM/UART return",)),
+            # The logical CAN/J8 terminal names are verified; numerical pad
+            # ordering is deliberately omitted where not independently read.
+            ProductTerminal("CAN_H", "J1 · CAN H", "signal", "left", 7,
+                            ("CAN transceiver differential high",),
+                            signal_level_note="CAN H/L은 차동 버스 단자입니다. MCU GPIO TX/RX에 직접 연결하지 말고 트랜시버와 종단 조건을 확인하세요.",
+                            signal_level_note_en="Differential CAN bus terminal, not a raw MCU GPIO TX/RX. Verify transceivers and bus termination."),
+            ProductTerminal("CAN_L", "J1 · CAN L", "signal", "left", 8,
+                            ("CAN transceiver differential low",),
+                            signal_level_note="CAN H/L은 차동 버스 단자입니다. MCU GPIO TX/RX에 직접 연결하지 말고 트랜시버와 종단 조건을 확인하세요.",
+                            signal_level_note_en="Differential CAN bus terminal, not a raw MCU GPIO TX/RX. Verify transceivers and bus termination."),
+            ProductTerminal("CAN_5V", "J1 · 5V IN", "power", "left", 9,
+                            ("External power CAN input 5.0–5.5 V",)),
+            ProductTerminal("CAN_GND", "J1 · GND", "ground", "left", 10, ("CAN power return",)),
+            ProductTerminal("MOTOR_U", "J7 · U", "power", "right", 0, ("Switched 3-phase motor output U",)),
+            ProductTerminal("MOTOR_V", "J7 · V", "power", "right", 1, ("Switched 3-phase motor output V",)),
+            ProductTerminal("MOTOR_W", "J7 · W", "power", "right", 2, ("Switched 3-phase motor output W",)),
+            ProductTerminal("SENSOR_A_H1", "J8 · A+ / H1", "signal", "right", 3,
+                            ("Encoder A or Hall H1 input",),
+                            signal_level_note="센서 신호 전압·입력 회로·모터 제어 펌웨어 설정을 공식 도면으로 확인하세요. 5 V 센서 전원으로 GPIO 호환을 단정하지 않습니다.",
+                            signal_level_note_en="Verify sensor signal levels, input circuitry and motor-control firmware. Sensor 5 V supply alone does not prove GPIO compatibility."),
+            ProductTerminal("SENSOR_B_H2", "J8 · B+ / H2", "signal", "right", 4,
+                            ("Encoder B or Hall H2 input",),
+                            signal_level_note="센서 신호 전압·입력 회로·모터 제어 펌웨어 설정을 공식 도면으로 확인하세요. 5 V 센서 전원으로 GPIO 호환을 단정하지 않습니다.",
+                            signal_level_note_en="Verify sensor signal levels, input circuitry and motor-control firmware. Sensor 5 V supply alone does not prove GPIO compatibility."),
+            ProductTerminal("SENSOR_Z_H3", "J8 · Z+ / H3", "signal", "right", 5,
+                            ("Encoder index or Hall H3 input",),
+                            signal_level_note="센서 신호 전압·입력 회로·모터 제어 펌웨어 설정을 공식 도면으로 확인하세요. 5 V 센서 전원으로 GPIO 호환을 단정하지 않습니다.",
+                            signal_level_note_en="Verify sensor signal levels, input circuitry and motor-control firmware. Sensor 5 V supply alone does not prove GPIO compatibility."),
+            ProductTerminal("SENSOR_5V", "J8 · 5V", "power", "right", 6,
+                            ("Motor sensor supply, also available without daughterboard",)),
+            ProductTerminal("SENSOR_GND", "J8 · GND", "ground", "right", 7, ("Motor sensor return",)),
+        ),
+        "확인한 외부 전력·통신·센서 단자만 표시합니다. 내부 MCU 전체 GPIO나 J2 예약·J4 디버그 패드는 포함하지 않습니다. "
+        "J1/J7/J8의 단자 기능명은 논리 배치이며 미확인 패드 번호를 붙이지 않습니다. BEC는 딸림 보드가 필요하고 "
+        "CAN 5 V 입력·센서 5 V·배터리 입력을 자동 연결하지 않습니다. BLDC/PMSM 구동·FOC·펌웨어 시뮬레이션은 지원하지 않습니다. " + _NOTE_KO,
+        "Verified external power, communication and sensor terminals only; not all internal MCU GPIOs or reserved J2/debug J4 pads. "
+        "J1/J7/J8 use logical terminal names without guessed numerical pad ordering. BEC requires the daughterboard. "
+        "CAN 5 V input, sensor supply and battery input are not automatically tied together. BLDC/PMSM commutation, FOC and firmware are not simulated. " + _NOTE_EN,
+        "ST UM2516 Rev 4 §§5.3–5.5, §6.1, Figures 9–11/14 and Table 5; "
+        "MB1419-G431CBU6-C01 schematic sheets MCU (J3), CAN (J1), POWER STAGE (J5/J6/J7), SENSING (J8). "
+        "Official source checked 2026-10-05.",
+    ),
     ProductDiagram(
         "ams_as5600_asot", "ams AS5600-ASOT (SOIC-8 IC)", AS5600_SOURCE,
         (

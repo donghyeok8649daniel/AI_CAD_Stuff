@@ -1,6 +1,18 @@
+# 2.19.0 update
+
+- The 32MB save restriction is removed. Complete history and imported meshes are retained in compact UTF-8 JSON; a synced temporary file atomically replaces the original. Normal reading has a 512MiB memory guard. If the old app cannot save, **File → Export → Fusion / Inventor conversion package** retains the full project in a ZIP before updating.
+- The top **Circuit** button beside **Selected part color…** opens a separate wiring window. Choose **Circuit** in the workspace selector to view the same saved circuit in the main area. **Board wiring** is the default; switch to **Circuit symbols** when needed.
+- Select a component and choose **Show CAD part** to select its linked 3D part. Clicking a linked component body in Board wiring also focuses it and shows its CAD part. **Focus circuit / restore panels** expands the main workspace.
+- Use **Edit circuit…** to add boards, batteries, motors/actuators, devices, resistors, switches and wires. Drag to arrange them. Enable **Wire pins**, then click a source and target terminal. Reassignment moves only the selected source endpoint; other devices sharing its old net remain connected. **Esc** cancels a pending connection.
+- **Selected board: all pins** expands hidden terminals in Circuit symbols. The Raspberry Pi Board wiring view shows all forty J8 pads from the start and this control expands functional labels. **Board pin reference** opens documented pin details. Choose **Save circuit changes**, then save the project to retain edits and placement. Cancel preserves the saved circuit. Viewing windows inspect saved data; editing uses a private draft.
+- In **GitHub research / Attach files…**, enter a repository URL and connect to automatically add references. An empty optional scope indexes the repository root and adds bounded excerpts of readable documents. An index is not evidence that every body was read: AI receives only the previewed, bounded references. [Scope, privacy and limits](RESEARCH_REFERENCES_EN.md).
+- In the AI panel, refresh the **Codex connection / usage** to load its model catalog, then select a model from the dropdown. Selection alone starts no AI request and takes effect on the next request. A saved model absent from the catalog remains explicitly marked **not in catalog**; it is not silently replaced.
+
+Board illustrations are miniature wiring guides, not dimensioned PCB fabrication outlines. Explicit physical MCU power/GND assignments remain separate from the DC model's A/B supply terminals; neither is automatically tied to the other. A signal connection or wire color does not verify voltage, current or firmware behavior. Matching net names are connected; crossings without dots are separate. Drawn wire length is not the actual entered wire length used for DC calculations. [Registration and official sources](CAD_ELECTRICAL_REGISTRATION_EN.md).
+
 # 2.14.0 update
 
-The AI panel's research references dialog connects a GitHub repository, previews selected documents, and attaches them to design or Q&A requests. Local PDF/text attachments are supported. Codex retries transient disconnections with cancellable backoff and retains the interrupted request and validation context.
+The research references dialog indexes a GitHub repository, automatically adds bounded excerpts, and allows extra selected documents for design or Q&A requests. Local PDF/text attachments are supported. Codex retries transient disconnections with cancellable backoff and retains the interrupted request and validation context.
 
 **F2** renames a part. **Ctrl+F** searches parts, features, groups, sketches, joints and commands. **View → AI design completion notifications** toggles Windows notifications (on by default).
 

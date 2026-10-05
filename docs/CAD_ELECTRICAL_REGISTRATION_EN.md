@@ -31,9 +31,20 @@ MCU boards use the [official pin sources and coverage](MCU_PIN_SOURCES.md). Addi
 | Pololu #2130 DRV8833 carrier | Fifteen documented terminal names; no invented physical order/numbers for the sixteen pads |
 | Pololu #4755 motor with encoder | Six documented wire colors/functions; motor and encoder supplies are separate |
 | Vishay 1N5819 | Anode and band-marked cathode; no invented pin 1/2 numbering |
+| ST B-G431B-ESC1 | Nineteen external battery, BEC/UART/PWM, CAN, U/V/W and Hall/encoder terminals; no invented pad order or consumption current |
 
 Read the [official product terminal references and conditions](ELECTRONIC_PRODUCT_DIAGRAM_SOURCES.md). AS5600 supply-pin connections depend on the power mode. The #4755 encoder output reaches its encoder supply voltage, so compatibility with a 3.3 V MCU is not assumed.
 
 Connecting a product signal to an MCU displays the signal's voltage or pull-up conditions below the diagram. For example, #4755 warns that its encoder has a separate 3.5–20 V supply and its A/B outputs swing to that supply. Check the actual signal voltage and input limits, and add level translation when necessary. Confirmation to discard existing pin assignments applies only to the particular model change being confirmed.
 
 Diagrams explain connectivity. They do not generate a dimensioned PCB outline, connector placement, mounting geometry or cable route, and do not certify full-device operation. Checks cover passive continuity of saved wiring and initial analysis of supported DC inputs. Firmware, communication protocols and electromechanical co-simulation are outside this scope.
+
+## 2.19.0 wiring workspace
+
+Choose **Circuit** beside the top part-color action to open a separate **Board wiring** window. The workspace selector's **Circuit** shows the same saved circuit in the main area. Miniature board, battery, motor, resistor and switch diagrams can also be viewed as **Circuit symbols**. Board artwork guides wiring; it is not a dimensioned PCB fabrication drawing.
+
+Use **Edit circuit… → Wire pins**, then click a source and target terminal. MCU signals, documented product terminals and explicitly registered custom terminals can be connected. Known physical MCU power/GND pins are stored as separate explicit power-pin assignments. Previously connected aliases of the same rail remain consistent; unassigned power pins are not automatically wired. Physical supply pins are not automatically tied to the DC model's A/B endpoints: enter the actual supply path separately.
+
+Moving the source to another net leaves other devices on its old net unchanged. **Esc** cancels the pending wire. Select an assigned pin and use **Disconnect selected pin** to remove just that connection. **Save circuit changes**, then save the `.cad.json` project to retain connections and dragged placement. **Show CAD part**, or clicking a linked Board wiring component body, selects the corresponding 3D part. Displayed line length/color does not replace actual wire length, ratings or electrical compatibility checks.
+
+B-G431B-ESC1 is a terminal reference for an ESC product containing an STM32. It is not treated as a generic STM32 GPIO board. No FOC, switching or firmware is executed, and no consumption current is invented for a DC load. Follow the exact conditions in the [official source record](ELECTRONIC_PRODUCT_DIAGRAM_SOURCES.md).

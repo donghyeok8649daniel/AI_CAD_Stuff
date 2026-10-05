@@ -5,8 +5,13 @@ import json
 import os
 from pathlib import Path
 from uuid import uuid4
+from pydantic import TypeAdapter
 from ..models import Design,Project,HistoryChange
 from ..history import apply_changes
+
+
+MAX_PROJECT_READ_BYTES=512*1024*1024
+_PROJECT_JSON=TypeAdapter(Project)
 
 
 def differences(before,after,path=()):
@@ -112,16 +117,32 @@ class Document:
 
     def write(self,path,*,autosave=False):
         path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
-        data=self.project().model_dump_json(indent=2)
-        if len(data.encode('utf-8'))>32_000_000:raise ValueError('프로젝트가 32 MB를 넘었습니다. 기록을 보존하려면 프로젝트를 나누세요.')
+        # Pydantic emits compact UTF-8 bytes directly: keep every history step
+        # and embedded asset without an indented string or a second encoding.
+        data=_PROJECT_JSON.dump_json(self.project())
         temp=path.with_suffix('.'+uuid4().hex+'.tmp')
         try:
-            temp.write_text(data,encoding='utf-8');os.replace(temp,path)
-        finally:temp.unlink(missing_ok=True)
+            with temp.open('xb') as stream:
+                stream.write(data);stream.flush();os.fsync(stream.fileno())
+            os.replace(temp,path)
+        finally:
+            try:temp.unlink(missing_ok=True)
+            except OSError:pass  # Preserve the original write/replace failure.
         if not autosave:self.path=path;self.dirty=False
 
 
-def read_project(path):
+def read_project(path,*,max_bytes=MAX_PROJECT_READ_BYTES):
+    """Read a checked project with a bounded default, adjustable by the caller."""
     path=Path(path)
-    if path.stat().st_size>32_000_000:raise ValueError('프로젝트는 32 MB 이하여야 합니다.')
-    return Project.model_validate_json(path.read_text(encoding='utf-8-sig'))
+    if max_bytes is not None and (type(max_bytes) is not int or max_bytes<=0):
+        raise ValueError('프로젝트 읽기 한도는 양의 바이트 수 또는 None이어야 합니다.')
+    def check_size(size):
+        if max_bytes is not None and size>max_bytes:
+            raise ValueError(f'프로젝트 파일은 {size/1024**2:.1f} MiB입니다. '
+                f'현재 읽기 한도 {max_bytes/1024**2:g} MiB를 넘습니다. '
+                '원본과 작업 기록은 변경되지 않았습니다. 더 큰 한도를 명시하여 다시 불러오세요.')
+    check_size(path.stat().st_size)
+    with path.open('rb') as stream:
+        data=stream.read() if max_bytes is None else stream.read(max_bytes+1)
+    check_size(len(data))
+    return Project.model_validate_json(data.removeprefix(b'\xef\xbb\xbf'))

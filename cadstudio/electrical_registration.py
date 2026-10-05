@@ -90,7 +90,7 @@ def _new_identifier(workspace: ElectricalWorkspace) -> str:
 def _with_nodes(workspace: ElectricalWorkspace, component: dict) -> ElectricalWorkspace:
     data = workspace.model_dump()
     required = [component["a"], component["b"], *component.get("signal_pins", {}).values(),
-                *component.get("terminal_pins", {}).values()]
+                *component.get("terminal_pins", {}).values(),*component.get("board_supply_pins",{}).values()]
     for node in required:
         if node not in data["nodes"]:
             data["nodes"].append(node)
@@ -139,7 +139,8 @@ def register_part(raw: Design | dict, part_id: str, args: RegistrationSpec | dic
         kind = chosen_kind or (existing.kind if existing else "load")
     workspace = design.electrical.model_copy(deep=True) if design.electrical else ElectricalWorkspace()
     changed_model = existing is not None and (catalog_id != existing.catalog_id or kind != existing.kind)
-    old_pins = {**existing.signal_pins, **existing.terminal_pins} if existing else {}
+    old_pins = {**existing.signal_pins, **existing.terminal_pins,
+                **{'supply:'+key:node for key,node in existing.board_supply_pins.items()}} if existing else {}
     if changed_model and old_pins and not spec.allow_drop_connections:
         raise ValueError("제품 모델 변경으로 기존 핀·단자 연결이 해제됩니다. 연결 해제를 명시적으로 확인하세요.")
     if existing and not changed_model:
@@ -203,7 +204,8 @@ def connected_pins_for_part(raw: Design | dict, part_id: str) -> tuple[Connectio
     component = _registration(design, part_id)
     if component is None or design.electrical is None:
         return ()
-    nodes = {component.a, component.b, *component.signal_pins.values(), *component.terminal_pins.values()}
+    nodes = {component.a, component.b, *component.signal_pins.values(), *component.terminal_pins.values(),
+             *component.board_supply_pins.values()}
     return tuple(endpoint for endpoint in connection_endpoints(design.electrical)
                  if endpoint.component_id != component.id and endpoint.node is not None and endpoint.node in nodes)
 
@@ -215,6 +217,8 @@ def unregister_part(raw: Design | dict, part_id: str) -> Design:
         return design
     workspace = design.electrical.model_dump()
     workspace["components"] = [item for item in workspace["components"] if item["id"] != component.id]
+    if "schematic_positions" in workspace:
+        workspace["schematic_positions"].pop(component.id, None)
     design.electrical = ElectricalWorkspace.model_validate(workspace)
     # Roles/colors are independent classifications; removing a feature must
     # not erase a user-picked role, color, another endpoint, or an unused net.
@@ -269,7 +273,10 @@ def register_terminal_node(raw: Design | dict, part_id: str, terminal_key: str, 
     if component is None:
         raise ValueError("실제 CAD 부품을 먼저 전장 부품으로 등록하세요.")
     if component.kind == "mcu":
-        design.electrical = assign_pin_node(design.electrical, component.id, terminal_key, node_id)
+        if terminal_key.startswith('supply:'):
+            from .board_supply import assign_board_supply_node
+            design.electrical=assign_board_supply_node(design.electrical,component.id,terminal_key.partition(':')[2],node_id)
+        else:design.electrical = assign_pin_node(design.electrical, component.id, terminal_key, node_id)
     else:
         key = _terminal_key(component, terminal_key, allow_create=True)
         _add_node(design.electrical, node_id)
@@ -283,6 +290,11 @@ def connect_registered_terminal(raw: Design | dict, part_id: str, terminal: str,
     from .mcu_connections import _add_node, _new_node
 
     design, source, target = _registered_pair(raw, part_id, target_part_id)
+    if terminal.startswith('supply:') or target_terminal.startswith('supply:'):
+        from .circuit_connections import connect_schematic_terminals
+        source_terminal=terminal if terminal in ('a','b') or terminal.startswith('supply:') else 'port:'+_terminal_key(source,terminal)
+        design.electrical=connect_schematic_terminals(design.electrical,source.id,source_terminal,target.id,target_terminal)
+        return Design.model_validate(design.model_dump())
     source_terminal = terminal if terminal in ("a", "b") else "port:" + _terminal_key(source, terminal)
     if source.id == target.id and source_terminal == target_terminal:
         raise ValueError("전장 단자를 자기 자신에게 연결할 수 없습니다.")

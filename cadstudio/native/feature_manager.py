@@ -1,6 +1,6 @@
 """Reorder, insert, and suppress features with validated previews."""
 from copy import deepcopy
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt,QSignalBlocker
 from PySide6.QtWidgets import QListWidget,QListWidgetItem,QHBoxLayout,QCheckBox,QDialog
 from .workflows import PreviewDialog
 from .widgets import button,label
@@ -33,9 +33,19 @@ class FeatureManager(PreviewDialog):
         if not 0<=destination<len(self.features()):return
         self.raw=reorder_features(self.raw,self.part_id,index,destination);self.refresh(destination);self.schedule()
     def toggle(self,item):
-        index=self.list.row(item);suppressed=item.checkState()!=Qt.CheckState.Checked
-        for f in self.features()[index:index+1 if not self.following.isChecked() else None]:f['suppressed']=suppressed
-        self.refresh(index);self.schedule()
+        index=self.list.row(item);features=self.features()
+        if not 0<=index<len(features):return
+        suppressed=item.checkState()!=Qt.CheckState.Checked
+        stop=len(features) if self.following.isChecked() else index+1
+        # itemChanged is still using this native QListWidgetItem. Clearing the
+        # list here deletes its active event target before Qt returns from the
+        # setter/delegate. Suppression changes values, not list structure.
+        with QSignalBlocker(self.list):
+            for row in range(index,stop):
+                features[row]['suppressed']=suppressed
+                self.list.item(row).setCheckState(Qt.CheckState.Unchecked if suppressed else Qt.CheckState.Checked)
+            self.list.setCurrentRow(index)
+        self.schedule()
     def insert(self):
         from .solid_dialog import SolidDialog
         index=self.list.currentRow();index=len(self.features()) if index<0 else index

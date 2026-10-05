@@ -8,9 +8,9 @@ import sys
 import time
 from pathlib import Path
 from uuid import uuid4
-from PySide6.QtCore import Qt,QTimer,QThreadPool,QSize,Slot
+from PySide6.QtCore import Qt,QTimer,QThreadPool,QSize,Slot,QSignalBlocker
 from PySide6.QtGui import QAction,QActionGroup,QKeySequence,QColor,QIcon
-from PySide6.QtWidgets import (QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QDockWidget,QTreeWidget,QTreeWidgetItem,QListWidget,QListWidgetItem,QAbstractItemView,QStackedWidget,QScrollArea,QToolBar,QToolButton,QMenu,QLineEdit,QComboBox,QCheckBox,QPlainTextEdit,QFileDialog,QMessageBox,QDialog,QDialogButtonBox,QColorDialog,QProgressBar,QLabel,QSplitter,QInputDialog,QLayout)
+from PySide6.QtWidgets import (QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QDockWidget,QTreeWidget,QTreeWidgetItem,QTreeWidgetItemIterator,QListWidget,QListWidgetItem,QAbstractItemView,QStackedWidget,QScrollArea,QToolBar,QToolButton,QMenu,QLineEdit,QComboBox,QCheckBox,QPlainTextEdit,QFileDialog,QMessageBox,QDialog,QDialogButtonBox,QColorDialog,QProgressBar,QLabel,QSplitter,QInputDialog,QLayout)
 from .document import Document,read_project
 from .widgets import icon,number,label,button,clear_layout,Worker
 from .viewport import CADViewport
@@ -99,6 +99,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
         file.addAction(self.action('print_profile','3D 프린터 · 전체 여유 / 공차…',self.print_profile_dialog,None,'dimension'));assembly.addAction(self.actions['print_profile'])
         model.addAction(self.action('electronics_mount','전장부품 장착 자리…',self.electronics_mount_dialog,None,'assembly'));assembly.addAction(self.actions['electronics_mount'])
         engineering.addAction(self.action('electrical','전장 회로 · 배선 / 전압강하…',self.electrical_dialog,None,'assembly'))
+        engineering.addAction(self.action('circuit_workspace','메인 회로도 작업 공간',self.show_circuit_workspace,None,'assembly'))
+        engineering.addAction(self.action('wiring_diagram','회로도',self.open_wiring_diagram,None,'assembly'))
         engineering.addAction(self.action('electrical_register','CAD 부품 · 전장 등록 / 모식도…',self.electrical_part_dialog,None,'assembly'))
         engineering.addAction(self.action('mcu_pins','MCU 선택 / 핀 연결…',self.mcu_pin_dialog,None,'assembly'))
         engineering.addAction(self.action('power_path','전원 연결 설계…',self.power_path_dialog,None,'assembly'))
@@ -138,7 +140,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def make_toolbar(self):
         self.toolbar=QToolBar('작업 공간');self.toolbar.setObjectName('modelToolbar');self.toolbar.setMovable(False);self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.toolbar.setIconSize(QSize(25,25));self.addToolBar(self.toolbar)
         for key in ('new','open','save'):self.toolbar.addAction(self.actions[key])
-        self.toolbar.addSeparator();self.workspace=combo([('model','설계'),('assembly','조립'),('specimen','시편'),('print','3D 프린팅')]);self.workspace.setMinimumWidth(95);self.workspace.setToolTip('작업 공간을 선택하면 필요한 도구가 나타납니다.');self.toolbar.addWidget(self.workspace);self.toolbar.addSeparator();self.mode_tools={'model':[],'assembly':[],'specimen':[],'print':[]}
+        self.toolbar.addSeparator();self.workspace=combo([('model','설계'),('assembly','조립'),('specimen','시편'),('print','3D 프린팅'),('circuit','회로도')]);self.workspace.setMinimumWidth(95);self.workspace.setToolTip('작업 공간을 선택하면 필요한 도구가 나타납니다.');self.toolbar.addWidget(self.workspace);self.toolbar.addSeparator();self.mode_tools={'model':[],'assembly':[],'specimen':[],'print':[],'circuit':[]}
         self.plane=combo([('XY','XY 평면'),('XZ','XZ 평면'),('YZ','YZ 평면'),('custom','사용자 작업 평면…')]);self.mode_tools['model'].append(self.toolbar.addWidget(self.plane));self.mode_tools['model'].append(self.toolbar.addAction(icon('sketch'),'스케치 작성',lambda:self.start_sketch(self.plane.currentData())))
         for key in ('extrude','face_sketch','edit_sketch'):self.add_mode_tool('model',key)
         advanced=QToolButton();advanced.setText('3D 도구');advanced.setIcon(icon('extrude'));advanced.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);advanced.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup);advanced_menu=QMenu(advanced)
@@ -149,8 +151,9 @@ class MainWindow(QMainWindow,PartSelectionUI):
         b.setMenu(menu);self.add_part_action=self.toolbar.addWidget(b)
         for key in ('face_joint','drive','joint_hardware','gears','robot','mate'):self.add_mode_tool('assembly',key)
         self.add_mode_tool('assembly','electrical')
+        self.add_mode_tool('circuit','electrical');self.add_mode_tool('circuit','electrical_register');self.add_mode_tool('circuit','mcu_pins')
         self.add_mode_tool('assembly','loop');self.add_mode_tool('assembly','robot_study')
-        self.add_mode_tool('print','print_mode');self.add_mode_tool('print','print_profile');self.add_mode_tool('print','interference');self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure']);self.toolbar.addAction(self.actions['color']);self.toolbar.addAction(self.actions['parameters']);self.toolbar.addSeparator()
+        self.add_mode_tool('print','print_mode');self.add_mode_tool('print','print_profile');self.add_mode_tool('print','interference');self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure']);self.toolbar.addAction(self.actions['color']);self.toolbar.addAction(self.actions['wiring_diagram']);self.toolbar.addAction(self.actions['parameters']);self.toolbar.addSeparator()
         for key in ('undo','redo','fit'):self.toolbar.addAction(self.actions[key])
         self.toolbar.addAction(icon('ai'),'설계 명령',lambda:self.ai_dock.setVisible(not self.ai_dock.isVisible()));self.workspace.currentIndexChanged.connect(self.workspace_changed);self.workspace_changed()
     def add_mode_tool(self,mode,key):
@@ -303,6 +306,106 @@ class MainWindow(QMainWindow,PartSelectionUI):
             raw['electrical']=dialog.workspace.model_dump()
             self.apply_design(raw,'전장 회로 / 배선 편집',{'tool':'electrical','component_ids':[c.id for c in dialog.workspace.components]})
 
+    def show_circuit_workspace(self):
+        if self.busy or self.sketching:return
+        index=self.workspace.findData('circuit')
+        if self.workspace.currentIndex()!=index:self.workspace.setCurrentIndex(index)
+        else:self.refresh_circuit_workspace()
+
+    def refresh_circuit_workspace(self):
+        from ..electrical import ElectricalWorkspace,evaluate_electrical
+        from .electrical_schematic import ElectricalSchematicDialog
+        raw=(self.document.design or {}).get('electrical') or {'nodes':['GND'],'components':[]}
+        identity=json.dumps([self.language_service.language,raw,[(p['id'],p['name']) for p in (self.document.design or {}).get('parts',[])]],ensure_ascii=False,sort_keys=True)
+        if getattr(self,'circuit_identity',None)==identity and getattr(self,'circuit_panel',None):
+            self.stack.setCurrentWidget(self.circuit_panel);return
+        workspace=ElectricalWorkspace.model_validate(raw)
+        try:result=evaluate_electrical(workspace)
+        except (ValueError,TypeError):result=None
+        old=getattr(self,'circuit_panel',None)
+        panel=ElectricalSchematicDialog(self,workspace,result,(self.document.design or {}).get('parts',[]),editable=False)
+        panel.setWindowFlags(Qt.WindowType.Widget)
+        panel.setObjectName('mainCircuitWorkspace')
+        panel.editRequested.connect(self.edit_main_circuit)
+        panel.focusRequested.connect(self.toggle_circuit_focus)
+        panel.partActivated.connect(self.show_electrical_cad_part)
+        self.circuit_panel=panel;self.stack.addWidget(panel);self.stack.setCurrentWidget(panel)
+        self.circuit_identity=identity
+        if old:self.stack.removeWidget(old);old.deleteLater()
+
+    def toggle_circuit_focus(self):
+        docks=(self.browser_dock,self.property_dock,self.ai_dock,self.timeline_dock)
+        saved=getattr(self,'circuit_focus_panels',None)
+        if saved is None:
+            self.circuit_focus_panels=[dock.isVisible() for dock in docks]
+            for dock in docks:dock.hide()
+        else:
+            for dock,visible in zip(docks,saved):dock.setVisible(visible)
+            self.circuit_focus_panels=None
+        QTimer.singleShot(0,self.circuit_panel.fit_scene)
+
+    def edit_main_circuit(self):
+        if self.busy or self.sketching:return
+        from .electrical_schematic import ElectricalSchematicDialog
+        raw=deepcopy(self.document.design) if self.document.design else Design().model_dump()
+        dialog=ElectricalSchematicDialog(self,raw.get('electrical') or {'nodes':['GND'],'components':[]},parts=raw['parts'])
+        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
+            raw['electrical']=dialog.accepted_workspace.model_dump()
+            self.apply_design(raw,'회로도 부품 / 핀 / 배치 편집',{'tool':'electrical-schematic','component_ids':[c.id for c in dialog.accepted_workspace.components]},fit=False)
+
+    def open_wiring_diagram(self,component_id=None):
+        if self.busy or self.sketching:return
+        if isinstance(component_id,bool):component_id=None
+        from .electrical_schematic import ElectricalSchematicDialog
+        raw=(self.document.design or {}).get('electrical') or {'nodes':['GND'],'components':[]}
+        panel=getattr(self,'wiring_window',None)
+        if panel is None:
+            panel=self.make_wiring_panel(raw);self.wiring_window=panel
+        else:self.refresh_wiring_diagram();panel=self.wiring_window
+        panel.show();panel.raise_();panel.activateWindow()
+        if component_id:QTimer.singleShot(0,lambda:panel.focus_component(component_id))
+
+    def make_wiring_panel(self,raw):
+        from .electrical_schematic import ElectricalSchematicDialog
+        panel=ElectricalSchematicDialog(self,raw,parts=(self.document.design or {}).get('parts',[]),editable=False)
+        panel.setObjectName('floatingWiringDiagram');panel.setWindowFlags(Qt.WindowType.Window)
+        panel.editRequested.connect(self.edit_main_circuit);panel.partActivated.connect(self.show_electrical_cad_part)
+        panel.close_button.show();return panel
+
+    def refresh_wiring_diagram(self):
+        panel=getattr(self,'wiring_window',None)
+        if panel is None:return
+        from ..electrical import ElectricalWorkspace,evaluate_electrical
+        raw=(self.document.design or {}).get('electrical') or {'nodes':['GND'],'components':[]}
+        parts=(self.document.design or {}).get('parts',[])
+        english=self.language_service.language=='en'
+        if panel.english!=english:
+            selected=panel._selected_id();visible=panel.isVisible();geometry=panel.geometry();mode=panel.view_mode
+            replacement=self.make_wiring_panel(raw);self.wiring_window=replacement
+            replacement.mode_picker.setCurrentIndex(replacement.mode_picker.findData(mode));replacement.setGeometry(geometry)
+            panel.close();panel.deleteLater()
+            if visible:replacement.show()
+            if selected:replacement.focus_component(selected)
+            return
+        if panel.workspace.model_dump()==ElectricalWorkspace.model_validate(raw).model_dump() and panel.parts==tuple(parts) and panel.english==english:return
+        panel.english=english
+        selected=panel._selected_id();panel.parts=tuple(parts);panel.workspace=ElectricalWorkspace.model_validate(raw).model_copy(deep=True)
+        try:panel.result=evaluate_electrical(panel.workspace)
+        except (ValueError,TypeError):panel.result=None
+        panel._draw();panel.refresh_mcu_list();panel.workspace_changed=False
+        if selected:panel.focus_component(selected)
+
+    def show_electrical_cad_part(self,part_id):
+        if self.busy or self.sketching:return
+        if not any(p['id']==part_id for p in (self.document.design or {}).get('parts',[])):
+            self.message('이 전자제품에 연결된 CAD 부품이 없습니다. CAD 부품을 전장으로 등록하세요.');return
+        if self.workspace.currentData()=='circuit':self.open_wiring_diagram(next((c['id'] for c in self.document.design.get('electrical',{}).get('components',[]) if c.get('part_id')==part_id),None))
+        self.workspace.setCurrentIndex(self.workspace.findData('model'));self.reset_role_view(restore=True)
+        if part_id in self.viewport.hidden:self.viewport.visibility(part_id,True)
+        self.select_parts([part_id]);actor=self.viewport.actors.get(part_id)
+        if actor is not None:self.viewport.renderer.ResetCamera(actor[0].GetBounds());self.viewport.renderer.ResetCameraClippingRange();self.viewport.window.Render()
+        self.message('회로도와 연결된 CAD 부품: '+next(p['name'] for p in self.document.design['parts'] if p['id']==part_id))
+
     def electrical_part_dialog(self,part_id=None):
         if self.busy or self.sketching:return
         if isinstance(part_id,bool):part_id=None
@@ -382,7 +485,11 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def workspace_changed(self):
         for mode,actions in self.mode_tools.items():
             for action in actions:action.setVisible(mode==self.workspace.currentData())
-        self.add_part_action.setVisible(self.workspace.currentData()!='specimen')
+        self.add_part_action.setVisible(self.workspace.currentData() not in ('specimen','circuit'))
+        if self.workspace.currentData()=='circuit':self.refresh_circuit_workspace()
+        elif not self.sketching:
+            if getattr(self,'circuit_focus_panels',None) is not None:self.toggle_circuit_focus()
+            self.stack.setCurrentWidget(self.viewport)
     def print_mode_dialog(self):
         if self.busy or self.sketching:return
         if not self.document.design or not self.document.design['parts']:self.message('출력할 부품을 먼저 만드세요.');return
@@ -528,8 +635,10 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.openai_setup_button=button('OpenAI 연결 · API 키 발급…',self.openai_setup);self.openai_setup_button.setToolTip('로그인·키 발급·결제 설정 안내를 엽니다.');v.addWidget(self.openai_setup_button)
         self.codex_setup_button=button('Codex 연결 · ChatGPT로 로그인…',self.codex_setup);v.addWidget(self.codex_setup_button)
         from .codex_connection import settings as codex_settings
-        self.codex_config=codex_settings();self.codex_catalog=[]
+        self.codex_config=codex_settings();self.codex_catalog=[];self.codex_connection_verified=False
         self.codex_model_label=label('Codex 모델: '+(self.codex_config['model'] or '연결 후 선택'),True);v.addWidget(self.codex_model_label)
+        from .codex_model_picker import CodexModelPicker
+        self.codex_models=CodexModelPicker(self);self.codex_models.set_catalog([],self.codex_config['model']);self.codex_models.modelSelected.connect(self.select_codex_model);v.addWidget(self.codex_models)
         self.codex_status=label('Codex · 연결 확인 전',True);v.addWidget(self.codex_status);self.codex_probe_task=None
         from .codex_usage import USAGE_NOTE
         self.codex_usage=label('Codex 주간 · 잔여량 확인 전',True);self.codex_usage.setToolTip(USAGE_NOTE);v.addWidget(self.codex_usage)
@@ -591,7 +700,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
         dialog=CodexSetupDialog(self)
         try:
             if dialog.exec()!=QDialog.DialogCode.Accepted:return
-            self.codex_config=dict(executable=dialog.executable_path,model=dialog.model_name);self.codex_catalog=dialog.catalog
+            self.codex_config=dict(executable=dialog.executable_path,model=dialog.model_name);self.codex_catalog=dialog.catalog;self.codex_connection_verified=True
+            self.codex_models.set_catalog(self.codex_catalog,self.codex_config['model'])
             from .codex_usage import usage_text
             self.codex_usage.setText(usage_text(dialog.usage))
             self.codex_status.setText('✓ Codex 연결 완료');self.codex_status.setStyleSheet('color:#8dd7c0;')
@@ -599,29 +709,55 @@ class MainWindow(QMainWindow,PartSelectionUI):
             self.ai_dock.show();self.ai_dock.raise_();self.message('Codex에 연결했습니다. 설계 명령을 입력하고 초안 생성을 누르세요.')
         finally:dialog.deleteLater()
     def check_codex_status(self):
-        if self.codex_probe_task:return
+        if self.codex_probe_task or self.ai_task:return
         from .codex_connection import connect
         from .ai_task import AITask
-        config=dict(self.codex_config);self.codex_status.setText('Codex · 연결 확인 중…');self.codex_check_button.setEnabled(False)
+        config=dict(self.codex_config);self.codex_connection_verified=False;self.codex_status.setText('Codex · 연결 확인 중…');self.codex_check_button.setEnabled(False);self.codex_models.setEnabled(False)
         self.codex_usage.setText('Codex 주간 · 조회 중…')
         task=AITask(lambda control,progress:connect(config['executable'],control=control,progress=progress),self);self.codex_probe_task=task
         def completed(packet):
             sender,result=packet
             if sender is not self.codex_probe_task:return
-            self.codex_probe_task=None;self.codex_check_button.setEnabled(True)
+            self.codex_probe_task=None;self.codex_check_button.setEnabled(not self.ai_task);self.codex_models.setEnabled(not self.ai_task)
             if config!=self.codex_config:self.codex_status.setText('Codex · 설정 변경됨 · 다시 확인하세요.');self.codex_usage.setText('Codex 주간 · 잔여량 확인 전');return
             from .codex_usage import usage_text
             self.codex_usage.setText(usage_text(result.get('usage')))
-            self.codex_catalog=result['models'];available={m['model'] for m in result['models']}
+            self.codex_catalog=result['models'];available={m['model'] for m in result['models']};self.codex_connection_verified=True
+            self.codex_models.set_catalog(self.codex_catalog,self.codex_config['model'])
+            if self.provider.currentData()=='codex':self.update_codex_effort()
             ready=config['model'] in available
             self.codex_status.setText('✓ Codex 연결 완료 · '+result['account'].get('plan','') if ready else 'Codex · 로그인 확인됨 · 사용할 모델을 선택하세요.')
             self.codex_status.setStyleSheet('color:#8dd7c0;' if ready else 'color:#f5c26b;')
         def failed(packet):
             sender,message=packet
             if sender is not self.codex_probe_task:return
-            self.codex_probe_task=None;self.codex_check_button.setEnabled(True);self.codex_status.setText('Codex · 연결 확인 실패');self.codex_status.setStyleSheet('color:#ffab91;');self.codex_status.setToolTip(message)
+            self.codex_probe_task=None;self.codex_connection_verified=False;self.codex_check_button.setEnabled(not self.ai_task);self.codex_models.setEnabled(not self.ai_task);self.codex_status.setText('Codex · 연결 확인 실패');self.codex_status.setStyleSheet('color:#ffab91;');self.codex_status.setToolTip(message)
             self.codex_usage.setText('Codex 주간 · 잔여량 확인 불가')
         task.completed.connect(completed,Qt.ConnectionType.QueuedConnection);task.failed.connect(failed,Qt.ConnectionType.QueuedConnection);task.start()
+    def select_codex_model(self,model):
+        if self.ai_task or self.codex_probe_task:return
+        if not any(item['model']==model for item in self.codex_catalog):return
+        from .codex_connection import save_settings
+        try:save_settings(self.codex_config['executable'],model)
+        except Exception as exc:
+            self.codex_models.set_catalog(self.codex_catalog,self.codex_config['model']);self.show_error(str(exc));return
+        self.codex_config={**self.codex_config,'model':model};self.codex_model_label.setText('Codex 모델: '+model)
+        if self.codex_connection_verified:self.codex_status.setText('✓ Codex 연결 완료 · 모델 선택됨');self.codex_status.setStyleSheet('color:#8dd7c0;')
+        if self.provider.currentData()=='codex':self.update_codex_effort()
+        self.last_draft=None;self.ai_retained_draft=None;self.accept_draft.setEnabled(False);self.chat_history=[];self.chat_identity=None
+        self.message('Codex 모델 선택: '+model+' · 다음 요청부터 적용됩니다.')
+    def update_codex_effort(self):
+        if not hasattr(self,'cloud_effort'):return
+        chosen=self.cloud_effort.currentData() or 'medium'
+        selected=next((item for item in self.codex_catalog if item['model']==self.codex_config['model']),None)
+        efforts=(selected.get('efforts') or []) if selected else ['low','medium','high']
+        names={'none':'추론 없음','minimal':'추론 · 최소','low':'추론 · 빠르게','medium':'추론 · 균형','high':'추론 · 깊게','xhigh':'추론 · 매우 깊게','max':'추론 · 최대','ultra':'추론 · 가장 깊게'}
+        self.cloud_effort.blockSignals(True);self.cloud_effort.clear()
+        for effort in efforts:
+            if effort in names:self.cloud_effort.addItem(names[effort],effort)
+        index=self.cloud_effort.findData(chosen)
+        if index<0:index=self.cloud_effort.findData('medium')
+        self.cloud_effort.setCurrentIndex(index if index>=0 else (0 if self.cloud_effort.count() else -1));self.cloud_effort.blockSignals(False)
     def refresh_ai_target(self):
         if not hasattr(self,'ai_target'):return
         raw=self.document.design or {};names={p['id']:p['name'] for p in raw.get('parts',[])}
@@ -636,13 +772,18 @@ class MainWindow(QMainWindow,PartSelectionUI):
         else:text='없음 · 새 형상 또는 전체 설계 명령'
         self.ai_target.setText('현재 선택: '+(text if len(text)<=65 else text[:62]+'…'));self.ai_target.setToolTip(text)
     def message(self,text):self.statusBar().showMessage(text,15000)
-    def title(self):self.setWindowTitle((self.document.design['name'] if self.document.design else '새 설계')+(' *' if self.document.dirty else '')+' — '+APP_NAME+' v'+__version__+' · Native')
+    def title(self):
+        self.setWindowTitle((self.document.design['name'] if self.document.design else '새 설계')+(' *' if self.document.dirty else '')+' — '+APP_NAME+' v'+__version__+' · Native')
+        if self.workspace.currentData()=='circuit' and not self.sketching:self.refresh_circuit_workspace()
+        self.refresh_wiring_diagram()
     def about_dialog(self):
         QMessageBox.about(self,APP_NAME,f'Prompt CAD Studio v{__version__}\nWindows native CAD · Qt / VTK / Open CASCADE\n\nUnits: mm\nProject + history: .cad.json\nDirect geometry export: STEP / STL\nF3D: requires Fusion · IPT: requires Inventor\nAutodesk conversion transfers geometry, not the feature timeline.')
     def change_language(self,code):
         try:self.language_service.set_language(code)
         except OSError:self.show_error('언어 설정을 저장하지 못했습니다.')
         self.editor.canvas.update()
+        if self.workspace.currentData()=='circuit':self.refresh_circuit_workspace()
+        self.refresh_wiring_diagram()
     def display_style_dialog(self):
         from .display_style import DisplayStyleDialog
         DisplayStyleDialog(self).exec()
@@ -692,6 +833,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             self.refresh_role_view()
             if self.role_view is None and (not self.selected or all(p.id!=self.selected for p in d.parts)):self.selected=d.parts[0].id if d.parts else None
             self.rebuild_tree();remaining=[i for i in self.selected_parts if any(p.id==i for p in d.parts)];self.select_parts(remaining or ([self.selected] if self.selected else []));self.viewport.joints.set_design(d);self.rebuild_timeline();self.autosave_document();self.title();self.message(title+(' · 간섭 경고: 뷰포트 위의 간섭 버튼을 눌러 확인하세요.' if self.result['stats']['collisions'] else ' · 저장 가능한 유효한 CAD 형상입니다.'))
+            if self.workspace.currentData()=='circuit':self.refresh_circuit_workspace()
             if after:after()
         self.run(work,done,failed=self.editor.error if self.sketching else None)
     def autosave_document(self):
@@ -752,8 +894,20 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if data and data[0]=='part':
             visible=item.checkState(0)==Qt.CheckState.Checked
             if self.role_view is not None:
-                self.reset_role_view();self.viewport.visibility(data[1],visible);self.rebuild_tree();self.sync_tree_selection()
+                self.reset_role_view();self.viewport.visibility(data[1],visible);self.sync_tree_visibility();self.sync_tree_selection()
             else:self.viewport.visibility(data[1],visible)
+    def sync_tree_visibility(self):
+        # itemChanged is emitted inside QTreeWidgetItem.setCheckState. Clearing
+        # the tree here deletes its C++ emitter before that call has returned.
+        # Visibility changes only need checkbox updates; preserve every row,
+        # current iterator, selection and expanded state.
+        with QSignalBlocker(self.tree):
+            iterator=QTreeWidgetItemIterator(self.tree)
+            while iterator.value():
+                item=iterator.value();data=item.data(0,Qt.ItemDataRole.UserRole)
+                if data and data[0]=='part':
+                    item.setCheckState(0,Qt.CheckState.Unchecked if data[1] in self.viewport.hidden else Qt.CheckState.Checked)
+                iterator+=1
     def tree_clicked(self,item,column):
         data=item.data(0,Qt.ItemDataRole.UserRole)
         if not data:return
@@ -763,7 +917,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         elif data[0]=='mate':self.show_mate(data[1])
         elif data[0]=='loop':self.show_loop(data[1])
         elif data[0]=='study':self.show_study(data[1],data[2])
-        elif data[0]=='electrical_feature':self.select_parts([data[1]]);self.message('전장 피처를 더블클릭하면 모델·핀 모식도를 편집합니다.')
+        elif data[0]=='electrical_feature':self.show_electrical_cad_part(data[1]);self.open_wiring_diagram(data[2])
         elif data[0]=='electrical':self.message('전장 회로를 더블클릭하면 배선과 전압강하를 확인할 수 있습니다.')
         elif data[0]=='plane':self.plane.setCurrentIndex(self.plane.findData(data[1]));self.message(data[1]+' 평면 선택 · 스케치 작성 버튼을 누르세요.')
     def tree_edit(self,item,column):
@@ -1030,7 +1184,10 @@ class MainWindow(QMainWindow,PartSelectionUI):
             if source_context.get('face'):f['sketch_id']=identifier
             else:p['profile_sketch_id']=identifier
         context.update(tool='sketch',operation=operation,sketch=g);self.apply_design(data,title,context,fit=True,after=self.cancel_sketch)
-    def fit(self):self.editor.canvas.fit() if self.sketching else self.viewport.fit()
+    def fit(self):
+        if self.sketching:self.editor.canvas.fit()
+        elif self.workspace.currentData()=='circuit':self.circuit_panel.fit_scene()
+        else:self.viewport.fit()
     def rebuild_timeline(self):
         self.timeline.clear()
         if not self.document.journal:return
@@ -1175,19 +1332,18 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def provider_changed(self):
         provider=self.provider.currentData();self.astra_button.setVisible(provider=='openai');self.cloud_effort.setVisible(provider in ('openai','codex'));self.key.setVisible(provider=='openai');self.model.setVisible(provider=='openai');self.ollama_models.setVisible(provider=='ollama')
         self.openai_setup_button.setVisible(provider=='openai');self.codex_setup_button.setVisible(provider=='codex');self.codex_model_label.setVisible(provider=='codex')
+        self.codex_models.setVisible(provider=='codex')
         self.codex_status.setVisible(provider=='codex');self.codex_check_button.setVisible(provider=='codex')
         self.codex_usage.setVisible(provider=='codex')
         self.codex_model_label.setText('Codex 모델: '+(self.codex_config['model'] or '연결 후 선택'))
         self.ai_info.setText({'local':'이름·치수를 해석하는 오프라인 명령입니다. 자유로운 문장용 AI는 아닙니다.','codex':'ChatGPT 구독의 Codex 사용량 적용 · 프롬프트와 현재 설계를 전송합니다. API로 자동 전환하지 않습니다.','openai':'유료 API · 프롬프트와 설계를 OpenAI로 전송합니다. 키는 저장하지 않습니다.','ollama':'이 PC의 모델로 실행 · API 키 불필요. 설치된 모델을 자동으로 찾습니다.'}[provider])
         self.ai_info.setToolTip('OpenAI 초안 생성은 최대 4회 요청으로 계획과 형상을 검증합니다. 취소 전 사용량은 청구될 수 있습니다.' if provider=='openai' else self.ai_info.text())
         if provider in ('openai','codex'):self.ai_settings_toggle.setChecked(True)
-        for i in range(self.cloud_effort.count()):self.cloud_effort.model().item(i).setEnabled(True)
-        if provider=='codex' and self.codex_catalog:
-            selected=next((item for item in self.codex_catalog if item['model']==self.codex_config['model']),None)
-            if selected:
-                for i in range(self.cloud_effort.count()):self.cloud_effort.model().item(i).setEnabled(self.cloud_effort.itemData(i) in selected['efforts'])
-                if self.cloud_effort.currentData() not in selected['efforts']:
-                    index=next((i for i in range(self.cloud_effort.count()) if self.cloud_effort.itemData(i) in selected['efforts']),-1);self.cloud_effort.setCurrentIndex(index)
+        if provider=='codex':self.update_codex_effort()
+        else:
+            selected=self.cloud_effort.currentData();self.cloud_effort.clear()
+            for value,text in [('low','추론 · 빠르게'),('medium','추론 · 균형'),('high','추론 · 깊게')]:self.cloud_effort.addItem(text,value)
+            self.cloud_effort.setCurrentIndex(max(0,self.cloud_effort.findData(selected or 'medium')))
         self.last_draft=None;self.accept_draft.setEnabled(False)
         if provider=='ollama':self.ollama_models.refresh()
     def install_local_ai(self):
@@ -1210,6 +1366,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if provider=='ollama' and not model:self.ai_settings_toggle.setChecked(True);self.ai_result.setPlainText('Ollama 모델을 먼저 선택하세요. 설정에서 새로 찾기 또는 로컬 AI 설치 / 모델 다운로드를 사용하세요.');self.ai_scroll.ensureWidgetVisible(self.ollama_models);return
         codex_config=dict(self.codex_config)
         if provider=='codex' and not codex_config['model']:self.ai_result.setPlainText('Codex 연결 버튼에서 ChatGPT로 로그인하고 모델을 선택하세요.');return
+        if provider=='codex' and self.codex_catalog and not any(item['model']==codex_config['model'] for item in self.codex_catalog):self.ai_result.setPlainText('저장된 모델이 현재 Codex 목록에 없습니다. AI 패널에서 사용할 모델을 선택하세요.');self.codex_models.setFocus();return
         chat_mode=self.ai_mode.currentData()=='chat';identity=(provider,codex_config['model'] if provider=='codex' else model)
         history=deepcopy(self.chat_history) if identity==self.chat_identity else []
         def work(control,progress):
@@ -1243,6 +1400,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.accept_draft.setVisible(not running and self.ai_mode.currentData()=='design')
         self.generate_button.setEnabled(not running and not self.busy and not self.sketching);self.cancel_ai_button.setVisible(running);self.ai_status_button.setVisible(running)
         for widget in (self.ai_mode,self.provider,self.prompt,self.ollama_models,self.model,self.key,self.ai_timeout,self.astra_button,self.cloud_effort,self.openai_setup_button,self.codex_setup_button):widget.setEnabled(not running)
+        self.codex_models.setEnabled(not running and not self.codex_probe_task);self.codex_check_button.setEnabled(not running and not self.codex_probe_task)
         self.actions['openai_setup'].setEnabled(not running)
         self.actions['codex_setup'].setEnabled(not running)
     @Slot()
@@ -1257,8 +1415,10 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if task is self.ai_task:
             self.ai_stage=text
             if self.provider.currentData()=='codex' and text.startswith('Codex 연결 대기'):
+                self.codex_connection_verified=False
                 self.codex_status.setText('Codex · 연결 대기 · 자동 재시도');self.codex_status.setStyleSheet('color:#f5c26b;')
             elif text.startswith('Codex 연결 복구'):
+                self.codex_connection_verified=True
                 self.codex_status.setText('✓ Codex 연결 완료');self.codex_status.setStyleSheet('color:#8dd7c0;')
             self.ai_tick()
     def finish_ai_task(self):
@@ -1291,6 +1451,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.finish_ai_task()
         if isinstance(error,PowerInputRequired):
             if self.provider.currentData()=='codex':
+                self.codex_connection_verified=True
                 self.codex_status.setText('✓ Codex 연결 완료');self.codex_status.setStyleSheet('color:#8dd7c0;')
             fields=', '.join(REQUIRED_POWER_INPUTS[key] for key in error.missing_fields)
             notice='전원 수치 입력 필요\n\n'+fields+' 값을 확인해 입력하세요.\n\n전원 연결 설계…에서 값을 입력해 DC 미리보기를 확인하거나, 확인한 수치를 프롬프트에 추가하세요. 현재 설계는 변경되지 않았습니다.'
@@ -1307,6 +1468,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if self.restore_repair_draft('추가 수정이 완료되지 않았습니다. 이전 초안을 보존했습니다.\n'+text[:1200]):return
         if self.provider.currentData()=='codex':
             cad_error='치수·형상 검증' in text
+            self.codex_connection_verified=cad_error
             self.codex_status.setText('✓ Codex 연결 완료' if cad_error else 'Codex · 연결 재확인 필요');self.codex_status.setStyleSheet('color:#8dd7c0;' if cad_error else 'color:#f5c26b;')
         self.ai_result.setPlainText('초안 생성 실패\n\n'+text[:2400]);self.message('초안 생성 실패 · AI 패널의 오류 안내를 확인하세요.')
     @Slot(object)
@@ -1316,11 +1478,11 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.finish_ai_task()
         self.ai_retained_draft=None
         if draft.get('kind')=='answer':
-            if draft['identity'][0]=='codex':self.codex_status.setText('✓ Codex 연결 완료');self.codex_status.setStyleSheet('color:#8dd7c0;')
+            if draft['identity'][0]=='codex':self.codex_connection_verified=True;self.codex_status.setText('✓ Codex 연결 완료');self.codex_status.setStyleSheet('color:#8dd7c0;')
             self.chat_identity=draft['identity'];self.chat_history=(draft['history']+[dict(role='user',content=draft['prompt']),dict(role='assistant',content=draft['answer'])])[-10:]
             self.ai_result.setPlainText(('답변은 질문 당시 설계를 기준으로 합니다. 현재 설계가 변경되었습니다.\n\n' if draft['serial']!=self.operation_serial else '')+'\n\n'.join(('질문: ' if item['role']=='user' else '답변: ')+item['content'] for item in self.chat_history));self.ai_scroll.ensureWidgetVisible(self.ai_result,0,8);self.message('AI 답변 완료 · 설계 변경 없음');return
         response=draft['response'];r=draft['preview']
-        if draft['provider']=='codex':self.codex_status.setText('✓ Codex 연결 완료');self.codex_status.setStyleSheet('color:#8dd7c0;')
+        if draft['provider']=='codex':self.codex_connection_verified=True;self.codex_status.setText('✓ Codex 연결 완료');self.codex_status.setStyleSheet('color:#8dd7c0;')
         if draft['provider']=='ollama':self.ollama_models.refresh()
         if draft['serial']!=self.operation_serial:
             self.ai_result.setPlainText('초안 생성 중 현재 설계가 바뀌었습니다. 새 설계를 기준으로 다시 생성하세요.');return
@@ -1376,4 +1538,6 @@ class MainWindow(QMainWindow,PartSelectionUI):
             if answer!=QMessageBox.StandardButton.Yes:event.ignore();return
             self.cancel_sketch()
         if not getattr(self,'_update_close',False) and not self.check_save():event.ignore();return
+        panel=getattr(self,'wiring_window',None)
+        if panel is not None:panel.close();panel.deleteLater();self.wiring_window=None
         self.autosave_document();self.editor.stop();self.viewport.shutdown();event.accept()

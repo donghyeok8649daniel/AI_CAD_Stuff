@@ -213,6 +213,9 @@ def connection_endpoints(raw: ElectricalWorkspace | dict, exclude_mcu_id: str = 
             for pin in pinout.pins:
                 if pin.kind == "signal":
                     endpoints.append(ConnectionEndpoint(component.id, f"pin:{pin.key}", f"{component.name} · {pin.label}", _resolved_node(component, pin.key, pinout), "mcu", "signal"))
+                elif pin.kind in ("power","ground"):
+                    endpoints.append(ConnectionEndpoint(component.id,f"supply:{pin.key}",f"{component.name} · {pin.label}",
+                                                        component.board_supply_pins.get(pin.key),"mcu",pin.kind))
         for key, node in component.signal_pins.items():
             if key not in known:
                 endpoints.append(ConnectionEndpoint(component.id, f"pin:{key}", f"{component.name} · {key} · 사용자 핀", node, "mcu", "signal"))
@@ -289,6 +292,13 @@ def assign_pin(raw: ElectricalWorkspace | dict, mcu_id: str, pin_key: str,
             raise ValueError("같은 물리 GPIO를 자기 자신에게 연결할 수 없습니다.")
         node = _resolved_node(target, key, pinout) or _new_node(workspace)
         _set_pin(target, key, node)
+    elif target_terminal.startswith("supply:"):
+        from .board_supply import set_board_supply,supply_pin
+        key=target_terminal.partition(":")[2]
+        if target.kind!='mcu':raise ValueError("전원 핀은 확인된 보드의 핀을 선택하세요.")
+        supply_pin(target.catalog_id,key)
+        node=target.board_supply_pins.get(key) or _new_node(workspace)
+        set_board_supply(target,key,node)
     else:
         raise ValueError("연결 대상 단자는 A/B 또는 등록된 신호 핀·추가 단자로 지정하세요.")
     _set_pin(component, pin_key, node)
@@ -324,10 +334,14 @@ def change_mcu_model(raw: ElectricalWorkspace | dict, mcu_id: str, catalog_id: s
     supported = {pin.key for pin in pinout.pins if pin.kind == "signal"}
     dropped = dict(component.signal_pins) if component.catalog_id != catalog_id else {
         key: node for key, node in component.signal_pins.items() if key not in supported}
+    if component.catalog_id!=catalog_id:
+        dropped.update({'supply:'+key:node for key,node in component.board_supply_pins.items()})
     if dropped and not allow_drop:
         raise ValueError("모델을 바꾸면 기존 핀 연결이 달라집니다. 연결 해제를 명시적으로 확인하세요.")
     for key in dropped:
         component.signal_pins.pop(key, None)
+    if component.catalog_id!=catalog_id and (component.board_supply_pins or component.supply_pinout_catalog_id):
+        component.board_supply_pins={};component.supply_pinout_catalog_id=''
     component.catalog_id = catalog_id
     component.pinout_catalog_id = catalog_id
     component.source_url = pinout.source_url

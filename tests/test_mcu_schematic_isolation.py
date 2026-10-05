@@ -1,10 +1,11 @@
 """Rendered independent signal pads must not imply a GPIO short or fake rail."""
 
 import pytest
-from PySide6.QtWidgets import QApplication, QGraphicsEllipseItem, QGraphicsLineItem
+from PySide6.QtWidgets import QApplication
 
 from cadstudio.electrical import ElectricalWorkspace, evaluate_electrical
-from cadstudio.native.electrical_schematic import ElectricalSchematicDialog, LIVE
+from cadstudio.mcu_connections import connection_endpoints, pin_connections
+from cadstudio.native.electrical_schematic import ElectricalSchematicDialog
 
 
 @pytest.fixture(scope="module")
@@ -33,33 +34,49 @@ def _two_signals(kind):
 @pytest.mark.parametrize("kind", ["mcu", "load"])
 def test_independent_gpio_or_driver_ports_have_distinct_drawn_pads_and_no_common_conductor(app, kind):
     workspace = _two_signals(kind)
-    schematic = ElectricalSchematicDialog(None, workspace, evaluate_electrical(workspace))
+    schematic = ElectricalSchematicDialog(None, workspace, evaluate_electrical(workspace), view_mode='symbols')
     try:
         signals = tuple(schematic.branch_layout["device"]["signals"].values())
         assert len(signals) == 2 and signals[0]["node"] != signals[1]["node"]
         pad_positions = {(signal["origin_x"], signal["origin_y"]) for signal in signals}
         assert len(pad_positions) == 2
-        items = schematic.branch_items["device"]
-        pads = {(item.rect().center().x(), item.rect().center().y())
-                for item in items if isinstance(item, QGraphicsEllipseItem)}
-        assert pad_positions <= pads
-        lines = [item.line() for item in items if isinstance(item, QGraphicsLineItem)]
-        for signal in signals:
-            assert any(line.x1() == signal["origin_x"] and line.y1() == signal["origin_y"]
-                       and line.x2() == signal["x"] and line.y2() == signal["y"] for line in lines)
-        # A vertical shared conductor would join two independent net rows even
-        # if colors and the stored node names differ. Inspect rendered lines.
-        net_rows = sorted(signal["y"] for signal in signals)
-        assert not any(line.x1() == line.x2() and
-                       min(line.y1(), line.y2()) <= net_rows[0] and
-                       max(line.y1(), line.y2()) >= net_rows[1] for line in lines)
-        # Independent horizontal conductors have no positive shared segment.
-        signal_lines = [line for line in lines if line.y1() == line.y2() and line.y1() in net_rows]
-        assert len(signal_lines) == 2
-        assert signal_lines[0].y1() != signal_lines[1].y1()
+        prefix="pin:" if kind=="mcu" else "port:"
+        keys=("GPIO17","GPIO18") if kind=="mcu" else ("OUT_A","PWM")
+        assert pad_positions=={(schematic.endpoint_coordinates[("device",prefix+key)].x(),
+                               schematic.endpoint_coordinates[("device",prefix+key)].y()) for key in keys}
+        a_lines=[item.line() for item in schematic.net_segments["SIG_A"]]
+        b_lines=[item.line() for item in schematic.net_segments["SIG_B"]]
+        assert a_lines and b_lines
+        # Actual routed nets must remain geometrically distinct; a shared
+        # conductor would imply a short even when their labels differ.
+        assert not any(_shared_segment(a,b) for a in a_lines for b in b_lines)
+        for key,node in zip(keys,("SIG_A","SIG_B")):
+            point=schematic.endpoint_coordinates[("device",prefix+key)]
+            assert any(_on_line(point,item.line()) for item in schematic.net_segments[node])
         assert workspace == _two_signals(kind)
     finally:
         schematic.reject()
+
+
+def _on_line(point,line):
+    epsilon=1e-5
+    return ((abs(line.y1()-line.y2())<epsilon and abs(point.y()-line.y1())<epsilon
+             and min(line.x1(),line.x2())-epsilon<=point.x()<=max(line.x1(),line.x2())+epsilon)
+            or (abs(line.x1()-line.x2())<epsilon and abs(point.x()-line.x1())<epsilon
+                and min(line.y1(),line.y2())-epsilon<=point.y()<=max(line.y1(),line.y2())+epsilon))
+
+
+def _shared_segment(a,b):
+    epsilon=1e-5
+    horizontal=(abs(a.y1()-a.y2())<epsilon and abs(b.y1()-b.y2())<epsilon
+                and abs(a.y1()-b.y1())<epsilon)
+    vertical=(abs(a.x1()-a.x2())<epsilon and abs(b.x1()-b.x2())<epsilon
+              and abs(a.x1()-b.x1())<epsilon)
+    if horizontal:
+        return min(max(a.x1(),a.x2()),max(b.x1(),b.x2()))-max(min(a.x1(),a.x2()),min(b.x1(),b.x2()))>epsilon
+    if vertical:
+        return min(max(a.y1(),a.y2()),max(b.y1(),b.y2()))-max(min(a.y1(),a.y2()),min(b.y1(),b.y2()))>epsilon
+    return False
 
 
 def test_legacy_supply_label_is_preserved_but_not_rendered_as_verified_physical_rail(app):
@@ -71,16 +88,27 @@ def test_legacy_supply_label_is_preserved_but_not_rendered_as_verified_physical_
     workspace = ElectricalWorkspace.model_validate(raw)
     result = evaluate_electrical(workspace)
     assert next(branch for branch in result.components if branch.id == "device").signal_pin_connected["3V3_1"] is True
-    schematic = ElectricalSchematicDialog(None, workspace, result)
+    schematic = ElectricalSchematicDialog(None, workspace, result, view_mode='symbols')
     try:
         layout = schematic.branch_layout["device"]["signals"]["3V3_1"]
         assert layout["legacy"] is True
-        lines = [item for item in schematic.branch_items["device"] if isinstance(item, QGraphicsLineItem)
-                 and item.line().y1() == item.line().y2() == layout["y"]]
-        assert lines and all(item.pen().color() != LIVE for item in lines)
-        text = " ".join(item.toPlainText() for item in schematic.scene.items() if hasattr(item, "toPlainText"))
+        # A preserved legacy rail label is deliberately not promoted into a
+        # verified physical power pad or a live supply indication.
+        assert ('device','pin:3V3_1') in schematic.endpoint_coordinates
+        assert not any(endpoint.terminal=='pin:3V3_1' and endpoint.node=='POWER'
+                       for endpoint in connection_endpoints(workspace))
+        rail=next(pin for pin in pin_connections(workspace,'device') if pin.key=='3V3_1')
+        assert rail.legacy and rail.kind!='signal'
+        item=schematic.component_items['device']
+        port=item.ports['pin:3V3_1']
+        assert port.legacy and not port.physical and not port.connectable
+        from cadstudio.native.circuit_symbols import CONNECTED
+        assert item.port_items['pin:3V3_1'].brush().color()!=CONNECTED
+        text = " ".join([*(value.toPlainText() for value in schematic.scene.items() if hasattr(value, "toPlainText")),
+                         *(value.label for value in item.ports.values()),
+                         *(value.toolTip() for value in item.port_items.values())])
         assert "3V3 *" in text
-        assert "기존 수동 연결 · 확인 필요" in text or "Legacy manual mapping · check required" in text
+        assert "기존 수동 연결 · 확인 필요" in text or "Legacy manual connection · verification required" in text
         assert workspace.components[1].signal_pins == {"3V3_1": "POWER"}
     finally:
         schematic.reject()

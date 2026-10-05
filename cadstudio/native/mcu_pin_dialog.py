@@ -102,9 +102,9 @@ class McuBoardDialog(QDialog):
     def assignments_to_drop(self):
         from ..board_pins import board_pinout
         pins = self.old.get('signal_pins') or {}
-        if not pins: return {}
         catalog_id = self.model_combo.currentData()
-        if catalog_id != self.old.get('catalog_id', ''): return pins
+        if catalog_id != self.old.get('catalog_id', ''):
+            return {**pins,**{'supply:'+key:node for key,node in (self.old.get('board_supply_pins') or {}).items()}}
         pinout = board_pinout(catalog_id)
         allowed = {pin.key for pin in pinout.pins if pin.kind == 'signal'} if pinout else set(pins)
         return {key: node for key, node in pins.items() if key not in allowed}
@@ -124,6 +124,8 @@ class McuBoardDialog(QDialog):
                     pinout_catalog_id=model_id if pinout else '',
                     source_url=pinout.source_url if pinout else data.get('source_url', ''),
                     signal_pins={key: node for key, node in (data.get('signal_pins') or {}).items() if key not in dropped})
+        if model_id!=self.old.get('catalog_id','') and ('board_supply_pins' in data or 'supply_pinout_catalog_id' in data):
+            data['board_supply_pins']={};data['supply_pinout_catalog_id']=''
         return ElectricalComponent.model_validate(data)
 
     def accept(self):

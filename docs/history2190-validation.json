@@ -1,0 +1,20 @@
+{
+  "version": "2.19.0",
+  "contains_user_project_data": false,
+  "original_user_file_unchanged": true,
+  "fixture_part_count": 76,
+  "fixture_history_entry_count": 322,
+  "normal_open_and_current_geometry_valid": true,
+  "complete_timeline_preserved": true,
+  "undo_redo_values_preserved": true,
+  "separate_save_reopen_valid": true,
+  "live_ai_calls": 0,
+  "input_exceeded_former_32mb_limit": true,
+  "compact_save_full_history_preserved": true,
+  "native_file_flow_checks": {
+    "auto": 27,
+    "software": 27
+  },
+  "software_framebuffer_verified": true,
+  "software_framebuffer_scope": "Final startup-software synthetic robot assembly using vtkWindowToImageFilter; private history QWidget grabs do not capture the embedded VTK child and are excluded as framebuffer evidence"
+}

@@ -175,6 +175,7 @@ class ComponentDialog(QDialog):
         form.addRow('추가 신호 단자 = 노드 · 센서 / 드라이버',self.terminal_pins)
         self.terminal_caption=form.labelForField(self.terminal_pins)
         self.pinout_catalog_id=old.get('pinout_catalog_id','')
+        self.supply_fields={key:deepcopy(old[key]) for key in ('board_supply_pins','supply_pinout_catalog_id') if key in old}
         layout.addWidget(label('초기 수치는 가상 예시입니다. 실제 정격·전선 치수로 바꾸세요. 노드 이름은 영문·숫자·_·-만 쓰며 회로 계산은 DC 정상 상태 근사입니다.',True))
         layout.addWidget(label('MCU의 첫 단자는 VCC, 둘째 단자는 GND/리턴입니다. 신호 핀은 도통만 검사하며 코드·논리 동작은 검증하지 않습니다.',True))
         controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
@@ -216,9 +217,10 @@ class ComponentDialog(QDialog):
         if catalog.exec()!=QDialog.DialogCode.Accepted or not catalog.entry:return
         values=component_prefill(catalog.entry)
         if not values:return
-        if values['catalog_id']!=self.catalog_id and self.signal_pins.toPlainText().strip():
+        if values['catalog_id']!=self.catalog_id and (self.signal_pins.toPlainText().strip() or self.supply_fields.get('board_supply_pins')):
             if QMessageBox.question(self,'핀 연결 해제 확인','모델을 바꾸면 기존 MCU 핀 연결을 해제합니다. 계속할까요?')!=QMessageBox.StandardButton.Yes:return
             self.signal_pins.clear();self.pinout_catalog_id=''
+            self.supply_fields={}
         self.catalog_id=''
         kind=values['kind']
         self.kind.setCurrentIndex(self.kind.findData(kind))
@@ -261,7 +263,8 @@ class ComponentDialog(QDialog):
                     part_registration=self.old.get('part_registration',False),product_pinout_catalog_id=self.old.get('product_pinout_catalog_id',''),
                     closed=(self.wire_connected.isChecked() if kind=='wire' else self.power_enabled.isChecked() if kind=='battery' else self.closed.isChecked()),
                     **({'signal_pins':self.parsed_signal_pins(),'pinout_catalog_id':self.pinout_catalog_id if self.pinout_catalog_id==self.catalog_id else ''} if kind=='mcu' else {}),
-                    **({'terminal_pins':self.parsed_terminals(self.terminal_pins)} if kind in ('load','motor') else {}),**values)
+                    **({'terminal_pins':self.parsed_terminals(self.terminal_pins)} if kind in ('load','motor') else {}),
+                    **self.supply_fields,**values)
 
     def accept(self):
         from ..electrical import ElectricalComponent
@@ -275,6 +278,8 @@ class ElectricalDialog(QDialog):
         super().__init__(parent);self.setWindowTitle('전장 · 배선 / 전압강하 검사');self.resize(900,730)
         self.parts=(design or {}).get('parts',[]);self.components=deepcopy((design or {}).get('electrical',{} ) or {}).get('components',[])
         self.original_nodes=tuple(((design or {}).get('electrical') or {}).get('nodes',()))
+        self.schematic_positions=deepcopy(((design or {}).get('electrical') or {}).get('schematic_positions',{}))
+        self.has_schematic_positions='schematic_positions' in ((design or {}).get('electrical') or {})
         layout=QVBoxLayout(self);layout.addWidget(label('배터리 +는 공급, -는 리턴입니다. 같은 노드 이름으로 단자를 연결하고 실제 배터리 전압·정격·전선 치수를 입력하세요.',True))
         header=QHBoxLayout();self.name=QLineEdit(((design or {}).get('electrical') or {}).get('name','전장 회로'))
         header.addWidget(QLabel('회로 이름'));header.addWidget(self.name,1);layout.addLayout(header)
@@ -359,6 +364,8 @@ class ElectricalDialog(QDialog):
     def adopt_workspace(self,workspace):
         self.components=[component.model_dump() for component in workspace.components]
         self.original_nodes=tuple(workspace.nodes)
+        self.schematic_positions={key:position.model_dump() for key,position in workspace.schematic_positions.items()}
+        self.has_schematic_positions='schematic_positions' in workspace.model_fields_set or bool(self.schematic_positions)
         self.refresh();self.calculate()
 
     def edit_mcu_pins(self):
@@ -414,8 +421,13 @@ class ElectricalDialog(QDialog):
         from ..electrical import ElectricalWorkspace
         nodes=sorted({'GND',*self.original_nodes,*(name for item in self.components for name in (item['a'],item['b'])),
                       *(node for item in self.components for node in item.get('signal_pins',{}).values()),
-                      *(node for item in self.components for node in item.get('terminal_pins',{}).values())})
-        return ElectricalWorkspace.model_validate(dict(name=self.name.text().strip() or '전장 회로',nodes=nodes,components=self.components))
+                      *(node for item in self.components for node in item.get('terminal_pins',{}).values()),
+                      *(node for item in self.components for node in item.get('board_supply_pins',{}).values())})
+        raw=dict(name=self.name.text().strip() or '전장 회로',nodes=nodes,components=self.components)
+        if self.has_schematic_positions:
+            ids={component['id'] for component in self.components}
+            raw['schematic_positions']={key:position for key,position in self.schematic_positions.items() if key in ids}
+        return ElectricalWorkspace.model_validate(raw)
 
     def calculate(self):
         from ..electrical import evaluate_electrical

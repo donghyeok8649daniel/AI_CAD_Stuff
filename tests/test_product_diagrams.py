@@ -14,7 +14,7 @@ def _terminals(identifier):
 
 def test_exact_product_diagrams_are_immutable_unique_and_source_linked():
     diagrams = available_product_diagrams()
-    assert isinstance(diagrams, tuple) and len(diagrams) == 4
+    assert isinstance(diagrams, tuple) and len(diagrams) == 5
     assert len({diagram.catalog_id for diagram in diagrams}) == len(diagrams)
     for diagram in diagrams:
         assert product_diagram(diagram.catalog_id) is diagram
@@ -26,7 +26,7 @@ def test_exact_product_diagrams_are_immutable_unique_and_source_linked():
         assert diagram.evidence and "시뮬레이션" in diagram.note
         host = urlsplit(diagram.source_url)
         assert host.scheme == "https" and host.hostname in {
-            "look.ams-osram.com", "www.pololu.com", "www.vishay.com",
+            "look.ams-osram.com", "www.pololu.com", "www.vishay.com", "www.st.com",
         }
         assert "Not a dimensioned PCB/footprint" in diagram.note_en
         for terminal in diagram.terminals:

@@ -15,6 +15,17 @@ class ShortcutRouter(QObject):
         if isinstance(focus,(QLineEdit,QPlainTextEdit,QTextEdit,QAbstractSpinBox,QComboBox)):
             if event.type()==QEvent.Type.ShortcutOverride and event.modifiers()&Qt.KeyboardModifier.ControlModifier and event.key() in (Qt.Key.Key_A,Qt.Key.Key_C,Qt.Key.Key_V,Qt.Key.Key_X,Qt.Key.Key_Z,Qt.Key.Key_Y):event.accept();return True
             return False
+        if not w.sketching and w.workspace.currentData()=='circuit':
+            key=event.key();mods=event.modifiers()
+            if event.type()!=QEvent.Type.KeyPress:return False
+            if mods==Qt.KeyboardModifier.NoModifier and key==Qt.Key.Key_F:w.fit();return True
+            if mods==Qt.KeyboardModifier.NoModifier and key==Qt.Key.Key_Escape:w.circuit_panel.scene.clearSelection();return True
+            if mods==Qt.KeyboardModifier.NoModifier and key==Qt.Key.Key_A:w.ai_dock.show();w.ai_dock.raise_();w.prompt.setFocus();return True
+            # Circuit inspection must never delete/move/copy the last-selected
+            # CAD body through an unrelated 3D keyboard command.
+            if mods==Qt.KeyboardModifier.NoModifier:return False
+            if key in (Qt.Key.Key_A,Qt.Key.Key_C,Qt.Key.Key_V,Qt.Key.Key_X,Qt.Key.Key_D,Qt.Key.Key_G):return True
+            return False
         if event.type()!=QEvent.Type.KeyPress or w.busy or w.sketching:return False
         key=event.key();mods=event.modifiers()
         if mods==Qt.KeyboardModifier.ControlModifier:

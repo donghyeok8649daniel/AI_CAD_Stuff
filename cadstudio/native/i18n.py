@@ -625,6 +625,8 @@ EN.update({'CAD 부품 · 전장 등록 / 모식도…': 'CAD part · electrical
 def translate(text,language):
     if language!='en' or not isinstance(text,str):return text
     if text in EN:return EN[text]
+    model_status=re.fullmatch(r'([A-Za-z0-9._:/+\-]+) · (목록에 없음|연결 확인 전)',text)
+    if model_status:return model_status[1]+' · '+('not in catalog' if model_status[2]=='목록에 없음' else 'connection not checked')
     if text.startswith('전장 피처 · '):return 'Electrical feature · '+text[len('전장 피처 · '):]
     if text.startswith('참고자료 ') and 'AI에 전송' in text:return text.replace('참고자료 ','References: ').replace('개',' files').replace('자',' characters').replace('AI에 전송','sent to AI')
     if '\n' in text:return '\n'.join(translate(line,language) for line in text.split('\n'))
@@ -704,3 +706,14 @@ def install_language(path):
     app=QApplication.instance();service=getattr(app,'cad_language',None)
     if service is None:service=UILanguage(app,path);app.cad_language=service
     return service
+
+EN.update({'회로도':'Circuit', '메인 회로도 작업 공간':'Main circuit workspace'})
+EN.update({'✓ Codex 연결 완료 · 모델 선택됨':'✓ Codex connected · model selected',
+           '선택 핀 연결 해제':'Disconnect selected pin',
+           '부품 드래그: 배치 · 선택 편집: 모델 변경 · 핀 연결 버튼으로 배선':'Drag: arrange · Edit selected: change model · Wire pins: connect',
+           '부품 드래그: 배치 · 시작/대상 핀 클릭: 연결 · 선택 편집: 모델/정격 변경 · 실물 몸체 클릭: 확대/CAD 보기.':'Drag: arrange · source/target pins: wire · Edit selected: model/ratings · click physical body: focus/CAD.'})
+EN.update({
+    'Codex 모델 선택…':'Choose Codex model…',
+    '연결 후 모델 목록을 불러옵니다':'Connect to load the model catalog',
+    'Codex가 반환한 모델 목록입니다. 모델 접근 권한은 실제 요청 시 확인됩니다. 선택만으로 요청하지 않습니다.':'Model catalog reported by Codex. Access is checked on the actual request. Selecting a model does not start a request.',
+})

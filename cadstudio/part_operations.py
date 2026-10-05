@@ -123,6 +123,10 @@ def delete_parts(raw,ids):
         # again instead of silently moving them to another physical component.
         data['electrical']['components']=[component for component in data['electrical']['components']
             if not (component.get('part_registration') and component.get('part_id') in ids)]
+        if 'schematic_positions' in data['electrical']:
+            surviving={component['id'] for component in data['electrical']['components']}
+            data['electrical']['schematic_positions']={key:value for key,value in data['electrical']['schematic_positions'].items()
+                if key in surviving}
     data['mates']=[m for m in data['mates'] if not ids.intersection((m['parent'],m['child']))];mids={m['id'] for m in data['mates']}
     data['joint_frames']=[f for f in data['joint_frames'] if f['mate_id'] in mids]
     data['loops']=[c for c in data['loops'] if not ids.intersection((c['parent'],c['child'])) and set(c['passive_joints'])<=mids]

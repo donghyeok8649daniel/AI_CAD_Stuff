@@ -8,13 +8,54 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+from collections import deque
 from urllib.parse import quote, urlsplit
 
 import httpx
 
-from .references import MAX_BYTES, SUFFIXES, extract_reference
+from .references import MAX_BYTES, MAX_CHARS, SUFFIXES, extract_reference
+from .models import ReferenceMaterial
 
 TOKEN_URL='https://github.com/settings/personal-access-tokens/new'
+MAX_TREE_ENTRIES=100000
+MAX_TREE_REQUESTS=1024
+MAX_AUTO_FILES=24
+MAX_AUTO_BYTES=12_000_000
+AUTO_REFERENCE_NOTE='Repository scope snapshot; '
+
+
+def scope_path(value):
+    value=str(value or '').strip().strip('/')
+    return file_path(value) if value else ''
+
+
+def is_repository_snapshot(reference,repo):
+    return (reference.note.startswith(AUTO_REFERENCE_NOTE)
+            and reference.source.startswith('https://github.com/'+repository(repo)+'/tree/'))
+
+
+def repository_index_reference(connection,*,max_chars=MAX_CHARS):
+    """Transmit an honest bounded index, while the viewer retains full metadata."""
+    repo=repository(connection['repo']);revision=connection['revision']
+    if not re.fullmatch('[a-f0-9]{40}',revision):raise ValueError('저장소에 다시 연결하세요.')
+    entries=connection.get('entries',connection['files'])
+    scope=connection.get('scope_path','')
+    header=(f'# Repository reference index\nRepository: https://github.com/{repo}\nCommit: {revision}\n'
+            f'Scope: /{scope}\nIndexed paths in scope: {len(entries)}\n'
+            f'Readable text/PDF candidates: {len(connection["files"])}\n'
+            f'Tree enumeration complete: {not connection.get("truncated",False)}\n'
+            'Listed paths are metadata, not proof that their contents were read. '
+            'Only bounded text excerpts are supplied; binaries, large files, symlinks and submodules are not read or executed.\n\n'
+            '## Repository path index\n')
+    body=header+'\n'.join(f'{row["path"]} | {row.get("type","blob")} | {row.get("size",0)} bytes | {row["sha"]}' for row in entries)
+    clipped=body[:max(1,min(MAX_CHARS,int(max_chars)))]
+    return ReferenceMaterial(name=(repo.replace('/','-')+'-repository-index.md')[-80:],
+        source=f'https://github.com/{repo}/tree/{revision}#cad-reference-index',revision=revision,
+        sha256=hashlib.sha256(body.encode('utf-8')).hexdigest(),text=clipped,
+        truncated=len(clipped)<len(body) or bool(connection.get('truncated')),
+        note=AUTO_REFERENCE_NOTE+f'selected scope metadata indexed: {len(entries)} paths; '+
+             ('tree enumeration incomplete; ' if connection.get('truncated') else 'tree enumeration complete; ')+
+             'only the visible index excerpt is transmitted if truncated. File bodies are separate bounded excerpts.')
 
 
 def repository(value):
@@ -90,8 +131,33 @@ class GitHubReader:
             except httpx.HTTPError:raise ValueError('GitHub 연결에 실패했습니다. 네트워크를 확인하세요.') from None
         return asyncio.run(control.execute(work,45,'GitHub 자료 조회 시간이 초과되었습니다. 다시 연결하세요.'))
 
-    def connect(self,repo,ref,control):
+    async def tree_entries(self,client,repo,revision,control):
+        tree=await self.get(client,'/repos/'+repo+'/git/trees/'+revision+'?recursive=1')
+        if not tree.get('truncated'):
+            rows=tree.get('tree',[])
+            return rows[:MAX_TREE_ENTRIES],len(rows)>MAX_TREE_ENTRIES
+        # GitHub truncates large recursive trees. Walk immutable subtrees from
+        # the root instead of calling an incomplete index a whole repository.
+        rows=[];pending=deque([('',revision)]);cache={};requests=0;truncated=False
+        while pending:
+            control.check();prefix,sha=pending.popleft()
+            if sha not in cache:
+                if requests>=MAX_TREE_REQUESTS:truncated=True;break
+                subtree=await self.get(client,'/repos/'+repo+'/git/trees/'+sha)
+                cache[sha]=subtree.get('tree',[]);requests+=1
+                if subtree.get('truncated'):truncated=True
+            for raw in cache[sha]:
+                path=file_path(prefix+raw['path']);row={**raw,'path':path}
+                rows.append(row)
+                if len(rows)>=MAX_TREE_ENTRIES:truncated=True;break
+                if row.get('type')=='tree' and re.fullmatch('[a-f0-9]{40}',row.get('sha','')):
+                    pending.append((path+'/',row['sha']))
+            if len(rows)>=MAX_TREE_ENTRIES:break
+        return rows,truncated or bool(pending)
+
+    def connect(self,repo,ref,control,path=''):
         repo=repository(repo);ref=ref.strip()
+        selected_scope=scope_path(path)
         if len(ref)>240 or any(ord(c)<32 for c in ref):raise ValueError('브랜치 이름을 확인하세요.')
         async def work(client):
             account=await self.get(client,'/user',1_000_000) if self.token else {}
@@ -102,18 +168,79 @@ class GitHubReader:
             commit=await self.get(client,'/repos/'+repo+'/commits/'+quote(branch,safe=''),4_000_000)
             revision=commit.get('sha','')
             if not re.fullmatch('[a-f0-9]{40}',revision):raise ValueError('저장소 버전을 확인하지 못했습니다.')
-            tree=await self.get(client,'/repos/'+repo+'/git/trees/'+revision+'?recursive=1')
-            files=[]
-            for row in tree.get('tree',[]):
-                if row.get('type')!='blob' or row.get('mode') not in ('100644','100755'):continue
+            tree,truncated=await self.tree_entries(client,repo,revision,control)
+            files=[];entries=[]
+            for row in tree:
                 path=file_path(row['path'])
-                if Path(path).suffix.lower() not in SUFFIXES:continue
+                if selected_scope and path!=selected_scope and not path.startswith(selected_scope+'/'):continue
                 size=row.get('size',0);sha=row.get('sha','')
-                if not isinstance(size,int) or not 0<size<=MAX_BYTES or not re.fullmatch('[a-f0-9]{40}',sha):continue
+                if not isinstance(size,int) or isinstance(size,bool) or size<0 or not re.fullmatch('[a-f0-9]{40}',sha):continue
+                entries.append({'path':path,'size':size,'sha':sha,'type':row.get('type',''),'mode':row.get('mode','')})
+                if (row.get('type')!='blob' or row.get('mode') not in ('100644','100755')
+                        or Path(path).suffix.lower() not in SUFFIXES or not 0<size<=MAX_BYTES):continue
                 files.append({'path':path,'size':size,'sha':sha})
-            files.sort(key=lambda r:(not Path(r['path']).name.lower().startswith('readme'),r['path'].lower()))
+            if selected_scope and not entries:raise ValueError('선택한 저장소 경로를 찾지 못했습니다. 경로를 비워 전체 저장소를 연결하세요.')
+            files.sort(key=lambda r:(not Path(r['path']).name.lower().startswith('readme'),
+                                     Path(r['path']).suffix.lower() not in {'.md','.rst','.txt'},
+                                     r['path'].startswith('.'),r['path'].lower()))
+            entries.sort(key=lambda r:r['path'].casefold())
             return {'repo':repo,'branch':branch,'revision':revision,'login':account.get('login',''),
-                    'private':bool(meta.get('private')),'files':files,'truncated':bool(tree.get('truncated'))}
+                    'private':bool(meta.get('private')),'files':files,'entries':entries,
+                    'scope_path':selected_scope,'indexed_paths':len(entries),'truncated':truncated}
+        return self.run(work,control)
+
+    def snapshot(self,connection,control,*,max_chars=60000,max_references=3):
+        """Read a bounded automatic overview of an already pinned whole scope.
+
+        Every indexed path remains visible in the viewer. Text budgets do not
+        pretend that all bodies were read; users can still attach exact files.
+        """
+        if max_chars<1 or max_references<1:raise ValueError('참고자료 용량이 가득 찼습니다. 기존 자료를 일부 제거한 뒤 연결하세요.')
+        max_chars=min(60000,int(max_chars));max_references=min(8,int(max_references))
+        repo=repository(connection['repo']);revision=connection['revision']
+        if not re.fullmatch('[a-f0-9]{40}',revision):raise ValueError('저장소에 다시 연결하세요.')
+        index=repository_index_reference(connection,max_chars=min(MAX_CHARS,max_chars))
+        if max_references==1 or len(index.text)>=max_chars:return [index]
+        available=min(max_chars-len(index.text),MAX_CHARS*(max_references-1))
+        async def work(client):
+            sections=[];read=[];skipped=[];bytes_read=0;used=0
+            for row in connection['files']:
+                control.check();path=file_path(row['path']);sha=row['sha'];size=row['size']
+                if len(read)>=MAX_AUTO_FILES or available-used<200:break
+                if (not re.fullmatch('[a-f0-9]{40}',sha) or not isinstance(size,int)
+                        or not 0<size<=MAX_BYTES):raise ValueError('저장소 파일 목록을 다시 조회하세요.')
+                if bytes_read+size>MAX_AUTO_BYTES:skipped.append(path);continue
+                blob=await self.get(client,'/repos/'+repo+'/git/blobs/'+sha)
+                if blob.get('encoding')!='base64':skipped.append(path);continue
+                try:data=base64.b64decode(''.join(blob['content'].split()),validate=True)
+                except (KeyError,ValueError):raise ValueError('파일 내용을 읽지 못했습니다.') from None
+                if (len(data)!=size or len(data)>MAX_BYTES
+                        or hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()!=sha):
+                    raise ValueError('파일 버전 또는 크기가 달라졌습니다. 저장소에 다시 연결하세요.')
+                bytes_read+=len(data)
+                source=f'https://github.com/{repo}/blob/{revision}/{quote(path,safe="/")}'
+                try:reference=extract_reference(Path(path).name,data,source=source,revision=revision,check=control.check)
+                except ValueError:skipped.append(path);continue
+                prefix=f'\n\n## {path}\nSource: {source}\nBlob: {sha}\n'
+                budget=min(4000,available-used-len(prefix)-80)
+                if budget<=0:break
+                excerpt=reference.text[:budget]
+                clipped=reference.truncated or len(excerpt)<len(reference.text)
+                section=prefix+('Bounded excerpt; remaining contents were not transmitted.\n' if clipped else 'Text snapshot.\n')+excerpt
+                section=section[:available-used]
+                sections.append(section);used+=len(section);read.append(path)
+            combined=''.join(sections)
+            references=[index]
+            for offset in range(0,len(combined),MAX_CHARS):
+                text=combined[offset:offset+MAX_CHARS]
+                chunk=offset//MAX_CHARS+1
+                references.append(ReferenceMaterial(name=(repo.replace('/','-')+f'-repository-excerpts-{chunk}.md')[-80:],
+                    source=f'https://github.com/{repo}/tree/{revision}#cad-reference-excerpts-{chunk}',revision=revision,
+                    sha256=hashlib.sha256(text.encode('utf-8')).hexdigest(),text=text,truncated=True,
+                    note=AUTO_REFERENCE_NOTE+f'{len(read)}/{len(connection["files"])} readable candidates included; '
+                         f'{len(skipped)} skipped after extraction/byte checks. Excerpts only; code is never executed.'))
+            index.note+=f' Automatic text excerpts cover {len(read)}/{len(connection["files"])} candidates.'
+            return references
         return self.run(work,control)
 
     def fetch(self,connection,rows,control):

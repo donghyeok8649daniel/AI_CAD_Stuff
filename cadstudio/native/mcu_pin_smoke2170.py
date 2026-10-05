@@ -188,8 +188,9 @@ def run(app, window, path):
 
         accepted = editor.accepted_workspace
         result = evaluate_electrical(accepted)
-        schematic = ElectricalSchematicDialog(window, accepted, result, design['parts']); dialogs.append(schematic)
+        schematic = ElectricalSchematicDialog(window, accepted, result, design['parts'], view_mode='symbols'); dialogs.append(schematic)
         schematic.show(); app.processEvents()
+        schematic.show_pin_details(); app.processEvents()
         schematic.mcu_combo.setCurrentIndex(schematic.mcu_combo.findData('pi')); app.processEvents()
         check(len(schematic.pin_view.pin_items) == 40,
               'separate circuit schematic includes the selected board physical pin pane')
@@ -199,11 +200,14 @@ def run(app, window, path):
         gpio18 = schematic.branch_layout['pi']['signals']['GPIO18']
         check(gpio18['node'] == 'ENCODER_A' and gpio18['connected'] is True,
               'encoder output target is found by passive MCU continuity review')
-        check(gpio17['origin_y'] != gpio18['origin_y'] and gpio17['node'] != gpio18['node'],
-              'separate MCU GPIO nets use independent schematic rows without a shared signal stem')
+        check((gpio17['origin_x'],gpio17['origin_y']) != (gpio18['origin_x'],gpio18['origin_y']) and
+              gpio17['node'] != gpio18['node'],
+              'separate MCU GPIO nets use independent physical pads without a shared signal stem')
         check(schematic.branch_layout[sensor_id]['signals']['OUT_A']['node'] == 'ENCODER_A',
               'schematic displays the actual sensor output terminal apart from its power branch')
-        check('J8.11' in ' '.join(item.toPlainText() for item in schematic.scene.items() if hasattr(item, 'toPlainText')),
+        drawn_text=' '.join([*(item.toPlainText() for item in schematic.scene.items() if hasattr(item, 'toPlainText')),
+                             *(port.label for item in schematic.component_items.values() for port in item.ports.values())])
+        check('J8.11' in drawn_text,
               'schematic signal label includes the physical header pin location')
         before = accepted.model_dump()
         def edit_schematic_pin(child):

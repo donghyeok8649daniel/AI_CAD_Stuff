@@ -106,7 +106,44 @@ def test_role_view_restores_existing_isolation_and_manual_tree_override(role_win
     while it.value():
         item = it.value()
         if item.data(0, Qt.ItemDataRole.UserRole) == ('part', 'structure'):
+            item.setExpanded(False)
+            root = w.tree.topLevelItem(0)
             item.setCheckState(0, Qt.CheckState.Checked)
+            import shiboken6
+            assert shiboken6.isValid(item) and shiboken6.isValid(root)
+            assert item.treeWidget() is w.tree and w.tree.topLevelItem(0) is root
+            assert it.value() is item and not item.isExpanded()
             break
         it += 1
     assert w.role_view is None and w.viewport.actors['structure'][0].GetVisibility()
+
+
+def test_role_checkbox_override_preserves_emitter_and_other_rows_repeatedly(role_window, app):
+    from PySide6.QtTest import QSignalSpy
+    from PySide6.QtWidgets import QTreeWidgetItemIterator
+    import shiboken6
+    w = role_window
+    original = deepcopy(w.document.design)
+    cursor = w.document.journal.data['cursor']
+    for _ in range(30):
+        w.show_part_role('electrical')
+        rows = {}
+        iterator = QTreeWidgetItemIterator(w.tree)
+        while iterator.value():
+            row = iterator.value()
+            data = row.data(0, Qt.ItemDataRole.UserRole)
+            if data and data[0] == 'part':
+                rows[data[1]] = row
+            iterator += 1
+        source = rows['structure']
+        source.setExpanded(False)
+        signals = QSignalSpy(w.tree.itemChanged)
+        source.setCheckState(0, Qt.CheckState.Checked)
+        app.processEvents()
+        assert signals.count() == 1
+        assert not w.tree.signalsBlocked() and w.role_view is None
+        assert not source.isExpanded()
+        for identifier, row in rows.items():
+            assert shiboken6.isValid(row) and row.treeWidget() is w.tree
+            assert (row.checkState(0) == Qt.CheckState.Checked) == (identifier not in w.viewport.hidden)
+    assert w.document.design == original and w.document.journal.data['cursor'] == cursor

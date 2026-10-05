@@ -53,6 +53,8 @@ class ElectricalComponent(ElectricalModel):
     # passive net labels. They add no GPIO output resistance or digital logic.
     signal_pins: dict[str, Identifier] = Field(default_factory=dict, max_length=144)
     terminal_pins: dict[str, Identifier] = Field(default_factory=dict, max_length=144)
+    board_supply_pins: dict[str, Identifier] = Field(default_factory=dict, max_length=144)
+    supply_pinout_catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
     # Opt-in physical board pin provenance. Legacy arbitrary labels remain
     # readable until the user explicitly binds them to an exact board pinout.
     pinout_catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
@@ -67,7 +69,8 @@ class ElectricalComponent(ElectricalModel):
         # Replaying history must still compare exact before/after values.
         for field, default in (("analysis_enabled", True), ("part_registration", False),
                                ("terminal_pins", {}), ("pinout_catalog_id", ""),
-                               ("product_pinout_catalog_id", "")):
+                               ("product_pinout_catalog_id", ""), ("board_supply_pins", {}),
+                               ("supply_pinout_catalog_id", "")):
             if field not in self.model_fields_set and getattr(self, field) == default:
                 data.pop(field, None)
         return data
@@ -92,6 +95,8 @@ class ElectricalComponent(ElectricalModel):
             raise ValueError("추가 신호 단자는 일반 부하·센서·드라이버 또는 모터 항목에만 지정할 수 있습니다.")
         if self.pinout_catalog_id and self.kind != "mcu":
             raise ValueError("물리 핀 모식도는 MCU / 보드 항목에만 연결할 수 있습니다.")
+        if (self.board_supply_pins or self.supply_pinout_catalog_id) and self.kind != "mcu":
+            raise ValueError("물리 보드 전원 연결은 MCU / MPU 보드에만 지정합니다.")
         if self.part_registration and not self.part_id:
             raise ValueError("전장 등록은 실제 CAD 부품 ID에 연결해야 합니다.")
         if self.source_url:
@@ -99,7 +104,7 @@ class ElectricalComponent(ElectricalModel):
             if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
                     or any(character.isspace() or ord(character) < 32 for character in self.source_url)):
                 raise ValueError("제품 사양 출처는 안전한 HTTPS 주소로 지정하세요.")
-        for pin, node in (*self.signal_pins.items(), *self.terminal_pins.items()):
+        for pin, node in (*self.signal_pins.items(), *self.terminal_pins.items(), *self.board_supply_pins.items()):
             if (not pin or len(pin) > 40 or not all(c.isascii() and (c.isalnum() or c in "_-") for c in pin)
                     or not node or len(node) > 40
                     or not all(c.isascii() and (c.isalnum() or c in "_-") for c in node)):
@@ -112,6 +117,9 @@ class ElectricalComponent(ElectricalModel):
             from .mcu_connections import validate_bound_terminal_map
 
             validate_bound_terminal_map(self.catalog_id, self.product_pinout_catalog_id, self.terminal_pins)
+        if self.board_supply_pins or self.supply_pinout_catalog_id:
+            from .board_supply import validate_board_supply_map
+            validate_board_supply_map(self.catalog_id,self.supply_pinout_catalog_id,self.board_supply_pins)
         if self.part_registration and self.catalog_id:
             from .board_pins import board_pinout
             from .electrical_catalog import get_catalog_entry
@@ -134,11 +142,29 @@ class ElectricalComponent(ElectricalModel):
         return self
 
 
+class ElectricalSchematicPosition(ElectricalModel):
+    """Cosmetic diagram coordinates, independent of CAD millimetres and nets."""
+
+    x: float = Field(ge=-100000, le=100000)
+    y: float = Field(ge=-100000, le=100000)
+
+
 class ElectricalWorkspace(ElectricalModel):
     schema_version: Literal[1] = 1
     name: str = Field(default="전장 회로", min_length=1, max_length=100)
     nodes: list[Identifier] = Field(default_factory=lambda: ["GND"], min_length=1, max_length=128)
     components: list[ElectricalComponent] = Field(default_factory=list, max_length=256)
+    schematic_positions: dict[Identifier, ElectricalSchematicPosition] = Field(default_factory=dict, max_length=256)
+
+    @model_serializer(mode="wrap")
+    def compatible_schematic_positions(self, handler):
+        data = handler(self)
+        # Journals created before the circuit canvas compare exact snapshots.
+        # Retain an explicit empty layout and in-place additions, while an
+        # absent legacy layout stays absent during load/save and undo/redo.
+        if "schematic_positions" not in self.model_fields_set and not self.schematic_positions:
+            data.pop("schematic_positions", None)
+        return data
 
     @model_validator(mode="after")
     def valid_netlist(self):
@@ -148,6 +174,9 @@ class ElectricalWorkspace(ElectricalModel):
             raise ValueError("노드 ID는 영문·숫자·_·-만 사용할 수 있습니다.")
         if len({component.id for component in self.components}) != len(self.components):
             raise ValueError("전장 부품 ID는 중복될 수 없습니다.")
+        component_ids = {component.id for component in self.components}
+        if any(identifier not in component_ids for identifier in self.schematic_positions):
+            raise ValueError("회로도 배치는 등록된 전장 부품 ID에만 지정할 수 있습니다.")
         allowed = set(self.nodes)
         if any(component.a not in allowed or component.b not in allowed for component in self.components):
             raise ValueError("전장 부품은 등록된 노드 두 개에 연결해야 합니다.")
@@ -155,6 +184,8 @@ class ElectricalWorkspace(ElectricalModel):
             raise ValueError("MCU 신호 핀은 등록된 노드에 연결해야 합니다.")
         if any(node not in allowed for component in self.components for node in component.terminal_pins.values()):
             raise ValueError("추가 신호 단자는 등록된 노드에 연결해야 합니다.")
+        if any(node not in allowed for component in self.components for node in component.board_supply_pins.values()):
+            raise ValueError("물리 보드 전원 핀은 등록된 노드에 연결해야 합니다.")
         return self
 
 

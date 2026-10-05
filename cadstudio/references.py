@@ -3,6 +3,7 @@ from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
 import json
+from urllib.parse import urlsplit
 
 from .models import ReferenceMaterial, DraftRequest
 
@@ -67,6 +68,9 @@ def merge_references(existing, incoming):
         if source.startswith('https://github.com/') and '/blob/' in source:
             repo,tail=source.split('/blob/',1)
             return repo+'/'+tail.partition('/')[2]
+        if source.startswith('https://github.com/') and '/tree/' in source and item.note.startswith('Repository scope snapshot; '):
+            parsed=urlsplit(source);repo,tail=parsed.path.split('/tree/',1)
+            return 'https://github.com'+repo+'/tree/'+tail.partition('/')[2]+'#'+parsed.fragment
         return source
     result=list(existing)
     for item in incoming:
