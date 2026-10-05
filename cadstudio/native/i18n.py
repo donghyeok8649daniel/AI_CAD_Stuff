@@ -8,7 +8,41 @@ from PySide6.QtWidgets import QApplication,QWidget,QLabel,QAbstractButton,QCombo
 from shiboken6 import isValid
 
 
-PAIRS = '''피로시험 조건 / 데이터 양식…|Fatigue test protocol / data template…
+PAIRS = '''부품 재질 / 물성 목록…|Part material / property catalog…
+하중 측정 / 교정 연결…|Force acquisition / calibration…
+시편 습도 챔버 / 편집…|Specimen humidity chamber / edit…
+시편 습도 챔버|Specimen humidity chamber
+챔버 치수 / 밀봉 인터페이스 편집|Edit chamber dimensions / sealing interfaces
+선택 시편의 재질값 가져오기|Import selected specimen material values
+전면 도어 분리해 내부 보기 · 표시만|Inspect with front door hidden · display only
+챔버 이름 / 구성품 접두사|Chamber name / component ID prefix
+시편·그립 전체 운동 보호 영역|Protected swept bounds of specimen / grips
+본체 · 설치 여유|Housing / installation clearance
+힘 계측 · 로드셀 / ADC / 온습도|Force acquisition · load cell / ADC / environment
+배선·용량·대역폭 검토|Check wiring / capacity / bandwidth
+설계에 계측 설정 저장|Save acquisition settings to design
+계측 경로 / 사양|Acquisition chain / specifications
+검토 결과|Assessment results
+선택 / 미확인|Select / unknown
+로드셀 여자 전원|Load-cell excitation source
+로드셀|Load cell
+ADC 수집|Acquisition ADC
+수집 MCU / MPU|Acquisition MCU / MPU
+계측 사양…|Measurement specifications…
+목표 반복 주파수 (Hz)|Planned cyclic frequency (Hz)
+ADC 별도 CLKIN 발진 부품|Separate ADC CLKIN oscillator
+발진 부품의 실제 출력 단자|Oscillator's physical output terminal
+목표 최대 하중 (N)|Planned maximum force (N)
+주기당 샘플 검토 기준 (규격값 아님)|Samples per cycle criterion (not a standard)
+계측 기록 검토|Acquisition recording assessment
+힘 폐루프 검토 · 실물 검증 필수|Force feedback assessment · hardware validation required
+ADC 역할 = 수집 보드 실제 핀|ADC role = physical acquisition board pin
+환경 기록 센서 (선택)|Environmental recording sensors (optional)
+선택 센서 온습도 사양…|Selected sensor humidity / temperature specifications…
+실측점으로 N/count 교정|Calibrate N/count from measured points
+교정 미확인으로 되돌리기|Reset to uncalibrated
+미확인|Unknown
+피로시험 조건 / 데이터 양식…|Fatigue test protocol / data template…
 피로시험 조건 / 데이터 양식|Fatigue test protocol / data template
 피로시험 준비 패키지 저장|Save fatigue experiment package
 시편 STEP + 시험 조건 + 실측 CSV 양식|Specimen STEP + protocol + measurement CSV template

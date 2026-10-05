@@ -38,7 +38,7 @@ class InterferenceDialog(QDialog):
         if overlaps:self.list.setCurrentRow(0)
     def highlight(self,index):
         for i,actor in enumerate(self.highlights):actor.SetVisibility(i==index)
-        self.viewport.window.Render()
+        self.viewport.render()
     def done(self,result):self.viewport.shutdown();super().done(result)
 
 

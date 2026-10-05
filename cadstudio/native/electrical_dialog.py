@@ -302,6 +302,7 @@ class ComponentDialog(QDialog):
                     **({'terminal_pins':self.parsed_terminals(self.terminal_pins)} if kind in ('load','motor','actuator') else {}),
                     **({'capacitor_polarized':self.capacitor_polarized.isChecked()} if kind=='capacitor' else {}),
                     **({'wire_color':self.wire_color.text().strip() or None,'wire_endpoints':self.old.get('wire_endpoints',[])} if kind=='wire' else {}),
+                    **({'measurement':self.old['measurement']} if kind in ('load','mcu') and 'measurement' in self.old and self.catalog_id==self.old.get('catalog_id','') else {}),
                     **self.supply_fields,**values)
 
     def accept(self):
@@ -318,6 +319,8 @@ class ElectricalDialog(QDialog):
         self.original_nodes=tuple(((design or {}).get('electrical') or {}).get('nodes',()))
         self.schematic_positions=deepcopy(((design or {}).get('electrical') or {}).get('schematic_positions',{}))
         self.has_schematic_positions='schematic_positions' in ((design or {}).get('electrical') or {})
+        self.force_chain=deepcopy(((design or {}).get('electrical') or {}).get('force_chain'))
+        self.has_force_chain='force_chain' in ((design or {}).get('electrical') or {})
         layout=QVBoxLayout(self);layout.addWidget(label('배터리 +는 공급, -는 리턴입니다. 같은 노드 이름으로 단자를 연결하고 실제 배터리 전압·정격·전선 치수를 입력하세요.',True))
         header=QHBoxLayout();self.name=QLineEdit(((design or {}).get('electrical') or {}).get('name','전장 회로'))
         header.addWidget(QLabel('회로 이름'));header.addWidget(self.name,1);layout.addLayout(header)
@@ -462,6 +465,8 @@ class ElectricalDialog(QDialog):
                       *(node for item in self.components for node in item.get('terminal_pins',{}).values()),
                       *(node for item in self.components for node in item.get('board_supply_pins',{}).values())})
         raw=dict(name=self.name.text().strip() or '전장 회로',nodes=nodes,components=self.components)
+        if self.has_force_chain:
+            raw['force_chain']=deepcopy(self.force_chain)
         if self.has_schematic_positions:
             ids={component['id'] for component in self.components}
             raw['schematic_positions']={key:position for key,position in self.schematic_positions.items() if key in ids}

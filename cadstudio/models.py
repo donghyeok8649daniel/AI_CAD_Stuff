@@ -664,8 +664,40 @@ class JointFrames(StrictModel):
 class Material(StrictModel):
     name: str = Field(default='사용자 재질',min_length=1,max_length=80)
     density: float = Field(default=2700,gt=0,le=30000)
-    youngs_modulus: float = Field(default=69000,gt=0,le=1000000)
-    poisson: float = Field(default=.33,gt=-1,lt=.5)
+    youngs_modulus: float | None = Field(default=69000,gt=0,le=1000000)
+    poisson: float | None = Field(default=.33,gt=-1,lt=.5)
+    yield_strength: float | None = Field(default=None,gt=0,le=100000)
+    tensile_strength: float | None = Field(default=None,gt=0,le=100000)
+    thermal_conductivity: float | None = Field(default=None,gt=0,le=10000)
+    thermal_expansion: float | None = Field(default=None,ge=-.01,le=.01)
+    specific_heat: float | None = Field(default=None,gt=0,le=100000)
+    water_absorption: float | None = Field(default=None,ge=0,le=100)
+    behavior: Literal['isotropic','anisotropic','nonlinear'] | None = None
+    catalog_id: str | None = Field(default=None,min_length=1,max_length=100,pattern=r'^[a-zA-Z0-9_-]+$')
+    provenance: dict[str,JsonValue] | None = None
+
+    @model_validator(mode='after')
+    def checked_provenance(self):
+        # Kept local so the established design model does not eagerly load data.
+        if self.provenance is not None:
+            from .material_catalog import MaterialProvenance
+            record=MaterialProvenance.model_validate(self.provenance)
+            if self.catalog_id and record.catalog_id!=self.catalog_id:
+                raise ValueError('재질 목록 ID와 물성 출처의 ID가 다릅니다.')
+            for key,fact in record.properties.items():
+                if key in type(self).model_fields and getattr(self,key)!=fact.value:
+                    raise ValueError('재질 값과 출처 기록이 다릅니다: '+key)
+        return self
+
+    @model_serializer(mode='wrap')
+    def compatible_material(self,handler):
+        data=handler(self)
+        # Do not expand legacy snapshots: their original four fields stay exact.
+        # An explicitly recorded unknown is retained as null, not a guessed value.
+        for key in type(self).model_fields:
+            if key not in ('name','density','youngs_modulus','poisson') and key not in self.model_fields_set:
+                data.pop(key,None)
+        return data
 
 
 class Part(StrictModel):

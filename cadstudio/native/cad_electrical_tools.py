@@ -6,6 +6,36 @@ TOOLS = ('electrical_register', 'electrical_connect', 'electrical_unregister')
 GUIDANCE = '''electrical_register: target is an EXISTING CAD part ID (or one created earlier in this plan). Register that body as an electrical feature, never duplicate its geometry. args={catalog_id?:exact_catalog_ID,kind?:"battery"|"wire"|"switch"|"resistor"|"capacitor"|"inductor"|"load"|"motor"|"actuator"|"mcu",name?,analysis_enabled?:false,apply_default_color?:false,a?,b?,signal_pins?:[{pin,node}],terminal_pins?:[{pin,node}],...explicit operating values}. Capacitors use capacitance_f in FARADS, optional capacitor_polarized and rated_voltage_v, with A positive/B negative for polarized devices; DC treats them as open, without charging/leakage/ESR simulation. Coils use inductance_h in HENRIES and winding_resistance_ohm; enabled DC requires both positive and solves only settled winding resistance, not ideal shorts/transients/saturation/flyback. Actuators use explicit rated_voltage_v/rated_current_a and optional startup_current_a for a separate resistance-equivalent estimate, not actual force/motion/driver behavior. Resistors use resistance_ohm. Convert user microfarads/millihenries to SI units; never fabricate missing capacitance, inductance, resistance or operating ratings. Use the exact model requested by the user from available_electrical_models; do not substitute a family or clone. Catalog source and a verified physical pin/terminal diagram are attached when available. No known diagram means manual/unverified, not a fabricated schematic. Unknown voltage/current is allowed for registration with analysis_enabled=false; it is excluded from DC calculations. Registration alone does not prove the CAD shape matches a physical product's dimensions. Preserve existing colors unless apply_default_color=true is requested, then yellow #FFD400. Preserve geometry, grouping, joints and prior circuit connections. Changing an existing model must explicitly use allow_drop_connections=true only when the user approved clearing its previous pin assignments.
 electrical_connect: target is the source registered CAD part ID (MCU or verified electronic product). args={pin:exact_GPIO_key,target_part_id:registered_target_CAD_ID,target_terminal:"pin:GPIO_key"|"port:signal_terminal_key"|"a"|"b"}. Use physical pin labels and keys from registered_electrical_features / available_electrical_models; pin numbers are not BCM GPIO numbers. Register each actual CAD part before wiring it. On a non-MCU product pin is its exact named terminal key, not an invented header position; typed power/ground terminal connections are passive labels and never automatically become a DC power branch. A declared sensor/driver signal port is not its power A/B terminal. This creates a passive signal net; no firmware or complete voltage compatibility claim. Power/reference/reset pins are not ordinary GPIO. Use power_path with measured/verified operating inputs for supply calculations; never wire GPIO to a battery or motor power terminal as a normal signal.
 electrical_unregister: target is an existing registered CAD part ID, args={}. Remove its electrical registration only when explicitly requested. The CAD body remains; other devices and net labels are preserved, and their now-unconnected endpoints remain visible.'''
+GUIDANCE += '\nSaved measurement_reference and force_acquisition_review are offline reference data. Keep unknown force/frequency/calibration as unknown. Do not infer usable bandwidth from ADC sample rate, manufacture a serial calibration, or claim hardware, firmware or closed-loop qualification. Check actual supply terminals separately from GPIO and retain catalog worst-case ranges when editing a known measurement product.'
+
+
+def measurement_context(component):
+    """Bounded numerical reference; omit arbitrary notes and certificate text."""
+    if component.measurement is None:
+        return None
+    data = component.measurement.model_dump(mode='json', exclude_none=True,
+        exclude={'notes', 'calibration'})
+    calibration = getattr(component.measurement, 'calibration', None)
+    if calibration is not None:
+        data['calibration'] = {'status': calibration.status,
+            'point_count': calibration.point_count,
+            'rms_residual_n': calibration.rms_residual_n}
+    return data
+
+
+def force_review_context(design):
+    workspace = design.electrical
+    if workspace is None or workspace.force_chain is None:
+        return None
+    from ..force_acquisition import assess_force_chain
+    review = assess_force_chain(workspace)
+    priority = {'blocked': 0, 'pending': 1, 'warning': 2, 'info': 3}
+    findings = sorted(review.findings, key=lambda item: priority[item.severity])
+    return dict(settings=workspace.force_chain.model_dump(exclude_none=True),
+        status=review.status, hardware_verified=False, firmware_executed=False,
+        findings=[dict(code=item.code, severity=item.severity,
+                       component_id=item.component_id) for item in findings[:16]],
+        omitted_findings=max(0, len(review.findings)-16))
 
 
 def model_context():
@@ -38,6 +68,8 @@ def feature_context(design):
                            capacitance_f=component.capacitance_f,inductance_h=component.inductance_h,
                            winding_resistance_ohm=component.winding_resistance_ohm,
                            capacitor_polarized=component.capacitor_polarized,
+                           measurement_reference=measurement_context(component),
+                           board_supply_pins=component.board_supply_pins,
                            signal_pins=component.signal_pins,terminal_pins=component.terminal_pins,
                            a=component.a,b=component.b,pins=pins))
     return result

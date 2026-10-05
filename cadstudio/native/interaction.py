@@ -45,7 +45,7 @@ class ExtrusionHandle:
         outline=line_actor(ghost,(.33,.93,.8),1.5);outline.PickableOff();self.pickable=[tip,axis];self.actors=[outline,axis,tip]
         self.view.renderer.AddActor(outline);self.overlay.AddActor(axis);self.overlay.AddActor(tip)
         bounds=self.view.renderer.ComputeVisiblePropBounds();extra=self.overlay.ComputeVisiblePropBounds();combined=[min(bounds[i],extra[i]) if i%2==0 else max(bounds[i],extra[i]) for i in range(6)]
-        self.view.renderer.ResetCameraClippingRange(combined);self.view.window.Render()
+        self.view.renderer.ResetCameraClippingRange(combined);self.view.render()
     def press(self,pos):
         picker=vtkCellPicker();picker.SetTolerance(.012);picker.PickFromListOn()
         for actor in self.pickable:picker.AddPickList(actor)

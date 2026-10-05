@@ -17,6 +17,8 @@ from .mcu_connections import (
     ConnectionEndpoint, assign_pin, assign_pin_node, connection_endpoints,
 )
 from .models import Design
+from .measurement_specs import MeasurementSpec
+from .measurement_catalog import catalog_measurement
 
 
 class RegistrationSpec(BaseModel):
@@ -48,6 +50,7 @@ class RegistrationSpec(BaseModel):
     resistivity_ohm_mm2_per_m: float | None = Field(default=None, gt=0, le=100)
     closed: bool | None = None
     contact_resistance_ohm: float | None = Field(default=None, gt=0, le=1000)
+    measurement: MeasurementSpec | None = None
 
 
 OPERATING_FIELDS = frozenset((
@@ -180,10 +183,15 @@ def register_part(raw: Design | dict, part_id: str, args: RegistrationSpec | dic
             # Reference-only products provide identity/source/typed terminals,
             # never a made-up resistor equivalent or consumption current.
             component.update(component_prefill(entry))
+            reference = catalog_measurement(catalog_id)
+            if reference is not None:
+                component['measurement'] = reference.model_dump()
         if existing:
             component["name"] = existing.name
     component.update(part_id=part_id, part_registration=True, kind=kind,
                      catalog_id=catalog_id, source_url=entry.source_url if entry else "")
+    if 'measurement' in supplied:
+        component['measurement'] = supplied['measurement']
     for field in (*OPERATING_FIELDS, "name", "a", "b", "signal_pins", "terminal_pins", "analysis_enabled"):
         if field in supplied and (supplied[field] is not None or field in ("max_current_a", "startup_current_a")):
             component[field] = supplied[field]

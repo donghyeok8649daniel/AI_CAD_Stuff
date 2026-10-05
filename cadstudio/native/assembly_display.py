@@ -60,7 +60,7 @@ class AssemblyDisplay:
                     actor.GetProperty().SetLighting(False);self.renderer.AddActor(actor);self.actors.append(actor);self.pickables[actor]=(row['type'],row['id'])
                 badge={'ready':'[OK pose]','blocked':'[!]','unverified':'[?]','rigid':'[fixed]'}[state]
                 text=vtkBillboardTextActor3D();text.SetInput(row['label']+' '+badge);text.SetPosition(*(p+x*size));text.GetTextProperty().SetFontSize(13);text.GetTextProperty().SetColor(*color);text.GetTextProperty().SetBackgroundColor(.04,.08,.12);text.GetTextProperty().SetBackgroundOpacity(.8);text.PickableOff();self.renderer.AddActor(text);self.actors.append(text)
-        self.view.window.Render()
+        self.view.render()
 
     def pick(self,x,y):
         if not self.enabled:return False

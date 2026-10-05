@@ -63,13 +63,13 @@ class PartInspectionUI(RoleViewUI):
             if not ids:self.actions['isolate'].setChecked(False);self.message('따로 볼 부품을 먼저 선택하세요. 그룹 선택을 끄면 한 부품만 고를 수 있습니다.');return
             self.isolation_hidden=set(self.viewport.hidden);hidden=set(self.viewport.actors)-set(ids);self.actions['isolate'].setChecked(True)
         self.viewport.set_hidden_parts(hidden,False)
-        self.viewport.window.Render();self.rebuild_tree();self.sync_tree_selection()
+        self.viewport.render();self.rebuild_tree();self.sync_tree_selection()
 
     def show_all_parts(self):
         self.reset_role_view()
         self.isolation_hidden=None;self.actions['isolate'].setChecked(False)
         self.viewport.set_hidden_parts(set(),False)
-        self.viewport.window.Render();self.rebuild_tree();self.sync_tree_selection()
+        self.viewport.render();self.rebuild_tree();self.sync_tree_selection()
 
     def explode_parts(self):
         if self.busy or not self.result or not self.result['meshes']:self.message('먼저 입체 부품을 만드세요.');return

@@ -1,3 +1,9 @@
+# 2.20.0 chamber, materials and force acquisition
+
+Affected source regression: **517 passed** (516 passed, 149 warnings in 164.34s (0:02:44); lazy SciPy: 1 passed in 8.79s). Frozen Windows EXE: **609 native checks**. All **187** bundled CAD modules and the native entry match the tested source. Actual automatic/hardware and software rendering are exercised; the software driver remains unmodified.
+
+New checks cover native material selection and explicit analysis import, calibration/connectivity and ADC common-mode/clock/gain constraints, chamber BREP validity, static gland/ports, declared bellows swept envelopes, complete-assembly collision blocking, history/edit/cancel preservation, and hidden/closed preview rendering. Existing orbit occlusion, explicit wire/circuit editing, multiple selection and print flows are rerun after the viewport lifecycle change. The public fixtures contain no user CAD/research data and make no hardware, firmware, sealing, fatigue rating or model validation claim. See [release guide](docs/RELEASE_2_20_0_KO.md) and [aggregate evidence](docs/native2200-validation.json).
+
 # 2.19.1 rotation depth and explicit wire editing
 
 Affected source regression: **343 passed** (342 passed, 114 warnings in 62.87s (0:01:02); lazy SciPy: 1 passed in 3.84s). Frozen Windows EXE: **512 native checks** of actual occlusion pixels, complete 360-degree orbit, small-part focus, preserved zoom/focal/screen positions, geometry rebuild beyond the old camera eye, extrusion controls, wire/circuit persistence, selection and print workflows. All **177** bundled CAD modules and the native entry match the tested source. Both hardware/automatic and software rendering are checked. The Qt software driver is unchanged. Prior 2.19.0 whole-source and large-history validation remains below; those unchanged persistence tests were not repeated for this display/wire patch.

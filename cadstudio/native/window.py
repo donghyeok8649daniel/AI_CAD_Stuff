@@ -107,6 +107,9 @@ class MainWindow(QMainWindow,PartSelectionUI):
         engineering.addAction(self.action('power_path','전원 연결 설계…',self.power_path_dialog,None,'assembly'))
         engineering.addAction(self.action('mechanical_catalog','기계 · 전원 규격 DB…',self.mechanical_catalog_dialog,None,'dimension'))
         engineering.addAction(self.action('fastener_check','볼트 축방향 검토…',self.fastener_check_dialog,None,'dimension'))
+        engineering.addAction(self.action('materials','부품 재질 / 물성 목록…',self.material_dialog,None,'dimension'));model.addAction(self.actions['materials'])
+        engineering.addAction(self.action('force_acquisition','하중 측정 / 교정 연결…',self.force_acquisition_dialog,None,'dimension'))
+        engineering.addAction(self.action('chamber','시편 습도 챔버 / 편집…',self.chamber_dialog,None,'specimen'));model.addAction(self.actions['chamber'])
         assembly.addAction(self.actions['electrical'])
         assembly.addAction(self.actions['mcu_pins']);assembly.addAction(self.actions['electrical_register'])
         assembly.addAction(self.actions['power_path']);model.addAction(self.actions['mechanical_catalog'])
@@ -155,6 +158,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.add_mode_tool('assembly','electrical')
         self.add_mode_tool('circuit','electrical');self.add_mode_tool('circuit','electrical_register');self.add_mode_tool('circuit','mcu_pins')
         self.add_mode_tool('assembly','loop');self.add_mode_tool('assembly','robot_study')
+        for key in ('chamber','force_acquisition','materials'):self.add_mode_tool('specimen',key)
         self.add_mode_tool('print','print_mode');self.add_mode_tool('print','print_profile');self.add_mode_tool('print','interference');self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure']);self.toolbar.addAction(self.actions['color']);self.toolbar.addAction(self.actions['wiring_diagram']);self.toolbar.addAction(self.actions['parameters']);self.toolbar.addSeparator()
         for key in ('undo','redo','fit'):self.toolbar.addAction(self.actions[key])
         self.toolbar.addAction(icon('ai'),'설계 명령',lambda:self.ai_dock.setVisible(not self.ai_dock.isVisible()));self.workspace.currentIndexChanged.connect(self.workspace_changed);self.workspace_changed()
@@ -202,10 +206,47 @@ class MainWindow(QMainWindow,PartSelectionUI):
         dialog=ConfigurationDialog(self,self.document.design)
         if dialog.exec()==QDialog.DialogCode.Accepted:self.apply_design(dialog.checked.model_dump(),'설계 구성 적용',{'tool':'configuration','name':dialog.name.text()},fit=True)
     def material_dialog(self):
-        if self.busy or self.sketching or not self.part():return
-        from .inspection_dialog import MaterialDialog
-        dialog=MaterialDialog(self,self.document.design,self.selected)
-        if dialog.exec()==QDialog.DialogCode.Accepted:self.apply_design(dialog.checked.model_dump(),'부품 재질 변경',{'tool':'material','part_id':self.selected})
+        if self.busy or self.sketching or not self.document.design:return
+        from .material_dialog import MaterialDialog
+        dialog=MaterialDialog(self,self.document.design,part_ids=self.selected_parts or ([self.selected] if self.selected else []))
+        if dialog.exec()==QDialog.DialogCode.Accepted:
+            self.apply_design(dialog.checked.model_dump(),'부품 재질 변경',{'tool':'material','part_ids':list(dialog.selected_part_ids())},fit=False)
+    def force_acquisition_dialog(self):
+        if self.busy or self.sketching:return
+        from .force_acquisition_dialog import ForceAcquisitionDialog
+        raw=deepcopy(self.document.design) if self.document.design else Design().model_dump()
+        dialog=ForceAcquisitionDialog(self,raw)
+        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
+            raw['electrical']=dialog.accepted_workspace.model_dump()
+            self.apply_design(raw,'하중 측정 / 교정 연결 설정',{'tool':'force-acquisition'},fit=False)
+    def chamber_context(self,part_ids=None):
+        """Find editable factory settings only in the current history branch."""
+        journal=self.document.journal
+        if not journal:return None
+        selected=set(part_ids if part_ids is not None else self.selected_parts or ([self.selected] if self.selected else []))
+        current={part['id'] for part in (self.document.design or {}).get('parts',[])}
+        for entry in reversed(journal.path(journal.data['cursor'])):
+            context=entry['context'];ids=set(context.get('chamber_part_ids',[]))
+            if context.get('tool')=='chamber' and ids and ids<=current and selected&ids:
+                return deepcopy(context)
+        return None
+    def chamber_dialog(self,checked=False,context=None):
+        if self.busy or self.sketching or not self.document.design:return
+        from .chamber_dialog import ChamberDialog
+        context=context or self.chamber_context()
+        options={}
+        if context:
+            options={'requirements':context['chamber_requirements'],'replace_ids':context['chamber_part_ids'],
+                     'drive_part_ids':context.get('chamber_drive_part_ids',[])}
+        try:dialog=ChamberDialog(self,self.document.design,part_ids=self.selected_parts or ([self.selected] if self.selected else []),**options)
+        except ValueError as exc:self.message(str(exc));return
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted:
+                report=dialog.report
+                history={'tool':'chamber','chamber_requirements':report['requirements'],'chamber_part_ids':report['parts'],
+                         'chamber_drive_part_ids':list(dialog.drive_part_ids),'chamber_report':report}
+                self.apply_design(dialog.checked.model_dump(),'시편 습도 챔버 편집' if context else '시편 습도 챔버 추가',history,fit=True)
+        finally:dialog.deleteLater()
     def inspection_dialog(self):
         if self.busy or self.sketching or not self.document.design or not self.document.design['parts']:return
         from .inspection_dialog import InspectionDialog
@@ -438,7 +479,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.workspace.setCurrentIndex(self.workspace.findData('model'));self.reset_role_view(restore=True)
         if part_id in self.viewport.hidden:self.viewport.visibility(part_id,True)
         self.select_parts([part_id]);actor=self.viewport.actors.get(part_id)
-        if actor is not None:self.viewport.renderer.ResetCamera(actor[0].GetBounds());self.viewport.renderer.ResetCameraClippingRange();self.viewport.window.Render()
+        if actor is not None:self.viewport.renderer.ResetCamera(actor[0].GetBounds());self.viewport.renderer.ResetCameraClippingRange();self.viewport.render()
         self.message('회로도와 연결된 CAD 부품: '+next(p['name'] for p in self.document.design['parts'] if p['id']==part_id))
 
     def electrical_part_dialog(self,part_id=None):
@@ -1046,6 +1087,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
             signal.connect(lambda *args,field=key:changed_dimensions.add(field))
         self.property_layout.addWidget(button('이동 / 회전 · M',self.move_parts))
         color_button=button('●  부품 색상 변경',lambda:self.color_part(part['id']));color_button.setObjectName('partColorButton');color_button.setStyleSheet(f"border-left:6px solid {part['color']};text-align:left;padding:8px;");self.property_layout.addWidget(color_button);self.property_layout.addWidget(button('재질 / 물성',self.material_dialog));self.property_layout.addLayout(form)
+        chamber=self.chamber_context([part['id']])
+        if chamber:self.property_layout.addWidget(button('챔버 치수 / 밀봉 인터페이스 편집',lambda:self.chamber_dialog(context=chamber)))
         self.property_layout.insertWidget(2,button('부품 역할 / 기본색…',self.role_selection))
         if part.get('source_part_id'):
             self.property_layout.addWidget(label('연결된 원본: '+part['source_part_id']+' · 형상은 원본을 따라갑니다.',True));self.property_layout.addWidget(button('원본 편집',lambda:self.select_part(part['source_part_id'])));self.property_layout.addWidget(button('연결 해제 · 독립 부품으로',self.unlink_part))
@@ -1193,7 +1236,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.start_sketch(g=g,context=dict(part_id=p['id'],edit_base=True,title=p['name']+' · 기본 스케치 편집'))
     def cancel_sketch(self):
         if self.busy:return
-        self.sketching=False;self.editor.stop();self.stack.setCurrentWidget(self.viewport);self.toolbar.show();self.ai_dock.show();self.browser_dock.show();self.property_dock.show();self.timeline_dock.show();self.set_busy(False);self.show_properties();self.viewport.window.Render()
+        self.sketching=False;self.editor.stop();self.stack.setCurrentWidget(self.viewport);self.toolbar.show();self.ai_dock.show();self.browser_dock.show();self.property_dock.show();self.timeline_dock.show();self.set_busy(False);self.show_properties();self.viewport.render()
     def finish_sketch(self,g,context,operation):
         if self.busy:return
         # Editing a solid's generating sketch still recomputes that feature.
@@ -1258,6 +1301,9 @@ class MainWindow(QMainWindow,PartSelectionUI):
         return '\n'.join(lines)+'\n\n'+json.dumps(entry,ensure_ascii=False,indent=2)
     def history_clicked(self,item):
         entry=self.document.journal.index[item.data(Qt.ItemDataRole.UserRole)];clear_layout(self.property_layout);self.property_layout.addWidget(label(entry['label']));text=QPlainTextEdit();text.setReadOnly(True);text.setPlainText(self.history_text(entry));self.property_layout.addWidget(text,1);self.property_layout.addWidget(button('이 단계로 복원',lambda:self.restore_history(entry['id']),True));self.property_dock.show();self.property_dock.raise_()
+        if entry['context'].get('tool')=='chamber':
+            context=self.chamber_context(entry['context'].get('chamber_part_ids',[]))
+            if context:self.property_layout.addWidget(button('챔버 치수 / 밀봉 인터페이스 편집',lambda:self.chamber_dialog(context=context)))
     def history_dialog(self):
         if not self.document.journal:return
         dialog=QDialog(self);dialog.setWindowTitle('모든 작업 기록 · 분기 포함');dialog.resize(1100,690);v=QVBoxLayout(dialog);split=QSplitter();tree=QTreeWidget();tree.setHeaderLabels(['작업','시간']);details=QPlainTextEdit();details.setReadOnly(True);split.addWidget(tree);split.addWidget(details);split.setSizes([390,700]);v.addWidget(split);nodes={}

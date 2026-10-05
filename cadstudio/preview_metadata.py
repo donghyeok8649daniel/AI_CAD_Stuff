@@ -11,7 +11,9 @@ def geometry_inputs(design):
     data.pop('name', None)
     data.pop('electrical', None)
     for part in data.get('parts', []):
-        for key in ('name', 'color', 'role'):
+        # Material changes affect physical studies, not BREP/mesh/collision data.
+        # Those studies read the current Design independently of this cache.
+        for key in ('name', 'color', 'role', 'material'):
             part.pop(key, None)
     return data
 

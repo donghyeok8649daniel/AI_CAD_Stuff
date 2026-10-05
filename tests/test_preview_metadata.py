@@ -66,3 +66,24 @@ def test_result_for_other_geometry_with_same_ids_is_never_reused():
     assert reuse_preview(renamed,old.model_dump(),different) is None
     untagged=preview(old);untagged.pop('_geometry_key')
     assert reuse_preview(renamed,old.model_dump(),untagged) is None
+
+
+def test_material_edit_reuses_geometry_but_studies_read_current_density():
+    old = sample()
+    result = preview(old)
+    changed = old.model_copy(deep=True)
+    from cadstudio.models import Material
+    changed.parts[0].material = Material(name='Measured material', density=1234,
+                                        youngs_modulus=None, poisson=None)
+    reused = reuse_preview(changed, old.model_dump(), result)
+    assert reused['meshes'][0]['vertices'] is result['meshes'][0]['vertices']
+    assert reused['stats'] is result['stats']
+    assert changed.parts[0].material.density == 1234
+    assert old.parts[0].material is None
+    from cadstudio.inspection import mass_properties
+    shape = local_shape(changed, changed.parts[0])
+    properties = mass_properties(shape, changed.parts[0].material.density)
+    assert properties['mass_kg'] == pytest.approx(shape.Volume()*1234e-9)
+    # The same metadata edit cannot authorize a stale preview for a moved body.
+    changed.parts[0].transform.z = 8
+    assert reuse_preview(changed, old.model_dump(), result) is None

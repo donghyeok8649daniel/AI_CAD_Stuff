@@ -379,6 +379,27 @@ PINOUTS: tuple[BoardPinout, ...] = (
                 "Original Pico, 40 edge pins only; excludes SWD pads and internal "
                 "GPIO23/24/25. Not a Pico W or Pico 2 pinout. " + _SCHEMATIC_NOTE),
 )
+_G474_SOURCE='https://www.st.com/resource/en/user_manual/um2505-stm32g4-nucleo64-boards-mb1367-stmicroelectronics.pdf'
+PINOUTS += (BoardPinout('st_nucleo_g474re','ST NUCLEO-G474RE · MB1367 selected DAQ headers',_G474_SOURCE,(
+    _pin('NC_CN6_1','CN6.1 · NC',('Reserved for test',),'other','left',0),
+    _pin('IOREF_CN6_2','CN6.2 · IOREF',('I/O reference',),'other','left',1),
+    _pin('NRST_CN6_3','CN6.3 · NRST',('PG10-NRST reset',),'reset','left',2),
+    _pin('3V3_CN6_4','CN6.4 · 3V3',('3.3 V input/output; SB5 and external-supply configuration must be checked',),'power','left',3),
+    _pin('5V_CN6_5','CN6.5 · 5V',('5 V output rail; not automatically a safe external input',),'power','left',4),
+    _pin('GND_CN6_6','CN6.6 · GND',('GND',),'ground','left',5),
+    _pin('GND_CN6_7','CN6.7 · GND',('GND',),'ground','left',6),
+    _pin('VIN_CN6_8','CN6.8 · VIN',('7–12 V input; power-source jumpers must be checked',),'power','left',7),
+    _pin('PA5','CN5.6 · D13 / PA5',('GPIO','SPI1_SCK','LD2 via SB6; disconnect SB6 if using this candidate SPI clock'),'signal','right',0),
+    _pin('PA6','CN5.5 · D12 / PA6',('GPIO','SPI1_MISO'),'signal','right',1),
+    _pin('PA7','CN5.4 · D11 / PA7',('GPIO','SPI1_MOSI','TIM3_CH2'),'signal','right',2),
+    _pin('PB6','CN5.3 · D10 / PB6',('GPIO','SPIx_CS','TIM4_CH1'),'signal','right',3),
+    _pin('PC7','CN5.2 · D9 / PC7',('GPIO','TIM3_CH2 or TIM8_CH2'),'signal','right',4),
+    _pin('PB5','CN9.5 · D4 / PB5',('GPIO',),'signal','right',5),
+    _pin('GND_CN5_7','CN5.7 · GND',('GND',),'ground','right',6),
+    _pin('E5V_CN7_6','CN7.6 · E5V',('External input 4.75–5.25 V; 500 mA maximum; JP5 pins 5–6; external supply before USB',),'power','left',8),
+),3.3,
+    'UM2505 Rev 7 표 15의 선택한 CN5/CN6/CN9 단자와 표 7 E5V CN7.6만 표시합니다. 전체 Morpho 모식도가 아닙니다. E5V는 4.75–5.25 V·500 mA 상한이며 JP5 5–6과 외부 전원 먼저·USB 나중 절차를 확인하세요. PA5는 LD2와 SB6로 연결되어 후보 SPI 수집에서는 SB6 OFF를 검토하세요. 보드 리비전·전원 점퍼·펌웨어는 실제 확인해야 합니다. ADC CLKIN은 별도 발진 부품입니다. 확인일 2026-10-06.',
+    'Selected CN5/CN6/CN9 terminals from UM2505 Rev 7 Table 15 and E5V CN7.6 from Table 7 only, not a full Morpho map and not a dimensioned PCB layout. E5V: 4.75–5.25 V, 500 mA maximum, JP5 pins 5–6, external power before USB. PA5 drives LD2 via SB6; review SB6 OFF for SPI acquisition. Confirm board revision, supply jumpers and firmware. ADC CLKIN needs a separate oscillator. Official source checked 2026-10-06.'),)
 _BY_ID = {pinout.catalog_id: pinout for pinout in PINOUTS}
 
 

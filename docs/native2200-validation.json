@@ -1,0 +1,98 @@
+{
+  "version": "2.20.0",
+  "total_source_passed": 517,
+  "source_tests": "516 passed, 149 warnings in 164.34s (0:02:44)",
+  "lazy_scipy_tests": "1 passed in 8.79s",
+  "source_modules_verified": 187,
+  "native_entry_verified": true,
+  "frozen_checks": 609,
+  "software_driver_unmodified": true,
+  "flows": [
+    {
+      "name": "engineering-auto",
+      "checks": 35,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "3c8065df6c39816f0c286193e4f38c3a888585a711cf69b6b5e639ddaaae0c67"
+    },
+    {
+      "name": "engineering-software",
+      "checks": 35,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "4e404aa3cabf2ec066478bde006b254d022b7e88a48a787270a639b247bca73c"
+    },
+    {
+      "name": "project-history-auto",
+      "checks": 27,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "e3bd7227a67f89fc388b8d1e39d9657b249411e8bf9b39c7ce4c4ac244b78a04"
+    },
+    {
+      "name": "occlusion-auto",
+      "checks": 48,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "3591c77c1598de1ab755679c54459b112cb3337d1fade9cdc2f60a7585fbb6f8"
+    },
+    {
+      "name": "occlusion-software",
+      "checks": 48,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "3591c77c1598de1ab755679c54459b112cb3337d1fade9cdc2f60a7585fbb6f8"
+    },
+    {
+      "name": "circuit-canvas-auto",
+      "checks": 86,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "acad7a7e10a289fbb595bb63394ed89fd7a088835969bb1515af34460c9b423d"
+    },
+    {
+      "name": "circuit-canvas-software",
+      "checks": 86,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "acad7a7e10a289fbb595bb63394ed89fd7a088835969bb1515af34460c9b423d"
+    },
+    {
+      "name": "selection-auto",
+      "checks": 80,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "77e00f053da799151f08656d0637e4d69cd3ffdc97045a20d5ca2c5a140cc8d8"
+    },
+    {
+      "name": "selection-software",
+      "checks": 80,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "77e00f053da799151f08656d0637e4d69cd3ffdc97045a20d5ca2c5a140cc8d8"
+    },
+    {
+      "name": "mechanism-auto",
+      "checks": 23,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "27ef4206d0170308366283daff1c661ef11f76b19c3bc781bd99c596f50fa2f9"
+    },
+    {
+      "name": "mechanism-software",
+      "checks": 23,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "27ef4206d0170308366283daff1c661ef11f76b19c3bc781bd99c596f50fa2f9"
+    },
+    {
+      "name": "print-ai",
+      "checks": 38,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "1f933fbb45f24aa71812cdcf4b2da019ef8db9d3d53aaf873d8964e44710c86f"
+    }
+  ],
+  "contains_user_project_data": false,
+  "scope": "Parametric specimen chamber and guarded preview lifecycle; source-backed material assignments and force acquisition reference checks; no hardware, firmware or research solver execution"
+}

@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
+from .measurement_specs import MeasurementSpec, ForceChainSpec
 
 
 class ElectricalModel(BaseModel):
@@ -74,6 +75,7 @@ class ElectricalComponent(ElectricalModel):
     # readable until the user explicitly binds them to an exact board pinout.
     pinout_catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
     product_pinout_catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
+    measurement: MeasurementSpec | None = None
 
     @model_serializer(mode="wrap")
     def compatible_registration_fields(self, handler):
@@ -90,7 +92,7 @@ class ElectricalComponent(ElectricalModel):
                                ("capacitor_polarized", False)):
             if field not in self.model_fields_set and getattr(self, field) == default:
                 data.pop(field, None)
-        for field,default in (("wire_color",None),("wire_endpoints",[])):
+        for field,default in (("wire_color",None),("wire_endpoints",[]),("measurement",None)):
             if field not in self.model_fields_set and getattr(self,field)==default:data.pop(field,None)
         return data
 
@@ -98,6 +100,8 @@ class ElectricalComponent(ElectricalModel):
     def required_values(self):
         if self.a == self.b:
             raise ValueError("전장 부품 양 끝은 서로 다른 노드에 연결해야 합니다.")
+        if self.measurement is not None and self.kind not in ('load','mcu'):
+            raise ValueError('Measurement references attach to sensor/ADC loads or MCU boards, not power or motor branches.')
         if (self.wire_color or self.wire_endpoints) and self.kind!='wire':
             raise ValueError("전선 색과 연결 단자 정보는 전선에만 지정합니다.")
         if self.wire_endpoints and (len(self.wire_endpoints)!=2 or self.wire_endpoints[0]==self.wire_endpoints[1]):
@@ -186,6 +190,7 @@ class ElectricalWorkspace(ElectricalModel):
     nodes: list[Identifier] = Field(default_factory=lambda: ["GND"], min_length=1, max_length=128)
     components: list[ElectricalComponent] = Field(default_factory=list, max_length=256)
     schematic_positions: dict[Identifier, ElectricalSchematicPosition] = Field(default_factory=dict, max_length=256)
+    force_chain: ForceChainSpec | None = None
 
     @model_serializer(mode="wrap")
     def compatible_schematic_positions(self, handler):
@@ -195,6 +200,7 @@ class ElectricalWorkspace(ElectricalModel):
         # absent legacy layout stays absent during load/save and undo/redo.
         if "schematic_positions" not in self.model_fields_set and not self.schematic_positions:
             data.pop("schematic_positions", None)
+        if 'force_chain' not in self.model_fields_set and self.force_chain is None:data.pop('force_chain',None)
         return data
 
     @model_validator(mode="after")

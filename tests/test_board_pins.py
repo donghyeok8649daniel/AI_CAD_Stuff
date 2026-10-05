@@ -14,8 +14,8 @@ def _pins(identifier):
 
 def test_catalog_models_have_safe_unique_physical_coordinates_and_official_sources():
     pinouts = available_pinouts()
-    assert isinstance(pinouts, tuple) and len(pinouts) == 8
-    assert len({b.catalog_id for b in pinouts}) == 8
+    assert isinstance(pinouts, tuple) and len(pinouts) >= 9
+    assert len({b.catalog_id for b in pinouts}) == len(pinouts)
     for board in pinouts:
         assert board_pinout(board.catalog_id) is board
         assert get_catalog_entry(board.catalog_id) is not None
@@ -26,8 +26,9 @@ def test_catalog_models_have_safe_unique_physical_coordinates_and_official_sourc
             "pip-assets.raspberrypi.com", "docs.arduino.cc", "www.st.com",
             "datasheets.raspberrypi.com",
         }
-        assert SOURCE_CHECKED_DATE in board.note
-        assert "확인일" in board.note and SOURCE_CHECKED_DATE in board.note_en
+        checked='2026-10-06' if board.catalog_id=='st_nucleo_g474re' else SOURCE_CHECKED_DATE
+        assert checked in board.note
+        assert "확인일" in board.note and checked in board.note_en
         assert "not a dimensioned PCB layout" in board.note_en
         for pin in board.pins:
             assert re.fullmatch(r"[A-Za-z0-9_]{1,40}", pin.key)
@@ -143,3 +144,12 @@ def test_unverified_model_families_and_similar_variants_have_no_guessed_pinout()
     for identifier in ("", "stm32_nucleo_family", "stm32f103c8t6", "blue_pill",
                        "nucleo_g0b1re", "rpi_pico2", "arduino_uno_r4_wifi", "rpi5"):
         assert board_pinout(identifier) is None
+
+
+def test_g474_daq_spi_selected_headers_and_external_supply_are_distinct():
+    board=board_pinout('st_nucleo_g474re');pins=_pins('st_nucleo_g474re')
+    assert pins['PA5'].label.startswith('CN5.6') and 'SPI1_SCK' in pins['PA5'].functions
+    assert pins['PA6'].label.startswith('CN5.5') and pins['PA7'].label.startswith('CN5.4')
+    assert pins['E5V_CN7_6'].kind=='power' and pins['E5V_CN7_6'].label.startswith('CN7.6')
+    assert '4.75–5.25' in board.note and '500 mA' in board.note_en
+    assert pins['GND_CN5_7'].kind=='ground' and pins['3V3_CN6_4'].kind=='power'

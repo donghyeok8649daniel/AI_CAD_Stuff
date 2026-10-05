@@ -82,7 +82,7 @@ class PreviewDialog(QDialog):
             for hit in (motion or blocked):
                 for identifier in (hit['a'],hit['b']):
                     if identifier in self.viewport.actors:self.viewport.actors[identifier][0].GetProperty().SetColor(.9,.25,.16)
-            self.viewport.window.Render()
+            self.viewport.render()
         elif report.get('existing'):
             self.status.setStyleSheet('color:#f5c26b;');self.status.setText(self.status.text()+'\n기존 간섭이 남아 있습니다 · '+describe(self.validation_design(self.checked),report['existing']))
         elif self.travel:
@@ -341,7 +341,7 @@ class JointDriveDialog(PreviewDialog):
         if stats.get('loops'):self.status.setText(self.status.text()+f" · 폐루프 오차 {stats['closure_error_mm']:.2g} mm · 자유도 {stats['dof']}")
         for collision in collisions:
             for identifier in (collision['a'],collision['b']):self.viewport.actors[identifier][0].GetProperty().SetColor(.83,.30,.20)
-        self.viewport.window.Render()
+        self.viewport.render()
     def done(self,result):
         self.range_revision+=1
         self.range_timer.stop()

@@ -91,7 +91,7 @@ class RoleViewUI:
         self.selected_parts = [identifier for identifier in self.selected_parts if identifier in ids]
         self.selected = self.selected_parts[-1] if self.selected_parts else None
         self.viewport.select_many(self.selected_parts, False)
-        self.viewport.window.Render()
+        self.viewport.render()
 
     def show_part_role(self, role=None):
         if self.busy or self.sketching:
@@ -102,7 +102,7 @@ class RoleViewUI:
             self.select_parts([i for i in self.selected_parts if i not in self.viewport.hidden])
             self.rebuild_tree()
             self.sync_tree_selection()
-            self.viewport.window.Render()
+            self.viewport.render()
             self.message('역할 보기 해제 · 원래 표시 상태와 부품 색상을 복원했습니다.')
             return
         if role not in ('electrical', 'structure', 'transmission'):

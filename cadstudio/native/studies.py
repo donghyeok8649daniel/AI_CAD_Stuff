@@ -124,7 +124,7 @@ class RobotStudy(StudyDialog):
                 for j in range(3):matrix.SetElement(i,j,rotation[i,j])
                 matrix.SetElement(i,3,translation[i])
             for actor in self.viewport.actors.get(p.id,[]):actor.SetUserMatrix(matrix)
-        self.viewport.window.Render();self.viewport.footer.setText(f"시간 {self.output['time'][self.slider.value()]:.3f} s · 슬라이더로 운동 궤적 확인")
+        self.viewport.render();self.viewport.footer.setText(f"시간 {self.output['time'][self.slider.value()]:.3f} s · 슬라이더로 운동 궤적 확인")
     def export_csv(self):
         if self.checked is None:return
         path,_=QFileDialog.getSaveFileName(self,'운동 결과 CSV','robot-motion.csv','CSV (*.csv)')
@@ -145,10 +145,23 @@ class TensileStudy(StudyDialog):
     def __init__(self,parent,design,identifier=None,part_id=None):
         super().__init__(parent,design,'시편 · 인장 응력 / 변형 해석',identifier);parts=[(p.id,p.name) for p in self.base.parts if p.geometry.kind in ('round_specimen','flat_specimen')]
         s=TensileSettings.model_validate(self.existing.settings if self.existing else {'part_id':part_id or (parts[0][0] if parts else '')});self.part=choice(parts);self.part.setCurrentIndex(max(0,self.part.findData(s.part_id)));self.form.addRow('시편',self.part);self.inputs={}
-        for key,title,value,lo,hi,suffix in [('young_gpa','탄성계수 E',s.young_gpa,.01,2000,' GPa'),('poisson','푸아송비 ν',s.poisson,0,.45,''),('yield_mpa','비교할 항복 강도',s.yield_mpa,.01,100000,' MPa'),('force_n','축방향 인장력',s.force_n,0,1e7,' N')]:
-            w=number(value,lo,hi,suffix);self.form.addRow(title,w);self.inputs[key]=w;self.bind(w)
+        for key,title,value,lo,hi,suffix in [('young_gpa','탄성계수 E',s.young_gpa,.00100001,2000,' GPa'),('poisson','푸아송비 ν',s.poisson,0,.45,''),('yield_mpa','비교할 항복 강도',s.yield_mpa,.00000001,100000,' MPa'),('force_n','축방향 인장력',s.force_n,0,1e7,' N')]:
+            w=number(value,lo,hi,suffix,8);self.form.addRow(title,w);self.inputs[key]=w;self.bind(w)
         self.refinement=choice([(1,'보통'),(2,'세밀'),(3,'매우 세밀')]);self.refinement.setCurrentIndex(s.refinement-1);self.form.addRow('메시',self.refinement);self.deform=number(1,0,10000,' ×');self.form.addRow('변형 표시 배율',self.deform);self.deform.valueChanged.connect(self.render);self.viewport=CADViewport();self.visual_layout.addWidget(self.viewport,1);self.metrics=label('');self.controls.addWidget(self.metrics);self.controls.addWidget(button('절점 변위 / 요소 응력 CSV',self.export_csv));self.controls.addWidget(label('한쪽 그립 완전 고정, 반대쪽 균일 인장. 기본값은 예시 재료입니다. 실제 재료값을 입력하세요. 3D 선형 탄성 TET4 해석이며 항복·파단·좌굴은 계산하지 않습니다. 고정단 최대응력은 메시의 영향을 받습니다.',True));self.controls.addStretch()
         for w in (self.part,self.refinement):self.bind(w)
+        self.controls.insertWidget(0,button('선택 시편의 재질값 가져오기',self.use_part_material))
+    def use_part_material(self):
+        from ..material_assignments import tensile_settings_with_material
+        try:
+            values=tensile_settings_with_material(self.base,self.part.currentData(),self.settings().model_dump())
+            for key in ('young_gpa','poisson','yield_mpa'):
+                field=self.inputs[key]
+                if not field.minimum()<=values[key]<=field.maximum():
+                    raise ValueError('재질 값이 해석 입력 범위 밖에 있습니다: '+key)
+        except ValueError as exc:
+            self.status.setText(str(exc));return
+        for key in ('young_gpa','poisson','yield_mpa'):self.inputs[key].setValue(values[key])
+        self.dirty();self.status.setText('선택 시편의 E·ν·항복강도를 가져왔습니다. 계산 후 저장하면 이 해석 조건에만 적용됩니다.')
     def settings(self):return TensileSettings(part_id=self.part.currentData() or '',refinement=self.refinement.currentData(),**{k:w.value() for k,w in self.inputs.items()})
     def compute(self,settings):return analyze(self.base,settings)
     def present(self):
@@ -162,7 +175,7 @@ class TensileStudy(StudyDialog):
         from vtkmodules.util.numpy_support import numpy_to_vtk
         r=self.output;tets=r['tets'];faces=np.concatenate([tets[:,idx] for idx in [(0,1,2),(0,1,3),(0,2,3),(1,2,3)]]);owners=np.tile(np.arange(len(tets)),4);_,first,counts=np.unique(np.sort(faces,axis=1),axis=0,return_index=True,return_counts=True);indices=first[counts==1];nodes=r['nodes']+r['displacement']*self.deform.value();mesh=polydata(nodes,faces[indices]);mesh.GetCellData().SetScalars(numpy_to_vtk(r['von_mises'][owners[indices]],deep=True))
         table=vtkLookupTable();table.SetHueRange(.66,0);table.SetTableRange(0,max(r['max_stress_mpa'],1e-9));table.Build();mapper=vtkPolyDataMapper();mapper.SetInputData(mesh);mapper.SetLookupTable(table);mapper.SetScalarRange(0,max(r['max_stress_mpa'],1e-9));actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetAmbient(.35);bar=vtkScalarBarActor();bar.SetLookupTable(table);bar.SetTitle('von Mises / MPa');bar.SetNumberOfLabels(5);bar.SetWidth(.13);bar.SetHeight(.6)
-        self.viewport.renderer.RemoveAllViewProps();self.viewport.renderer.AddActor(actor);self.viewport.renderer.AddActor2D(bar);self.viewport.renderer.ResetCamera();self.viewport.window.Render();self.viewport.caption.setText('인장 응력 · 변형 표시 '+f'{self.deform.value():g}배');self.viewport.footer.setText('회전 / 확대 가능 · 색상은 요소별 등가응력 MPa · 형상은 메시 근사')
+        self.viewport.renderer.RemoveAllViewProps();self.viewport.renderer.AddActor(actor);self.viewport.renderer.AddActor2D(bar);self.viewport.renderer.ResetCamera();self.viewport.render();self.viewport.caption.setText('인장 응력 · 변형 표시 '+f'{self.deform.value():g}배');self.viewport.footer.setText('회전 / 확대 가능 · 색상은 요소별 등가응력 MPa · 형상은 메시 근사')
     def export_csv(self):
         if self.checked is None:return
         path,_=QFileDialog.getSaveFileName(self,'해석 CSV','specimen-results.csv','CSV (*.csv)')

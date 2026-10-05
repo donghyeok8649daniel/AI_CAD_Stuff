@@ -14,7 +14,7 @@ from typing import Literal
 
 CircuitKind = Literal["battery", "wire", "switch", "resistor", "capacitor", "inductor",
                       "load", "motor", "actuator", "mcu"]
-ElectricalFunction = Literal["motor", "actuator", "encoder", "motor_driver", "controller"]
+ElectricalFunction = Literal["motor", "actuator", "encoder", "motor_driver", "controller", "load_cell", "adc", "humidity_temperature"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -544,6 +544,38 @@ CATALOG: tuple[ElectricalCatalogEntry, ...] = (
         "정격 전류와 전압은 주문 코드·AC/DC 차단 조건별로 다릅니다. 퓨즈 시간-전류 곡선과 차단 동작은 현재 미해석입니다.",
         reference_only=True, aliases=("fuse", "퓨즈", "보호", "과전류"),
     ),
+    ElectricalCatalogEntry('ti_ads131m04','하중 취득 ADC','Texas Instruments','ADS131M04','ADS131M0x',
+        'https://www.ti.com/lit/ds/symlink/ads131m04.pdf',
+        '4채널 동시 취득 24-bit SPI ADC IC. 최대 64 kSPS는 모드·클록·OSR 조건에 따릅니다. 이득 8 이상이면 각 입력 상한은 AVDD−1.8 V입니다. 3.3 V 브리지 직접 연결을 승인하지 않습니다.',
+        reference_only=True,aliases=('load cell','adc','force','로드셀','하중','ads131'),functional_roles=('adc',)),
+    ElectricalCatalogEntry('hbk_u10m_25kn_passive','인장·압축 로드셀','HBK','U10M 25 kN · passive 100% dynamic calibration','U10M',
+        'https://www.hbm.com/fileadmin/mediapool/hbmdoc/technical/B01444.pdf',
+        '정격 25 kN, 공칭 2 mV/V·비조정 실제 범위 2–2.5 mV/V, 여자 0.5–12 V. 표준 동적 범위 ±100% Fnom은 시험기 수명 인증이 아닙니다. 일련번호 교정·설치·케이블 옵션 확인이 필요합니다. 1-U10M/25kN은 어댑터 포함이며 맨몸 주문 코드와 다릅니다.',
+        reference_only=True,aliases=('load cell','로드셀','하중','u10m','hbk','hbm','force'),functional_roles=('load_cell',)),
+    ElectricalCatalogEntry('st_nucleo_g474re','수집 MCU 보드','STMicroelectronics','NUCLEO-G474RE','STM32G4 / MB1367',
+        'https://www.st.com/resource/en/user_manual/um2505-stm32g4-nucleo64-boards-mb1367-stmicroelectronics.pdf',
+        '별도 수집 보드 후보. UM2505 Rev 7의 선택 SPI/GPIO·전원 헤더만 모식도에 등록합니다. PA5/LD2/SB6, 실제 리비전·전원 점퍼·SPI/DRDY 펌웨어를 검토하세요. B-G431 ESC의 전류 피드백 핀을 빈 SPI 핀으로 사용하지 않습니다.',
+        suggested_kind='mcu',aliases=('nucleo g474','g474re','stm32g474','daq','수집 mcu'),functional_roles=('controller',)),
+    ElectricalCatalogEntry('maxon_ec_i52_667065','BLDC 모터 후보','maxon','EC-i 52 24 V 420 W · 667065 · NRND','EC-i 52',
+        'https://www.maxongroup.com/maxon/view/product/667065',
+        '현재 공식 페이지의 정격 24 V, 연속 토크 0.972 N·m·전류 18.3 A는 제조사 조건 값입니다. 2025 자료의 0.964 N·m·18.1 A와 섞지 않습니다. NRND이며 저속 왕복 냉각·전류 정의·Hall 전압·커넥터는 미확인입니다. U/V/W/Hall 기능 단자만 참고하고 FOC·부하 소비전류·15 kN 정격을 자동 계산하지 않습니다.',
+        suggested_kind='motor',nominal_voltage_v=24,reference_only=True,aliases=('maxon 667065','ec-i52','bldc','brushless','피로시험 모터'),functional_roles=('motor',)),
+    ElectricalCatalogEntry('ti_ads1232','브리지 ADC','Texas Instruments','ADS1232','ADS123x',
+        'https://www.ti.com/lit/ds/symlink/ads1232.pdf',
+        '브리지용 24-bit ADC IC, 10/80 SPS. Rev H 디지털 필터 대역은 각각 2.4/19 Hz이며 시험기 전체 대역·제어 주파수와 다릅니다. 실제 기준 전압·이득·핀·교정이 필요합니다.',
+        reference_only=True,aliases=('load cell','adc','로드셀','브리지','ads123'),functional_roles=('adc',)),
+    ElectricalCatalogEntry('avia_hx711','저속 브리지 ADC','AVIA Semiconductor','HX711','HX711',
+        'https://cdn.sparkfun.com/datasheets/Sensors/ForceFlex/hx711_english.pdf',
+        'AVIA 원문 자료를 SparkFun이 제공하는 SOP-16 IC 참고입니다. 내부 클록 10/80 SPS이며 고속 피로시험 하중 제어기로 간주하지 않습니다. 불특정 저가 모듈의 결선을 보증하지 않습니다.',
+        reference_only=True,aliases=('load cell','adc','로드셀','hx711','저울'),functional_roles=('adc',)),
+    ElectricalCatalogEntry('sensirion_sht31_dis_b','온습도 센서','Sensirion','SHT31-DIS-B','SHT3x-DIS',
+        'https://sensirion.com/media/documents/213E6A3B/63A5A569/Datasheet_SHT3x_DIS.pdf',
+        'I²C 온습도 센서 IC. 공급·ADDR·풀업·히터/측정 모드를 실제 보드와 확인하세요. 소비전류는 미입력이며 임의 브레이크아웃과 동일하다고 가정하지 않습니다.',
+        reference_only=True,aliases=('humidity','temperature','습도','온도','sht31'),functional_roles=('humidity_temperature',)),
+    ElectricalCatalogEntry('sensirion_sht45_ad1b','온습도 센서','Sensirion','SHT45-AD1B','SHT4x',
+        'https://sensirion.com/media/documents/33FD6951/6A7C10A0/HT_DS_Datasheet_SHT4x_V7.3.pdf',
+        '1.08–3.6 V I²C 센서 IC, 해당 AD1B 주소 0x44. 실제 측정/히터 모드별 전류와 보드 풀업은 별도 입력·검토합니다. 5 V 직접 인가를 승인하지 않습니다.',
+        reference_only=True,aliases=('humidity','temperature','습도','온도','sht45'),functional_roles=('humidity_temperature',)),
 )
 
 

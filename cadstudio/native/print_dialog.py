@@ -48,7 +48,7 @@ class PrintDialog(PreviewDialog):
     def top_plate(self):
         self.viewport.set_view('top',False);x,y,z=[w.value() for w in self.bed]
         self.viewport.renderer.ResetCamera(-x/2,x/2,-y/2,y/2,0,0)
-        self.viewport.renderer.ResetCameraClippingRange();self.viewport.window.Render()
+        self.viewport.renderer.ResetCameraClippingRange();self.viewport.render()
     def sync_pose(self,*_):
         identifier=self.active_part.currentData();pose=self.placements.get(identifier)
         for key,w in self.pose_inputs.items():
@@ -67,7 +67,7 @@ class PrintDialog(PreviewDialog):
         from vtkmodules.vtkRenderingCore import vtkPolyDataMapper,vtkActor
         if self.bed_actor:self.viewport.renderer.RemoveActor(self.bed_actor)
         bed=vtkCubeSource();bed.SetXLength(self.bed[0].value());bed.SetYLength(self.bed[1].value());bed.SetZLength(.4);bed.SetCenter(0,0,-.25)
-        mapper=vtkPolyDataMapper();mapper.SetInputConnection(bed.GetOutputPort());actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.25,.36,.4);actor.GetProperty().SetOpacity(.35);actor.GetProperty().EdgeVisibilityOn();actor.PickableOff();self.bed_actor=actor;self.viewport.renderer.AddActor(actor);self.viewport.window.Render()
+        mapper=vtkPolyDataMapper();mapper.SetInputConnection(bed.GetOutputPort());actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.25,.36,.4);actor.GetProperty().SetOpacity(.35);actor.GetProperty().EdgeVisibilityOn();actor.PickableOff();self.bed_actor=actor;self.viewport.renderer.AddActor(actor);self.viewport.render()
         if not self.plate_view_initialized:self.plate_view_initialized=True;self.top_plate()
         if self.warnings:
             self.status.setText('\n'.join(self.warnings));self.status.setStyleSheet('color:#ffab91;');self.apply_button.setEnabled(False)

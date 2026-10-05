@@ -318,6 +318,90 @@ PRODUCT_DIAGRAMS: tuple[ProductDiagram, ...] = (
         "Polarity: color band denotes cathode end; DO-204AL/DO-41 package.",
     ),
 )
+def _measurement_diagram(catalog_id, model, source, pins, evidence):
+    terminals=[]
+    sides={'left':0,'right':0}
+    for number,key,label,kind,side in pins:
+        terminals.append(ProductTerminal(key,f'{number} · {label}',kind,side,sides[side],(label+' package-pin function',),
+            signal_voltage_reference='',
+            signal_level_note='신호 레벨·풀업·수신 핀의 허용 전압을 별도로 확인하세요.' if kind=='signal' else '',
+            signal_level_note_en='Verify signal levels, pull-ups and receiver input limits separately.' if kind=='signal' else ''))
+        sides[side]+=1
+    return ProductDiagram(catalog_id,model,source,tuple(terminals),
+        '제조사 패키지 핀 기능 참고입니다. PCB·브레이크아웃·펌웨어 시뮬레이션이나 동작 인증이 아닙니다. 자료 확인일 2026-10-06.',
+        'Manufacturer package-pin reference. Not a dimensioned PCB/footprint, verified breakout or firmware simulation. Checked 2026-10-06.',evidence)
+
+
+from .measurement_catalog import ADS131M04_SOURCE, ADS1232_SOURCE, HX711_SOURCE, SHT31_SOURCE, SHT45_SOURCE, HBK_U10M_SOURCE
+
+PRODUCT_DIAGRAMS += (
+    ProductDiagram('maxon_ec_i52_667065','maxon 667065 · functional phase / Hall reference','https://www.maxongroup.com/maxon/view/product/667065',(
+        ProductTerminal('MOTOR_U','Phase U · functional','power','left',0,('Three-phase winding terminal U; connector assignment pending',)),
+        ProductTerminal('MOTOR_V','Phase V · functional','power','left',1,('Three-phase winding terminal V; connector assignment pending',)),
+        ProductTerminal('MOTOR_W','Phase W · functional','power','left',2,('Three-phase winding terminal W; connector assignment pending',)),
+        ProductTerminal('HALL_VCC','Hall supply · voltage pending','power','right',0,('Hall power function; actual voltage and connector not verified',)),
+        ProductTerminal('HALL_GND','Hall GND · functional','ground','right',1,('Hall return; actual connector assignment pending',)),
+        ProductTerminal('HALL_H1','H1 · functional','signal','right',2,('Hall channel function; wire/color/connector and signal level pending',)),
+        ProductTerminal('HALL_H2','H2 · functional','signal','right',3,('Hall channel function; wire/color/connector and signal level pending',)),
+        ProductTerminal('HALL_H3','H3 · functional','signal','right',4,('Hall channel function; wire/color/connector and signal level pending',))),
+        '공식 3상·Hall 센서 제품의 기능 단자 참고이며 U/V/W·H1/H2/H3는 결선 설계 이름입니다. 실제 선 색·커넥터 순서·Hall 전압은 미확인입니다. FOC·전류·열 시뮬레이션이 아닙니다. 확인일 2026-10-06.',
+        'Functional design names U/V/W and H1/H2/H3 for the manufacturer three-phase Hall motor. Wire colors, connector order and Hall supply levels remain unverified. Not a dimensioned PCB/footprint or FOC/current/thermal simulation. Checked 2026-10-06.',
+        'maxon 667065 official product page: 3 phases, Hall sensors, 24 V nominal and NRND. No physical connector numbering or phase-current conversion inferred.'),
+    ProductDiagram('hbk_u10m_25kn_passive','HBK U10M 25 kN · passive functional terminals',HBK_U10M_SOURCE,(
+        ProductTerminal('EXC_POS','EXC+','power','left',0,('Bridge excitation positive',)),ProductTerminal('EXC_NEG','EXC−','ground','left',1,('Bridge excitation return',)),
+        ProductTerminal('SENSE_POS','SENSE+','signal','left',2,('Positive excitation sense',)),ProductTerminal('SENSE_NEG','SENSE−','signal','left',3,('Negative excitation sense',)),
+        ProductTerminal('SIG_POS','SIG+','signal','right',0,('Differential bridge output positive',)),ProductTerminal('SIG_NEG','SIG−','signal','right',1,('Differential bridge output negative',)),
+        ProductTerminal('SHIELD','Shield / housing','other','right',2,('Cable shield connected to housing',))),
+        '수동 브리지 기능 단자 참고이며 케이블 색·커넥터 핀 번호는 지정하지 않습니다. 선택한 실제 옵션 설명서로 확인하세요. PCB나 내부 회로 시뮬레이션이 아닙니다. 확인일 2026-10-06.',
+        'Passive bridge functional terminals only. No cable colors or connector pin numbers assumed; check the actual selected option. Not a dimensioned PCB/footprint or internal circuit simulation. Checked 2026-10-06.',
+        'HBK B01444 04 E00 14, 22 Aug 2025, p12 passive six-wire functions; p13–14 25 kN passive standard dynamic specifications.'),
+    _measurement_diagram('ti_ads131m04','TI ADS131M04 · PW TSSOP-20',ADS131M04_SOURCE,(
+        (1,'AVDD','AVDD','power','left'),(2,'AGND','AGND','ground','left'),
+        (3,'AIN0P','AIN0P','signal','left'),(4,'AIN0N','AIN0N','signal','left'),
+        (5,'AIN1N','AIN1N','signal','left'),(6,'AIN1P','AIN1P','signal','left'),
+        (7,'AIN2P','AIN2P','signal','left'),(8,'AIN2N','AIN2N','signal','left'),
+        (9,'AIN3N','AIN3N','signal','left'),(10,'AIN3P','AIN3P','signal','left'),
+        (11,'SYNC_RESET','SYNC / RESET','signal','right'),(12,'CS','CS','signal','right'),
+        (13,'DRDY','DRDY','signal','right'),(14,'SCLK','SCLK','signal','right'),
+        (15,'DOUT','DOUT','signal','right'),(16,'DIN','DIN','signal','right'),
+        (17,'CLKIN','CLKIN','signal','right'),(18,'CAP','CAP','other','right'),
+        (19,'DGND','DGND','ground','right'),(20,'DVDD','DVDD','power','right')),
+        'TI SBAS890D §5 PW pin map and §6.3 input limits; not RUK WQFN numbering.'),
+    _measurement_diagram('ti_ads1232','TI ADS1232 · PW TSSOP-24',ADS1232_SOURCE,(
+        (1,'DVDD','DVDD','power','right'),(2,'DGND','DGND','ground','right'),
+        (3,'CLKIN_XTAL1','CLKIN / XTAL1','signal','right'),(4,'XTAL2','XTAL2','other','right'),
+        (5,'DGND_5','DGND','ground','right'),(6,'DGND_6','DGND','ground','right'),
+        (7,'TEMP','TEMP','signal','right'),(8,'A0','A0','signal','right'),
+        (9,'CAP_9','CAP','other','left'),(10,'CAP_10','CAP','other','left'),
+        (11,'AINP1','AINP1','signal','left'),(12,'AINN1','AINN1','signal','left'),
+        (13,'AINN2','AINN2','signal','left'),(14,'AINP2','AINP2','signal','left'),
+        (15,'REFN','REFN','signal','left'),(16,'REFP','REFP','signal','left'),
+        (17,'AGND','AGND','ground','left'),(18,'AVDD','AVDD','power','left'),
+        (19,'GAIN0','GAIN0','signal','right'),(20,'GAIN1','GAIN1','signal','right'),
+        (21,'SPEED','SPEED','signal','right'),(22,'PDWN','PDWN','signal','right'),
+        (23,'SCLK','SCLK','signal','right'),(24,'DRDY_DOUT','DRDY / DOUT','signal','right')),
+        'TI SBAS350H Rev H §5 PW pin map; §6.5 10/80 SPS filter specifications.'),
+    _measurement_diagram('avia_hx711','AVIA HX711 · SOP-16',HX711_SOURCE,(
+        (1,'VSUP','VSUP','power','left'),(2,'BASE','BASE','other','left'),
+        (3,'AVDD','AVDD','power','left'),(4,'VFB','VFB','other','left'),
+        (5,'AGND','AGND','ground','left'),(6,'VBG','VBG','other','left'),
+        (7,'INA_NEG','INA−','signal','left'),(8,'INA_POS','INA+','signal','left'),
+        (9,'INB_NEG','INB−','signal','left'),(10,'INB_POS','INB+','signal','left'),
+        (11,'PD_SCK','PD_SCK','signal','right'),(12,'DOUT','DOUT','signal','right'),
+        (13,'XO','XO','other','right'),(14,'XI','XI','other','right'),
+        (15,'RATE','RATE','signal','right'),(16,'DVDD','DVDD','power','right')),
+        'AVIA HX711 manufacturer datasheet SOP-16 pin description; document hosted by SparkFun.'),
+    _measurement_diagram('sensirion_sht31_dis_b','Sensirion SHT31-DIS-B · DFN-8',SHT31_SOURCE,(
+        (1,'SDA','SDA','signal','right'),(2,'ADDR','ADDR','signal','left'),
+        (3,'ALERT','ALERT','signal','right'),(4,'SCL','SCL','signal','right'),
+        (5,'VDD','VDD','power','left'),(6,'NRESET','nRESET','signal','left'),
+        (7,'R','R · connect VSS','other','left'),(8,'VSS','VSS','ground','left')),
+        'Sensirion SHT3x-DIS V7 December 2022 §2.1 DFN pin assignment.'),
+    _measurement_diagram('sensirion_sht45_ad1b','Sensirion SHT45-AD1B · DFN-4',SHT45_SOURCE,(
+        (1,'SDA','SDA','signal','right'),(2,'SCL','SCL','signal','right'),
+        (3,'VDD','VDD','power','left'),(4,'VSS','VSS','ground','left')),
+        'Sensirion SHT4x V7.3 June 2026 DFN4 pin assignment; exact AD1B address 0x44.'),
+)
 _BY_ID = {diagram.catalog_id: diagram for diagram in PRODUCT_DIAGRAMS}
 
 

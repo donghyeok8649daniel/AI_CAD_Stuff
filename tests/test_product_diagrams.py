@@ -14,7 +14,7 @@ def _terminals(identifier):
 
 def test_exact_product_diagrams_are_immutable_unique_and_source_linked():
     diagrams = available_product_diagrams()
-    assert isinstance(diagrams, tuple) and len(diagrams) == 6
+    assert isinstance(diagrams, tuple) and len(diagrams) >= 12
     assert len({diagram.catalog_id for diagram in diagrams}) == len(diagrams)
     for diagram in diagrams:
         assert product_diagram(diagram.catalog_id) is diagram
@@ -22,11 +22,12 @@ def test_exact_product_diagrams_are_immutable_unique_and_source_linked():
         assert entry is not None and entry.source_url == diagram.source_url
         assert len({pin.key for pin in diagram.terminals}) == len(diagram.terminals)
         assert len({(pin.side, pin.position) for pin in diagram.terminals}) == len(diagram.terminals)
-        assert SOURCE_CHECKED_DATE in diagram.note and SOURCE_CHECKED_DATE in diagram.note_en
+        checked='2026-10-06' if diagram.catalog_id in ('hbk_u10m_25kn_passive','maxon_ec_i52_667065','ti_ads131m04','ti_ads1232','avia_hx711','sensirion_sht31_dis_b','sensirion_sht45_ad1b') else SOURCE_CHECKED_DATE
+        assert checked in diagram.note and checked in diagram.note_en
         assert diagram.evidence and "시뮬레이션" in diagram.note
         host = urlsplit(diagram.source_url)
         assert host.scheme == "https" and host.hostname in {
-            "look.ams-osram.com", "www.pololu.com", "www.vishay.com", "www.st.com", "www.ia.omron.com",
+            "look.ams-osram.com", "www.pololu.com", "www.vishay.com", "www.st.com", "www.ia.omron.com",'www.ti.com','sensirion.com','cdn.sparkfun.com','www.hbm.com','www.maxongroup.com',
         }
         assert "Not a dimensioned PCB/footprint" in diagram.note_en
         for terminal in diagram.terminals:

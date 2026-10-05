@@ -34,7 +34,7 @@ class PrintPlacementHandle:
             self.dialog.status.setText('배치 중 · 마우스를 놓으면 간섭과 출력 영역을 다시 검사합니다.')
         for actor in self.view.actors[identifier]:actor.SetPosition(float(delta[0]),float(delta[1]),0)
         self.dialog.placements[identifier]={**pose,'x':pose['x']+float(delta[0]),'y':pose['y']+float(delta[1])}
-        self.dialog.sync_pose();self.view.window.Render();return True
+        self.dialog.sync_pose();self.view.render();return True
     def release(self):
         if self.drag is None:return False
         self.drag=None

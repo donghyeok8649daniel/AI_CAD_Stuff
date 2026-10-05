@@ -147,7 +147,7 @@ class CADStyle(vtkInteractorStyleTrackballCamera):
         pos=self.GetInteractor().GetEventPosition()
         if self.down is not None and getattr(self,'axis_drag',None) is not None:
             if math.dist(self.down,pos)>=5:
-                camera=self.owner.renderer.GetActiveCamera();camera.Azimuth((self.axis_last[0]-pos[0])*.6);camera.Elevation((self.axis_last[1]-pos[1])*.6);camera.OrthogonalizeViewUp();self.owner.renderer.ResetCameraClippingRange();self.owner.window.Render()
+                camera=self.owner.renderer.GetActiveCamera();camera.Azimuth((self.axis_last[0]-pos[0])*.6);camera.Elevation((self.axis_last[1]-pos[1])*.6);camera.OrthogonalizeViewUp();self.owner.renderer.ResetCameraClippingRange();self.owner.render()
             self.axis_last=pos;return
         if self.down is not None and getattr(self,'box',False):self.owner.show_rubber(self.down,pos);return
         if self.owner.handle and self.owner.handle.move(pos):return
@@ -209,7 +209,17 @@ class CADViewport(QWidget,SelectionTools):
         self.footer.setStyleSheet('padding:7px 12px;background:#17232e;color:#92aabd;font-size:11px;');layout.addWidget(self.footer)
         from .display_style import preferences
         self.display_prefs=preferences();self.display_prefs.changed.connect(self.apply_display_style)
-        self.make_grid(100);self.set_view('iso',render=False);QTimer.singleShot(0,self.initialize)
+        self.make_grid(100);self.set_view('iso',render=False)
+
+    def showEvent(self,event):
+        super().showEvent(event)
+        QTimer.singleShot(0,self.initialize)
+
+    def render(self):
+        # A worker may finish before its dialog has a native WGL surface.
+        # Keep actor/camera updates, but render only a live, visible context.
+        if self.initialized and not self.closed and self.isVisible():
+            self.window.Render()
 
     def apply_display_style(self):
         if self.closed:return
@@ -222,7 +232,7 @@ class CADViewport(QWidget,SelectionTools):
             for role in ('Shaft','Tip'):
                 p=getattr(self.axes,'Get'+axis+'Axis'+role+'Property')();p.SetColor(*rgb);p.SetOpacity(s.axes_brightness/100);p.SetLineWidth(s.axes_width)
             p=getattr(self.axes,'Get'+axis+'AxisCaptionActor2D')().GetCaptionTextProperty();p.SetColor(*rgb);p.SetOpacity(s.axes_brightness/100)
-        if self.initialized and self.isVisible():self.window.Render()
+        if self.initialized and self.isVisible():self.render()
 
     def prepare_render_depth(self,*_):
         if self.closed:return
@@ -232,18 +242,18 @@ class CADViewport(QWidget,SelectionTools):
         reset_clipping(self.renderer,extra)
 
     def initialize(self):
-        if self.closed:return
-        self.widget.Initialize();self.initialized=True;self.axes_widget.SetEnabled(int(self.axes_visible));self.axes_widget.InteractiveOff();self.window.Render()
+        if self.closed or self.initialized or not self.isVisible():return
+        self.widget.Initialize();self.initialized=True;self.axes_widget.SetEnabled(int(self.axes_visible));self.axes_widget.InteractiveOff();self.render()
 
     def show_grid(self,visible):
         self.grid_visible=bool(visible)
         if self.grid_actor:self.grid_actor.SetVisibility(self.grid_visible)
         self.grid_label.setVisible(self.grid_visible)
-        if self.initialized and not self.closed:self.window.Render()
+        if self.initialized and not self.closed:self.render()
 
     def show_axes(self,visible):
         self.axes_visible=bool(visible)
-        if self.initialized and not self.closed:self.axes_widget.SetEnabled(int(visible));self.window.Render()
+        if self.initialized and not self.closed:self.axes_widget.SetEnabled(int(visible));self.render()
 
     def make_grid(self,extent):
         if self.grid_actor:self.renderer.RemoveActor(self.grid_actor)
@@ -268,7 +278,7 @@ class CADViewport(QWidget,SelectionTools):
         self.select_many(list(ids))
         for identifier in ids:
             if identifier in self.actors:self.actors[identifier][0].GetProperty().SetColor(.9,.25,.16)
-        self.window.Render()
+        self.render()
         text='\n'.join(f"{names.get(c['a'],c['a'])} ↔ {names.get(c['b'],c['b'])}: {c['volume']:.4g} mm³" for c in hits[:30])
         QMessageBox.warning(self,'부품 간섭 경고',text+'\n\n빨간색 부품의 장착 위치·구멍·조립 여유를 확인하세요. 그룹화는 간섭을 없애지 않습니다. 불리언 연산의 보관된 도구 몸체는 의도된 중첩일 수 있습니다.')
     def update_metadata(self,result,fit=False):
@@ -282,7 +292,7 @@ class CADViewport(QWidget,SelectionTools):
             actor.GetProperty().SetColor(*(int(value[i:i+2],16)/255 for i in (1,3,5)))
         self.select_many(self.selected_ids,False)
         if fit:self.fit()
-        else:self.window.Render()
+        else:self.render()
 
     def load(self,result,fit=True):
         for actor in self.edge_candidates:self.renderer.RemoveActor(actor)
@@ -326,7 +336,7 @@ class CADViewport(QWidget,SelectionTools):
         for key in self.hidden:self.visibility(key,False,False)
         self.select_many([i for i in self.selected_ids if i in self.actors],False)
         if fit:self.fit()
-        else:self.window.Render()
+        else:self.render()
 
     def clear_face(self):
         if self.highlight:self.renderer.RemoveActor(self.highlight);self.highlight=None
@@ -356,7 +366,7 @@ class CADViewport(QWidget,SelectionTools):
         for actor in (self.sketch_actors if self.selection_mode=='sketch' else self.actor_ids):picker.AddPickList(actor)
         if self.selection_mode=='auto':
             for actor in self.sketch_actors:picker.AddPickList(actor)
-        if not picker.Pick(x,y,0,self.renderer):self.clear_face();self.parts_selected.emit([],'replace');self.window.Render();return
+        if not picker.Pick(x,y,0,self.renderer):self.clear_face();self.parts_selected.emit([],'replace');self.render();return
         if picker.GetActor() in self.sketch_actors:
             self.sketch_selected.emit(self.sketch_actors[picker.GetActor()]);return
         identifier=self.actor_ids.get(picker.GetActor())
@@ -365,7 +375,7 @@ class CADViewport(QWidget,SelectionTools):
         if index<0 or index>=len(mesh['triangle_faces']):return
         face_index=mesh['triangle_faces'][index];face=next((f for f in mesh['faces'] if f['index']==face_index),None)
         self.select(identifier,False);self.part_selected.emit(identifier)
-        if self.selection_mode=='body' or len(self.selected_ids)>1:self.clear_face();self.window.Render();self.message.emit(mesh['name']+' · 부품 선택');return
+        if self.selection_mode=='body' or len(self.selected_ids)>1:self.clear_face();self.render();self.message.emit(mesh['name']+' · 부품 선택');return
         self.highlight_face(identifier,face_index)
         self.face=(identifier,face)
         self.face_selected.emit(identifier,face)
@@ -383,17 +393,17 @@ class CADViewport(QWidget,SelectionTools):
             else:mesh.SetLines(cells)
             mapper=vtkPolyDataMapper();mapper.SetInputData(mesh);line_offset(mapper)
             actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.55,.7,.76);actor.GetProperty().SetLineWidth(2);actor.GetProperty().SetPointSize(10);actor.GetProperty().RenderPointsAsSpheresOn();self.renderer.AddActor(actor);self.edge_candidates[actor]=ref['index']
-        self.footer.setText('모서리 클릭: 선택 / 해제 · 드래그: 회전 · 휠: 확대');self.window.Render()
+        self.footer.setText('모서리 클릭: 선택 / 해제 · 드래그: 회전 · 휠: 확대');self.render()
 
     def highlight_edges(self,selected):
         for actor,index in self.edge_candidates.items():
             actor.GetProperty().SetColor(*((.35,.95,.7) if index in selected else (.55,.7,.76)));actor.GetProperty().SetLineWidth(4 if index in selected else 2)
-        self.window.Render()
+        self.render()
 
     def highlight_face(self,identifier,face_index):
         self.clear_face();mesh=self.meshes[identifier];triangles=np.asarray(mesh['triangles']).reshape(-1,3);mask=np.asarray(mesh['triangle_faces'])==face_index
         data=polydata(mesh['vertices'],triangles[mask]);mapper=vtkPolyDataMapper();mapper.SetInputData(data);surface_offset(mapper,-1)
-        actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.95,.68,.22);actor.GetProperty().SetOpacity(.45);actor.PickableOff();self.highlight=actor;self.renderer.AddActor(actor);self.window.Render()
+        actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.95,.68,.22);actor.GetProperty().SetOpacity(.45);actor.PickableOff();self.highlight=actor;self.renderer.AddActor(actor);self.render()
 
     def select(self,identifier,render=True):
         self.select_many([identifier] if identifier else [],render)
@@ -404,7 +414,7 @@ class CADViewport(QWidget,SelectionTools):
             selected=key in identifiers;edge.GetProperty().SetColor(*((1,.67,.22) if selected else (.22,.35,.40)));edge.GetProperty().SetLineWidth(2.5 if selected else 1)
             edge.SetVisibility(key not in self.hidden and (self.show_edges or selected))
             actor.GetProperty().SetAmbient(.4 if selected else .24)
-        if render:self.window.Render()
+        if render:self.render()
 
     def set_box_mode(self,enabled):
         self.box_mode=enabled;self.widget.setCursor(Qt.CursorShape.CrossCursor if enabled else Qt.CursorShape.ArrowCursor)
@@ -428,7 +438,7 @@ class CADViewport(QWidget,SelectionTools):
         if identifier in self.actors:
             actor,edge=self.actors[identifier];actor.SetVisibility(visible);edge.SetVisibility(visible and self.show_edges)
         self.rebuild_pick_objects()
-        if render:self.window.Render()
+        if render:self.render()
 
     def set_hidden_parts(self,identifiers,render=True):
         """Batch visibility changes so a role view rebuilds picking just once."""
@@ -438,18 +448,18 @@ class CADViewport(QWidget,SelectionTools):
             actor.SetVisibility(visible)
             edge.SetVisibility(visible and (self.show_edges or identifier in self.selected_ids))
         self.rebuild_pick_objects()
-        if render:self.window.Render()
+        if render:self.render()
 
     def edges(self,enabled):
         self.show_edges=enabled
         for key,(_,edge) in self.actors.items():edge.SetVisibility(enabled and key not in self.hidden)
-        self.window.Render()
+        self.render()
 
     def fit(self):
         if self.result:
             a=self.result['stats']['min'];b=self.result['stats']['max'];bounds=[v for pair in zip(a,b) for v in pair];self.renderer.ResetCamera(bounds if max(self.result['stats']['bounds'])>1e-6 else [-25,25,-25,25,0,0])
         else:self.renderer.ResetCamera(-50,50,-50,50,0,0)
-        self.renderer.ResetCameraClippingRange();self.window.Render()
+        self.renderer.ResetCameraClippingRange();self.render()
 
     def zoom_at_cursor(self,position,factor):
         from .navigation import zoom_camera
@@ -458,7 +468,7 @@ class CADViewport(QWidget,SelectionTools):
             if identifier not in self.hidden:picker.AddPickList(actor)
         anchor=picker.GetPickPosition() if picker.Pick(*position,0,self.renderer) else None
         zoom_camera(self.renderer,position,factor,anchor)
-        self.window.Render()
+        self.render()
 
     def set_view(self,name,render=True):
         camera=self.renderer.GetActiveCamera();camera.ParallelProjectionOn()
@@ -495,7 +505,7 @@ class CADViewport(QWidget,SelectionTools):
             direction=np.eye(3)['xyz'.index(axis)];current=np.array(camera.GetPosition())-focus;current/=max(np.linalg.norm(current),1e-9)
             if np.dot(current,direction)>.999:direction=-direction
             up=(0,1,0) if axis=='z' else (0,0,1)
-        camera.SetPosition(*(focus+direction*distance));camera.SetViewUp(*up);camera.OrthogonalizeViewUp();self.renderer.ResetCameraClippingRange();self.window.Render()
+        camera.SetPosition(*(focus+direction*distance));camera.SetViewUp(*up);camera.OrthogonalizeViewUp();self.renderer.ResetCameraClippingRange();self.render()
         self.message.emit('등각 시점' if axis=='origin' else axis.upper()+'축 시점 · 다시 누르면 반대 방향')
 
     def shutdown(self):
