@@ -25,6 +25,11 @@ Kind = Literal["battery", "wire", "switch", "resistor", "capacitor", "inductor",
                "load", "motor", "actuator", "mcu"]
 
 
+class ElectricalWireEndpoint(ElectricalModel):
+    component_id: str = Field(min_length=1,max_length=40,pattern=r"^[A-Za-z0-9_-]+$")
+    terminal: str = Field(min_length=1,max_length=48,pattern=r"^(a|b|(pin|port|supply):[A-Za-z0-9_-]+)$")
+
+
 class ElectricalComponent(ElectricalModel):
     id: Identifier = Field(min_length=1, max_length=40, pattern=r"^[A-Za-z0-9_-]+$")
     name: str = Field(min_length=1, max_length=80)
@@ -56,6 +61,8 @@ class ElectricalComponent(ElectricalModel):
     # Copper near room temperature, in ohm * mm^2 / m. User may override.
     resistivity_ohm_mm2_per_m: float = Field(default=0.01724, gt=0, le=100)
     closed: bool = True
+    wire_color: str | None = Field(default=None,pattern=r"^#[0-9a-fA-F]{6}$")
+    wire_endpoints: list[ElectricalWireEndpoint] = Field(default_factory=list,max_length=2)
     contact_resistance_ohm: float = Field(default=0.01, gt=0, le=1000)
     # MCU signal pins and user-declared sensor/driver signal terminals are
     # passive net labels. They add no GPIO output resistance or digital logic.
@@ -83,12 +90,18 @@ class ElectricalComponent(ElectricalModel):
                                ("capacitor_polarized", False)):
             if field not in self.model_fields_set and getattr(self, field) == default:
                 data.pop(field, None)
+        for field,default in (("wire_color",None),("wire_endpoints",[])):
+            if field not in self.model_fields_set and getattr(self,field)==default:data.pop(field,None)
         return data
 
     @model_validator(mode="after")
     def required_values(self):
         if self.a == self.b:
             raise ValueError("전장 부품 양 끝은 서로 다른 노드에 연결해야 합니다.")
+        if (self.wire_color or self.wire_endpoints) and self.kind!='wire':
+            raise ValueError("전선 색과 연결 단자 정보는 전선에만 지정합니다.")
+        if self.wire_endpoints and (len(self.wire_endpoints)!=2 or self.wire_endpoints[0]==self.wire_endpoints[1]):
+            raise ValueError("전선에는 서로 다른 시작·도착 단자 두 개를 지정하세요.")
         if self.analysis_enabled and self.kind == "battery" and self.voltage_v <= 0:
             raise ValueError("배터리의 개방 전압(V)을 입력하세요.")
         if self.analysis_enabled and self.kind == "wire" and (self.length_mm <= 0 or self.cross_section_mm2 <= 0):

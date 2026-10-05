@@ -174,6 +174,9 @@ class ComponentDialog(QDialog):
         self.closed=QCheckBox('스위치 닫힘');self.closed.setChecked(old.get('closed',True));form.addRow(self.closed)
         self.wire_connected=QCheckBox('전선 연결됨 · 해제하면 단선')
         self.wire_connected.setChecked(old.get('closed',True));form.addRow(self.wire_connected)
+        self.wire_color=QLineEdit(old.get('wire_color') or '')
+        self.wire_color.setPlaceholderText('#297DC2 · 비우면 자동 색');self.wire_color.setMaxLength(7)
+        form.addRow('전선 색',self.wire_color);self.wire_color_caption=form.labelForField(self.wire_color)
         self.power_enabled=QCheckBox('전원 인가 · 배터리 출력 켜기')
         self.power_enabled.setChecked(old.get('closed',True));form.addRow(self.power_enabled)
         pins=old.get('signal_pins') or {}
@@ -215,6 +218,7 @@ class ComponentDialog(QDialog):
         self.capacitor_polarized.setVisible(kind=='capacitor')
         self.closed.setVisible(kind=='switch')
         self.wire_connected.setVisible(kind=='wire')
+        self.wire_color.setVisible(kind=='wire');self.wire_color_caption.setVisible(kind=='wire')
         self.power_enabled.setVisible(kind=='battery')
         self.signal_caption.setVisible(kind=='mcu');self.signal_pins.setVisible(kind=='mcu')
         self.terminal_caption.setVisible(kind in ('load','motor','actuator'));self.terminal_pins.setVisible(kind in ('load','motor','actuator'))
@@ -297,6 +301,7 @@ class ComponentDialog(QDialog):
                     **({'signal_pins':self.parsed_signal_pins(),'pinout_catalog_id':self.pinout_catalog_id if self.pinout_catalog_id==self.catalog_id else ''} if kind=='mcu' else {}),
                     **({'terminal_pins':self.parsed_terminals(self.terminal_pins)} if kind in ('load','motor','actuator') else {}),
                     **({'capacitor_polarized':self.capacitor_polarized.isChecked()} if kind=='capacitor' else {}),
+                    **({'wire_color':self.wire_color.text().strip() or None,'wire_endpoints':self.old.get('wire_endpoints',[])} if kind=='wire' else {}),
                     **self.supply_fields,**values)
 
     def accept(self):

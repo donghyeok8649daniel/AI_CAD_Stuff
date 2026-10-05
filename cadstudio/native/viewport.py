@@ -28,6 +28,7 @@ def polydata(vertices,triangles):
 
 
 from .interaction import SelectionTools
+from .render_depth import reset_clipping,surface_offset,line_offset
 
 
 class ViewportCaption(QLabel):
@@ -197,6 +198,9 @@ class CADViewport(QWidget,SelectionTools):
         for role in ('Key','Fill','Back','Head'):getattr(self.light_kit,'Set'+role+'LightWarmth')(.5)
         self.light_kit.SetKeyLightIntensity(.8);self.light_kit.AddLightsToRenderer(self.renderer)
         self.window=self.widget.GetRenderWindow();self.window.AddRenderer(self.renderer);self.window.SetMultiSamples(0)
+        # Cover every render path, including VTK's native trackball orbit and
+        # focusing a small part while the rest of the assembly remains visible.
+        self.renderer.AddObserver('StartEvent',self.prepare_render_depth)
         from .assembly_display import AssemblyDisplay
         self.joints=AssemblyDisplay(self);self.rubber=QRubberBand(QRubberBand.Shape.Rectangle,self.widget)
         self.interactor=self.window.GetInteractor();self.style=CADStyle(self);self.style.SetDefaultRenderer(self.renderer);self.interactor.SetInteractorStyle(self.style)
@@ -219,6 +223,13 @@ class CADViewport(QWidget,SelectionTools):
                 p=getattr(self.axes,'Get'+axis+'Axis'+role+'Property')();p.SetColor(*rgb);p.SetOpacity(s.axes_brightness/100);p.SetLineWidth(s.axes_width)
             p=getattr(self.axes,'Get'+axis+'AxisCaptionActor2D')().GetCaptionTextProperty();p.SetColor(*rgb);p.SetOpacity(s.axes_brightness/100)
         if self.initialized and self.isVisible():self.window.Render()
+
+    def prepare_render_depth(self,*_):
+        if self.closed:return
+        extra=[]
+        if self.handle and hasattr(self.handle,'overlay'):extra.append(self.handle.overlay.ComputeVisiblePropBounds())
+        if hasattr(self,'joints'):extra.append(self.joints.renderer.ComputeVisiblePropBounds())
+        reset_clipping(self.renderer,extra)
 
     def initialize(self):
         if self.closed:return
@@ -300,7 +311,7 @@ class CADViewport(QWidget,SelectionTools):
                 data=vtkPolyData();data.SetPoints(pts);data.SetLines(lines);mapper=vtkPolyDataMapper();mapper.SetInputData(data);actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.38,.81,.83);actor.GetProperty().SetLineWidth(2.5);self.renderer.AddActor(actor);self.sketch_actors[actor]=sketch['id']
             for sketch in result.get('sketches',[]):
                 for region in sketch.get('regions',[]):
-                    mapper=vtkPolyDataMapper();mapper.SetInputData(polydata(region['vertices'],region['triangles']));mapper.SetResolveCoincidentTopologyToPolygonOffset();mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(-2,-2)
+                    mapper=vtkPolyDataMapper();mapper.SetInputData(polydata(region['vertices'],region['triangles']));surface_offset(mapper)
                     actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.2,.85,.72);actor.GetProperty().SetOpacity(.07);self.renderer.AddActor(actor);self.profile_actors[actor]=(sketch['id'],region['index'])
             self.make_grid(max(result['stats']['bounds'])*1.2)
             s=result['stats'];self.caption.setText(f"{s['parts']}개 부품   ·   {' × '.join(f'{n:.2f}' for n in s['bounds'])} mm   ·   {s['volume']:,.2f} mm³")
@@ -370,7 +381,7 @@ class CADViewport(QWidget,SelectionTools):
             mesh=vtkPolyData();mesh.SetPoints(points)
             if len(ref['points'])==1:mesh.SetVerts(cells)
             else:mesh.SetLines(cells)
-            mapper=vtkPolyDataMapper();mapper.SetInputData(mesh);mapper.SetResolveCoincidentTopologyToPolygonOffset();mapper.SetRelativeCoincidentTopologyLineOffsetParameters(-2,-2)
+            mapper=vtkPolyDataMapper();mapper.SetInputData(mesh);line_offset(mapper)
             actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.55,.7,.76);actor.GetProperty().SetLineWidth(2);actor.GetProperty().SetPointSize(10);actor.GetProperty().RenderPointsAsSpheresOn();self.renderer.AddActor(actor);self.edge_candidates[actor]=ref['index']
         self.footer.setText('모서리 클릭: 선택 / 해제 · 드래그: 회전 · 휠: 확대');self.window.Render()
 
@@ -381,7 +392,7 @@ class CADViewport(QWidget,SelectionTools):
 
     def highlight_face(self,identifier,face_index):
         self.clear_face();mesh=self.meshes[identifier];triangles=np.asarray(mesh['triangles']).reshape(-1,3);mask=np.asarray(mesh['triangle_faces'])==face_index
-        data=polydata(mesh['vertices'],triangles[mask]);mapper=vtkPolyDataMapper();mapper.SetInputData(data);mapper.SetResolveCoincidentTopologyToPolygonOffset();mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(-1,-1)
+        data=polydata(mesh['vertices'],triangles[mask]);mapper=vtkPolyDataMapper();mapper.SetInputData(data);surface_offset(mapper,-1)
         actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.95,.68,.22);actor.GetProperty().SetOpacity(.45);actor.PickableOff();self.highlight=actor;self.renderer.AddActor(actor);self.window.Render()
 
     def select(self,identifier,render=True):
@@ -497,4 +508,4 @@ class CADViewport(QWidget,SelectionTools):
         # OpenGL interactor after Qt has destroyed its native HWND.
         self.axes_widget.SetEnabled(0);self.axes_widget.SetInteractor(None)
         self.style.RemoveAllObservers();self.style.owner=None;self.interactor.SetInteractorStyle(None);self.interactor.Disable()
-        self.widget._Timer.stop();self.interactor.RemoveAllObservers();self.window.RemoveAllObservers();self.renderer.RemoveAllViewProps();self.widget.Finalize()
+        self.widget._Timer.stop();self.interactor.RemoveAllObservers();self.window.RemoveAllObservers();self.renderer.RemoveObservers('StartEvent');self.renderer.RemoveAllViewProps();self.widget.Finalize()

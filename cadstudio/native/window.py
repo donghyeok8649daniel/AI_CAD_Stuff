@@ -329,6 +329,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         panel.setWindowFlags(Qt.WindowType.Widget)
         panel.setObjectName('mainCircuitWorkspace')
         panel.editRequested.connect(self.edit_main_circuit)
+        panel.wireActionRequested.connect(self.edit_circuit_wire)
         panel.simulationRequested.connect(self.open_drive_simulation)
         panel.focusRequested.connect(self.toggle_circuit_focus)
         panel.partActivated.connect(self.show_electrical_cad_part)
@@ -356,6 +357,27 @@ class MainWindow(QMainWindow,PartSelectionUI):
             raw['electrical']=dialog.accepted_workspace.model_dump()
             self.apply_design(raw,'회로도 부품 / 핀 / 배치 편집',{'tool':'electrical-schematic','component_ids':[c.id for c in dialog.accepted_workspace.components]},fit=False)
 
+    def edit_circuit_wire(self,action,context=None):
+        if self.busy or self.sketching:return
+        from ..circuit_connections import delete_schematic_wire
+        from .wire_connection_dialog import WireConnectionDialog
+        raw=deepcopy(self.document.design) if self.document.design else Design().model_dump()
+        workspace=raw.get('electrical') or {'nodes':['GND'],'components':[]}
+        if action=='add':
+            dialog=WireConnectionDialog(self,workspace,english=self.language_service.language=='en',selected_terminal=context)
+            try:
+                if dialog.exec()!=QDialog.DialogCode.Accepted or dialog.checked is None:return
+                updated=dialog.checked;identifier=dialog.wire_id
+            finally:dialog.deleteLater()
+        elif action=='delete':
+            try:updated=delete_schematic_wire(workspace,context)
+            except (ValueError,TypeError) as exc:self.show_error(str(exc));return
+            identifier=context
+        else:return
+        raw['electrical']=updated.model_dump()
+        self.apply_design(raw,'전선 추가' if action=='add' else '선택 전선 삭제',
+            {'tool':'electrical-wire-'+action,'component_ids':[identifier]},fit=False)
+
     def open_wiring_diagram(self,component_id=None):
         if self.busy or self.sketching:return
         if isinstance(component_id,bool):component_id=None
@@ -381,6 +403,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         panel=ElectricalSchematicDialog(self,raw,parts=(self.document.design or {}).get('parts',[]),editable=False)
         panel.setObjectName('floatingWiringDiagram');panel.setWindowFlags(Qt.WindowType.Window)
         panel.editRequested.connect(self.edit_main_circuit);panel.partActivated.connect(self.show_electrical_cad_part)
+        panel.wireActionRequested.connect(self.edit_circuit_wire)
         panel.simulationRequested.connect(self.open_drive_simulation)
         panel.close_button.show();return panel
 

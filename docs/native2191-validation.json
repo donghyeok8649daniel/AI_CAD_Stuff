@@ -1,0 +1,77 @@
+{
+  "version": "2.19.1",
+  "total_source_passed": 343,
+  "source_tests": "342 passed, 114 warnings in 62.87s (0:01:02)",
+  "lazy_scipy_tests": "1 passed in 3.84s",
+  "source_modules_verified": 177,
+  "native_entry_verified": true,
+  "frozen_checks": 512,
+  "software_driver_unmodified": true,
+  "flows": [
+    {
+      "name": "occlusion-auto",
+      "checks": 48,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "3591c77c1598de1ab755679c54459b112cb3337d1fade9cdc2f60a7585fbb6f8"
+    },
+    {
+      "name": "occlusion-software",
+      "checks": 48,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "3591c77c1598de1ab755679c54459b112cb3337d1fade9cdc2f60a7585fbb6f8"
+    },
+    {
+      "name": "circuit-canvas-auto",
+      "checks": 86,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "acad7a7e10a289fbb595bb63394ed89fd7a088835969bb1515af34460c9b423d"
+    },
+    {
+      "name": "circuit-canvas-software",
+      "checks": 86,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "acad7a7e10a289fbb595bb63394ed89fd7a088835969bb1515af34460c9b423d"
+    },
+    {
+      "name": "selection-auto",
+      "checks": 80,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "77e00f053da799151f08656d0637e4d69cd3ffdc97045a20d5ca2c5a140cc8d8"
+    },
+    {
+      "name": "selection-software",
+      "checks": 80,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "77e00f053da799151f08656d0637e4d69cd3ffdc97045a20d5ca2c5a140cc8d8"
+    },
+    {
+      "name": "mechanism-auto",
+      "checks": 23,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "27ef4206d0170308366283daff1c661ef11f76b19c3bc781bd99c596f50fa2f9"
+    },
+    {
+      "name": "mechanism-software",
+      "checks": 23,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "27ef4206d0170308366283daff1c661ef11f76b19c3bc781bd99c596f50fa2f9"
+    },
+    {
+      "name": "print-ai",
+      "checks": 38,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "1f933fbb45f24aa71812cdcf4b2da019ef8db9d3d53aaf873d8964e44710c86f"
+    }
+  ],
+  "contains_user_project_data": false,
+  "scope": "Orthographic camera depth and constant-unit selection overlays; saved explicit circuit-wire add/delete; no geometry or solver model change"
+}

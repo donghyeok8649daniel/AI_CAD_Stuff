@@ -5,6 +5,7 @@ from vtkmodules.vtkCommonCore import vtkPoints
 from vtkmodules.vtkCommonDataModel import vtkPolyData,vtkCellArray
 from vtkmodules.vtkRenderingCore import vtkActor,vtkPolyDataMapper,vtkCellPicker,vtkRenderer
 from vtkmodules.vtkFiltersSources import vtkConeSource
+from .render_depth import line_offset
 
 
 def line_actor(rows,color=(.35,.85,.8),width=2,points=False):
@@ -16,7 +17,7 @@ def line_actor(rows,color=(.35,.85,.8),width=2,points=False):
     data=vtkPolyData();data.SetPoints(pts)
     if points:data.SetVerts(cells)
     else:data.SetLines(cells)
-    mapper=vtkPolyDataMapper();mapper.SetInputData(data);mapper.SetResolveCoincidentTopologyToPolygonOffset();mapper.SetRelativeCoincidentTopologyLineOffsetParameters(-2,-2)
+    mapper=vtkPolyDataMapper();mapper.SetInputData(data);line_offset(mapper)
     actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(*color);actor.GetProperty().SetLineWidth(width);actor.GetProperty().SetPointSize(9);actor.GetProperty().RenderPointsAsSpheresOn();return actor
 
 

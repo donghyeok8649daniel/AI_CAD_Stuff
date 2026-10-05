@@ -30,7 +30,7 @@ def wire_color(node, endpoints):
     return QColor(palette[hashlib.sha256(node.encode()).digest()[0]%len(palette)])
 
 
-def physical_routes(nets, component_items):
+def physical_routes(nets, component_items, *, reserved_points=(), reserved_segments=None):
     """Only a pin's own lead may cross its own illustrated board body.
 
     Physical headers can be inside an outline. Route from an explicit escaped
@@ -41,6 +41,7 @@ def physical_routes(nets, component_items):
     bodies={identifier:item.mapRectToScene(item.body_rect) for identifier,item in component_items.items()}
     reserved=[item.port_scene_position(key) for item in component_items.values()
               for key,port in item.ports.items() if port.node is None]
+    reserved.extend(reserved_points)
     # All visible pads participate, including lone nets and unassigned pins.
     # Horizontal lead checks examine only the matching row, keeping dense
     # physical headers inexpensive without ignoring a neighboring socket.
@@ -76,8 +77,10 @@ def physical_routes(nets, component_items):
         if (node,identifier,key) in bad:continue
         external[node].append((identifier,key,escaped,port))
         if point!=escaped:leads[node].append((point,escaped))
+    occupied={key:list(rows) for key,rows in (reserved_segments or {}).items()}
+    for key,rows in leads.items():occupied.setdefault(key,[]).extend(rows)
     routed=route_nets(external,list(bodies.values()),reserved_points=reserved,
-                      reserved_segments=leads)
+                      reserved_segments=occupied)
     # A lone or unroutable terminal is represented by a labeled free wire end,
     # preserving connectivity without pretending an off-page lead is a junction.
     segments={node:[*leads[node],*routed.segments.get(node,[])] for node in nets}

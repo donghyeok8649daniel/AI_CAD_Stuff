@@ -370,7 +370,7 @@ class CircuitComponentItem(QGraphicsObject):
 
     def _simple_symbol(self, painter: QPainter, cx: float, cy: float, width: float):
         kind = self.component.kind
-        painter.setPen(QPen(INK, 2))
+        painter.setPen(QPen(QColor(self.component.wire_color) if kind=='wire' and self.component.wire_color else INK, 2))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawLine(QPointF(0, cy), QPointF(cx - 30, cy))
         painter.drawLine(QPointF(cx + 30, cy), QPointF(width, cy))

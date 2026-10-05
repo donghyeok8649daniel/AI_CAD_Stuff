@@ -349,6 +349,58 @@ def run(app,window,path):
               'project save and reload preserve per-part product specifications and links')
         window.undo();wait(lambda:not window.busy)
         check(window.document.design==final,'product reference Undo restores the exact previous design')
+        # Isolated owned DC fixture verifies the direct main Add/Delete controls
+        # without depending on a crowded board's legitimate net-label fallback.
+        wire_base=deepcopy(final)
+        wire_base['electrical']=ElectricalWorkspace.model_validate(dict(nodes=['GND','BAT'],components=[
+            dict(id='wire_source',name='Owned wire-test source',kind='battery',a='BAT',b='GND',voltage_v=5),
+            dict(id='wire_load',name='Owned wire-test load',kind='load',a='BAT',b='GND',rated_voltage_v=5,rated_current_a=.1)])).model_dump()
+        window.apply_design(wire_base,'Owned wire controls fixture');wait(lambda:not window.busy)
+        window.show_circuit_workspace();app.processEvents();panel=window.circuit_panel
+        panel._port_clicked('wire_source','a')
+        from .wire_connection_dialog import WireConnectionDialog
+        def enter_wire():
+            child=QApplication.activeModalWidget()
+            try:
+                assert isinstance(child,WireConnectionDialog)
+                check(child.source.currentData()=='wire_source|a','main Add wire retains the selected physical source terminal')
+                child.target.setCurrentIndex(child.target.findData('wire_load|a'))
+                child.name.setText('Owned colored power lead');child.length.setValue(200);child.area.setValue(.5)
+                child.color.setText('#25A55F');child.accept()
+            except Exception:
+                errors.append(traceback.format_exc())
+                if child:child.reject()
+        QTimer.singleShot(100,enter_wire);panel.add_wire_button.click();wait(lambda:not window.busy)
+        wire_added=deepcopy(window.document.design);wire=next(c for c in wire_added['electrical']['components'] if c['kind']=='wire')
+        panel=window.circuit_panel;panel.fit_scene();app.processEvents()
+        check(wire['wire_color']=='#25A55F' and len(wire['wire_endpoints'])==2,'main Add wire saves color, exact endpoints and actual conductor dimensions')
+        check(wire['b']!='BAT' and next(c for c in wire_added['electrical']['components'] if c['id']=='wire_load')['a']==wire['b'],
+              'inserting a wire into a shared net detaches only the selected load terminal')
+        check(wire['id'] in panel.wire_paths,'saved main physical canvas draws the actual selected-endpoint wire path')
+        item=panel.wire_paths[wire['id']]
+        check(item.pen().color().name()=='#25a55f' and all(item.shape().contains(panel.component_items[ref['component_id']].port_scene_position(ref['terminal']))
+              for ref in wire['wire_endpoints']),'saved wire color is drawn at both exact physical terminal anchors')
+        curve=item.path();last=curve.elementAt(curve.elementCount()-1);previous=curve.elementAt(curve.elementCount()-2)
+        point=panel.view.mapFromScene(QPointF((last.x+previous.x)/2,(last.y+previous.y)/2))
+        QTest.mouseClick(panel.view.viewport(),Qt.MouseButton.LeftButton,pos=point);app.processEvents()
+        check(panel._selected_id()==wire['id'] and panel.delete_wire_button.isEnabled(),'a real main-canvas wire click selects its deletion action')
+        window.document.write(saved)
+        check(read_project(saved).design.model_dump()==wire_added,'colored endpoint wire survives project save and reload')
+        QTest.keyClick(panel.view,Qt.Key.Key_Delete);wait(lambda:not window.busy)
+        wire_removed=deepcopy(window.document.design)
+        check(not any(c['kind']=='wire' for c in wire_removed['electrical']['components']) and not window.circuit_panel.delete_wire_button.isEnabled(),
+              'main Delete removes the selected wire directly and clears its selection UI')
+        removed_dc=evaluate_electrical(wire_removed['electrical'])
+        check(next(c for c in removed_dc.components if c.id=='wire_load').current_a==0,
+              'deleting the inserted branch really disconnects DC power without a hidden logical shortcut')
+        check(wire_removed['parts']==final['parts'] and wire_removed['electrical']['nodes']==wire_added['electrical']['nodes'],
+              'wire deletion preserves every CAD solid and shared named net')
+        window.undo();wait(lambda:not window.busy)
+        check(window.document.design==wire_added,'wire deletion Undo restores exact color, endpoints and physical resistance')
+        window.redo();wait(lambda:not window.busy)
+        check(window.document.design==wire_removed,'wire deletion Redo removes only the selected branch again')
+        window.document.write(saved)
+        check(read_project(saved).design.model_dump()==wire_removed,'wire edit history remains serializable after add, deletion and Undo/Redo')
         language=getattr(app,'cad_language',None)
         if language:
             previous=language.language;language.set_language('en',persist=False)

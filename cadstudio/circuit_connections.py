@@ -8,7 +8,7 @@ substituted for the separate A/B DC power model.
 
 from __future__ import annotations
 
-from .electrical import ElectricalWorkspace
+from .electrical import ElectricalComponent, ElectricalWorkspace
 from .mcu_connections import (ConnectionEndpoint, assign_pin, assign_pin_node,
                               connection_endpoints, disconnect_pin)
 
@@ -124,4 +124,53 @@ def disconnect_schematic_terminal(raw: ElectricalWorkspace | dict, component_id:
         setattr(component, terminal, _new_node(workspace))
     else:
         component.terminal_pins.pop(terminal.partition(":")[2], None)
+    return ElectricalWorkspace.model_validate(workspace.model_dump())
+
+
+def add_schematic_wire(raw: ElectricalWorkspace | dict, source_id: str, source_terminal: str,
+                       target_id: str, target_terminal: str, *, name: str,
+                       length_mm: float, cross_section_mm2: float,
+                       resistivity_ohm_mm2_per_m: float = .01724,
+                       max_current_a: float | None = None, wire_color: str | None = None) -> ElectricalWorkspace:
+    """Insert one real resistive branch between explicitly selected terminals.
+
+    If both terminals already share a net, detach only the selected target
+    terminal to insert the wire there. Other peers and saved named nets stay
+    untouched; wire deletion later leaves that terminal visibly unpowered.
+    """
+    workspace = _workspace(raw)
+    source = _endpoint(workspace, source_id, source_terminal)
+    target = _endpoint(workspace, target_id, target_terminal)
+    if source_id == target_id:
+        raise ValueError("서로 다른 부품의 시작·도착 핀 또는 단자를 선택하세요.")
+    source_node = source.node or _new_node(workspace)
+    if source.node is None:
+        workspace = _set_endpoint(workspace, source, source_node)
+    target_node = target.node
+    if target_node is None or target_node == source_node:
+        target_node = _new_node(workspace)
+        workspace = _set_endpoint(workspace, target, target_node)
+    index = 1
+    occupied = {component.id for component in workspace.components}
+    while f"WIRE_{index:03d}" in occupied:
+        index += 1
+    wire = ElectricalComponent(id=f"WIRE_{index:03d}", name=name, kind="wire",
+        a=source_node, b=target_node, length_mm=length_mm,
+        cross_section_mm2=cross_section_mm2,
+        resistivity_ohm_mm2_per_m=resistivity_ohm_mm2_per_m,
+        max_current_a=max_current_a,wire_color=wire_color,
+        wire_endpoints=[dict(component_id=source_id,terminal=source_terminal),
+                        dict(component_id=target_id,terminal=target_terminal)])
+    workspace.components.append(wire)
+    return ElectricalWorkspace.model_validate(workspace.model_dump())
+
+
+def delete_schematic_wire(raw: ElectricalWorkspace | dict, wire_id: str) -> ElectricalWorkspace:
+    """Remove only one selected wire; never remove pins, devices or shared nets."""
+    workspace = _workspace(raw)
+    component = next((item for item in workspace.components if item.id == wire_id), None)
+    if component is None or component.kind != "wire":
+        raise ValueError("삭제할 전선 부품을 선택하세요. 일반 부품·공유 노드는 삭제하지 않습니다.")
+    workspace.components = [item for item in workspace.components if item.id != wire_id]
+    workspace.schematic_positions.pop(wire_id, None)
     return ElectricalWorkspace.model_validate(workspace.model_dump())

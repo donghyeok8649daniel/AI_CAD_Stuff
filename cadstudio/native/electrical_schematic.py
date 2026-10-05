@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from PySide6.QtCore import Qt, QPointF, QRectF, QTimer, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPainterPath, QPainterPathStroker
 from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QGraphicsScene,
-    QGraphicsView, QHBoxLayout, QLabel, QSplitter, QVBoxLayout, QWidget, QMessageBox)
+    QGraphicsView, QHBoxLayout, QLabel, QSplitter, QVBoxLayout, QWidget, QMessageBox, QGraphicsItem, QGraphicsPathItem)
 
 from ..electrical import ElectricalResult, ElectricalWorkspace, ElectricalSchematicPosition
 from .widgets import button, label
@@ -18,6 +18,13 @@ SOURCE = QColor('#D79424')
 BACKGROUND = QColor('#F7F9FC')
 NET_ROLE = 101
 TERMINAL_ROLE = 102
+WIRE_ROLE = 103
+
+
+class SelectableWirePath(QGraphicsPathItem):
+    def shape(self):
+        stroke=QPainterPathStroker();stroke.setWidth(12)
+        return stroke.createStroke(self.path())
 
 
 class CircuitView(QGraphicsView):
@@ -39,6 +46,9 @@ class CircuitView(QGraphicsView):
         if event.key() == Qt.Key.Key_Escape:
             self.editor_owner.cancel_connection()
             event.accept()
+        elif event.key() == Qt.Key.Key_Delete and self.editor_owner.delete_wire_button.isEnabled():
+            self.editor_owner.delete_selected_wire()
+            event.accept()
         else:
             super().keyPressEvent(event)
 
@@ -49,6 +59,7 @@ class ElectricalSchematicDialog(QDialog):
     focusRequested = Signal()
     partActivated = Signal(str)
     simulationRequested = Signal()
+    wireActionRequested = Signal(str,object)
 
     def __init__(self, parent, workspace, result=None, parts=(), *, editable=True, view_mode='physical'):
         super().__init__(parent)
@@ -136,6 +147,16 @@ class ElectricalSchematicDialog(QDialog):
             navigation.addWidget(QLabel(self._word('휠: 확대 / 축소 · Esc: 연결 취소', 'Wheel: zoom · Esc: cancel wire')))
         layout.addLayout(navigation)
 
+        wires=QHBoxLayout()
+        self.add_wire_button=button(self._word('전선 추가…','Add wire…'),self.add_wire,True)
+        self.add_wire_button.setObjectName('schematicAddWire');wires.addWidget(self.add_wire_button)
+        self.delete_wire_button=button(self._word('선택 전선 삭제 · Delete','Delete selected wire · Delete'),self.delete_selected_wire)
+        self.delete_wire_button.setObjectName('schematicDeleteWire');self.delete_wire_button.setEnabled(False)
+        wires.addWidget(self.delete_wire_button)
+        wires.addWidget(label(self._word('전선 경로·몸체를 클릭해 선택한 뒤 삭제합니다. 기존 노드 연결은 회로 편집에서 핀 선택 → 연결 해제로 분리합니다.',
+            'Click a wire path/body to select and delete it. Existing net connections: Edit circuit → select pin → Disconnect pin.'),True),1)
+        layout.addLayout(wires)
+
         from .mcu_pin_dialog import PinDiagramView
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.addWidget(self.view)
@@ -218,6 +239,8 @@ class ElectricalSchematicDialog(QDialog):
         return next(c for c in self.workspace.components if c.id == identifier)
 
     def _selected_id(self):
+        wire=next((item.data(WIRE_ROLE) for item in self.scene.selectedItems() if item.data(WIRE_ROLE)),None)
+        if wire:return wire
         return next((key for key, item in self.component_items.items() if item.isSelected()), None)
 
     def _selection_changed(self):
@@ -226,6 +249,7 @@ class ElectricalSchematicDialog(QDialog):
         if self.selected_terminal and self.selected_terminal[0]!=identifier:
             self.selected_terminal=None;self.disconnect_button.setEnabled(False)
         self.edit_button.setEnabled(bool(identifier) or not self.editable)
+        self.delete_wire_button.setEnabled(bool(identifier and self._component(identifier).kind=='wire'))
         self.expand_button.setEnabled(bool(identifier and self._component(identifier).kind in ('mcu','load','motor','actuator')))
         self.cad_button.setEnabled(bool(identifier and self._component(identifier).part_id))
         if identifier:
@@ -296,6 +320,7 @@ class ElectricalSchematicDialog(QDialog):
         except (ValueError, TypeError): self.result = None
         self._draw()
         self.refresh_mcu_list()
+        self._selection_changed()
 
     def disconnect_selected_pin(self):
         if not self.editable or self.selected_terminal is None:return
@@ -304,6 +329,30 @@ class ElectricalSchematicDialog(QDialog):
         try:
             self._adopt(disconnect_schematic_terminal(self.workspace,identifier,key))
             self.status.setText(self._word('선택한 핀 연결을 해제했습니다. 저장하면 반영됩니다.','Selected pin disconnected. Save to apply.'))
+        except ValueError as exc:self.status.setText(str(exc))
+
+    def add_wire(self):
+        if not self.editable:self.wireActionRequested.emit('add',self.selected_terminal);return
+        from .wire_connection_dialog import WireConnectionDialog
+        dialog=WireConnectionDialog(self,self.workspace,english=self.english,selected_terminal=self.selected_terminal)
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted and dialog.checked is not None:
+                self._adopt(dialog.checked)
+                self.fit_scene()
+                self.wire_paths.get(dialog.wire_id,self.component_items[dialog.wire_id]).setSelected(True)
+                self.status.setText(self._word('전선을 추가했습니다. 회로도 변경 저장으로 설계와 작업 기록에 반영하세요.',
+                    'Wire added. Save circuit changes to update the design and history.'))
+        finally:dialog.deleteLater()
+
+    def delete_selected_wire(self):
+        identifier=self._selected_id()
+        if not identifier:return
+        if not self.editable:self.wireActionRequested.emit('delete',identifier);return
+        from ..circuit_connections import delete_schematic_wire
+        try:
+            self._adopt(delete_schematic_wire(self.workspace,identifier))
+            self.status.setText(self._word('선택 전선만 삭제했습니다. 다른 부품·핀·노드는 유지됩니다. 저장하면 반영됩니다.',
+                'Only the selected wire was deleted. Other components, pins and nets remain. Save to apply.'))
         except ValueError as exc:self.status.setText(str(exc))
 
     def add_component(self):
@@ -499,6 +548,16 @@ class ElectricalSchematicDialog(QDialog):
 
     def _route(self):
         if self._drawing: return
+        selected=self._selected_id()
+        blocked=self.scene.blockSignals(True)
+        try:self._route_body()
+        finally:self.scene.blockSignals(blocked)
+        if selected:
+            for item in self._route_items:
+                if item.data(WIRE_ROLE)==selected:item.setSelected(True);break
+        self._selection_changed()
+
+    def _route_body(self):
         for item in self._route_items: self.scene.removeItem(item)
         self._route_items.clear()
         self.net_segments.clear()
@@ -506,11 +565,29 @@ class ElectricalSchematicDialog(QDialog):
         self.branch_layout.clear()
         self.branch_items.clear()
         self.endpoint_coordinates.clear()
+        self.wire_paths={}
+        direct={}
+        if self.view_mode=='physical':
+            for c in self.workspace.components:
+                if c.kind!='wire' or len(c.wire_endpoints)!=2:continue
+                rows=[]
+                for reference,node in zip(c.wire_endpoints,(c.a,c.b)):
+                    endpoint=self.component_items.get(reference.component_id)
+                    # Wire-to-wire references have no stable physical pad when
+                    # the referenced branch itself is drawn as a direct path.
+                    # Preserve their conductive A/B nodes using the ordinary
+                    # symbol/net view; never resolve recursive/self anchors.
+                    if endpoint is None or endpoint.component.kind=='wire' or reference.terminal not in endpoint.ports:break
+                    port=endpoint.ports[reference.terminal]
+                    if port.node!=node:break
+                    rows.append((reference.component_id,reference.terminal,endpoint.port_scene_position(reference.terminal),port))
+                if len(rows)==2:direct[c.id]=rows
         nets = defaultdict(list)
         rectangles = [item.sceneBoundingRect() for item in self.component_items.values()]
         results = {b.id: b for b in self.result.components} if self.result else {}
         for c in self.workspace.components:
             item = self.component_items[c.id]
+            item.setVisible(c.id not in direct)
             active = c.kind not in ('wire','switch','battery') or c.closed
             ax, bx = item.port_scene_position('a'), item.port_scene_position('b')
             layout = dict(a=c.a, b=c.b, a_x=ax.x(), b_x=bx.x(), row_y=ax.y(), kind=c.kind, active=active, signals={})
@@ -518,7 +595,7 @@ class ElectricalSchematicDialog(QDialog):
             for key, port in item.ports.items():
                 point = item.port_scene_position(key)
                 self.endpoint_coordinates[(c.id, key)] = point
-                if port.node:
+                if port.node and c.id not in direct:
                     nets[port.node].append((c.id, key, point, port))
                 if key.startswith(('pin:', 'port:', 'supply:')) and port.node:
                     branch = results.get(c.id)
@@ -531,14 +608,15 @@ class ElectricalSchematicDialog(QDialog):
                 ('OFF · 0 A' if c.kind == 'battery' and not active else self._word('단선 · 0 A','Open · 0 A') if c.kind == 'wire' and not active else
                  self._word('열림 · 0 A','Open · 0 A') if c.kind == 'switch' and not active else
                  f'{results[c.id].current_a:.4g} A' if c.id in results else self._word('계산 미완료','Not calculated'))
-            self._text(state, QPointF(item.sceneBoundingRect().left()+5, item.sceneBoundingRect().bottom()+3), OPEN if not active else BUS, 8)
+            if c.id not in direct:self._text(state, QPointF(item.sceneBoundingRect().left()+5, item.sceneBoundingRect().bottom()+3), OPEN if not active else BUS, 8)
         from .circuit_routing import route_nets
-        bodies = [item.mapRectToScene(item.body_rect) for item in self.component_items.values()]
-        unassigned = [item.port_scene_position(key) for item in self.component_items.values()
+        visible_items={key:item for key,item in self.component_items.items() if key not in direct}
+        bodies = [item.mapRectToScene(item.body_rect) for item in visible_items.values()]
+        unassigned = [item.port_scene_position(key) for item in visible_items.values()
                       for key, port in item.ports.items() if port.node is None]
         if self.view_mode=='physical':
             from .pictorial_wiring import physical_routes
-            routed=physical_routes(nets,self.component_items)
+            routed=physical_routes(nets,visible_items)
         else:routed = route_nets(nets, bodies, reserved_points=unassigned)
         self.unrouted_terminals = routed.unrouted
         self.node_positions = {node: float(index) for index, node in enumerate(self.workspace.nodes)}
@@ -566,6 +644,40 @@ class ElectricalSchematicDialog(QDialog):
                 if (identifier,key) in labels:
                     offset = -115 if port.side == 'left' else 12
                     self._text(text, QPointF(point.x()+offset, point.y()-27), color, 8)
+        # A saved resistive wire is a distinct branch between two real terminals,
+        # not a zero-resistance net-name merge. Keep its actual endpoint identity.
+        if direct:
+            from .circuit_routing import _point,_on_segment
+            occupied=dict(routed.segments)
+            for identifier,rows in direct.items():
+                c=self._component(identifier);anchors={_point(row[2]) for row in rows}
+                reserves=[item.port_scene_position(key) for keyid,item in visible_items.items()
+                    for key,port in item.ports.items() if (keyid,key) not in {(row[0],row[1]) for row in rows}]
+                exclusions={key:[(a,b) for a,b in segments if not any(_on_segment(point,_point(a),_point(b)) for point in anchors)]
+                    for key,segments in occupied.items()}
+                route=physical_routes({identifier:rows},visible_items,reserved_points=reserves,reserved_segments=exclusions)
+                color=QColor(c.wire_color or '#297DC2')
+                if route.unrouted:
+                    # Explicit paired branch labels are truthful when no safe path
+                    # can fit. Never invent an alternate pin or short a shared net.
+                    for _,_,point,_ in rows:
+                        self._text(f'{c.name} [{c.id}] · {c.a} ↔ {c.b}',point+QPointF(8,-40),color,8)
+                    self.component_items[identifier].setVisible(True)
+                    continue
+                path=QPainterPath()
+                for a,b in route.segments[identifier]:path.moveTo(a);path.lineTo(b)
+                item=SelectableWirePath(path);pen=QPen(color,3)
+                if not c.closed or not c.analysis_enabled:pen.setStyle(Qt.PenStyle.DashLine)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap);item.setPen(pen)
+                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable,True)
+                item.setData(WIRE_ROLE,identifier);item.setZValue(14)
+                state=' · 0 A' if not c.closed else ''
+                item.setToolTip(f'{c.name} [{c.id}] · {c.a} ↔ {c.b}\n{c.length_mm:g} mm · {c.cross_section_mm2:g} mm²{state}')
+                self.scene.addItem(item);self._route_items.append(item);self.wire_paths[identifier]=item
+                occupied[identifier]=route.segments[identifier]
+                middle=rows[0][2]+(rows[1][2]-rows[0][2])/2
+                self._text(c.name+state,middle+QPointF(5,-23),color,8)
+                self.branch_items[identifier]=[item]
         if routed.unrouted:
             self.routing_note = self._word(
                 f'{len(routed.unrouted)}개 단자를 같은 노드 라벨로 연결 표시합니다. 자동 배치나 부품 이동으로 배선을 정리할 수 있습니다.',
