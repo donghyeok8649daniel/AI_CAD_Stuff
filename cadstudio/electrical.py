@@ -1,8 +1,9 @@
 """Small, deterministic DC wiring study attached to a CAD design.
 
 This is a resistive operating-point calculation, not SPICE, firmware execution,
-or a physical motor/driver model.  A motor's rated and optional starting current
-define two *separate* equivalent-resistance estimates at its rated voltage.
+or a physical motor/driver model. A motor/actuator's rated and optional starting
+current define two separate equivalent-resistance estimates at its rated voltage.
+Capacitors are open at settled DC; inductors retain their winding resistance.
 """
 
 from __future__ import annotations
@@ -20,7 +21,8 @@ class ElectricalModel(BaseModel):
 
 
 Identifier = str
-Kind = Literal["battery", "wire", "switch", "resistor", "load", "motor", "mcu"]
+Kind = Literal["battery", "wire", "switch", "resistor", "capacitor", "inductor",
+               "load", "motor", "actuator", "mcu"]
 
 
 class ElectricalComponent(ElectricalModel):
@@ -39,6 +41,12 @@ class ElectricalComponent(ElectricalModel):
     voltage_v: float = Field(default=0, ge=0, le=1000)
     internal_resistance_ohm: float = Field(default=0, ge=0, le=10000)
     resistance_ohm: float = Field(default=0, ge=0, le=1e9)
+    # Stored in SI units. DC capacitors are open circuits; inductors use their
+    # measured winding resistance after the transient has settled.
+    capacitance_f: float = Field(default=0, ge=0, le=10000)
+    inductance_h: float = Field(default=0, ge=0, le=10000)
+    winding_resistance_ohm: float = Field(default=0, ge=0, le=1e9)
+    capacitor_polarized: bool = False
     rated_voltage_v: float = Field(default=0, ge=0, le=1000)
     rated_current_a: float = Field(default=0, ge=0, le=10000)
     max_current_a: float | None = Field(default=None, gt=0, le=10000)
@@ -70,7 +78,9 @@ class ElectricalComponent(ElectricalModel):
         for field, default in (("analysis_enabled", True), ("part_registration", False),
                                ("terminal_pins", {}), ("pinout_catalog_id", ""),
                                ("product_pinout_catalog_id", ""), ("board_supply_pins", {}),
-                               ("supply_pinout_catalog_id", "")):
+                               ("supply_pinout_catalog_id", ""), ("capacitance_f", 0),
+                               ("inductance_h", 0), ("winding_resistance_ohm", 0),
+                               ("capacitor_polarized", False)):
             if field not in self.model_fields_set and getattr(self, field) == default:
                 data.pop(field, None)
         return data
@@ -85,14 +95,22 @@ class ElectricalComponent(ElectricalModel):
             raise ValueError("전선의 길이(mm)와 단면적(mm²)을 입력하세요.")
         if self.analysis_enabled and self.kind == "resistor" and self.resistance_ohm <= 0:
             raise ValueError("저항값(Ω)을 입력하세요.")
-        if self.analysis_enabled and self.kind in ("load", "motor", "mcu") and (self.rated_voltage_v <= 0 or self.rated_current_a <= 0):
+        if self.analysis_enabled and self.kind == "capacitor" and self.capacitance_f <= 0:
+            raise ValueError("캐패시터의 정전용량(F)을 입력하세요.")
+        if self.analysis_enabled and self.kind == "inductor" and (self.inductance_h <= 0 or self.winding_resistance_ohm <= 0):
+            raise ValueError("코일의 인덕턴스(H)와 실제 권선 저항(Ω)을 입력하세요. 이상적 단락으로 대신 계산하지 않습니다.")
+        if self.analysis_enabled and self.kind in ("load", "motor", "actuator", "mcu") and (self.rated_voltage_v <= 0 or self.rated_current_a <= 0):
             raise ValueError("부하의 정격 전압(V)과 전류(A)를 입력하세요.")
-        if self.startup_current_a is not None and self.kind != "motor":
-            raise ValueError("기동 전류는 모터에만 지정할 수 있습니다.")
+        if self.startup_current_a is not None and self.kind not in ("motor", "actuator"):
+            raise ValueError("기동 전류는 모터·액추에이터에만 지정할 수 있습니다.")
+        if (self.capacitance_f or self.capacitor_polarized) and self.kind != "capacitor":
+            raise ValueError("정전용량과 극성은 캐패시터에만 지정할 수 있습니다.")
+        if (self.inductance_h or self.winding_resistance_ohm) and self.kind != "inductor":
+            raise ValueError("인덕턴스와 권선 저항은 코일에만 지정할 수 있습니다.")
         if self.signal_pins and self.kind != "mcu":
             raise ValueError("신호 핀은 MCU에만 지정할 수 있습니다.")
-        if self.terminal_pins and self.kind not in ("load", "motor"):
-            raise ValueError("추가 신호 단자는 일반 부하·센서·드라이버 또는 모터 항목에만 지정할 수 있습니다.")
+        if self.terminal_pins and self.kind not in ("load", "motor", "actuator"):
+            raise ValueError("추가 신호 단자는 일반 부하·센서·드라이버·모터·액추에이터 항목에만 지정할 수 있습니다.")
         if self.pinout_catalog_id and self.kind != "mcu":
             raise ValueError("물리 핀 모식도는 MCU / 보드 항목에만 연결할 수 있습니다.")
         if (self.board_supply_pins or self.supply_pinout_catalog_id) and self.kind != "mcu":
@@ -230,14 +248,17 @@ def _resistance(component: ElectricalComponent, startup: bool) -> float:
         return component.contact_resistance_ohm
     if component.kind == "resistor":
         return component.resistance_ohm
-    current = component.startup_current_a if startup and component.kind == "motor" and component.startup_current_a else component.rated_current_a
+    if component.kind == "inductor":
+        return component.winding_resistance_ohm
+    current = component.startup_current_a if startup and component.kind in ("motor", "actuator") and component.startup_current_a else component.rated_current_a
     return component.rated_voltage_v / current
 
 
 def _is_active(component: ElectricalComponent) -> bool:
     # ``closed`` was already persisted for switches in v1. Applying the same
     # default-True field to wires and battery output keeps old files powered.
-    return component.analysis_enabled and (component.kind not in ("wire", "switch", "battery") or component.closed)
+    return (component.analysis_enabled and component.kind != "capacitor"
+            and (component.kind not in ("wire", "switch", "battery") or component.closed))
 
 
 def _reachable(start: str, graph: dict[str, set[str]]) -> set[str]:
@@ -265,7 +286,7 @@ def _connection_checks(workspace: ElectricalWorkspace, active: list[ElectricalCo
     active_ids = {component.id for component in active}
     for component in workspace.components:
         if (component.kind in ("wire", "switch") and component.closed
-                or component.id in active_ids and component.kind == "resistor"):
+                or component.id in active_ids and component.kind in ("resistor", "inductor")):
             power_graph[component.a].add(component.b)
             power_graph[component.b].add(component.a)
         if component.kind in ("wire", "switch"):
@@ -403,9 +424,21 @@ def _solve(workspace: ElectricalWorkspace, startup: bool) -> ElectricalScenario:
             elif component.kind == "battery":
                 warnings.append(f"{component.name}: 전원 인가가 꺼져 배터리 출력이 0 A입니다. 저장된 전압 정격은 변경되지 않았습니다.")
             same_network = component.b in _reachable(component.a, graph)
+            drop = (internal_voltages[component.a] - internal_voltages[component.b]) if same_network and component.kind != "battery" else None
+            if component.kind == "capacitor":
+                warnings.append(f"{component.name}: 캐패시터는 정상상태 DC에서 개방 회로로 계산합니다. 충·방전 시간, 돌입 전류, 리플·누설·ESR은 해석하지 않습니다.")
+                if drop is None:
+                    warnings.append(f"{component.name}: 두 단자의 DC 전압 차가 미정이어서 전압·극성 정격을 점검할 수 없습니다.")
+                else:
+                    if component.capacitor_polarized and drop < 0:
+                        warnings.append(f"{component.name}: 극성 캐패시터의 A(+) / B(-) 연결이 반대입니다.")
+                    if component.rated_voltage_v and abs(drop) > component.rated_voltage_v * (1 + 1e-8):
+                        warnings.append(f"{component.name}: {abs(drop):.3g} V로 캐패시터 전압 정격 {component.rated_voltage_v:.3g} V를 초과합니다.")
+                if not component.rated_voltage_v:
+                    warnings.append(f"{component.name}: 캐패시터 전압 정격이 미입력 상태입니다.")
             results.append(ElectricalBranchResult(id=component.id, name=component.name, kind=component.kind,
                 a=component.a, b=component.b, part_id=component.part_id, current_a=0,
-                voltage_drop_v=(internal_voltages[component.a] - internal_voltages[component.b]) if same_network and component.kind!="battery" else None,
+                voltage_drop_v=drop,
                 power_w=0, resistance_ohm=None, current_direction="a_to_b"))
             continue
         drop = internal_voltages[component.a] - internal_voltages[component.b]
@@ -447,15 +480,20 @@ def _solve(workspace: ElectricalWorkspace, startup: bool) -> ElectricalScenario:
             return_connected=return_connected, signal_pin_connected=signal_pin_connected))
         if component.max_current_a is not None and abs(current) > component.max_current_a * (1 + 1e-8):
             warnings.append(f"{component.name}: {abs(current):.3g} A로 지정한 최대 {component.max_current_a:.3g} A를 초과합니다.")
-        if component.kind in ("motor", "mcu", "load"):
+        if component.kind == "inductor":
+            warnings.append(f"{component.name}: 정상상태 DC의 권선 저항만 계산합니다. 인덕턴스에 따른 과도응답·포화·차단 역기전력은 해석하지 않습니다.")
+        if component.kind == "actuator":
+            warnings.append(f"{component.name}: 입력한 정격의 DC 저항 등가 부하입니다. 실제 액추에이터의 힘·속도·스트로크·드라이버 동작은 별도 검증이 필요합니다.")
+        if component.kind in ("motor", "actuator", "mcu", "load"):
             if component.kind == "mcu" and drop < 0:
                 warnings.append(f"{component.name}: MCU 전원 극성이 반대입니다. 실제 연결 전에 확인하세요.")
             if abs(drop) > component.rated_voltage_v * 1.1:
                 warnings.append(f"{component.name}: 정격 {component.rated_voltage_v:.3g} V보다 10% 이상 높은 전압입니다. 허용 범위를 확인하세요.")
             if abs(drop) < component.rated_voltage_v * 0.9:
                 warnings.append(f"{component.name}: 정격 {component.rated_voltage_v:.3g} V보다 10% 이상 낮은 전압입니다. 제품의 최소 동작 전압을 확인하세요.")
-            if component.kind == "motor" and not startup and abs(current) > component.rated_current_a * 1.05:
-                warnings.append(f"{component.name}: 명목 전류 {component.rated_current_a:.3g} A보다 5% 이상 큽니다. 모터 정격과 구동 조건을 확인하세요.")
+            if component.kind in ("motor", "actuator") and not startup and abs(current) > component.rated_current_a * 1.05:
+                device = "액추에이터" if component.kind == "actuator" else "모터"
+                warnings.append(f"{component.name}: 명목 전류 {component.rated_current_a:.3g} A보다 5% 이상 큽니다. {device} 정격과 구동 조건을 확인하세요.")
     return ElectricalScenario(node_voltages_v=voltages, components=results,
         source_power_w=float(source_power), absorbed_power_w=float(absorbed_power), warnings=warnings)
 
@@ -469,7 +507,7 @@ def evaluate_electrical(raw: ElectricalWorkspace | dict) -> ElectricalResult:
     """
     workspace = ElectricalWorkspace.model_validate(raw)
     running = _solve(workspace, startup=False)
-    starting = _solve(workspace, startup=True) if any(c.analysis_enabled and c.kind == "motor" and c.startup_current_a for c in workspace.components) else None
+    starting = _solve(workspace, startup=True) if any(c.analysis_enabled and c.kind in ("motor", "actuator") and c.startup_current_a for c in workspace.components) else None
     if any(component.signal_pins for component in workspace.components):
         from .mcu_connections import topology_warnings
 

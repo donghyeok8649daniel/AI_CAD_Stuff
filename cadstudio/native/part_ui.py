@@ -69,7 +69,7 @@ class PartSelectionUI(PartInspectionUI):
 
     def selection_menu(self,pos,widget=None):
         menu=QMenu(self)
-        for key in ('orbit','isolate','show_all','explode','export_parts','rename_part','move_parts','copy','cut','paste','group','ungroup','group_select','electrical_register','color','delete'):menu.addAction(self.actions[key])
+        for key in ('orbit','isolate','show_all','explode','export_parts','rename_part','part_product','move_parts','copy','cut','paste','group','ungroup','group_select','electrical_register','color','delete'):menu.addAction(self.actions[key])
         menu.exec((widget or self.tree).mapToGlobal(pos))
 
     def selected_ids(self):

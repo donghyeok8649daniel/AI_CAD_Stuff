@@ -395,9 +395,9 @@ def topology_warnings(raw: ElectricalWorkspace | dict, language: str = "ko") -> 
                 if target.kind == "battery":
                     warn(f"{component.name} · {key}: 배터리 전원 단자와 연결되어 있습니다. GPIO는 전원 출력이 아니며 허용 전압·보호 회로를 확인해야 합니다.",
                          f"{component.name} · {key}: Connected to a battery power terminal. GPIO is not a power output; check voltage limits and protection.")
-                elif target.kind == "motor":
-                    warn(f"{component.name} · {key}: 모터 전력 단자와 직접 연결되어 있습니다. 별도 드라이버의 신호 단자를 사용하고 전력 배선을 분리하세요.",
-                         f"{component.name} · {key}: Connected directly to a motor power terminal. Use a separate driver's signal terminal and separate power wiring.")
+                elif target.kind in ("motor", "actuator", "inductor"):
+                    warn(f"{component.name} · {key}: 모터·액추에이터·코일 전력 단자와 직접 연결되어 있습니다. 별도 드라이버의 신호 단자를 사용하고 전력 배선을 분리하세요.",
+                         f"{component.name} · {key}: Connected directly to a motor/actuator/coil power terminal. Use a separate driver's signal terminal and separate power wiring.")
                 elif target.kind == "load":
                     warn(f"{component.name} · {key}: 부하·센서·드라이버의 전력 단자와 연결되어 있습니다. GPIO로 전원을 공급하지 말고 별도 전원 경로와 추가 신호 단자를 지정하세요.",
                          f"{component.name} · {key}: Connected to a load/sensor/driver power terminal. Do not power it from GPIO; specify separate power wiring and named signal terminals.")

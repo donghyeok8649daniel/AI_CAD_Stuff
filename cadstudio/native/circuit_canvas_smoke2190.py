@@ -64,6 +64,12 @@ def run(app,window,path):
                 dict(id='motor',name='DC actuator · virtual operating values',kind='motor',a='POWER',b='GND',
                      rated_voltage_v=5,rated_current_a=.15),
                 dict(id='resistor',name='Input pull-down',kind='resistor',a='INPUT',b='GND',resistance_ohm=1000),
+                dict(id='capacitor',name='Filter capacitor · 100 µF',kind='capacitor',a='POWER',b='GND',
+                     capacitance_f=100e-6,rated_voltage_v=16,capacitor_polarized=True),
+                dict(id='coil',name='Coil · 10 mH',kind='inductor',a='POWER',b='GND',
+                     inductance_h=.01,winding_resistance_ohm=100),
+                dict(id='actuator',name='Linear actuator · example current',kind='actuator',a='POWER',b='GND',
+                     rated_voltage_v=5,rated_current_a=.05),
             ]))
         design=Design(name='Synthetic circuit verification',electrical=workspace,parts=[
             Part(id='controller',name='Controller CAD body',role='electrical',geometry=dict(kind='cylinder'),
@@ -99,6 +105,13 @@ def run(app,window,path):
               'main circuit display is explicit and protects uncommitted editing')
         check(set(panel.component_items)=={component.id for component in workspace.components},
               'boards, battery, resistor, switch, cable and actuator share one component canvas')
+        check(all({'a','b'}<=set(panel.component_items[key].ports) for key in ('capacitor','coil','actuator')),
+              'capacitor, coil and separate actuator have real editable endpoint anchors')
+        check({'capacitor','inductor','actuator'}<={panel.kind_combo.itemData(i) for i in range(panel.kind_combo.count())},
+              'new passive and actuator kinds can be chosen alongside motors and MCU boards')
+        dc=evaluate_electrical(workspace)
+        check(next(branch for branch in dc.components if branch.id=='capacitor').current_a==0,
+              'capacitor uses a DC open branch without fictional charging current')
         check(panel.pin_panel.isHidden(),'the default canvas has no oversized separate pin table')
         pi=panel.component_items['pi']
         check(panel.view_mode=='physical' and pi.board.model=='Raspberry Pi 4 Model B'
@@ -191,6 +204,25 @@ def run(app,window,path):
 
         draft=ElectricalSchematicDialog(window,workspace,evaluate_electrical(workspace),design['parts'])
         dialogs.append(draft);draft.resize(1280,850);draft.show();app.processEvents();draft.fit_scene()
+        from .electrical_dialog import ComponentDialog
+        def fill_capacitor():
+            child=QApplication.activeModalWidget()
+            try:
+                assert isinstance(child,ComponentDialog) and child.kind.currentData()=='capacitor'
+                child.name.setText('Added decoupling capacitor')
+                child.inputs['capacitance_f'].setValue(.1)
+                child.inputs['rated_voltage_v'].setValue(25)
+                child.a.setText('POWER');child.b.setText('GND');child.accept()
+            except Exception:
+                errors.append(traceback.format_exc())
+                if child:child.reject()
+        draft.kind_combo.setCurrentIndex(draft.kind_combo.findData('capacitor'))
+        QTimer.singleShot(100,fill_capacitor);draft.add_button.click();app.processEvents()
+        added=next(component for component in draft.workspace.components if component.name=='Added decoupling capacitor')
+        check(abs(added.capacitance_f-1e-7)<1e-15 and added.kind=='capacitor',
+              'actual Add component form converts 0.1 µF to exact stored 100 nF SI value')
+        check(added.id in draft.component_items and {'a','b'}<=set(draft.component_items[added.id].ports),
+              'newly added capacitor is rendered and wireable immediately')
         start_calc=evaluate_electrical(draft.workspace).model_dump()
         motor=draft.component_items['motor'];start=motor.pos()
         point=draft.view.mapFromScene(motor.mapToScene(motor.body_rect.center()))
@@ -265,6 +297,58 @@ def run(app,window,path):
         check(window.document.design==final,'Redo restores exact pin wiring, symbols and placement')
         window.circuit_panel.fit_scene();app.processEvents()
         window.grab().save(str(path.with_name('circuit-saved-main2190.png')))
+        from .drive_simulation_dialog import DriveSimulationDialog
+        simulation=DriveSimulationDialog(window,window.document.design);dialogs.append(simulation)
+        simulation.show();app.processEvents()
+        check(callable(simulation.metric),'native QPaintDevice metric remains callable in the simulator')
+        check(simulation.result is None and not simulation.virtual_demo,
+              'motor study starts with current CAD and requires actual constants')
+        simulation.demo_button.click();simulation.run_button.click()
+        wait(lambda:simulation.result is not None and not simulation.running)
+        check(simulation.result.status=='converged' and abs(simulation.result.summary.final_speed_rpm-600)<1,
+              'owned virtual PI motor and encoder study reaches its 600 rpm target')
+        check(simulation.plot.pixmap() is not None and not simulation.plot.paint_error,
+              'native motor traces draw without paint errors')
+        simulation.metric_combo.setCurrentIndex(simulation.metric_combo.findData('current'));app.processEvents()
+        check(simulation.plot.unit=='A' and bool(simulation.plot.traces),
+              'current trace can be selected in the simulator')
+        csv_path=path.with_name('virtual-drive2190.csv');simulation.write_csv(csv_path)
+        import csv
+        with csv_path.open(encoding='utf-8',newline='') as stream:
+            rows=list(csv.DictReader(stream))
+        check(bool(rows) and 'current_a' in rows[0] and 'virtual_demo' in rows[0],
+              'virtual simulation CSV preserves units and its virtual provenance')
+        check(window.document.design==final,'drive simulation and virtual demo never alter the user CAD')
+        simulation.grab().save(str(path.with_name('drive-simulation2190.png')))
+        simulation.reject();simulation.deleteLater();app.processEvents();dialogs.remove(simulation)
+        from .part_product_dialog import PartProductDialog
+        window.select_parts(['controller'])
+        check(window.findChild(QPushButton,'partProductButton') is not None,
+              'the selected CAD part exposes its product and purchase links in properties')
+        def enter_product():
+            child=QApplication.activeModalWidget()
+            try:
+                if not isinstance(child,PartProductDialog):raise AssertionError('Expected owned product reference editor')
+                check(child.candidate().catalog_id=='rpi4b',
+                      'registered electronics reuse their existing verified product catalog reference')
+                child.fields['purchase_url'].setText('https://example.com/owned-test-shop')
+                child.accept()
+            except Exception:
+                errors.append(traceback.format_exc())
+                if child:child.reject()
+        QTimer.singleShot(100,enter_product);window.actions['part_product'].trigger();wait(lambda:not window.busy)
+        annotated=deepcopy(window.document.design)
+        product=next(part for part in annotated['parts'] if part['id']=='controller')['product']
+        check(product['catalog_id']=='rpi4b' and product['purchase_url'].endswith('owned-test-shop'),
+              'native product editor saves the selected part reference and purchase link')
+        check(annotated['electrical']==final['electrical']
+              and next(p for p in annotated['parts'] if p['id']=='controller')['geometry']==original['parts'][0]['geometry'],
+              'product links preserve electrical wiring and actual CAD geometry')
+        window.document.write(saved)
+        check(read_project(saved).design.model_dump()==annotated,
+              'project save and reload preserve per-part product specifications and links')
+        window.undo();wait(lambda:not window.busy)
+        check(window.document.design==final,'product reference Undo restores the exact previous design')
         language=getattr(app,'cad_language',None)
         if language:
             previous=language.language;language.set_language('en',persist=False)

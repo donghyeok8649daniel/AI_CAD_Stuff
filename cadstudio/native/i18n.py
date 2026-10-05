@@ -717,3 +717,17 @@ EN.update({
     '연결 후 모델 목록을 불러옵니다':'Connect to load the model catalog',
     'Codex가 반환한 모델 목록입니다. 모델 접근 권한은 실제 요청 시 확인됩니다. 선택만으로 요청하지 않습니다.':'Model catalog reported by Codex. Access is checked on the actual request. Selecting a model does not start a request.',
 })
+EN.update({
+    '커패시터 / 콘덴서':'Capacitor', '코일 / 인덕터':'Coil / inductor', '액추에이터':'Actuator',
+    '액추에이터 · 정격 등가 부하':'Actuator · rated equivalent load',
+    '구동 시뮬레이션…':'Drive simulation…',
+    '모터 / 엔코더 · 폐루프 시뮬레이션…':'Motor / encoder · closed-loop simulation…',
+    '부품 제품 스펙 / 구매 링크…':'Part product specifications / purchase links…',
+    '제품 스펙 / 공식 자료 / 구매 링크…':'Product specifications / official references / purchase links…',
+    '제품 자료를 연결할 부품을 선택하세요.':'Select a part to attach product references.',
+    '모델을 바꾸면 이 부품의 기존 핀 연결을 해제합니다. 계속할까요?':'Changing the model clears this component’s existing pin connections. Continue?',
+    '정전 용량':'Capacitance', '인덕턴스':'Inductance', '코일 DC 권선 저항':'Coil DC winding resistance',
+    '극성 커패시터 · 첫 단자가 +':'Polarized capacitor · first terminal is +',
+    '정격 전압 · 커패시터 0은 미입력':'Rated voltage · 0 means unspecified for a capacitor',
+    '커패시터는 DC 정상 상태에서 개방, 코일은 입력한 권선 저항으로 계산합니다. 충방전·역기전력·AC·PWM 구동 해석은 포함하지 않습니다.':'Capacitors are open at steady DC; coils use the entered winding resistance. Charging, flyback, AC and PWM drive behavior are not simulated.',
+})

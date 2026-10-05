@@ -117,3 +117,13 @@ def test_signal_net_with_a_passive_a_b_terminal_is_not_colored_as_supply():
     assert wire_color('SIG',[('board','signal',QPointF(),signal),('resistor','a',QPointF(),passive)]).name()!='#d53b45'
     supply=CircuitPort('supply','5V','VCC','power','right',physical=True)
     assert wire_color('VCC',[('board','supply',QPointF(),supply)]).name()=='#d53b45'
+
+
+def test_polarized_capacitor_positive_terminal_does_not_invent_a_power_supply():
+    capacitor=CircuitPort('a','+','FILTER','passive','left')
+    resistor=CircuitPort('b','B','FILTER','power','right')
+    assert wire_color('FILTER',[('capacitor','a',QPointF(),capacitor),
+                                ('resistor','b',QPointF(),resistor)]).name()!='#d53b45'
+    source=CircuitPort('a','+','FILTER','power','left')
+    assert wire_color('FILTER',[('battery','a',QPointF(),source),
+                                ('capacitor','a',QPointF(),capacitor)]).name()=='#d53b45'

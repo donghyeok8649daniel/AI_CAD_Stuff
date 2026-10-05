@@ -94,7 +94,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         return_wire_length_mm=number,return_wire_cross_section_mm2=number,
         return_wire_resistivity_ohm_mm2_per_m=number,return_wire_catalog_id=text,
         return_wire_max_current_a=number,return_wire_part_id=text,
-        load_kind=enum('load','motor','mcu'),load_voltage_v=number,
+        load_kind=enum('load','motor','actuator','mcu'),load_voltage_v=number,
         load_current_a=number,load_startup_current_a=number,load_part_id=text),
         ('source_voltage_v','positive_wire_length_mm','positive_wire_cross_section_mm2',
          'return_wire_length_mm','return_wire_cross_section_mm2','load_voltage_v','load_current_a'))

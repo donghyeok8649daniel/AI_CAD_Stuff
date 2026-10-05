@@ -50,7 +50,7 @@ class ElectricalPartDialog(QDialog):
         self.model_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         form.addRow(word('실제 제품 모델','Actual product model'),self.model_combo)
         self.kind_combo=QComboBox();self.kind_combo.setObjectName('electricalRegisterKind')
-        for key,ko,en in [('mcu','MCU / MPU 보드','MCU / MPU board'),('motor','모터','Motor'),('load','센서 / 드라이버 / 전자제품','Sensor / driver / electronics'),('battery','배터리 / 전원','Battery / source'),('wire','전선','Wire'),('switch','스위치','Switch'),('resistor','저항','Resistor')]:
+        for key,ko,en in [('mcu','MCU / MPU 보드','MCU / MPU board'),('motor','모터','Motor'),('actuator','액추에이터','Actuator'),('load','센서 / 드라이버 / 전자제품','Sensor / driver / electronics'),('battery','배터리 / 전원','Battery / source'),('wire','전선','Wire'),('switch','스위치','Switch'),('resistor','저항','Resistor'),('capacitor','커패시터 / 콘덴서','Capacitor'),('inductor','코일 / 인덕터','Coil / inductor')]:
             self.kind_combo.addItem(word(ko,en),key)
         form.addRow(word('회로에서의 종류','Circuit kind'),self.kind_combo)
         self.name=QLineEdit();self.name.setObjectName('electricalRegisterName');form.addRow(word('전장 피처 이름','Electrical feature name'),self.name)
@@ -116,8 +116,9 @@ class ElectricalPartDialog(QDialog):
         self.kind_combo.setEnabled(not(entry and (entry.suggested_kind or product_diagram(entry.catalog_id))))
         board=board_pinout(entry.catalog_id) if entry else None;product=product_diagram(entry.catalog_id) if entry else None
         note=(getattr(board or product,'note_en','') if english() else getattr(board or product,'note',''))
-        self.note.setPlainText((entry.spec_summary+'\n' if entry and not english() else '')+note+('\n' if note else '')+
-                          word('공식 단자 모식도 포함','Official terminal diagram included') if board or product else word('이 모델의 확인된 모식도 없음 · 직접 입력한 단자만 표시','No verified diagram for this model · only manually declared terminals shown'))
+        diagram_note=(word('공식 단자 모식도 포함','Official terminal diagram included') if board or product else
+                      word('이 모델의 확인된 모식도 없음 · 직접 입력한 단자만 표시','No verified diagram for this model · only manually declared terminals shown'))
+        self.note.setPlainText('\n'.join(text for text in (entry.spec_summary if entry else '',note,diagram_note) if text))
         self.source_button.setEnabled(bool(entry and entry.source_url))
 
     def candidate(self):

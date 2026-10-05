@@ -48,6 +48,7 @@ class ProductDiagram:
 AS5600_SOURCE = "https://look.ams-osram.com/m/7059eac7531a86fd/original/AS5600-DS000365.pdf"
 POLOLU_DRV8833_SOURCE = "https://www.pololu.com/product/2130"
 POLOLU_4755_SOURCE = "https://www.pololu.com/product/4755"
+OMRON_E6B2_SOURCE = "https://www.ia.omron.com/products/family/487/specification.html"
 VISHAY_1N5819_SOURCE = "https://www.vishay.com/docs/88525/1n5817.pdf"
 ST_BG431_ESC_SOURCE = (
     "https://www.st.com/resource/en/user_manual/"
@@ -258,6 +259,45 @@ PRODUCT_DIAGRAMS: tuple[ProductDiagram, ...] = (
         "are not simulated. " + _NOTE_EN,
         "Pololu #4755 product page, Using the Encoder: six-wire color/function "
         "table and separate encoder Vcc/output conditions.",
+    ),
+    ProductDiagram(
+        "omron_e6b2_cwz6c_1000", "Omron E6B2-CWZ6C 1000 P/R 0.5 m",
+        OMRON_E6B2_SOURCE,
+        (
+            ProductTerminal("ENCODER_VCC", "Brown · +Vcc", "power", "left", 0,
+                            ("Encoder supply 5 V −5% to 24 V +15%",)),
+            ProductTerminal("ENCODER_GND", "Blue · 0 V common", "ground", "left", 1,
+                            ("Encoder 0 V / external ground reference",)),
+            ProductTerminal("ENCODER_A", "Black · phase A", "signal", "right", 0,
+                            ("Quadrature A output", "NPN open-collector, external pull-up required",),
+                            signal_voltage_reference="external_pullup",
+                            signal_level_note="NPN 오픈 컬렉터 출력의 High 전압은 외부 풀업이 정합니다. 엔코더 전원 5–24 V를 신호 전압으로 사용하지 말고 풀업 전압·수신부 입력 허용 전압을 확인하세요.",
+                            signal_level_note_en="The external pull-up sets the NPN open-collector high level. Do not use the 5–24 V encoder supply as the signal voltage; verify pull-up voltage and receiver input limits."),
+            ProductTerminal("ENCODER_B", "White · phase B", "signal", "right", 1,
+                            ("Quadrature B output", "NPN open-collector, external pull-up required",),
+                            signal_voltage_reference="external_pullup",
+                            signal_level_note="NPN 오픈 컬렉터 출력의 High 전압은 외부 풀업이 정합니다. 엔코더 전원 5–24 V를 신호 전압으로 사용하지 말고 풀업 전압·수신부 입력 허용 전압을 확인하세요.",
+                            signal_level_note_en="The external pull-up sets the NPN open-collector high level. Do not use the 5–24 V encoder supply as the signal voltage; verify pull-up voltage and receiver input limits."),
+            ProductTerminal("ENCODER_Z", "Orange · phase Z", "signal", "right", 2,
+                            ("Encoder index output", "NPN open-collector, external pull-up required",),
+                            signal_voltage_reference="external_pullup",
+                            signal_level_note="인덱스 Z도 A/B와 같은 NPN 오픈 컬렉터 회로입니다. 외부 풀업과 수신부의 전압 한계를 확인하세요.",
+                            signal_level_note_en="Index Z uses the same NPN open-collector circuit as A/B. Verify the external pull-up and receiver voltage limits."),
+        ),
+        "E6B2-CWZ6C 1000 P/R의 공식 5가닥 색상·기능표입니다. 다른 CWZ 변형에 "
+        "적용하거나 커넥터 번호·실제 배선을 추정하지 않습니다. 실드는 내부 회로나 "
+        "케이스에 연결되지 않은 것으로 명시되어 자동 접지하지 않습니다. 1000 P/R은 "
+        "A/B 양 채널 모든 에지를 세면 엔코더축당 4000 카운트입니다. 출력의 High "
+        "전압은 외부 풀업이 정하며 공급 전압으로 GPIO 호환을 판단하지 않습니다. " + _NOTE_KO,
+        "Exact CWZ6C 1000 P/R five-wire color/function table, not another CWZ "
+        "variant or an inferred connector order. The shield is not internally "
+        "connected to the case or circuitry and is not automatically grounded. "
+        "1000 P/R corresponds to 4000 counts per encoder-shaft turn when counting "
+        "all A/B edges. The external pull-up sets the signal high level; the "
+        "encoder supply does not establish GPIO compatibility. " + _NOTE_EN,
+        "Omron E6B2-C datasheet CSM_E6B2-C_DS_E_6_3, p.2 ratings and p.3 "
+        "CWZ6C NPN I/O circuit/color table. Official PDF: "
+        "https://www.ia.omron.com/data_pdf/cat/e6b2-c_ds_e_6_3_csm491.pdf?id=487",
     ),
     ProductDiagram(
         "vishay_1n5819", "Vishay 1N5819 (DO-204AL/DO-41)", VISHAY_1N5819_SOURCE,

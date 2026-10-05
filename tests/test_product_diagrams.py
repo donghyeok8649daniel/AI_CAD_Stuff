@@ -14,7 +14,7 @@ def _terminals(identifier):
 
 def test_exact_product_diagrams_are_immutable_unique_and_source_linked():
     diagrams = available_product_diagrams()
-    assert isinstance(diagrams, tuple) and len(diagrams) == 5
+    assert isinstance(diagrams, tuple) and len(diagrams) == 6
     assert len({diagram.catalog_id for diagram in diagrams}) == len(diagrams)
     for diagram in diagrams:
         assert product_diagram(diagram.catalog_id) is diagram
@@ -26,7 +26,7 @@ def test_exact_product_diagrams_are_immutable_unique_and_source_linked():
         assert diagram.evidence and "시뮬레이션" in diagram.note
         host = urlsplit(diagram.source_url)
         assert host.scheme == "https" and host.hostname in {
-            "look.ams-osram.com", "www.pololu.com", "www.vishay.com", "www.st.com",
+            "look.ams-osram.com", "www.pololu.com", "www.vishay.com", "www.st.com", "www.ia.omron.com",
         }
         assert "Not a dimensioned PCB/footprint" in diagram.note_en
         for terminal in diagram.terminals:
@@ -117,6 +117,29 @@ def test_diode_uses_verified_cathode_band_without_invented_numbered_leads():
     assert all(pin.kind == "other" for pin in pins.values())
     assert "No invented pin 1/2 numbering" in diagram.note_en
     assert "color band denotes cathode" in diagram.evidence
+
+
+def test_exact_omron_quadrature_encoder_uses_verified_wire_colors_and_external_pullups():
+    diagram = product_diagram("omron_e6b2_cwz6c_1000")
+    pins = _terminals(diagram.catalog_id)
+    assert len(pins) == 5
+    assert pins["ENCODER_VCC"].label == "Brown · +Vcc"
+    assert pins["ENCODER_GND"].label == "Blue · 0 V common"
+    assert pins["ENCODER_A"].label == "Black · phase A"
+    assert pins["ENCODER_B"].label == "White · phase B"
+    assert pins["ENCODER_Z"].label == "Orange · phase Z"
+    assert pins["ENCODER_VCC"].kind == "power"
+    assert pins["ENCODER_GND"].kind == "ground"
+    for key in ("ENCODER_A", "ENCODER_B", "ENCODER_Z"):
+        assert pins[key].kind == "signal"
+        assert "NPN open-collector" in " ".join(pins[key].functions)
+        assert pins[key].signal_voltage_reference == "external_pullup"
+        assert pins[key].signal_voltage_min_v is None
+        assert pins[key].signal_voltage_max_v is None
+        assert pins[key].signal_level_note and pins[key].signal_level_note_en
+    assert "4000 counts" in diagram.note_en
+    assert "not automatically grounded" in diagram.note_en
+    assert "CWZ6C NPN" in diagram.evidence
 
 
 def test_new_reference_products_do_not_invent_dc_operating_current_or_supply_defaults():

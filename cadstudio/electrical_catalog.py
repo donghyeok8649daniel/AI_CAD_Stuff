@@ -12,7 +12,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 
-CircuitKind = Literal["battery", "wire", "switch", "resistor", "load", "motor", "mcu"]
+CircuitKind = Literal["battery", "wire", "switch", "resistor", "capacitor", "inductor",
+                      "load", "motor", "actuator", "mcu"]
+ElectricalFunction = Literal["motor", "actuator", "encoder", "motor_driver", "controller"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,13 +32,30 @@ class ElectricalCatalogEntry:
     reference_only: bool = False
     aliases: tuple[str, ...] = ()
     resistance_ohm: float | None = None
+    capacitance_f: float | None = None
+    inductance_h: float | None = None
+    winding_resistance_ohm: float | None = None
+    capacitor_polarized: bool = False
+    # Passive withstand voltage is distinct from a battery source or a
+    # motor's operating point. A capacitor must never create a voltage source.
+    rated_voltage_v: float | None = None
+    # Product functions are independent of the simplified DC circuit kind.
+    # An ESC or standalone encoder is not a generic MCU load, and one product
+    # can contain both a motor and an encoder. Family rows have no inferred role.
+    functional_roles: tuple[ElectricalFunction, ...] = ()
+    encoder_interface: Literal["quadrature", "absolute_i2c"] | None = None
+    # Quadrature counts use all four edges of both A/B channels per revolution
+    # of the named shaft. P/R and gearbox-output counts must not be conflated.
+    encoder_counts_per_rev: int | None = None
+    encoder_reference: Literal["motor_shaft", "encoder_shaft"] | None = None
+    motor_gear_ratio: float | None = None
 
     @property
     def display_name(self) -> str:
         return f"{self.manufacturer} {self.model}"
 
 
-# Exact product links were checked against manufacturer documentation. The
+# Exact product links were checked against manufacturer or supplier documentation. The
 # model's source URL and catalog ID travel with the saved electrical component.
 # Family rows provide discovery links only; their pins and ratings vary by SKU.
 CATALOG: tuple[ElectricalCatalogEntry, ...] = (
@@ -237,18 +256,28 @@ CATALOG: tuple[ElectricalCatalogEntry, ...] = (
         "https://www.ti.com/product/DRV8833",
         "모터 공급 VM 2.7–10.8 V. 1.5 A RMS·2 A 피크는 PWP/RTY 패키지 조건이며 열 설계에 좌우됩니다. 드라이버 회로 모델은 아직 미지원입니다.",
         reference_only=True, aliases=("h bridge", "h-bridge", "h브리지", "구동기"),
+        functional_roles=("motor_driver",),
     ),
     ElectricalCatalogEntry(
         "st_b_g431b_esc1", "STM32 ESC / 모터 드라이버 보드", "STMicroelectronics", "B-G431B-ESC1", "STM32G431CB ESC",
         "https://www.st.com/resource/en/user_manual/dm00564746-electronic-speed-controller-discovery-kit-for-drones-with-stm32g431cb-stmicroelectronics.pdf",
-        "STM32G431CB 기반 3상 BLDC/PMSM ESC. 3S–6S LiPo 입력, PWM/UART/CAN과 Hall/엔코더 단자. 40 A 피크는 프로펠러 강제 냉각 시험 조건이며 연속 전류·보드 소비전류가 아닙니다. BEC는 딸림 보드 상태를 확인하며 FOC/PWM 동작 해석은 미지원입니다.",
+        "STM32G431CB 기반 3상 BLDC/PMSM ESC. 3S–6S LiPo 입력, PWM/UART/CAN과 J8 Hall/쿼드러처 엔코더 단자. 40 A 피크는 프로펠러 강제 냉각 시험 조건이며 연속 전류·보드 소비전류가 아닙니다. BEC는 딸림 보드 상태를 확인합니다. 첫 사용에는 MCSDK/Workbench로 센서와 FOC 펌웨어를 구성해야 하며 실제 FOC/PWM 동작 해석은 미지원입니다.",
         reference_only=True, aliases=("b-g431b-esc1", "b g431b esc1", "b-g431", "stm32g431", "g431b", "stm b", "stm32 b", "esc", "st esc"),
+        functional_roles=("motor_driver", "controller"),
+    ),
+    ElectricalCatalogEntry(
+        "st_evspin32g4", "STM32 모터 제어 평가 보드", "STMicroelectronics", "EVSPIN32G4", "STSPIN32G4",
+        "https://www.st.com/en/evaluation-tools/evspin32g4.html",
+        "STSPIN32G4/STM32G431 기반 3상 모터 제어 평가 보드. DC 버스 10–75 V, 디지털 Hall/쿼드러처 엔코더 입력과 ST Motor Control SDK 지원. 20 A RMS는 방열판 조건이며 보드 소비전류가 아닙니다. 단자별 핀 매핑과 실제 FOC 펌웨어 실행은 별도 검증이 필요합니다.",
+        reference_only=True, aliases=("evspin", "stm32 esc", "stspin32g4", "foc", "모터 제어"),
+        functional_roles=("motor_driver", "controller"),
     ),
     ElectricalCatalogEntry(
         "pololu_2130", "모터 드라이버 보드", "Pololu", "#2130 DRV8833 Dual Motor Driver Carrier", "DRV8833 carrier",
         "https://www.pololu.com/product/2130",
         "정확한 Pololu #2130 보드의 단자명이 확인됩니다. 모터 전원 2.7–10.8 V, 약 1.2 A 연속/2 A 피크는 채널·방열 조건입니다. TI 칩 패키지나 다른 DRV8833 모듈과 구분하며 H 브리지/PWM 동작 해석은 미지원입니다.",
         reference_only=True, aliases=("drv8833", "motor driver", "드라이버 보드", "h브리지", "pololu 2130"),
+        functional_roles=("motor_driver",),
     ),
     ElectricalCatalogEntry(
         "toshiba_tb6612fng", "모터 드라이버", "Toshiba", "TB6612FNG", "TB6612",
@@ -283,38 +312,52 @@ CATALOG: tuple[ElectricalCatalogEntry, ...] = (
     ElectricalCatalogEntry(
         "pololu_4755", "기어드 모터·엔코더", "Pololu", "#4755 100:1 37D 12 V 엔코더", "37D",
         "https://www.pololu.com/product/4755",
-        "12 V, 무부하 0.2 A, 이론적 정지(stall) 5.5 A, 모터축 64 CPR 엔코더. 무부하·정지 전류를 연속 정격 전류로 사용하지 마세요.",
+        "12 V, 무부하 0.2 A, 이론적 정지(stall) 5.5 A. 모터축 엔코더는 A/B 양 채널의 모든 에지를 세는 64 CPR이며 실제 감속비는 102.083:1입니다. 엔코더 전원 3.5–20 V는 모터 전원과 별개이고 출력은 엔코더 Vcc까지 올라갑니다. 무부하·정지 전류를 연속 정격 전류로 사용하지 마세요.",
         "motor", 12.0, aliases=("37d", "gearmotor", "기어 모터", "엔코더 모터"),
+        functional_roles=("motor", "encoder"), encoder_interface="quadrature",
+        encoder_counts_per_rev=64, encoder_reference="motor_shaft",
+        motor_gear_ratio=(25 * 30 * 28 * 28 * 30) / (10 * 10 * 12 * 12 * 12),
     ),
     ElectricalCatalogEntry(
         "stepperonline_17hs19_2004s1", "스테퍼 모터", "StepperOnline", "17HS19-2004S1", "NEMA 17",
         "https://www.omc-stepperonline.com/nema-17-bipolar-59ncm-84oz-in-2a-42x48mm-4-wires-w-1m-cable-connector-17hs19-2004s1",
         "각 상 2 A, 스텝각 1.8°, 각 상 저항 1.6 Ω. 상별 초퍼 구동이 필요하며 2단자 DC 모터 모델로 자동 변환하지 않습니다.",
         reference_only=True, aliases=("nema17", "stepper", "스텝 모터"),
+        functional_roles=("motor",),
     ),
     ElectricalCatalogEntry(
         "maxon_666603", "BLDC 모터", "maxon", "EC-i 666603", "EC-i",
         "https://www.maxongroup.com/maxon/view/product/motor/ecmotor/EC-i/666603",
         "공칭 48 V·연속 공칭 전류 3.31 A인 3상 BLDC 제품입니다. 2단자 DC 저항부하로 자동 변환하지 않습니다.",
         reference_only=True, aliases=("bldc", "brushless", "브러시리스"),
+        functional_roles=("motor",),
     ),
     ElectricalCatalogEntry(
         "robotis_xl330_m288t", "서보 액추에이터", "ROBOTIS", "DYNAMIXEL XL330-M288-T", "DYNAMIXEL XL330",
-        "https://robotis.us/products/dynamixel-xl330-m288-t",
-        "통신·전원·토크·동작 전류는 해당 제품의 e-Manual과 구동 조건을 확인하세요. 서보 제어 모델은 미지원입니다.",
-        reference_only=True, aliases=("servo", "dynamixel", "서보모터"),
+        "https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/",
+        "입력 3.7–6 V, 권장 5 V, TTL 반이중 통신. 5 V에서 1.47 A는 정지 토크 시험 조건이며 대기 17 mA도 동작 전류가 아닙니다. 실제 부하 전류를 별도로 입력해야 하며 위치·토크·통신 제어 동작은 미해석입니다.",
+        "actuator", 5.0, aliases=("servo", "dynamixel", "서보모터", "액추에이터", "엑추에이터"),
+    ),
+    ElectricalCatalogEntry(
+        "concentric_lact10p_12v_10", "선형 액추에이터", "Concentric", "Glideforce LACT10P-12V-10 (Pololu #3651)", "Glideforce LD 10:1",
+        "https://www.pololu.com/product/3651",
+        "12 V DC, 실제 스트로크 약 250 mm, 동적 하중 250 N, 무부하 약 28 mm/s. 양 끝 리미트 스위치와 위치 피드백 포텐셔미터가 있습니다. 전류는 부하에 따라 달라 3.2 A 한계나 7 A 정지 전류를 계산용 동작 전류로 자동 입력하지 않습니다. 제어·왕복 동작은 미해석입니다.",
+        "actuator", 12.0, aliases=("linear actuator", "액추에이터", "엑추에이터", "리니어", "선형", "glideforce", "lact10p"),
     ),
     ElectricalCatalogEntry(
         "omron_e6b2_cwz6c_1000", "엔코더", "Omron", "E6B2-CWZ6C 1000 P/R 0.5 m", "E6B2-C",
         "https://www.ia.omron.com/products/family/487/specification.html",
-        "공급 5 V −5% ~ 24 V +15%, 소비전류 최대 80 mA, NPN 오픈 컬렉터. 출력 풀업과 상대 장치 입력 사양을 확인하세요.",
+        "공급 5 V −5% ~ 24 V +15%, 소비전류 최대 80 mA(고정 동작 전류가 아님), NPN 오픈 컬렉터 A/B/Z. 1000 P/R은 엔코더축 1회전당 A/B 모든 에지를 세면 4000 카운트입니다. 출력 풀업과 상대 장치 입력 사양을 확인하세요.",
         reference_only=True, aliases=("encoder", "로터리 엔코더", "omron e6b2"),
+        functional_roles=("encoder",), encoder_interface="quadrature",
+        encoder_counts_per_rev=4000, encoder_reference="encoder_shaft",
     ),
     ElectricalCatalogEntry(
         "ams_as5600_asot", "자기식 각도 센서 IC", "ams", "AS5600-ASOT SOIC-8 칩", "AS5600",
         "https://look.ams-osram.com/m/7059eac7531a86fd/original/AS5600-DS000365.pdf",
         "AS5600-ASOT SOIC-8 칩의 정확한 8핀 배치입니다. 3.3 V/5 V 전원 모드에서 전원·바이패스 연결이 다르며 외부 I²C 풀업 조건을 확인해야 합니다. 출처 불명 AS5600 모듈 핀과 혼동하지 마세요. 자기장·각도·프로토콜 동작은 미해석입니다.",
         reference_only=True, aliases=("as5600", "encoder", "엔코더", "각도 센서", "magnetic sensor"),
+        functional_roles=("encoder",), encoder_interface="absolute_i2c",
     ),
     ElectricalCatalogEntry(
         "omron_e6b2_family", "엔코더", "Omron", "E6B2-C 제품군", "E6B2-C",
@@ -325,8 +368,10 @@ CATALOG: tuple[ElectricalCatalogEntry, ...] = (
     ElectricalCatalogEntry(
         "omron_e6c2_cwz6c_1000", "엔코더", "Omron", "E6C2-CWZ6C 1000 P/R 2 m", "E6C2-C",
         "https://www.ia.omron.com/products/family/488/specification.html",
-        "공급 5 V −5% ~ 24 V +15%, 소비전류 최대 80 mA, NPN 오픈 컬렉터. 1000 P/R 변형의 출력 풀업과 입력 호환을 확인하세요.",
+        "공급 5 V −5% ~ 24 V +15%, 소비전류 최대 80 mA(고정 동작 전류가 아님), NPN 오픈 컬렉터 A/B/Z. 1000 P/R 변형은 엔코더축 1회전당 A/B 모든 에지를 세면 4000 카운트입니다. 출력 풀업과 입력 호환을 확인하세요.",
         reference_only=True, aliases=("encoder", "로터리 엔코더", "omron e6c2"),
+        functional_roles=("encoder",), encoder_interface="quadrature",
+        encoder_counts_per_rev=4000, encoder_reference="encoder_shaft",
     ),
     ElectricalCatalogEntry(
         "bourns_pec11r_family", "수동 엔코더 제품군", "Bourns", "PEC11R", "PEC11R",
@@ -365,28 +410,37 @@ CATALOG: tuple[ElectricalCatalogEntry, ...] = (
         "resistor", aliases=("resistor", "저항", "10k", "0805"), resistance_ohm=10000,
     ),
     ElectricalCatalogEntry(
+        "panasonic_erj6enf1001v", "저항", "Panasonic", "ERJ6ENF1001V", "ERJ6EN",
+        "https://industrial.panasonic.com/ww/products/pt/general-purpose-chip-resistors/models/ERJ6ENF1001V",
+        "1 kΩ ±1%, 0805, 0.125 W 제품. 회로에는 1 kΩ만 넣으며 패키지의 전력 정격을 부하 전류로 바꾸지 않습니다.",
+        "resistor", aliases=("resistor", "저항", "1k", "0805"), resistance_ohm=1000,
+    ),
+    ElectricalCatalogEntry(
         "murata_mlcc_family", "콘덴서 제품군", "Murata", "MLCC 세라믹 커패시터", "MLCC",
         "https://www.murata.com/en-global/products/capacitor/ceramiccapacitor/overview/lineup",
         "정전용량·정격 전압·DC 바이어스·온도 특성은 제품별로 다릅니다. 현 DC 회로 계산기는 커패시턴스 동작을 해석하지 않습니다.",
-        reference_only=True, aliases=("capacitor", "콘덴서", "커패시터", "mlcc"),
+        reference_only=True, aliases=("capacitor", "콘덴서", "커패시터", "캐패시터", "mlcc"),
     ),
     ElectricalCatalogEntry(
         "kyocera_kgm15br71e104kt", "세라믹 콘덴서", "KYOCERA AVX", "KGM15BR71E104KT", "KGM",
         "https://search.kyocera-avx.com/product/KGM15BR71E104KT",
-        "100 nF ±10%, 25 V DC, 0603, X7R. 구 품번 06033C104KAT2A. DC 바이어스에 따른 실제 정전용량과 과도 응답은 미해석입니다.",
-        reference_only=True, aliases=("capacitor", "콘덴서", "커패시터", "100nf", "0603"),
+        "100 nF ±10%, 25 V DC, 비극성 0603 X7R. 구 품번 06033C104KAT2A. DC 계산에서는 개방이며 DC 바이어스·온도에 따른 실제 정전용량과 과도 응답은 미해석입니다.",
+        "capacitor", aliases=("capacitor", "콘덴서", "커패시터", "캐패시터", "100nf", "0603"),
+        capacitance_f=100e-9, rated_voltage_v=25.0,
     ),
     ElectricalCatalogEntry(
-        "panasonic_eeufr1h101b", "전해 콘덴서", "Panasonic", "EEUFR1H101B", "FR",
+        "panasonic_eeufr1h101b", "전해 콘덴서", "Panasonic", "EEUFR1H101B", "FR-A",
         "https://industrial.panasonic.com/ww/products/pt/aluminum-cap-lead/models/EEUFR1H101B",
-        "100 μF ±20%, 50 V 극성 전해 콘덴서. 정격 리플·온도·수명 조건을 제조사 자료로 확인하세요. 현재 과도 응답은 미해석입니다.",
-        reference_only=True, aliases=("capacitor", "콘덴서", "커패시터", "100uf"),
+        "100 μF ±20%, 50 V 극성 전해 콘덴서. DC 계산에서는 개방이며 A는 +, B는 − 단자입니다. 리플 전류 정격을 DC 소비전류로 사용하지 않습니다. 과도 응답·리플·수명은 미해석입니다.",
+        "capacitor", aliases=("capacitor", "콘덴서", "커패시터", "캐패시터", "100uf", "전해"),
+        capacitance_f=100e-6, capacitor_polarized=True, rated_voltage_v=50.0,
     ),
     ElectricalCatalogEntry(
         "wurth_7447713100", "인덕터", "Würth Elektronik", "7447713100", "WE-PD",
         "https://www.we-online.com/components/products/datasheet/7447713100.pdf",
-        "10 μH ±20%. 2.6 A는 ΔT=40 K 온도상승 조건, 4.1 A는 전형적 포화 전류로 서로 다른 한계입니다. 인덕턴스 동작은 미해석입니다.",
-        reference_only=True, aliases=("inductor", "인덕터", "코일", "10uh"),
+        "10 μH ±20%, 권선 DC 저항 20 °C에서 0.052 Ω 전형값(최대 0.062 Ω). DC 계산은 이 권선 저항만 사용합니다. 2.6 A는 ΔT=40 K 온도상승 조건, 4.1 A는 전형적 포화 전류이며 온도·포화·과도 응답은 미해석입니다.",
+        "inductor", aliases=("inductor", "인덕터", "코일", "10uh", "쵸크", "choke"),
+        inductance_h=10e-6, winding_resistance_ohm=0.052,
     ),
     ElectricalCatalogEntry(
         "infineon_mosfet_family", "MOSFET 제품군", "Infineon", "Power MOSFET 선택기", "Power MOSFET",
@@ -501,6 +555,29 @@ def get_catalog_entry(catalog_id: str) -> ElectricalCatalogEntry | None:
     return _BY_ID.get(catalog_id)
 
 
+def catalog_functions(catalog_id: str) -> tuple[ElectricalFunction, ...]:
+    """Return exact product functions, without approving a circuit or firmware model.
+
+    Unknown and family IDs stay unclassified. A functional role is not proof of
+    verified pins, electrical compatibility or eligibility for a simulation.
+    """
+    entry = get_catalog_entry(catalog_id)
+    if entry is None:
+        return ()
+    if entry.functional_roles:
+        return entry.functional_roles
+    if not entry.reference_only and entry.suggested_kind == "mcu":
+        return ("controller",)
+    if not entry.reference_only and entry.suggested_kind in ("motor", "actuator"):
+        return (entry.suggested_kind,)
+    return ()
+
+
+def has_catalog_function(catalog_id: str, function: ElectricalFunction) -> bool:
+    """Check source-linked functional classification independently of DC kind."""
+    return function in catalog_functions(catalog_id)
+
+
 def search_catalog(query: str = "", *, limit: int = 100) -> tuple[ElectricalCatalogEntry, ...]:
     """Search part names, series, categories and common Korean/English aliases."""
     words = tuple(word.casefold() for word in query.split() if word)
@@ -529,10 +606,23 @@ def component_prefill(entry: ElectricalCatalogEntry) -> dict[str, object]:
         "source_url": entry.source_url,
     }
     if entry.nominal_voltage_v is not None:
-        field = "rated_voltage_v" if entry.suggested_kind in ("mcu", "motor", "load") else "voltage_v"
+        field = "rated_voltage_v" if entry.suggested_kind in ("mcu", "motor", "actuator", "load") else "voltage_v"
         values[field] = entry.nominal_voltage_v
-    if entry.rated_current_a is not None and entry.suggested_kind in ("mcu", "motor", "load"):
+    if entry.rated_current_a is not None and entry.suggested_kind in ("mcu", "motor", "actuator", "load"):
         values["rated_current_a"] = entry.rated_current_a
     if entry.resistance_ohm is not None and entry.suggested_kind == "resistor":
         values["resistance_ohm"] = entry.resistance_ohm
+    if entry.suggested_kind == "capacitor":
+        if entry.capacitance_f is not None:
+            values["capacitance_f"] = entry.capacitance_f
+        values["capacitor_polarized"] = entry.capacitor_polarized
+    if entry.suggested_kind == "inductor":
+        if entry.inductance_h is not None:
+            values["inductance_h"] = entry.inductance_h
+        if entry.winding_resistance_ohm is not None:
+            values["winding_resistance_ohm"] = entry.winding_resistance_ohm
+    if entry.rated_voltage_v is not None and entry.suggested_kind in ("capacitor", "inductor"):
+        values["rated_voltage_v"] = entry.rated_voltage_v
+    if entry.suggested_kind == "actuator" and entry.rated_current_a is None:
+        values["analysis_enabled"] = False
     return values

@@ -21,7 +21,8 @@ def wire_color(node, endpoints):
     # A resistor's A/B operating-point terminals are not proof that its net is
     # a supply. Only explicit board/device supply pads or source/DC supply
     # labels give a power conductor priority over a GPIO signal conductor.
-    if any((port.physical and port.kind=='power') or port.label in ('+','DC VCC')
+    if any((port.physical and port.kind=='power') or
+           (port.kind=='power' and port.label in ('+','DC VCC'))
            for _,_,_,port in endpoints):return QColor('#D53B45')
     if 'signal' not in kinds and (node.upper().startswith(('VCC','VDD','VBAT','BAT','VIN'))
                                  or node.upper().startswith('V') and node[1:].isdigit()):return QColor('#D53B45')

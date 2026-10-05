@@ -48,6 +48,7 @@ class ElectricalSchematicDialog(QDialog):
     editRequested = Signal()
     focusRequested = Signal()
     partActivated = Signal(str)
+    simulationRequested = Signal()
 
     def __init__(self, parent, workspace, result=None, parts=(), *, editable=True, view_mode='physical'):
         super().__init__(parent)
@@ -90,8 +91,9 @@ class ElectricalSchematicDialog(QDialog):
         self.kind_combo = QComboBox()
         self.kind_combo.setObjectName('schematicAddKind')
         for key, ko, en in [('mcu','MCU / MPU 보드','MCU / MPU board'), ('battery','배터리 / 전원','Battery / supply'),
-                ('motor','모터 / 액추에이터','Motor / actuator'), ('load','센서 / 드라이버 / 전자제품','Sensor / driver / device'),
-                ('resistor','저항','Resistor'), ('switch','스위치','Switch'), ('wire','전선','Wire')]:
+                ('motor','모터','Motor'), ('actuator','액추에이터','Actuator'), ('load','센서 / 드라이버 / 전자제품','Sensor / driver / device'),
+                ('resistor','저항','Resistor'), ('capacitor','커패시터 / 콘덴서','Capacitor'), ('inductor','코일 / 인덕터','Coil / inductor'),
+                ('switch','스위치','Switch'), ('wire','전선','Wire')]:
             self.kind_combo.addItem(self._word(ko, en), key)
         controls.addWidget(self.kind_combo)
         self.add_button = button(self._word('부품 추가…', 'Add component…'), self.add_component, True)
@@ -166,6 +168,8 @@ class ElectricalSchematicDialog(QDialog):
             '같은 노드 이름이 같은 전선입니다. 접점 없는 교차선은 별개입니다. 보드 외형은 배선 안내도이며 제작 치수가 아닙니다. DC 단자와 실제 전원 핀은 별도로 지정합니다.',
             'Matching net names are connected. Crossings without dots are separate. Board artwork guides wiring, not fabrication dimensions. Assign DC terminals and physical power pins separately.'), True))
         close = QHBoxLayout()
+        self.simulation_button=button(self._word('구동 시뮬레이션…','Drive simulation…'),self.open_simulation)
+        self.simulation_button.setObjectName('schematicDriveSimulation');close.addWidget(self.simulation_button)
         close.addStretch(1)
         self.apply_button = button(self._word('회로도 변경 저장', 'Save circuit changes'), self.accept, True)
         self.apply_button.setObjectName('schematicApply')
@@ -192,6 +196,14 @@ class ElectricalSchematicDialog(QDialog):
     def _word(self, korean, english):
         return english if self.english else korean
 
+    def open_simulation(self):
+        if not self.editable:
+            self.simulationRequested.emit();return
+        from .drive_simulation_dialog import DriveSimulationDialog
+        dialog=DriveSimulationDialog(self,dict(name=self.workspace.name,parts=list(self.parts),electrical=self.workspace.model_dump()))
+        dialog.exec()
+        dialog.deleteLater()
+
     def change_view_mode(self):
         selected=self._selected_id();self.view_mode=self.mode_picker.currentData();self.pending_terminal=None
         self._draw()
@@ -214,7 +226,7 @@ class ElectricalSchematicDialog(QDialog):
         if self.selected_terminal and self.selected_terminal[0]!=identifier:
             self.selected_terminal=None;self.disconnect_button.setEnabled(False)
         self.edit_button.setEnabled(bool(identifier) or not self.editable)
-        self.expand_button.setEnabled(bool(identifier and self._component(identifier).kind in ('mcu','load','motor')))
+        self.expand_button.setEnabled(bool(identifier and self._component(identifier).kind in ('mcu','load','motor','actuator')))
         self.cad_button.setEnabled(bool(identifier and self._component(identifier).part_id))
         if identifier:
             c = self._component(identifier)
@@ -441,7 +453,7 @@ class ElectricalSchematicDialog(QDialog):
     def _arrange(self, save):
         groups = [[], [], [], []]
         for c in self.workspace.components:
-            column = 0 if c.kind == 'battery' else 1 if c.kind in ('wire','switch','resistor') else 2 if c.kind == 'mcu' else 3
+            column = 0 if c.kind == 'battery' else 1 if c.kind in ('wire','switch','resistor','capacitor','inductor') else 2 if c.kind == 'mcu' else 3
             groups[column].append(c)
         y = 70.0
         rows = max((len(g) for g in groups), default=0)
@@ -563,7 +575,7 @@ class ElectricalSchematicDialog(QDialog):
             self.routing_note = ''
         if not rectangles:
             self._text(self._word('회로가 비어 있습니다. 위에서 보드·배터리·모터·저항·스위치를 추가하세요.',
-                'Empty circuit. Add a board, battery, motor, resistor or switch above.'), QPointF(40,80), INK, 13)
+                'Empty circuit. Add a board, battery, motor, actuator, resistor, capacitor, coil or switch above.'), QPointF(40,80), INK, 13)
         from ..board_supply import board_supply_warnings
         warnings=board_supply_warnings(self.workspace,self.result,language='en' if self.english else 'ko')
         visible=list(warnings[:4])

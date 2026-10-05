@@ -12,26 +12,37 @@ from .widgets import button,label,number
 
 
 KINDS=[('battery','배터리 / DC 전원'),('wire','전선'),('switch','스위치'),
-       ('resistor','저항'),('load','일반 부하'),('motor','모터'),('mcu','MCU / 보드 전원 부하')]
+       ('resistor','저항'),('capacitor','커패시터 / 콘덴서'),('inductor','코일 / 인덕터'),
+       ('load','일반 부하'),('motor','모터'),('actuator','액추에이터'),('mcu','MCU / 보드 전원 부하')]
 KIND_NAMES=dict(KINDS)
+DISPLAY_FACTORS={'capacitance_f':1e6,'inductance_h':1e3}
+FIELD_MAXIMUM={'capacitance_f':10000,'inductance_h':10000,
+               'resistance_ohm':1e9,'winding_resistance_ohm':1e9,
+               'length_mm':1e7,'cross_section_mm2':1e5}
 FIELDS=[
     ('voltage_v','공급 전압',' V',('battery',)),
     ('internal_resistance_ohm','배터리 내부저항',' Ω',('battery',)),
     ('resistance_ohm','저항값',' Ω',('resistor',)),
-    ('rated_voltage_v','정격 전압',' V',('load','motor','mcu')),
-    ('rated_current_a','정격 전류',' A',('load','motor','mcu')),
-    ('startup_current_a','명시한 기동 전류 · 0은 미입력',' A',('motor',)),
+    ('capacitance_f','정전 용량',' µF',('capacitor',)),
+    ('inductance_h','인덕턴스',' mH',('inductor',)),
+    ('winding_resistance_ohm','코일 DC 권선 저항',' Ω',('inductor',)),
+    ('rated_voltage_v','정격 전압 · 커패시터 0은 미입력',' V',('load','motor','actuator','mcu','capacitor')),
+    ('rated_current_a','정격 전류',' A',('load','motor','actuator','mcu')),
+    ('startup_current_a','명시한 기동 전류 · 0은 미입력',' A',('motor','actuator')),
     ('length_mm','전선 길이',' mm',('wire',)),
     ('cross_section_mm2','도체 단면적',' mm²',('wire',)),
     ('resistivity_ohm_mm2_per_m','도체 저항률',' Ω·mm²/m',('wire',)),
     ('contact_resistance_ohm','닫힌 접점 저항',' Ω',('switch',)),
-    ('max_current_a','허용 전류 · 0은 미입력',' A',('battery','wire','switch'))]
+    ('max_current_a','허용 전류 · 0은 미입력',' A',('battery','wire','switch','inductor'))]
 DEFAULTS={'battery':{},
           'wire':dict(length_mm=500,cross_section_mm2=.5,resistivity_ohm_mm2_per_m=.01724,max_current_a=2),
           'switch':dict(contact_resistance_ohm=.01,closed=True),
           'resistor':dict(resistance_ohm=100),
+          'capacitor':dict(capacitance_f=.0001),
+          'inductor':dict(inductance_h=.001,winding_resistance_ohm=1),
           'load':dict(rated_voltage_v=12,rated_current_a=.5),
           'motor':dict(rated_voltage_v=12,rated_current_a=1),
+          'actuator':dict(rated_voltage_v=12,rated_current_a=1),
           'mcu':dict(rated_voltage_v=5,rated_current_a=.15)}
 
 
@@ -153,8 +164,13 @@ class ComponentDialog(QDialog):
         for key,title,suffix,kinds in FIELDS:
             value=old.get(key)
             if value is None:value=0 if key in old else DEFAULTS.get(old.get('kind','battery'),{}).get(key,0)
-            field=number(value,0,1000000,suffix,decimals=6);form.addRow(title,field)
+            factor=DISPLAY_FACTORS.get(key,1)
+            field=number(value*factor,0,FIELD_MAXIMUM.get(key,1000000)*factor,suffix,decimals=6);form.addRow(title,field)
+            field.setObjectName('electricalField_'+key)
             self.inputs[key]=field;self.rows[key]=(form.labelForField(field),field,kinds)
+        self.capacitor_polarized=QCheckBox('극성 커패시터 · 첫 단자가 +')
+        self.capacitor_polarized.setObjectName('electricalCapacitorPolarized')
+        self.capacitor_polarized.setChecked(old.get('capacitor_polarized',False));form.addRow(self.capacitor_polarized)
         self.closed=QCheckBox('스위치 닫힘');self.closed.setChecked(old.get('closed',True));form.addRow(self.closed)
         self.wire_connected=QCheckBox('전선 연결됨 · 해제하면 단선')
         self.wire_connected.setChecked(old.get('closed',True));form.addRow(self.wire_connected)
@@ -175,9 +191,11 @@ class ComponentDialog(QDialog):
         form.addRow('추가 신호 단자 = 노드 · 센서 / 드라이버',self.terminal_pins)
         self.terminal_caption=form.labelForField(self.terminal_pins)
         self.pinout_catalog_id=old.get('pinout_catalog_id','')
+        self.product_pinout_catalog_id=old.get('product_pinout_catalog_id','')
         self.supply_fields={key:deepcopy(old[key]) for key in ('board_supply_pins','supply_pinout_catalog_id') if key in old}
         layout.addWidget(label('초기 수치는 가상 예시입니다. 실제 정격·전선 치수로 바꾸세요. 노드 이름은 영문·숫자·_·-만 쓰며 회로 계산은 DC 정상 상태 근사입니다.',True))
         layout.addWidget(label('MCU의 첫 단자는 VCC, 둘째 단자는 GND/리턴입니다. 신호 핀은 도통만 검사하며 코드·논리 동작은 검증하지 않습니다.',True))
+        layout.addWidget(label('커패시터는 DC 정상 상태에서 개방, 코일은 입력한 권선 저항으로 계산합니다. 충방전·역기전력·AC·PWM 구동 해석은 포함하지 않습니다.',True))
         controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
         self.kind.setEnabled(not old.get('part_registration',False));self.part.setEnabled(not old.get('part_registration',False))
@@ -193,12 +211,13 @@ class ComponentDialog(QDialog):
         for key,(caption,field,kinds) in self.rows.items():
             caption.setVisible(kind in kinds);field.setVisible(kind in kinds)
             if self.analysis_enabled.isChecked() and kind in kinds and field.value()==0 and key in DEFAULTS.get(kind,{}):
-                field.setValue(DEFAULTS[kind][key])
+                field.setValue(DEFAULTS[kind][key]*DISPLAY_FACTORS.get(key,1))
+        self.capacitor_polarized.setVisible(kind=='capacitor')
         self.closed.setVisible(kind=='switch')
         self.wire_connected.setVisible(kind=='wire')
         self.power_enabled.setVisible(kind=='battery')
         self.signal_caption.setVisible(kind=='mcu');self.signal_pins.setVisible(kind=='mcu')
-        self.terminal_caption.setVisible(kind in ('load','motor'));self.terminal_pins.setVisible(kind in ('load','motor'))
+        self.terminal_caption.setVisible(kind in ('load','motor','actuator'));self.terminal_pins.setVisible(kind in ('load','motor','actuator'))
 
     def update_catalog_note(self):
         from ..electrical_catalog import get_catalog_entry
@@ -217,22 +236,35 @@ class ComponentDialog(QDialog):
         if catalog.exec()!=QDialog.DialogCode.Accepted or not catalog.entry:return
         values=component_prefill(catalog.entry)
         if not values:return
-        if values['catalog_id']!=self.catalog_id and (self.signal_pins.toPlainText().strip() or self.supply_fields.get('board_supply_pins')):
-            if QMessageBox.question(self,'핀 연결 해제 확인','모델을 바꾸면 기존 MCU 핀 연결을 해제합니다. 계속할까요?')!=QMessageBox.StandardButton.Yes:return
-            self.signal_pins.clear();self.pinout_catalog_id=''
-            self.supply_fields={}
+        if values['catalog_id']!=self.catalog_id:
+            if self.signal_pins.toPlainText().strip() or self.terminal_pins.toPlainText().strip() or self.supply_fields.get('board_supply_pins'):
+                if QMessageBox.question(self,'핀 연결 해제 확인','모델을 바꾸면 이 부품의 기존 핀 연결을 해제합니다. 계속할까요?')!=QMessageBox.StandardButton.Yes:return
+            self.signal_pins.clear();self.terminal_pins.clear()
+            self.pinout_catalog_id='';self.product_pinout_catalog_id='';self.supply_fields={}
         self.catalog_id=''
         kind=values['kind']
+        # A source-linked product must never inherit the manual example's
+        # operating current when the manufacturer has not specified one.
+        self.analysis_enabled.setChecked(False)
         self.kind.setCurrentIndex(self.kind.findData(kind))
         self.catalog_kind=kind
         self.name.setText(values['name'])
         for key,field in self.inputs.items():
             if kind not in self.rows[key][2]:continue
-            if key in values:field.setValue(values[key])
-            elif key in ('rated_voltage_v','rated_current_a','voltage_v','length_mm','cross_section_mm2'):
+            if key in values:field.setValue(values[key]*DISPLAY_FACTORS.get(key,1))
+            elif key in ('rated_voltage_v','rated_current_a','voltage_v','length_mm','cross_section_mm2',
+                         'capacitance_f','inductance_h','winding_resistance_ohm','startup_current_a','max_current_a'):
                 field.setValue(0)  # Missing operating data must not inherit fictional demo defaults.
+        self.capacitor_polarized.setChecked(values.get('capacitor_polarized',False))
         self.catalog_id=values['catalog_id']
         self.source_url=values['source_url']
+        required={'battery':('voltage_v',),'wire':('length_mm','cross_section_mm2'),
+                  'resistor':('resistance_ohm',),'capacitor':('capacitance_f',),
+                  'inductor':('inductance_h','winding_resistance_ohm'),
+                  'load':('rated_voltage_v','rated_current_a'),'motor':('rated_voltage_v','rated_current_a'),
+                  'actuator':('rated_voltage_v','rated_current_a'),'mcu':('rated_voltage_v','rated_current_a')}
+        self.analysis_enabled.setChecked(values.get('analysis_enabled',
+            all(values.get(key,0)>0 for key in required.get(kind,()))))
         self.update_catalog_note()
 
     def parsed_signal_pins(self):
@@ -253,17 +285,18 @@ class ComponentDialog(QDialog):
 
     def candidate(self):
         kind=self.kind.currentData()
-        values={key:field.value() for key,field in self.inputs.items()
+        values={key:field.value()/DISPLAY_FACTORS.get(key,1) for key,field in self.inputs.items()
                 for _,_,kinds in [self.rows[key]] if kind in kinds}
         for optional in ('max_current_a','startup_current_a'):
             if values.get(optional)==0:values[optional]=None
         return dict(id=self.identifier,name=self.name.text().strip() or KIND_NAMES[kind],kind=kind,
                     a=self.a.text().strip(),b=self.b.text().strip(),part_id=self.part.currentData(),
                     catalog_id=self.catalog_id,source_url=self.source_url,analysis_enabled=self.analysis_enabled.isChecked(),
-                    part_registration=self.old.get('part_registration',False),product_pinout_catalog_id=self.old.get('product_pinout_catalog_id',''),
+                    part_registration=self.old.get('part_registration',False),product_pinout_catalog_id=self.product_pinout_catalog_id,
                     closed=(self.wire_connected.isChecked() if kind=='wire' else self.power_enabled.isChecked() if kind=='battery' else self.closed.isChecked()),
                     **({'signal_pins':self.parsed_signal_pins(),'pinout_catalog_id':self.pinout_catalog_id if self.pinout_catalog_id==self.catalog_id else ''} if kind=='mcu' else {}),
-                    **({'terminal_pins':self.parsed_terminals(self.terminal_pins)} if kind in ('load','motor') else {}),
+                    **({'terminal_pins':self.parsed_terminals(self.terminal_pins)} if kind in ('load','motor','actuator') else {}),
+                    **({'capacitor_polarized':self.capacitor_polarized.isChecked()} if kind=='capacitor' else {}),
                     **self.supply_fields,**values)
 
     def accept(self):
@@ -323,7 +356,7 @@ class ElectricalDialog(QDialog):
     def refresh(self):
         names={part['id']:part['name'] for part in self.parts};self.table.setRowCount(len(self.components))
         for row,part in enumerate(self.components):
-            notable=next((f'{part[key]:g} {unit}' for key,unit in [('voltage_v','V'),('resistance_ohm','Ω'),('rated_current_a','A'),('length_mm','mm')] if part.get(key)), '')
+            notable=next((f'{part[key]*factor:g} {unit}' for key,unit,factor in [('capacitance_f','µF',1e6),('inductance_h','mH',1e3),('voltage_v','V',1),('resistance_ohm','Ω',1),('rated_current_a','A',1),('length_mm','mm',1)] if part.get(key)), '')
             if not part.get('analysis_enabled',True):notable='정격 입력 전 · DC 계산 제외'
             elif part['kind']=='battery':notable=('전원 ON · ' if part.get('closed',True) else '전원 OFF · ')+notable
             if part['kind']=='wire' and not part.get('closed',True):notable='단선 · '+notable

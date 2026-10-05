@@ -87,6 +87,7 @@ class PowerPathDialog(QDialog):
         self.load_kind = QComboBox()
         self.load_kind.addItem('일반 저항 등가 부하', 'load')
         self.load_kind.addItem('모터 · 정격 등가 부하', 'motor')
+        self.load_kind.addItem('액추에이터 · 정격 등가 부하', 'actuator')
         self.load_kind.addItem('MCU / 보드 전원 부하', 'mcu')
         load.addRow('모델 종류', self.load_kind)
         self.load_voltage = number(0, 0, 1000, ' V', decimals=5)
@@ -235,7 +236,7 @@ class PowerPathDialog(QDialog):
             positive_wire_part_id=self.feed_part.currentData(),
             load_kind=self.load_kind.currentData(), load_voltage_v=self.load_voltage.value(),
             load_current_a=self.load_current.value(),
-            load_startup_current_a=optional(self.startup_current) if self.load_kind.currentData() == 'motor' else None,
+            load_startup_current_a=optional(self.startup_current) if self.load_kind.currentData() in ('motor','actuator') else None,
             load_part_id=self.load_part.currentData(), return_wire_length_mm=self.return_length.value(),
             return_wire_cross_section_mm2=self.return_area.value(),
             return_wire_resistivity_ohm_mm2_per_m=self.return_resistivity.value(),

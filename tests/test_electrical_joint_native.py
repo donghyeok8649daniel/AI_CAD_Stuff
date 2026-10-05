@@ -171,9 +171,13 @@ def test_catalog_search_only_prefills_confirmed_model_values(app, monkeypatch):
         assert candidate['source_url'].startswith('https://www.raspberrypi.com/')
         assert candidate['rated_voltage_v']==5
         assert candidate['rated_current_a']==0  # PSU recommendation is not board current.
-        with pytest.raises(ValueError):ElectricalComponent.model_validate(candidate)
+        pending=ElectricalComponent.model_validate(candidate)
+        assert not pending.analysis_enabled  # Registration is valid; DC use is still pending.
+        with pytest.raises(ValueError):ElectricalComponent.model_validate(dict(candidate,analysis_enabled=True))
         form.inputs['rated_current_a'].setValue(.35)
-        assert ElectricalComponent.model_validate(form.candidate()).catalog_id=='rpi4b'
+        form.analysis_enabled.setChecked(True)
+        entered=ElectricalComponent.model_validate(form.candidate())
+        assert entered.catalog_id=='rpi4b' and entered.analysis_enabled
     finally:
         form.reject()
 

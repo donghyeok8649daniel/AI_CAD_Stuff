@@ -35,6 +35,10 @@ class RegistrationSpec(BaseModel):
     voltage_v: float | None = Field(default=None, ge=0, le=1000)
     internal_resistance_ohm: float | None = Field(default=None, ge=0, le=10000)
     resistance_ohm: float | None = Field(default=None, ge=0, le=1e9)
+    capacitance_f: float | None = Field(default=None, ge=0, le=10000)
+    inductance_h: float | None = Field(default=None, ge=0, le=10000)
+    winding_resistance_ohm: float | None = Field(default=None, ge=0, le=1e9)
+    capacitor_polarized: bool | None = None
     rated_voltage_v: float | None = Field(default=None, ge=0, le=1000)
     rated_current_a: float | None = Field(default=None, ge=0, le=10000)
     max_current_a: float | None = Field(default=None, gt=0, le=10000)
@@ -50,6 +54,7 @@ OPERATING_FIELDS = frozenset((
     "voltage_v", "internal_resistance_ohm", "resistance_ohm", "rated_voltage_v", "rated_current_a",
     "max_current_a", "startup_current_a", "length_mm", "cross_section_mm2",
     "resistivity_ohm_mm2_per_m", "closed", "contact_resistance_ohm",
+    "capacitance_f", "inductance_h", "winding_resistance_ohm", "capacitor_polarized",
 ))
 
 
@@ -255,7 +260,7 @@ def _terminal_key(component: ElectricalComponent, key: str, *, allow_create=Fals
     key = key.partition(":")[2] if key.startswith("port:") else key
     if not _safe_identifier(key):
         raise ValueError("전장 단자 이름은 40자 이내 영문·숫자·_·-로 지정하세요.")
-    if component.kind not in ("load", "motor"):
+    if component.kind not in ("load", "motor", "actuator"):
         raise ValueError("이 전장 항목은 추가 물리 단자 연결을 지원하지 않습니다.")
     diagram = product_diagram(component.catalog_id)
     if diagram and key not in {terminal.key for terminal in diagram.terminals}:

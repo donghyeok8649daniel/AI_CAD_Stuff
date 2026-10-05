@@ -6,6 +6,7 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator, model_serializer
 from .electrical import ElectricalWorkspace
+from .part_product import ProductMetadata
 
 
 class StrictModel(BaseModel):
@@ -679,6 +680,7 @@ class Part(StrictModel):
     profile_sketch_id: str = Field(default='',max_length=40)
     source_part_id: str = Field(default='',max_length=40)
     material: Material | None = None
+    product: ProductMetadata | None = None
 
     @model_serializer(mode='wrap')
     def compatible_profile(self,handler):
@@ -686,6 +688,7 @@ class Part(StrictModel):
         if not self.profile_sketch_id:data.pop('profile_sketch_id',None)
         if not self.source_part_id:data.pop('source_part_id',None)
         if self.material is None:data.pop('material',None)
+        if self.product is None:data.pop('product',None)
         if self.role=='unspecified':data.pop('role',None)
         return data
 

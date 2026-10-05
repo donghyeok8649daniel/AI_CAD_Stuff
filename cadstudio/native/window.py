@@ -101,6 +101,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         engineering.addAction(self.action('electrical','전장 회로 · 배선 / 전압강하…',self.electrical_dialog,None,'assembly'))
         engineering.addAction(self.action('circuit_workspace','메인 회로도 작업 공간',self.show_circuit_workspace,None,'assembly'))
         engineering.addAction(self.action('wiring_diagram','회로도',self.open_wiring_diagram,None,'assembly'))
+        engineering.addAction(self.action('drive_simulation','모터 / 엔코더 · 폐루프 시뮬레이션…',self.open_drive_simulation,None,'assembly'))
         engineering.addAction(self.action('electrical_register','CAD 부품 · 전장 등록 / 모식도…',self.electrical_part_dialog,None,'assembly'))
         engineering.addAction(self.action('mcu_pins','MCU 선택 / 핀 연결…',self.mcu_pin_dialog,None,'assembly'))
         engineering.addAction(self.action('power_path','전원 연결 설계…',self.power_path_dialog,None,'assembly'))
@@ -110,6 +111,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         assembly.addAction(self.actions['mcu_pins']);assembly.addAction(self.actions['electrical_register'])
         assembly.addAction(self.actions['power_path']);model.addAction(self.actions['mechanical_catalog'])
         assembly.addAction(self.action('component_specs','제품 스펙 · URL 가져오기…',self.component_specs_dialog,None,'open'))
+        assembly.addAction(self.action('part_product','부품 제품 스펙 / 구매 링크…',self.part_product_dialog,None,'open'))
         self.make_selection_tools(edit,assembly)
         edit.addAction(self.action('configurations','설계 구성표…',self.configuration_dialog,None,'dimension'))
         model.addAction(self.action('inspection','각도 / 간격 / 질량 / 단면 검사…',self.inspection_dialog,None,'dimension'))
@@ -327,6 +329,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         panel.setWindowFlags(Qt.WindowType.Widget)
         panel.setObjectName('mainCircuitWorkspace')
         panel.editRequested.connect(self.edit_main_circuit)
+        panel.simulationRequested.connect(self.open_drive_simulation)
         panel.focusRequested.connect(self.toggle_circuit_focus)
         panel.partActivated.connect(self.show_electrical_cad_part)
         self.circuit_panel=panel;self.stack.addWidget(panel);self.stack.setCurrentWidget(panel)
@@ -365,11 +368,20 @@ class MainWindow(QMainWindow,PartSelectionUI):
         panel.show();panel.raise_();panel.activateWindow()
         if component_id:QTimer.singleShot(0,lambda:panel.focus_component(component_id))
 
+    def open_drive_simulation(self):
+        if self.busy or self.sketching:return
+        from .drive_simulation_dialog import DriveSimulationDialog
+        raw=deepcopy(self.document.design) if self.document.design else Design().model_dump()
+        dialog=DriveSimulationDialog(self,raw)
+        dialog.exec()
+        dialog.deleteLater()
+
     def make_wiring_panel(self,raw):
         from .electrical_schematic import ElectricalSchematicDialog
         panel=ElectricalSchematicDialog(self,raw,parts=(self.document.design or {}).get('parts',[]),editable=False)
         panel.setObjectName('floatingWiringDiagram');panel.setWindowFlags(Qt.WindowType.Window)
         panel.editRequested.connect(self.edit_main_circuit);panel.partActivated.connect(self.show_electrical_cad_part)
+        panel.simulationRequested.connect(self.open_drive_simulation)
         panel.close_button.show();return panel
 
     def refresh_wiring_diagram(self):
@@ -423,6 +435,20 @@ class MainWindow(QMainWindow,PartSelectionUI):
         from .component_specs_dialog import ComponentSpecsDialog
         dialog=ComponentSpecsDialog(self);dialog.use.hide()
         if dialog.exec()==QDialog.DialogCode.Accepted:self.use_component_source(dialog.record)
+
+    def part_product_dialog(self,part_id=None):
+        if self.busy or self.sketching:return
+        identifier=part_id if isinstance(part_id,str) else self.selected
+        if not identifier or not self.document.design:
+            self.message('제품 자료를 연결할 부품을 선택하세요.');return
+        from .part_product_dialog import PartProductDialog
+        dialog=PartProductDialog(self,self.document.design,identifier)
+        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.checked is not None:
+            checked=dialog.checked.model_dump()
+            if checked!=self.document.design:
+                self.apply_design(checked,'부품 제품 스펙 / 링크',{'tool':'part-product','part_id':identifier},
+                                  after=lambda:self.select_parts([identifier]))
+        dialog.deleteLater()
 
     def mcu_pin_dialog(self):
         if self.busy or self.sketching:return
@@ -973,6 +999,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
             self.property_layout.addWidget(label('사람이 설계하고, 필요할 때 AI를 사용하세요.'));self.property_layout.addWidget(label('① 기준 평면 선택\n② 스케치 작성\n③ 닫힌 영역 돌출\n④ 면 선택 → 스케치 → 구멍 / 돌출',True));self.property_layout.addWidget(button('XY 평면에 스케치',lambda:self.start_sketch('XY'),True));self.property_layout.addWidget(button('시편 치수 설계',self.specimen_dialog));self.property_layout.addWidget(button('로봇 조립 설계',self.robot_dialog));self.property_layout.addWidget(button('전장 회로 / 배선 설계',self.electrical_dialog));self.property_layout.addStretch();return
         heading=label(part['name'],user_text=True);heading.setStyleSheet('font-size:17px;font-weight:600;');self.property_layout.addWidget(heading);form=QFormLayout();name=QLineEdit(part['name']);name.setObjectName('partName');form.addRow('부품 이름',name);inputs={};g=part['geometry'];changed_dimensions=set()
         self.property_layout.addWidget(button('부품 이름 변경 · F2',self.rename_part))
+        product_button=button('제품 스펙 / 공식 자료 / 구매 링크…',lambda:self.part_product_dialog(part['id']))
+        product_button.setObjectName('partProductButton');self.property_layout.addWidget(product_button)
         group=next((g for g in self.document.design.get('part_groups',[]) if part['id'] in g['part_ids']),None)
         self.property_layout.addWidget(button('선택 부품만 보기 / 돌아오기',self.isolate_parts))
         self.property_layout.addWidget(button('이 부품 STEP / STL 내보내기',self.export_selected_parts))

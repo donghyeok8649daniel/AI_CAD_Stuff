@@ -58,7 +58,7 @@ def test_default_circuit_has_compact_boards_and_every_electronic_component(app):
         assert set(dialog.component_items)=={'source','switch','pi','driver','motor','pull'}
         assert dialog.pin_panel.isHidden()
         assert {dialog.kind_combo.itemData(index) for index in range(dialog.kind_combo.count())}=={
-            'mcu','battery','motor','load','resistor','switch','wire'}
+            'mcu','battery','motor','actuator','load','resistor','capacitor','inductor','switch','wire'}
         board=dialog.component_items['pi']
         assert board.board.model=='Raspberry Pi 4 Model B'
         assert board.compact and len(board.ports)<=10

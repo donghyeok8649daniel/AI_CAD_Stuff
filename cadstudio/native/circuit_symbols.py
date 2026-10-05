@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPen, QPolygonF
+from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import QGraphicsEllipseItem, QGraphicsItem, QGraphicsObject
 
 from ..board_pins import board_pinout
@@ -39,6 +39,15 @@ CONNECTED = QColor("#168779")
 SIGNAL = QColor("#507AA2")
 POWER = QColor("#BF8722")
 SELECTED = QColor("#2675CE")
+
+
+def _engineering_value(value: float, unit: str) -> str:
+    """Readable SI units without rounding a small passive value down to zero."""
+    for factor, prefix in ((1e9, "G"), (1e6, "M"), (1e3, "k"), (1, ""),
+                           (1e-3, "m"), (1e-6, "µ"), (1e-9, "n"), (1e-12, "p")):
+        if abs(value) >= factor:
+            return f"{value / factor:.4g} {prefix}{unit}"
+    return f"{value:.4g} {unit}"
 
 
 class _PortItem(QGraphicsEllipseItem):
@@ -140,14 +149,17 @@ class CircuitComponentItem(QGraphicsObject):
 
     def _ports(self) -> dict[str, CircuitPort]:
         component = self.component
-        a_label, b_label = ("+", "−") if component.kind == "battery" else ("A", "B")
+        polarized = component.kind == "battery" or (
+            component.kind == "capacitor" and component.capacitor_polarized)
+        a_label, b_label = ("+", "−") if polarized else ("A", "B")
         if component.kind == "mcu":
             a_label, b_label = "DC VCC", "DC GND"
         elif self.product:
             a_label, b_label = "DC A", "DC B"
+        terminal_kind = "passive" if component.kind in ("capacitor", "inductor") else "power"
         result = {
-            "a": CircuitPort("a", a_label, component.a, "power", "left"),
-            "b": CircuitPort("b", b_label, component.b, "power", "right"),
+            "a": CircuitPort("a", a_label, component.a, terminal_kind, "left"),
+            "b": CircuitPort("b", b_label, component.b, terminal_kind, "right"),
         }
         known = self.board.pins if self.board else self.product.terminals if self.product else ()
         mappings = component.signal_pins if component.kind == "mcu" else component.terminal_pins
@@ -277,7 +289,13 @@ class CircuitComponentItem(QGraphicsObject):
         if component.kind == "battery":
             return f"{component.voltage_v:g} V · " + ("ON" if component.closed else "OFF")
         if component.kind == "resistor":
-            return f"{component.resistance_ohm:g} Ω"
+            return _engineering_value(component.resistance_ohm, "Ω")
+        if component.kind == "capacitor":
+            return _engineering_value(component.capacitance_f, "F") + self.word(
+                " · DC 정상상태 개방", " · DC steady-state open")
+        if component.kind == "inductor":
+            return (_engineering_value(component.inductance_h, "H") + " · "
+                    + _engineering_value(component.winding_resistance_ohm, "Ω"))
         if component.kind == "wire":
             return f"{component.length_mm:g} mm · {component.cross_section_mm2:g} mm²"
         if component.kind == "switch":
@@ -366,6 +384,27 @@ class CircuitComponentItem(QGraphicsObject):
                 painter.drawLine(QPointF(cx - 16, cy - 25), QPointF(cx + 17, cy + 25))
         elif kind == "resistor":
             painter.drawRect(QRectF(cx - 30, cy - 11, 60, 22))
+        elif kind == "capacitor":
+            painter.drawLine(QPointF(cx - 30, cy), QPointF(cx - 7, cy))
+            painter.drawLine(QPointF(cx + 7, cy), QPointF(cx + 30, cy))
+            painter.drawLine(QPointF(cx - 7, cy - 20), QPointF(cx - 7, cy + 20))
+            if self.component.capacitor_polarized:
+                path = QPainterPath(QPointF(cx + 13, cy - 20))
+                path.quadTo(QPointF(cx + 1, cy), QPointF(cx + 13, cy + 20))
+                painter.drawPath(path)
+                painter.drawLine(QPointF(cx - 22, cy - 16), QPointF(cx - 14, cy - 16))
+                painter.drawLine(QPointF(cx - 18, cy - 20), QPointF(cx - 18, cy - 12))
+            else:
+                painter.drawLine(QPointF(cx + 7, cy - 20), QPointF(cx + 7, cy + 20))
+        elif kind == "inductor":
+            # Four winding lobes meet the same A/B anchors as the resistor.
+            # This electrical symbol does not imply a measured coil footprint.
+            path = QPainterPath(QPointF(cx - 30, cy))
+            for index in range(4):
+                left = cx - 30 + index * 15
+                path.cubicTo(QPointF(left, cy - 22), QPointF(left + 15, cy - 22),
+                             QPointF(left + 15, cy))
+            painter.drawPath(path)
         elif kind == "wire":
             if self.component.closed:
                 painter.drawLine(QPointF(cx - 30, cy), QPointF(cx + 30, cy))
@@ -384,10 +423,24 @@ class CircuitComponentItem(QGraphicsObject):
             painter.drawEllipse(QPointF(cx, cy), 28, 28)
             self._text(painter, "M", QRectF(cx - 25, cy - 22, 50, 44), size=18,
                        bold=True, align=Qt.AlignmentFlag.AlignCenter)
+        elif kind == "actuator":
+            self._actuator_symbol(painter, cx, cy)
         else:
             painter.drawRoundedRect(QRectF(cx - 30, cy - 19, 60, 38), 4, 4)
             self._text(painter, self.word("부하", "LOAD"), QRectF(cx - 26, cy - 17, 52, 34),
                        size=9, bold=True, align=Qt.AlignmentFlag.AlignCenter)
+
+    def _actuator_symbol(self, painter: QPainter, cx: float, cy: float):
+        """An actuator body and moving rod, separate from its electrical leads."""
+        painter.drawRoundedRect(QRectF(cx - 30, cy - 16, 60, 34), 3, 3)
+        self._text(painter, "ACT", QRectF(cx - 27, cy - 14, 54, 30), size=10,
+                   bold=True, align=Qt.AlignmentFlag.AlignCenter)
+        painter.setPen(QPen(INK, 2))
+        painter.drawLine(QPointF(cx, cy - 16), QPointF(cx, cy - 27))
+        painter.drawLine(QPointF(cx - 9, cy - 27), QPointF(cx + 9, cy - 27))
+        painter.drawLine(QPointF(cx + 19, cy - 18), QPointF(cx + 19, cy - 28))
+        painter.drawLine(QPointF(cx + 15, cy - 22), QPointF(cx + 19, cy - 28))
+        painter.drawLine(QPointF(cx + 23, cy - 22), QPointF(cx + 19, cy - 28))
 
     def _device_symbol(self, painter: QPainter, cx: float, cy: float):
         """Distinct supported product identities without inventing internals."""
@@ -399,6 +452,8 @@ class CircuitComponentItem(QGraphicsObject):
             # below; this symbol is not silently tied to abstract DC A/B.
             painter.drawPolygon(QPolygonF([QPointF(cx - 16, cy - 15), QPointF(cx - 16, cy + 15), QPointF(cx + 13, cy)]))
             painter.drawLine(QPointF(cx + 15, cy - 17), QPointF(cx + 15, cy + 17))
+        elif self.component.kind == "actuator":
+            self._actuator_symbol(painter, cx, cy)
         elif catalog == "pololu_4755" or self.component.kind == "motor":
             painter.drawEllipse(QPointF(cx, cy + 4), 19, 19)
             self._text(painter, "M", QRectF(cx - 16, cy - 13, 32, 34), size=12,

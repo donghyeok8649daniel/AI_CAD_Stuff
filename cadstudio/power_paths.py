@@ -77,16 +77,16 @@ class PowerPathSpec(BaseModel):
     return_wire_max_current_a: float | None = Field(default=None, gt=0, le=10000)
     return_wire_part_id: str = Field(default="", max_length=40, pattern=r"^[A-Za-z0-9_-]*$")
 
-    load_kind: Literal["load", "motor", "mcu"] = "load"
+    load_kind: Literal["load", "motor", "actuator", "mcu"] = "load"
     load_voltage_v: float = Field(gt=0, le=1000)
     load_current_a: float = Field(gt=0, le=10000)
     load_startup_current_a: float | None = Field(default=None, gt=0, le=10000)
     load_part_id: str = Field(default="", max_length=40, pattern=r"^[A-Za-z0-9_-]*$")
 
     @model_validator(mode="after")
-    def motor_only_startup(self):
-        if self.load_startup_current_a is not None and self.load_kind != "motor":
-            raise ValueError("기동 전류는 모터 부하에만 입력할 수 있습니다.")
+    def powered_drive_startup(self):
+        if self.load_startup_current_a is not None and self.load_kind not in ("motor", "actuator"):
+            raise ValueError("기동 전류는 모터·액추에이터 부하에만 입력할 수 있습니다.")
         return self
 
 
@@ -217,11 +217,11 @@ def build_power_path(existing: ElectricalWorkspace | dict | None, raw_spec: Powe
     )
     capacities = tuple(_capacity(label, current, limit) for label, limit in limits)
     # The solver's startup scenario is workspace-wide. Show a startup row for
-    # this newly built path only when THIS load supplied a motor-start value;
-    # an unrelated old motor must not make a new MCU path appear to start.
+    # this newly built path only when THIS drive supplied a starting value;
+    # an unrelated old drive must not make a new MCU path appear to start.
     startup_current = (abs(next(branch.current_a for branch in result.startup.components
                                if branch.id == ids["source"]))
-                       if spec.load_kind == "motor" and spec.load_startup_current_a is not None
+                       if spec.load_kind in ("motor", "actuator") and spec.load_startup_current_a is not None
                        and result.startup is not None else None)
     startup_capacities = (tuple(_capacity(label, startup_current, limit) for label, limit in limits)
                           if startup_current is not None else ())
@@ -284,7 +284,9 @@ def format_power_path_report(build: PowerPathBuild, language: str = "ko") -> str
                                        capacity.entered_limit_a, capacity.status, capacity.margin_a)
             lines.append(capacity_line(translated))
         if report.startup_current_a is not None:
-            lines.append(f"Separate motor-starting resistance estimate: {report.startup_current_a:.5g} A · not PWM or driver simulation")
+            load = next(component for component in build.workspace.components if component.id == build.ids['load'])
+            drive = 'actuator' if load.kind == 'actuator' else 'motor'
+            lines.append(f"Separate {drive}-starting resistance estimate: {report.startup_current_a:.5g} A · not PWM or driver simulation")
             for capacity in report.startup_capacities:
                 translated = CapacityCheck(names[capacity.label], capacity.current_a,
                                            capacity.entered_limit_a, capacity.status, capacity.margin_a)
@@ -313,7 +315,9 @@ def format_power_path_report(build: PowerPathBuild, language: str = "ko") -> str
         else:
             lines.append(f"CHECK · {capacity.label}: 입력 한계보다 {capacity.margin_a:.4g} A 낮음")
     if report.startup_current_a is not None:
-        lines.append(f"모터 기동 별도 저항 등가 근사: {report.startup_current_a:.5g} A · PWM/드라이버 해석 아님")
+        load = next(component for component in build.workspace.components if component.id == build.ids['load'])
+        drive = '액추에이터' if load.kind == 'actuator' else '모터'
+        lines.append(f"{drive} 기동 별도 저항 등가 근사: {report.startup_current_a:.5g} A · PWM/드라이버 해석 아님")
         for capacity in report.startup_capacities:
             if capacity.status == "unverified":
                 lines.append(f"WARN · 기동 {capacity.label}: 허용 전류 미입력 → 용량 미검증")
