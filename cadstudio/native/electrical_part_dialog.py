@@ -16,6 +16,147 @@ from .mcu_pin_dialog import PinDiagramView,word,english
 from .widgets import button
 
 
+def circuit_link_design(parts, workspace, design=None):
+    """Retain source sketches/assets/parameters while updating only draft fields."""
+    raw = design.model_dump(mode='json') if isinstance(design, Design) else dict(design or {})
+    raw.update(parts=list(parts), electrical=workspace.model_dump(mode='json'))
+    if not raw.get('name'): raw['name'] = workspace.name
+    return raw
+
+
+def validate_circuit_cad_assignment(parts, workspace, component_id, previous_part_id='', design=None):
+    """Validate generic component-editor links through the same safe binding API."""
+    from ..electrical_registration import bind_component_to_part, unbind_component_from_part
+    component = next(c for c in workspace.components if c.id == component_id)
+    if component.part_id and any(c.id != component_id and c.part_id == component.part_id for c in workspace.components):
+        raise ValueError(word('선택 CAD 부품은 다른 회로 부품과 이미 연결되어 있습니다. CAD 대응 설정에서 기존 연결을 확인하세요.',
+            'This CAD body already belongs to another circuit component. Inspect its existing link in Link CAD body.'))
+    if component.part_id == previous_part_id: return tuple(parts), workspace
+    raw = circuit_link_design(parts, workspace, design)
+    checked = bind_component_to_part(raw, component_id, component.part_id) if component.part_id else unbind_component_from_part(raw, component_id)
+    return tuple(p.model_dump(mode='json') for p in checked.parts), checked.electrical
+
+
+class ElectricalCadLinkDialog(QDialog):
+    """Assign an existing circuit item to a body without duplicating either."""
+    def __init__(self, parent, design, component_id=None, part_id=None):
+        super().__init__(parent)
+        self.setWindowTitle(word('회로 부품 ↔ CAD 부품 대응', 'Circuit component ↔ CAD body'))
+        self.resize(740, 470)
+        self.original = Design.model_validate(design)
+        self.draft = self.original.model_copy(deep=True)
+        self.checked = None
+        layout = QVBoxLayout(self)
+        hint = QLabel(word('기존 회로 부품을 실제 CAD 몸체에 연결합니다. 부품 ID·핀·전선·정격을 유지하며, 새 회로 부품을 만들지 않습니다.',
+            'Link an existing circuit component to its CAD body. Component IDs, pins, wires and ratings are retained; no circuit component is created.'))
+        hint.setWordWrap(True); layout.addWidget(hint)
+        form = QFormLayout()
+        self.component_combo = QComboBox(); self.component_combo.setObjectName('electricalLinkComponent')
+        names = {p.id: p.name for p in self.draft.parts}
+        for component in self.draft.electrical.components if self.draft.electrical else ():
+            linked = names.get(component.part_id, component.part_id) if component.part_id else word('CAD 연결 없음', 'No CAD link')
+            self.component_combo.addItem(f'{component.name} [{component.id}] · {linked}', component.id)
+        if component_id: self.component_combo.setCurrentIndex(self.component_combo.findData(component_id))
+        form.addRow(word('기존 회로 부품', 'Existing circuit component'), self.component_combo)
+        self.search = QLineEdit(); self.search.setObjectName('electricalLinkCadSearch')
+        self.search.setPlaceholderText(word('CAD 이름 / ID 검색', 'Find CAD name / ID'))
+        form.addRow(word('CAD 찾기', 'Find CAD'), self.search)
+        self.part_combo = QComboBox(); self.part_combo.setObjectName('electricalLinkCadPart')
+        form.addRow(word('대응할 CAD 부품', 'Matching CAD body'), self.part_combo)
+        self.default_color = QCheckBox(word('전장 기본색 노란색 적용', 'Apply electrical default yellow'))
+        self.default_color.setObjectName('electricalLinkDefaultColor'); form.addRow(self.default_color)
+        layout.addLayout(form)
+        self.details = QPlainTextEdit(); self.details.setReadOnly(True); self.details.setObjectName('electricalLinkDetails')
+        layout.addWidget(self.details, 1)
+        actions = QHBoxLayout()
+        self.bind_button = button(word('대응 연결 · 미리보기', 'Link · preview'), self.bind_preview, True)
+        self.bind_button.setObjectName('electricalLinkPreview'); actions.addWidget(self.bind_button)
+        self.unbind_button = button(word('CAD 대응만 해제', 'Unlink CAD only'), self.unbind_preview)
+        self.unbind_button.setObjectName('electricalUnlinkPreview'); actions.addWidget(self.unbind_button)
+        layout.addLayout(actions)
+        self.status = QLabel(); self.status.setWordWrap(True); self.status.setObjectName('electricalLinkStatus'); layout.addWidget(self.status)
+        controls = QDialogButtonBox()
+        self.apply_button = controls.addButton(word('대응 변경 저장', 'Save link changes'), QDialogButtonBox.ButtonRole.AcceptRole)
+        self.apply_button.setObjectName('electricalLinkApply'); self.apply_button.setEnabled(False)
+        controls.addButton(word('취소', 'Cancel'), QDialogButtonBox.ButtonRole.RejectRole)
+        controls.accepted.connect(self.accept); controls.rejected.connect(self.reject); layout.addWidget(controls)
+        self.search.textChanged.connect(self.filter_parts)
+        self.component_combo.currentIndexChanged.connect(self.filter_parts)
+        self.part_combo.currentIndexChanged.connect(self.refresh_details)
+        self.filter_parts()
+        if part_id: self.part_combo.setCurrentIndex(self.part_combo.findData(part_id))
+
+    def component(self):
+        return next((c for c in self.draft.electrical.components if c.id == self.component_combo.currentData()), None) if self.draft.electrical else None
+
+    def filter_parts(self, *_):
+        component = self.component()
+        names = {p.id: p.name for p in self.draft.parts}
+        self.component_combo.blockSignals(True)
+        for item in self.draft.electrical.components if self.draft.electrical else ():
+            index = self.component_combo.findData(item.id)
+            linked = names.get(item.part_id, item.part_id) if item.part_id else word('CAD 연결 없음', 'No CAD link')
+            if index >= 0: self.component_combo.setItemText(index, f'{item.name} [{item.id}] · {linked}')
+        self.component_combo.blockSignals(False)
+        prior = self.part_combo.currentData() or (component.part_id if component else '')
+        query = self.search.text().strip().casefold()
+        occupied = {c.part_id: c.name for c in self.draft.electrical.components
+                    if c.part_id and (not component or c.id != component.id)} if self.draft.electrical else {}
+        self.part_combo.blockSignals(True); self.part_combo.clear()
+        for part in self.draft.parts:
+            if query and query not in (part.name + ' ' + part.id).casefold(): continue
+            suffix = word(' · 다른 회로 부품에 연결됨: ', ' · Used by: ') + occupied[part.id] if part.id in occupied else ''
+            self.part_combo.addItem(f'{part.name} [{part.id}]' + suffix, part.id)
+            if part.id in occupied: self.part_combo.model().item(self.part_combo.count() - 1).setEnabled(False)
+        index = self.part_combo.findData(prior)
+        if index < 0 or not self.part_combo.model().item(index).isEnabled():
+            index = next((i for i in range(self.part_combo.count()) if self.part_combo.model().item(i).isEnabled()), -1)
+        self.part_combo.setCurrentIndex(index); self.part_combo.blockSignals(False)
+        self.refresh_details()
+
+    def refresh_details(self, *_):
+        component = self.component(); selected = self.part_combo.currentData()
+        part = next((p for p in self.draft.parts if p.id == selected), None)
+        occupied = any(c.id != component.id and c.part_id == selected for c in self.draft.electrical.components) if component else True
+        self.bind_button.setEnabled(bool(component and part and not occupied))
+        self.unbind_button.setEnabled(bool(component and component.part_id))
+        if not component:
+            self.details.setPlainText(word('연결할 기존 회로 부품이 없습니다. 먼저 회로에 부품을 추가하세요.', 'No existing circuit component. Add a circuit component first.')); return
+        old = next((p for p in self.draft.parts if p.id == component.part_id), None)
+        self.details.setPlainText('\n'.join((f'{component.name} [{component.id}] · {component.catalog_id or component.kind}',
+            word('현재 CAD: ', 'Current CAD: ') + (f'{old.name} [{old.id}]' if old else component.part_id or word('연결 없음', 'None')),
+            word('대상 CAD: ', 'Target CAD: ') + (f'{part.name} [{part.id}]' if part else word('선택 필요', 'Select a body')),
+            word('연결하면 대상의 역할을 전장으로 지정합니다. 기본색 체크를 켜지 않으면 현재 색상을 유지합니다. 해제는 CAD 대응만 지우며 회로와 배선을 보존합니다.',
+                 'Linking assigns the electrical role. Existing color is retained unless default yellow is checked. Unlinking removes only the CAD association; circuit and wiring remain.'))))
+
+    def bind_preview(self):
+        from ..electrical_registration import bind_component_to_part
+        if not self.bind_button.isEnabled(): return
+        try:
+            self.draft = bind_component_to_part(self.draft, self.component_combo.currentData(), self.part_combo.currentData(), apply_default_color=self.default_color.isChecked())
+            self.apply_button.setEnabled(self.draft != self.original)
+            self.status.setText(word('대응 초안 준비됨 · 저장해야 반영됩니다.', 'Link draft ready · save to apply.')); self.filter_parts()
+        except (ValueError, TypeError) as exc: self.status.setText(str(exc)[:1200])
+
+    def unbind_preview(self):
+        from ..electrical_registration import unbind_component_from_part
+        if not self.unbind_button.isEnabled(): return
+        try:
+            self.draft = unbind_component_from_part(self.draft, self.component_combo.currentData())
+            self.apply_button.setEnabled(self.draft != self.original)
+            self.status.setText(word('대응 해제 초안 준비됨 · 회로·핀·전선은 유지됩니다.', 'Unlink draft ready · circuit, pins and wires retained.')); self.filter_parts()
+        except (ValueError, TypeError) as exc: self.status.setText(str(exc)[:1200])
+
+    def accept(self):
+        if self.draft == self.original: return
+        self.checked = Design.model_validate(self.draft.model_dump(mode='json'))
+        super().accept()
+
+    def reject(self):
+        self.checked = None
+        super().reject()
+
+
 def feature_connections(component,workspace):
     from ..mcu_connections import pin_connections,connection_endpoints
     if component.kind=='mcu':return pin_connections(workspace,component.id)

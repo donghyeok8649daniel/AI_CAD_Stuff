@@ -2,12 +2,44 @@
 from ..electrical_catalog import CATALOG as ELECTRICAL_CATALOG
 
 
-TOOLS = ('electrical_register', 'electrical_connect', 'electrical_unregister')
+TOOLS = ('electrical_register', 'electrical_connect', 'electrical_unregister',
+         'electrical_bind', 'electrical_unbind', 'electrical_wire_add',
+         'electrical_wire_edit', 'electrical_wire_delete')
 GUIDANCE = '''electrical_register: target is an EXISTING CAD part ID (or one created earlier in this plan). Register that body as an electrical feature, never duplicate its geometry. args={catalog_id?:exact_catalog_ID,kind?:"battery"|"wire"|"switch"|"resistor"|"capacitor"|"inductor"|"load"|"motor"|"actuator"|"mcu",name?,analysis_enabled?:false,apply_default_color?:false,a?,b?,signal_pins?:[{pin,node}],terminal_pins?:[{pin,node}],...explicit operating values}. Capacitors use capacitance_f in FARADS, optional capacitor_polarized and rated_voltage_v, with A positive/B negative for polarized devices; DC treats them as open, without charging/leakage/ESR simulation. Coils use inductance_h in HENRIES and winding_resistance_ohm; enabled DC requires both positive and solves only settled winding resistance, not ideal shorts/transients/saturation/flyback. Actuators use explicit rated_voltage_v/rated_current_a and optional startup_current_a for a separate resistance-equivalent estimate, not actual force/motion/driver behavior. Resistors use resistance_ohm. Convert user microfarads/millihenries to SI units; never fabricate missing capacitance, inductance, resistance or operating ratings. Use the exact model requested by the user from available_electrical_models; do not substitute a family or clone. Catalog source and a verified physical pin/terminal diagram are attached when available. No known diagram means manual/unverified, not a fabricated schematic. Unknown voltage/current is allowed for registration with analysis_enabled=false; it is excluded from DC calculations. Registration alone does not prove the CAD shape matches a physical product's dimensions. Preserve existing colors unless apply_default_color=true is requested, then yellow #FFD400. Preserve geometry, grouping, joints and prior circuit connections. Changing an existing model must explicitly use allow_drop_connections=true only when the user approved clearing its previous pin assignments.
 electrical_connect: target is the source registered CAD part ID (MCU or verified electronic product). args={pin:exact_GPIO_key,target_part_id:registered_target_CAD_ID,target_terminal:"pin:GPIO_key"|"port:signal_terminal_key"|"a"|"b"}. Use physical pin labels and keys from registered_electrical_features / available_electrical_models; pin numbers are not BCM GPIO numbers. Register each actual CAD part before wiring it. On a non-MCU product pin is its exact named terminal key, not an invented header position; typed power/ground terminal connections are passive labels and never automatically become a DC power branch. A declared sensor/driver signal port is not its power A/B terminal. This creates a passive signal net; no firmware or complete voltage compatibility claim. Power/reference/reset pins are not ordinary GPIO. Use power_path with measured/verified operating inputs for supply calculations; never wire GPIO to a battery or motor power terminal as a normal signal.
 electrical_unregister: target is an existing registered CAD part ID, args={}. Remove its electrical registration only when explicitly requested. The CAD body remains; other devices and net labels are preserved, and their now-unconnected endpoints remain visible.'''
 GUIDANCE += '\nSaved measurement_reference and force_acquisition_review are offline reference data. Keep unknown force/frequency/calibration as unknown. Do not infer usable bandwidth from ADC sample rate, manufacture a serial calibration, or claim hardware, firmware or closed-loop qualification. Check actual supply terminals separately from GPIO and retain catalog worst-case ranges when editing a known measurement product.'
 GUIDANCE += '\nSaved electrical_readiness lists registration, documented terminal and passive power-path deficits. Address the requested devices with exact sources and explicit wiring rather than hiding issues by deleting devices, clearing nets, disabling relevant checks or marking pending hardware as approved. An unused GPIO is not a fault. A housing reserved for electronics is not itself a powered device. A custom carrier containing a known IC is not automatically the exact bare IC; preserve its manually defined ports and surrounding circuitry. Do not invent a model, internal regulator connection, load current or firmware behavior to clear a readiness finding.'
+GUIDANCE += '''
+electrical_bind: target=existing CAD body ID, args={component_id:existing circuit component ID,apply_default_color?:false}. Link the existing item to that body, preserving its component ID, physical pins, ratings, every wire and canvas position. Do not duplicate an existing circuit item by registering it again. Exact legacy pin maps must validate without dropping assignments; family/unknown labels are not exact products. CAD role becomes electrical; custom color is preserved unless requested.
+electrical_unbind: target=existing circuit component ID,args={}. Remove only its CAD link, preserving the circuit item and all wires. electrical_unregister instead removes the registration's circuit item; use only for explicit removal.
+electrical_wire_add: target=source circuit component ID OR unambiguous registered CAD body ID. args={source_terminal:"pin:GPIO17"|"supply:5V_2"|"port:OUT"|"a"|"b",target_id:target circuit component ID OR registered CAD body ID,target_terminal:exact endpoint,name?,wire_color?:"#RRGGBB",length_mm?,cross_section_mm2?,max_current_a?,analysis_enabled?:false}. Creates an ACTUAL saved wire branch with physical endpoint metadata, visible in the native wiring diagram. Use this for draw/connect/wire requests; electrical_connect only joins net labels and creates no wire branch. Unknown cable length/area are allowed as 0 with analysis_enabled=false; do not invent physical cable dimensions or ampacity. Enable DC only with actual positive length and area. Nodes and wire IDs are generated by CAD; never guess newly generated registration IDs when a registered CAD body ID is available. Use exact documented terminals; custom devices must already declare named ports. No direct GPIO-to-power normal signal wiring; topology warnings remain visible. Supply outputs, bypass/reference and protective earth are distinct and never internally joined.
+electrical_wire_edit: target=existing wire ID,args={name?,wire_color?,closed?,length_mm?,cross_section_mm2?,max_current_a?,analysis_enabled?,source_id?,source_terminal?,target_id?,target_terminal?}. Each changed end requires both device ID and terminal. Keeps wire ID, other metadata and unrelated pins. Old disconnected pads/nets remain visible. Set analysis_enabled=false when dimensions remain unknown; never zero or invent unrelated device ratings.
+electrical_wire_delete: target=existing wire ID,args={}. Removes only that wire, keeping devices, physical pin labels, other wires and named nets. Do not delete devices to conceal missing wiring.
+The electrical_circuit context lists actual circuit IDs (including unlinked devices), terminal kinds, saved wire endpoints and omitted counts. Resolve devices from these records. All these tools produce a private plan preview with normal undoable history; applied wiring is NOT firmware execution, live power or motor-control simulation.'''
+
+
+def circuit_context(design):
+    """Actual circuit IDs and endpoints, including devices not yet linked to CAD."""
+    if design.electrical is None:
+        return None
+    from ..mcu_connections import connection_endpoints
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    for endpoint in connection_endpoints(design.electrical):
+        grouped[endpoint.component_id].append(dict(terminal=endpoint.terminal, node=endpoint.node, kind=endpoint.pin_kind))
+    devices = [c for c in design.electrical.components if c.kind != 'wire']
+    wires = [c for c in design.electrical.components if c.kind == 'wire']
+    return dict(nodes=design.electrical.nodes, hardware_verified=False, firmware_executed=False,
+        devices=[dict(id=c.id, part_id=c.part_id, registered=c.part_registration, name=c.name,
+            kind=c.kind, catalog_id=c.catalog_id, analysis_enabled=c.analysis_enabled,
+            rated_voltage_v=c.rated_voltage_v, rated_current_a=c.rated_current_a,
+            terminals=grouped[c.id][:96], omitted_terminals=max(0,len(grouped[c.id])-96)) for c in devices[:64]],
+        wires=[dict(id=c.id,name=c.name,a=c.a,b=c.b,closed=c.closed,analysis_enabled=c.analysis_enabled,
+            wire_color=c.wire_color,length_mm=c.length_mm,cross_section_mm2=c.cross_section_mm2,
+            endpoints=[ref.model_dump() for ref in c.wire_endpoints]) for c in wires[:128]],
+        omitted=dict(devices=max(0,len(devices)-64),wires=max(0,len(wires)-128)),
+        note='Stored passive connections only. Unlisted reserved pins/internal device paths are not inferred.')
 
 
 def measurement_context(component):
@@ -104,6 +136,16 @@ def apply_electrical_tool(raw, action):
     from ..electrical_registration import register_part,unregister_part,connect_registered_pin,connect_registered_terminal,registration_for_part
     from copy import deepcopy
     target=action.target; args=deepcopy(action.args)
+    def circuit_identifier(reference):
+        from ..models import Design
+        design=Design.model_validate(raw)
+        component=next((c for c in design.electrical.components if c.id==reference),None) if design.electrical else None
+        linked=[c for c in design.electrical.components if c.part_id==reference] if design.electrical else []
+        if len(linked)>1 or (component and linked and component.id!=linked[0].id):
+            raise ValueError('CAD 부품 ID와 회로 부품 ID가 모호합니다. 정확한 회로 부품 ID를 지정하세요.')
+        if component:return component.id
+        if len(linked)==1:return linked[0].id
+        raise ValueError('배선할 기존 회로 부품 또는 등록된 CAD 부품 ID를 선택하세요.')
     if action.tool=='electrical_register':
         for field in ('signal_pins','terminal_pins'):
             rows=args.get(field)
@@ -127,6 +169,49 @@ def apply_electrical_tool(raw, action):
         if args: raise ValueError('전장 등록 해제에는 추가 인자를 지정하지 마세요.')
         updated=unregister_part(raw,target)
         detail='CAD 형상을 유지하고 해당 부품의 전장 등록을 해제했습니다.'
+    elif action.tool=='electrical_bind':
+        from ..electrical_registration import bind_component_to_part
+        if set(args)-{'component_id','apply_default_color'} or 'component_id' not in args:
+            raise ValueError('기존 회로 연결에는 component_id와 선택적인 apply_default_color만 지정하세요.')
+        updated=bind_component_to_part(raw,args['component_id'],target,apply_default_color=args.get('apply_default_color',False))
+        detail='기존 회로 부품 ID와 배선을 유지하며 실제 CAD 본체에 연결했습니다.'
+    elif action.tool=='electrical_unbind':
+        from ..electrical_registration import unbind_component_from_part
+        if args:raise ValueError('CAD 링크 해제에는 추가 인자를 지정하지 마세요.')
+        updated=unbind_component_from_part(raw,target)
+        detail='회로 부품과 배선을 유지하며 CAD 본체 링크만 해제했습니다.'
+    elif action.tool in ('electrical_wire_add','electrical_wire_edit','electrical_wire_delete'):
+        from ..models import Design
+        from ..circuit_connections import add_schematic_wire,update_schematic_wire,delete_schematic_wire
+        from pydantic import BaseModel,ConfigDict,Field
+        class WireAdd(BaseModel):
+            model_config=ConfigDict(extra='forbid',allow_inf_nan=False,strict=True)
+            source_terminal:str
+            target_id:str
+            target_terminal:str
+            name:str=Field(default='AI 배선',min_length=1,max_length=80)
+            wire_color:str|None=None
+            length_mm:float=Field(default=0,ge=0)
+            cross_section_mm2:float=Field(default=0,ge=0)
+            max_current_a:float|None=Field(default=None,gt=0)
+            analysis_enabled:bool=False
+        updated=Design.model_validate(raw)
+        if updated.electrical is None:raise ValueError('전장 부품을 먼저 등록하거나 기존 회로 부품을 선택하세요.')
+        if action.tool=='electrical_wire_add':
+            spec=WireAdd.model_validate(args)
+            workspace=add_schematic_wire(updated.electrical,circuit_identifier(target),spec.source_terminal,
+                circuit_identifier(spec.target_id),spec.target_terminal,**spec.model_dump(exclude={'source_terminal','target_id','target_terminal'}))
+            detail='실제 핀 사이의 전선과 연결 정보를 회로도에 추가했습니다. 미확인 길이·단면적은 DC 계산에서 제외됩니다.'
+        elif action.tool=='electrical_wire_edit':
+            for field in ('source_id','target_id'):
+                if field in args:args[field]=circuit_identifier(args[field])
+            workspace=update_schematic_wire(updated.electrical,target,**args)
+            detail='선택한 전선 ID를 유지하며 배선 속성·끝점을 수정했습니다.'
+        else:
+            if args:raise ValueError('전선 삭제에는 추가 인자를 지정하지 마세요.')
+            workspace=delete_schematic_wire(updated.electrical,target)
+            detail='선택한 전선만 삭제했습니다. 부품과 다른 배선은 유지됩니다.'
+        updated.electrical=workspace
     else: raise ValueError('지원하지 않는 전장 등록 도구입니다.')
     from ..mcu_connections import topology_warnings
     warnings=topology_warnings(updated.electrical) if updated.electrical else ()

@@ -645,6 +645,90 @@ CATALOG += (
         functional_roles=("encoder",), encoder_interface="absolute_i2c"),
 )
 
+# Exact motor choices checked against each model's primary source on 2026-10-07.
+# Multi-phase motors are registerable terminal references, not simplified DC loads.
+MOTOR_CATALOG_IDS = (
+    "pololu_4845", "pololu_4847", "pololu_5725", "pololu_4753",
+    "stepperonline_17hs16_2004s1", "stepperonline_23hs22_2804s",
+    "robotis_xl430_w250t", "robotis_xm430_w350t", "robotis_xm430_w350r",
+    "concentric_lact6p_12v_10", "concentric_lact8p_12v_10", "maxon_ec_i40_496655",
+)
+
+CATALOG += (
+    ElectricalCatalogEntry(
+        "pololu_4845", "기어드 모터·엔코더", "Pololu", "#4845 47:1 25D HP 12 V 엔코더", "25D HP",
+        "https://www.pololu.com/product/4845",
+        "12 V, 무부하 220 rpm·0.30 A(엔코더 포함), 이론적 stall 5.0 A. 실제 감속비 46.8512:1, 모터축 48 CPR(양 채널 모든 에지). 엔코더 별도 3.5–20 V. 무부하·stall 전류는 부하 동작 전류가 아닙니다.",
+        "motor", 12.0, aliases=("4845", "47:1", "25d", "dc gearmotor", "기어 모터", "엔코더 모터"),
+        functional_roles=("motor", "encoder"), encoder_interface="quadrature",
+        encoder_counts_per_rev=48, encoder_reference="motor_shaft",
+        motor_gear_ratio=(22 * 22 * 22 * 22 * 24) / (12 * 10 * 10 * 10 * 10)),
+    ElectricalCatalogEntry(
+        "pololu_4847", "기어드 모터·엔코더", "Pololu", "#4847 99:1 25D HP 12 V 엔코더", "25D HP",
+        "https://www.pololu.com/product/4847",
+        "12 V, 무부하 100 rpm·0.30 A(엔코더 포함), 이론적 stall 5.0 A. 실제 감속비 약 98.78:1, 모터축 48 CPR(양 채널 모든 에지). 엔코더 별도 3.5–20 V. 무부하·stall 전류를 연속 동작값으로 자동 입력하지 않습니다.",
+        "motor", 12.0, aliases=("4847", "99:1", "25d", "dc gearmotor", "기어 모터", "엔코더 모터"),
+        functional_roles=("motor", "encoder"), encoder_interface="quadrature",
+        encoder_counts_per_rev=48, encoder_reference="motor_shaft",
+        motor_gear_ratio=(22 * 22 * 22 * 22 * 22 * 23) / (12 * 10 * 10 * 10 * 10 * 10)),
+    ElectricalCatalogEntry(
+        "pololu_5725", "기어드 모터·엔코더", "Pololu", "#5725 47:1 25D HP 24 V 엔코더", "25D HP",
+        "https://www.pololu.com/product/5725",
+        "24 V, 무부하 220 rpm·0.10 A(엔코더 포함), 이론적 stall 2.7 A. 실제 감속비 46.8512:1, 모터축 48 CPR(양 채널 모든 에지). 엔코더 별도 3.5–20 V이므로 24 V 모터 전원을 엔코더에 직접 넣으면 안 됩니다. 부하 동작 전류는 별도입니다.",
+        "motor", 24.0, aliases=("5725", "47:1", "25d", "24v", "dc gearmotor", "기어 모터", "엔코더 모터"),
+        functional_roles=("motor", "encoder"), encoder_interface="quadrature",
+        encoder_counts_per_rev=48, encoder_reference="motor_shaft",
+        motor_gear_ratio=(22 * 22 * 22 * 22 * 24) / (12 * 10 * 10 * 10 * 10)),
+    ElectricalCatalogEntry(
+        "pololu_4753", "기어드 모터·엔코더", "Pololu", "#4753 50:1 37D 12 V 엔코더", "37D",
+        "https://www.pololu.com/product/4753",
+        "12 V, 무부하 200 rpm·0.20 A, 이론적 stall 5.5 A. 정확한 감속비 50:1, 모터축 64 CPR(양 채널 모든 에지), 출력축 3200 카운트/회전. 엔코더 별도 3.5–20 V. 무부하·stall 전류는 연속 부하 동작 전류가 아닙니다.",
+        "motor", 12.0, aliases=("4753", "50:1", "37d", "dc gearmotor", "기어 모터", "엔코더 모터"),
+        functional_roles=("motor", "encoder"), encoder_interface="quadrature",
+        encoder_counts_per_rev=64, encoder_reference="motor_shaft", motor_gear_ratio=50.0),
+    ElectricalCatalogEntry(
+        "stepperonline_17hs16_2004s1", "스테퍼 모터", "StepperOnline", "17HS16-2004S1", "NEMA 17",
+        "https://www.omc-stepperonline.com/nema-17-bipolar-45ncm-64oz-in-2a-42x42x40mm-4-wires-w-1m-cable-connector-17hs16-2004s1",
+        "정확한 4선 바이폴라 모델, 1.8°, 0.45 N·m holding torque, 2 A/상, 1.3 Ω/상. 각 상의 전류 제한 구동이 필요하며 2 A를 DC 전원 소비전류로 취급하지 않습니다. A+/A−·B+/B− 권선을 회로도에 등록합니다.",
+        reference_only=True, aliases=("17hs16", "nema17", "stepper", "스테퍼", "스텝 모터"), functional_roles=("motor",)),
+    ElectricalCatalogEntry(
+        "stepperonline_23hs22_2804s", "스테퍼 모터", "StepperOnline", "23HS22-2804S", "NEMA 23",
+        "https://www.omc-stepperonline.com/nema-23-bipolar-1-8deg-1-26nm-178-4oz-in-2-8a-2-5v-57x57x56mm-4-wires-23hs22-2804s",
+        "정확한 4선 바이폴라 모델, 1.8°, 1.20 N·m holding torque, 2.8 A/상, 0.9 Ω/상. 상별 정격은 전원 소비전류가 아닙니다. 2단자 DC 모터 대신 네 권선을 등록하며 초퍼·가감속·탈조 동작은 미해석입니다.",
+        reference_only=True, aliases=("23hs22", "nema23", "stepper", "스테퍼", "스텝 모터"), functional_roles=("motor",)),
+    ElectricalCatalogEntry(
+        "robotis_xl430_w250t", "서보 액추에이터", "ROBOTIS", "DYNAMIXEL XL430-W250-T", "DYNAMIXEL XL430",
+        "https://emanual.robotis.com/docs/en/dxl/x/xl430-w250/",
+        "입력 6.5–12 V, 권장 11.1 V. 5 V TTL 반이중 디지털 패킷, 1 GND·2 VDD·3 DATA. 12 V의 1.5 N·m·1.4 A는 stall 조건, 무부하 61 rpm. 단순 RC PWM 입력이나 외부 A/B 엔코더가 아니며 부하 전류·구동 제어는 별도입니다.",
+        "actuator", 11.1, aliases=("xl430", "w250t", "servo", "dynamixel", "서보 모터", "액추에이터"), functional_roles=("actuator",)),
+    ElectricalCatalogEntry(
+        "robotis_xm430_w350t", "서보 액추에이터", "ROBOTIS", "DYNAMIXEL XM430-W350-T", "DYNAMIXEL XM430",
+        "https://emanual.robotis.com/docs/en/dxl/x/xm430-w350/",
+        "입력 10–14.8 V, 권장 12 V. TTL 반이중 패킷, 1 GND·2 VDD·3 DATA. 12 V의 4.1 N·m·2.3 A는 stall 조건, 무부하 46 rpm. RS-485형 R과 배선이 다릅니다. 내부 절대각 센서의 분해능을 외부 A/B 핀으로 만들지 않습니다.",
+        "actuator", 12.0, aliases=("xm430", "w350t", "servo", "dynamixel", "ttl", "서보 모터", "액추에이터"), functional_roles=("actuator",)),
+    ElectricalCatalogEntry(
+        "robotis_xm430_w350r", "서보 액추에이터", "ROBOTIS", "DYNAMIXEL XM430-W350-R", "DYNAMIXEL XM430",
+        "https://emanual.robotis.com/docs/en/dxl/x/xm430-w350/",
+        "입력 10–14.8 V, 권장 12 V. RS-485 차동 패킷, 1 GND·2 VDD·3 DATA+·4 DATA−. 12 V의 4.1 N·m·2.3 A는 stall 조건, 무부하 46 rpm. TTL GPIO 직결이나 단순 RC PWM 서보가 아니며 트랜시버·패킷 제어가 필요합니다.",
+        "actuator", 12.0, aliases=("xm430", "w350r", "servo", "dynamixel", "rs485", "서보 모터", "액추에이터"), functional_roles=("actuator",)),
+    ElectricalCatalogEntry(
+        "concentric_lact6p_12v_10", "선형 액추에이터", "Concentric", "Glideforce LACT6P-12V-10 (Pololu #3647)", "Glideforce LD 10:1",
+        "https://www.pololu.com/product/3647",
+        "12 V DC, 실제 스트로크 150 mm, 동적 하중 250 N, 무부하 약 28 mm/s. 리미트 스위치와 위치 포텐셔미터 포함. 제조사 전형값 1.2 A(무부하)·3.2 A(최대 부하), stall 7 A는 별도 조건이며 고정 소비전류로 자동 적용하지 않습니다. 제조사 duty 25%를 확인하세요.",
+        "actuator", 12.0, aliases=("3647", "lact6p", "linear actuator", "액추에이터", "엑추에이터", "리니어", "선형", "glideforce"), functional_roles=("actuator",)),
+    ElectricalCatalogEntry(
+        "concentric_lact8p_12v_10", "선형 액추에이터", "Concentric", "Glideforce LACT8P-12V-10 (Pololu #3649)", "Glideforce LD 10:1",
+        "https://www.pololu.com/product/3649",
+        "12 V DC, 실제 스트로크 200 mm, 동적 하중 250 N, 무부하 약 28 mm/s. 리미트 스위치와 위치 포텐셔미터 포함. 제조사 전형값 1.2 A(무부하)·3.2 A(최대 부하), stall 7 A는 별도 조건이며 고정 소비전류로 자동 적용하지 않습니다. 제조사 duty 25%를 확인하세요.",
+        "actuator", 12.0, aliases=("3649", "lact8p", "linear actuator", "액추에이터", "엑추에이터", "리니어", "선형", "glideforce"), functional_roles=("actuator",)),
+    ElectricalCatalogEntry(
+        "maxon_ec_i40_496655", "BLDC 모터", "maxon", "EC-i 40 36 V 70 W · 496655", "EC-i 40 High Torque",
+        "https://www.maxongroup.com/maxon/view/product/motor/ecmotor/EC-i/496655",
+        "정확한 3상 Hall 모델. 36 V, 무부하 7390 rpm·0.205 A, 공칭 6450 rpm·130 mN·m·최대 연속 2.74 A(제조사 열 조건). stall 61.8 A는 별도 조건입니다. 권선 3상과 Hall 전원 4.5–24 V·H1/H2/H3를 구분하며 2단자 DC 부하로 해석하지 않습니다.",
+        nominal_voltage_v=36.0, reference_only=True,
+        aliases=("496655", "ec-i40", "eci40", "bldc", "brushless", "브러시리스", "모터"), functional_roles=("motor",)),
+)
+
 _BY_ID = {entry.catalog_id: entry for entry in CATALOG}
 
 
@@ -778,6 +862,6 @@ def component_prefill(entry: ElectricalCatalogEntry) -> dict[str, object]:
             values["winding_resistance_ohm"] = entry.winding_resistance_ohm
     if entry.rated_voltage_v is not None and entry.suggested_kind in ("capacitor", "inductor"):
         values["rated_voltage_v"] = entry.rated_voltage_v
-    if entry.suggested_kind == "actuator" and entry.rated_current_a is None:
+    if entry.suggested_kind in ("motor", "actuator") and entry.rated_current_a is None:
         values["analysis_enabled"] = False
     return values

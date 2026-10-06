@@ -1,0 +1,70 @@
+{
+  "version": "2.22.0",
+  "total_source_passed": 638,
+  "source_tests": "637 passed, 3 warnings in 94.23s (0:01:34)",
+  "lazy_scipy_tests": "1 passed in 10.18s",
+  "source_modules_verified": 192,
+  "native_entry_verified": true,
+  "frozen_checks": 514,
+  "software_driver_unmodified": true,
+  "flows": [
+    {
+      "name": "electrical-workbench-auto",
+      "checks": 67,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "ee3c90b9eaf27335e22073ffc03cbcffa0a0ec7b3a6d48a3c500cabec904f5a7"
+    },
+    {
+      "name": "electrical-workbench-software",
+      "checks": 67,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "ee3c90b9eaf27335e22073ffc03cbcffa0a0ec7b3a6d48a3c500cabec904f5a7"
+    },
+    {
+      "name": "circuit-canvas-auto",
+      "checks": 93,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "01076432d27cb540dde5de26eff266c376d2fc0cff8af44c7f4dfae0afe1e786"
+    },
+    {
+      "name": "circuit-canvas-software",
+      "checks": 93,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "01076432d27cb540dde5de26eff266c376d2fc0cff8af44c7f4dfae0afe1e786"
+    },
+    {
+      "name": "registration-auto",
+      "checks": 65,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "afec8a19a3821cdbf6c4655592883dac7bf43a8bb69238700e3e0de89a55f44d"
+    },
+    {
+      "name": "registration-software",
+      "checks": 65,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "afec8a19a3821cdbf6c4655592883dac7bf43a8bb69238700e3e0de89a55f44d"
+    },
+    {
+      "name": "ai-wiring-auto",
+      "checks": 32,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "8ad71029a27241a8f2ee501dcbddfd7897aeb000f788042a4a6ae0cfcf319e4f"
+    },
+    {
+      "name": "ai-wiring-software",
+      "checks": 32,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "8ad71029a27241a8f2ee501dcbddfd7897aeb000f788042a4a6ae0cfcf319e4f"
+    }
+  ],
+  "contains_user_project_data": false,
+  "scope": "Physical AI wire add/edit/delete and CAD correspondence, before/after circuit preview and source-backed motor terminals; no live AI, hardware, firmware or research solver execution"
+}

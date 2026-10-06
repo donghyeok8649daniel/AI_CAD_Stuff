@@ -258,7 +258,8 @@ def assign_pin_node(raw: ElectricalWorkspace | dict, mcu_id: str, pin_key: str, 
     _signal_key(component, pin_key, allow_legacy=True)
     _add_node(workspace, node_id)
     _set_pin(component, pin_key, node_id)
-    return ElectricalWorkspace.model_validate(workspace.model_dump())
+    from .circuit_connections import preserve_physical_wire_connections
+    return preserve_physical_wire_connections(raw, workspace)
 
 
 def assign_pin(raw: ElectricalWorkspace | dict, mcu_id: str, pin_key: str,
@@ -302,7 +303,8 @@ def assign_pin(raw: ElectricalWorkspace | dict, mcu_id: str, pin_key: str,
     else:
         raise ValueError("연결 대상 단자는 A/B 또는 등록된 신호 핀·추가 단자로 지정하세요.")
     _set_pin(component, pin_key, node)
-    return ElectricalWorkspace.model_validate(workspace.model_dump())
+    from .circuit_connections import preserve_physical_wire_connections
+    return preserve_physical_wire_connections(raw, workspace)
 
 
 def disconnect_pin(raw: ElectricalWorkspace | dict, mcu_id: str, pin_key: str) -> ElectricalWorkspace:
@@ -316,7 +318,8 @@ def disconnect_pin(raw: ElectricalWorkspace | dict, mcu_id: str, pin_key: str) -
     for alias in aliases:
         component.signal_pins.pop(alias, None)
     # Keep unused named nodes and all other connected devices by design.
-    return ElectricalWorkspace.model_validate(workspace.model_dump())
+    from .circuit_connections import preserve_physical_wire_connections
+    return preserve_physical_wire_connections(raw, workspace)
 
 
 def change_mcu_model(raw: ElectricalWorkspace | dict, mcu_id: str, catalog_id: str,

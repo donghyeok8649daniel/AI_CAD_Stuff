@@ -315,7 +315,9 @@ class ComponentDialog(QDialog):
 class ElectricalDialog(QDialog):
     def __init__(self,parent,design):
         super().__init__(parent);self.setWindowTitle('전장 · 배선 / 전압강하 검사');self.resize(900,730)
-        self.parts=(design or {}).get('parts',[]);self.components=deepcopy((design or {}).get('electrical',{} ) or {}).get('components',[])
+        self.parts=deepcopy((design or {}).get('parts',[]));self.components=deepcopy((design or {}).get('electrical',{} ) or {}).get('components',[])
+        self.design_reference=design
+        self.accepted_parts=None;self.ai_request=None
         self.original_nodes=tuple(((design or {}).get('electrical') or {}).get('nodes',()))
         self.schematic_positions=deepcopy(((design or {}).get('electrical') or {}).get('schematic_positions',{}))
         self.has_schematic_positions='schematic_positions' in ((design or {}).get('electrical') or {})
@@ -398,9 +400,15 @@ class ElectricalDialog(QDialog):
             QMessageBox.warning(self,'회로도 입력 확인',str(exc)[:800]);return
         try:result=evaluate_electrical(workspace)
         except (ValueError,TypeError):result=None
-        schematic=ElectricalSchematicDialog(self,workspace,result,self.parts)
-        if schematic.exec()==QDialog.DialogCode.Accepted and schematic.accepted_workspace is not None:
-            self.adopt_workspace(schematic.accepted_workspace)
+        schematic=ElectricalSchematicDialog(self,workspace,result,self.parts,design=self.design_reference)
+        try:
+            if schematic.exec()==QDialog.DialogCode.Accepted and schematic.accepted_workspace is not None:
+                if schematic.accepted_parts is not None:self.parts=schematic.accepted_parts
+                self.adopt_workspace(schematic.accepted_workspace)
+                if schematic.ai_request:
+                    self.ai_request=dict(schematic.ai_request)
+                    self.apply_button.setText('전장 변경 저장 · AI 요청 준비')
+        finally:schematic.deleteLater()
 
     def adopt_workspace(self,workspace):
         self.components=[component.model_dump() for component in workspace.components]
@@ -437,13 +445,30 @@ class ElectricalDialog(QDialog):
 
     def add(self):
         dialog=ComponentDialog(self,self.parts)
-        if dialog.exec()==QDialog.DialogCode.Accepted:self.components.append(dialog.candidate());self.refresh();self.calculate()
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted:self.replace_component(dialog.candidate())
+        finally:dialog.deleteLater()
 
     def edit(self,*args):
         row=self.table.currentRow()
         if row<0:return
         dialog=ComponentDialog(self,self.parts,self.components[row])
-        if dialog.exec()==QDialog.DialogCode.Accepted:self.components[row]=dialog.candidate();self.refresh();self.calculate()
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted:self.replace_component(dialog.candidate())
+        finally:dialog.deleteLater()
+
+    def replace_component(self,candidate):
+        from .electrical_part_dialog import validate_circuit_cad_assignment
+        before=deepcopy(self.components)
+        old=next((c for c in self.components if c['id']==candidate['id']),None)
+        previous_part_id=(old or {}).get('part_id','')
+        self.components=[candidate if c['id']==candidate['id'] else c for c in self.components]
+        if old is None:self.components.append(candidate)
+        try:
+            parts,workspace=validate_circuit_cad_assignment(self.parts,self.candidate(),candidate['id'],previous_part_id,self.design_reference)
+            self.parts=list(parts);self.adopt_workspace(workspace)
+        except (ValueError,TypeError) as exc:
+            self.components=before;QMessageBox.warning(self,'전장 부품 입력 확인',str(exc)[:1000])
 
     def remove(self):
         row=self.table.currentRow()
@@ -564,4 +589,9 @@ class ElectricalDialog(QDialog):
             except ValueError as exc:
                 if QMessageBox.question(self,'미검증 회로 저장',
                     '회로 계산이 완료되지 않았습니다. 배선 초안으로 저장할까요?\n'+str(exc)[:500])!=QMessageBox.StandardButton.Yes:return
+        self.accepted_parts=deepcopy(self.parts)
         super().accept()
+
+    def reject(self):
+        self.accepted_parts=None;self.ai_request=None
+        super().reject()

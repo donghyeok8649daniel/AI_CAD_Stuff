@@ -9,6 +9,9 @@ Each component is one vector item; only its interactive ports are child items.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from weakref import ref
+
+from shiboken6 import isValid
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen, QPolygonF
@@ -55,7 +58,10 @@ class _PortItem(QGraphicsEllipseItem):
 
     def __init__(self, owner: "CircuitComponentItem", port: CircuitPort, position: QPointF):
         super().__init__(-6, -6, 12, 12, owner)
-        self.owner = owner
+        # Qt owns this child through parentItem. A second strong Python path
+        # back to the parent keeps deleted scene items in a cyclic graph when
+        # a child editor redraws the scene; let Qt determine destruction order.
+        self._owner = ref(owner)
         self.port = port
         self.setPos(position)
         self.setZValue(4)
@@ -83,8 +89,12 @@ class _PortItem(QGraphicsEllipseItem):
         self.setToolTip(f"{owner.component.name} · {port.label}\n{status}\n{details}".strip())
 
     def mousePressEvent(self, event):
-        self.owner.setSelected(True)
-        self.owner.portClicked.emit(self.owner.component.id, self.port.key)
+        owner = self._owner()
+        if owner is None or not isValid(owner):
+            event.ignore()
+            return
+        owner.setSelected(True)
+        owner.portClicked.emit(owner.component.id, self.port.key)
         event.accept()
 
     def hoverEnterEvent(self, event):

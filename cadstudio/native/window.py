@@ -148,6 +148,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         for key in ('new','open','save'):self.toolbar.addAction(self.actions[key])
         self.toolbar.addSeparator();self.workspace=combo([('model','설계'),('assembly','조립'),('specimen','시편'),('print','3D 프린팅'),('circuit','회로도')]);self.workspace.setMinimumWidth(95);self.workspace.setToolTip('작업 공간을 선택하면 필요한 도구가 나타납니다.');self.toolbar.addWidget(self.workspace);self.toolbar.addSeparator();self.mode_tools={'model':[],'assembly':[],'specimen':[],'print':[],'circuit':[]}
         self.toolbar.addAction(self.actions['color'])
+        self.toolbar.addAction(self.actions['wiring_diagram'])
         self.electrical_tools=QToolButton();self.electrical_tools.setObjectName('electricalWorkspaceTools');self.electrical_tools.setDefaultAction(self.actions['electrical_workbench']);self.electrical_tools.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.electrical_tools.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         electrical_menu=QMenu(self.electrical_tools)
         for key in ('wiring_diagram','circuit_workspace','electrical_register','electrical','mcu_pins','power_path','force_acquisition','drive_simulation'):electrical_menu.addAction(self.actions[key])
@@ -351,10 +352,108 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if self.busy or self.sketching:return
         from .electrical_dialog import ElectricalDialog
         dialog=ElectricalDialog(self,self.document.design)
-        if dialog.exec()==QDialog.DialogCode.Accepted:
-            raw=deepcopy(self.document.design) if self.document.design else Design().model_dump()
-            raw['electrical']=dialog.workspace.model_dump()
-            self.apply_design(raw,'전장 회로 / 배선 편집',{'tool':'electrical','component_ids':[c.id for c in dialog.workspace.components]})
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted:
+                raw=deepcopy(self.document.design) if self.document.design else Design().model_dump(mode='json')
+                raw['electrical']=dialog.workspace.model_dump(mode='json')
+                if dialog.accepted_parts is not None:raw['parts']=dialog.accepted_parts
+                self.commit_electrical_editor(raw,'전장 회로 / 배선 편집',{'tool':'electrical','component_ids':[c.id for c in dialog.workspace.components]},dialog.ai_request)
+        finally:dialog.deleteLater()
+
+    def commit_electrical_editor(self,raw,title,context,ai_request=None):
+        """One explicit transaction; queued AI is prepared only after its save."""
+        handoff=(lambda:self.prepare_electrical_ai(ai_request)) if ai_request else None
+        before=Design.model_validate(self.document.design or Design()).model_dump(mode='json')
+        checked=Design.model_validate(raw).model_dump(mode='json')
+        if before==checked:
+            if handoff:handoff()
+            return
+        self.apply_design(checked,title,context,fit=False,after=handoff)
+
+    def prepare_electrical_ai(self,request):
+        """Prepare text/context for the user; never starts a provider request."""
+        if self.busy or self.sketching or not isinstance(request,dict):return
+        if self.ai_task is not None:
+            self.message('진행 중인 AI 작업이 있습니다. 완료하거나 취소한 뒤 배선 요청을 준비하세요.');return
+        instruction=str(request.get('prompt','')).strip()
+        if not instruction:return
+        from .mcu_pin_dialog import word
+        identifier=str(request.get('component_id',''))
+        component=next((c for c in ((self.document.design or {}).get('electrical') or {}).get('components',[]) if c['id']==identifier),None)
+        terminal=str(request.get('terminal',''))
+        part_id=component.get('part_id','') if component else str(request.get('part_id',''))
+        context=[]
+        if component:context.append(f"{word('기존 회로 부품','Existing circuit component')}: {component['name']} [component_id={identifier}]")
+        if part_id and any(p['id']==part_id for p in (self.document.design or {}).get('parts',[])):
+            context.append(f'CAD part_id={part_id}');self.select_parts([part_id])
+        if terminal and component:context.append(f'{word("선택 단자","Selected terminal")}: {terminal}')
+        context.append(word('기존 부품·핀·전선 ID와 형상을 보존하고, 전장 도구로 요청한 대응·배선만 변경하세요. 미입력 정격·전선 치수·제조사 사양은 만들어내지 마세요.',
+            'Preserve existing component / pin / wire IDs and CAD geometry. Use electrical tools for the requested links and wiring. Do not invent missing ratings, cable dimensions or manufacturer specifications.'))
+        self.ai_mode.setCurrentIndex(self.ai_mode.findData('design'))
+        self.last_draft=None;self.ai_retained_draft=None;self.accept_draft.setEnabled(False)
+        self.ai_result.setPlainText(word('새 AI 배선 요청이 준비되었습니다. 이전 미적용 초안은 해제되었으며 현재 설계는 유지됩니다.',
+            'A new AI wiring request is prepared. The previous unapplied draft is cleared; the current design is retained.'))
+        self.prompt.setPlainText(instruction+'\n\n'+'\n'.join(context))
+        self.ai_dock.show();self.ai_dock.raise_();self.prompt.setFocus()
+        self.message(word('AI 배선 요청을 준비했습니다. 초안 생성 버튼을 누르면 실행하며 적용 전 변경사항을 미리 볼 수 있습니다.',
+            'AI wiring request prepared. Generate draft starts it; preview the changes before applying.'))
+
+    def electrical_cad_link_dialog(self,component_id=None,part_id=None):
+        if self.busy or self.sketching or not self.document.design:return
+        if isinstance(component_id,bool):component_id=None
+        from .electrical_part_dialog import ElectricalCadLinkDialog
+        try:dialog=ElectricalCadLinkDialog(self,self.document.design,component_id,part_id)
+        except (ValueError,TypeError) as exc:self.show_error(str(exc));return
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted and dialog.checked is not None:
+                identifier=dialog.component_combo.currentData()
+                self.apply_design(dialog.checked.model_dump(mode='json'),'회로 부품 / CAD 대응 변경',
+                    {'tool':'electrical-bind','component_ids':[identifier]},fit=False,
+                    after=lambda:self.sync_circuit_selection())
+        finally:dialog.deleteLater()
+
+    def select_parts(self,ids,mode='replace',sync=True):
+        super().select_parts(ids,mode=mode,sync=sync)
+        self.sync_circuit_selection()
+
+    def sync_circuit_selection(self):
+        if getattr(self,'_electrical_selection_sync',False):return
+        self._electrical_selection_sync=True
+        try:
+            for panel in (getattr(self,'circuit_panel',None),getattr(self,'wiring_window',None)):
+                if panel is None:continue
+                matched=bool(self.selected and panel.focus_part(self.selected,zoom=False))
+                if not matched:
+                    panel._selection_emitting=False
+                    try:panel.scene.clearSelection();panel._selection_changed()
+                    finally:panel._selection_emitting=True
+        finally:self._electrical_selection_sync=False
+
+    def circuit_component_selected(self,panel,identifier):
+        if self.busy or self.sketching or getattr(self,'_electrical_selection_sync',False):return
+        component=next((c for c in panel.workspace.components if c.id==identifier),None)
+        if component is None:return
+        self._electrical_selection_sync=True
+        try:
+            actual=any(p['id']==component.part_id for p in (self.document.design or {}).get('parts',[]))
+            self.select_parts([component.part_id] if actual else [])
+            for other in (getattr(self,'circuit_panel',None),getattr(self,'wiring_window',None)):
+                if other is not None and other is not panel:other.focus_component(identifier,notify=False,zoom=False)
+            if getattr(self,'circuit_focus_panels',None) is not None:
+                # Circuit focus is a user's explicit visibility preference.
+                # CAD selection may update hidden properties without exposing
+                # them; Show CAD switches workspace and restores them normally.
+                for dock in (self.browser_dock,self.property_dock,self.ai_dock,self.timeline_dock):dock.hide()
+        finally:self._electrical_selection_sync=False
+
+    def connect_circuit_panel(self,panel):
+        panel.editRequested.connect(self.edit_main_circuit)
+        panel.partActivated.connect(self.show_electrical_cad_part)
+        panel.componentSelected.connect(lambda identifier:self.circuit_component_selected(panel,identifier))
+        panel.linkRequested.connect(self.electrical_cad_link_dialog)
+        panel.aiRequested.connect(self.prepare_electrical_ai)
+        panel.wireActionRequested.connect(self.edit_circuit_wire)
+        panel.simulationRequested.connect(self.open_drive_simulation)
 
     def show_circuit_workspace(self):
         if self.busy or self.sketching:return
@@ -376,8 +475,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
         dialog.partActivated.connect(focus_part)
         try:
             if dialog.exec()==QDialog.DialogCode.Accepted and dialog.checked is not None:
-                self.apply_design(dialog.checked.model_dump(mode='json'),'전장 작업 / 부품 등록 · 배선 편집',
-                    {'tool':'electrical-workbench','component_ids':[c.id for c in dialog.checked.electrical.components] if dialog.checked.electrical else []})
+                self.commit_electrical_editor(dialog.checked.model_dump(mode='json'),'전장 작업 / 부품 등록 · 배선 편집',
+                    {'tool':'electrical-workbench','component_ids':[c.id for c in dialog.checked.electrical.components] if dialog.checked.electrical else []},dialog.ai_request)
         finally:dialog.deleteLater()
 
     def refresh_circuit_workspace(self):
@@ -394,13 +493,11 @@ class MainWindow(QMainWindow,PartSelectionUI):
         panel=ElectricalSchematicDialog(self,workspace,result,(self.document.design or {}).get('parts',[]),editable=False)
         panel.setWindowFlags(Qt.WindowType.Widget)
         panel.setObjectName('mainCircuitWorkspace')
-        panel.editRequested.connect(self.edit_main_circuit)
-        panel.wireActionRequested.connect(self.edit_circuit_wire)
-        panel.simulationRequested.connect(self.open_drive_simulation)
+        self.connect_circuit_panel(panel)
         panel.focusRequested.connect(self.toggle_circuit_focus)
-        panel.partActivated.connect(self.show_electrical_cad_part)
         self.circuit_panel=panel;self.stack.addWidget(panel);self.stack.setCurrentWidget(panel)
         self.circuit_identity=identity
+        self.sync_circuit_selection()
         if old:self.stack.removeWidget(old);old.deleteLater()
 
     def toggle_circuit_focus(self):
@@ -412,16 +509,22 @@ class MainWindow(QMainWindow,PartSelectionUI):
         else:
             for dock,visible in zip(docks,saved):dock.setVisible(visible)
             self.circuit_focus_panels=None
-        QTimer.singleShot(0,self.circuit_panel.fit_scene)
+        self.circuit_panel.fit_timer.start(0)
 
     def edit_main_circuit(self):
         if self.busy or self.sketching:return
         from .electrical_schematic import ElectricalSchematicDialog
         raw=deepcopy(self.document.design) if self.document.design else Design().model_dump()
-        dialog=ElectricalSchematicDialog(self,raw.get('electrical') or {'nodes':['GND'],'components':[]},parts=raw['parts'])
-        if dialog.exec()==QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
-            raw['electrical']=dialog.accepted_workspace.model_dump()
-            self.apply_design(raw,'회로도 부품 / 핀 / 배치 편집',{'tool':'electrical-schematic','component_ids':[c.id for c in dialog.accepted_workspace.components]},fit=False)
+        dialog=ElectricalSchematicDialog(self,raw.get('electrical') or {'nodes':['GND'],'components':[]},parts=raw['parts'],design=raw)
+        dialog.partActivated.connect(self.show_electrical_cad_part)
+        current=getattr(self,'wiring_window',None) or getattr(self,'circuit_panel',None)
+        if current and current._selected_id():dialog.focus_component(current._selected_id())
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
+                raw['electrical']=dialog.accepted_workspace.model_dump(mode='json')
+                if dialog.accepted_parts is not None:raw['parts']=dialog.accepted_parts
+                self.commit_electrical_editor(raw,'회로도 부품 / 핀 / 배치 편집',{'tool':'electrical-schematic','component_ids':[c.id for c in dialog.accepted_workspace.components]},dialog.ai_request)
+        finally:dialog.deleteLater()
 
     def edit_circuit_wire(self,action,context=None):
         if self.busy or self.sketching:return
@@ -449,6 +552,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if isinstance(component_id,bool):component_id=None
         from .electrical_schematic import ElectricalSchematicDialog
         raw=(self.document.design or {}).get('electrical') or {'nodes':['GND'],'components':[]}
+        if component_id is None and self.selected:component_id=next((c['id'] for c in raw.get('components',[]) if c.get('part_id')==self.selected),None)
         panel=getattr(self,'wiring_window',None)
         if panel is None:
             panel=self.make_wiring_panel(raw);self.wiring_window=panel
@@ -468,9 +572,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         from .electrical_schematic import ElectricalSchematicDialog
         panel=ElectricalSchematicDialog(self,raw,parts=(self.document.design or {}).get('parts',[]),editable=False)
         panel.setObjectName('floatingWiringDiagram');panel.setWindowFlags(Qt.WindowType.Window)
-        panel.editRequested.connect(self.edit_main_circuit);panel.partActivated.connect(self.show_electrical_cad_part)
-        panel.wireActionRequested.connect(self.edit_circuit_wire)
-        panel.simulationRequested.connect(self.open_drive_simulation)
+        self.connect_circuit_panel(panel)
         panel.close_button.show();return panel
 
     def refresh_wiring_diagram(self):
@@ -500,11 +602,16 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if self.busy or self.sketching:return
         if not any(p['id']==part_id for p in (self.document.design or {}).get('parts',[])):
             self.message('이 전자제품에 연결된 CAD 부품이 없습니다. CAD 부품을 전장으로 등록하세요.');return
-        if self.workspace.currentData()=='circuit':self.open_wiring_diagram(next((c['id'] for c in self.document.design.get('electrical',{}).get('components',[]) if c.get('part_id')==part_id),None))
+        saved_panels=getattr(self,'circuit_focus_panels',None)
+        if saved_panels is not None:saved_panels=list(saved_panels)
         self.workspace.setCurrentIndex(self.workspace.findData('model'));self.reset_role_view(restore=True)
         if part_id in self.viewport.hidden:self.viewport.visibility(part_id,True)
         self.select_parts([part_id]);actor=self.viewport.actors.get(part_id)
         if actor is not None:self.viewport.renderer.ResetCamera(actor[0].GetBounds());self.viewport.renderer.ResetCameraClippingRange();self.viewport.render()
+        if saved_panels is not None:
+            # Part selection normally exposes its properties. Leaving circuit
+            # focus must instead restore the user's previous dock visibility.
+            for dock,visible in zip((self.browser_dock,self.property_dock,self.ai_dock,self.timeline_dock),saved_panels):dock.setVisible(visible)
         self.message('회로도와 연결된 CAD 부품: '+next(p['name'] for p in self.document.design['parts'] if p['id']==part_id))
 
     def electrical_part_dialog(self,part_id=None):
@@ -1096,6 +1203,12 @@ class MainWindow(QMainWindow,PartSelectionUI):
         electrical=(self.document.design.get('electrical') or {}).get('components',[])
         linked=[c['name'] for c in electrical if c.get('part_id')==part['id']]
         registration=button('전장 피처 · 모델 / 모식도 편집' if linked else '이 CAD 부품을 전장으로 등록…',lambda:self.electrical_part_dialog(part['id']),not bool(linked));registration.setObjectName('partElectricalRegister');self.property_layout.addWidget(registration)
+        if linked:
+            circuit_find=button('회로도에서 이 부품 찾기',lambda:self.open_wiring_diagram(next(c['id'] for c in electrical if c.get('part_id')==part['id'])))
+            circuit_find.setObjectName('partCircuitFind');self.property_layout.addWidget(circuit_find)
+        if electrical:
+            circuit_link=button('기존 회로 부품과 CAD 대응 설정…',lambda:self.electrical_cad_link_dialog(part_id=part['id']))
+            circuit_link.setObjectName('partCircuitLink');self.property_layout.addWidget(circuit_link)
         if linked or part.get('role')=='electrical':self.property_layout.addWidget(button('전장 등록 / 배선 상태…',lambda:self.electrical_workbench_dialog(part['id'])))
         if group:
             self.property_layout.addWidget(button(group['name']+' · 그룹 전체 선택',lambda:self.select_parts(group['part_ids'])))
@@ -1618,7 +1731,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if not draft or self.busy or self.sketching:return
         if draft['serial']!=self.operation_serial:self.show_error('초안 생성 이후 설계가 변경되었습니다. 다시 생성하세요.');return
         from .draft_preview import DraftPreviewDialog
-        dialog=DraftPreviewDialog(self,self.result,draft['preview'],self.ai_result.toPlainText(),validation=draft['response'].get('validation'),repairable=bool(draft['response'].get('repair')))
+        dialog=DraftPreviewDialog(self,self.result,draft['preview'],self.ai_result.toPlainText(),validation=draft['response'].get('validation'),repairable=bool(draft['response'].get('repair')),before_design=self.document.design,after_design=draft['design'])
         outcome=dialog.exec()
         if outcome==QDialog.DialogCode.Accepted:self.apply_draft()
         elif outcome==2:

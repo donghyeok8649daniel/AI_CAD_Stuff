@@ -1,3 +1,9 @@
+# 2.22.0 physical AI wiring, CAD links and motor catalogue
+
+Affected source regression: **638 passed** (637 passed, 3 warnings in 94.23s (0:01:34); lazy SciPy: 1 passed in 10.18s). Frozen Windows EXE: **514 native checks**. All **192** bundled CAD modules and the native entry match the tested source. Actual automatic/hardware and software rendering are exercised; the software driver remains unmodified.
+
+Checks cover actual offline AI registration/binding plus physical power, control and motor terminal wire actions; private before/after circuit review with a usable canvas; explicit Apply/Cancel, Save/reopen and operation Undo/Redo. Motor variants retain exact source-backed terminals and unknown operating values. CAD/circuit correspondence preserves original geometry, colours, assets and parameter/sketch references. Native direct toolbar navigation, nested editor save/cancel, Korean/English dialogs and existing circuit/registration paths are exercised. Child correspondence Save followed by parent Cancel, real Qt deferred destruction and forced GC is repeated in the native runtime. Hidden wire symbols do not reduce the physical preview's readable framing. Electrical-only changes reuse CAD actors. Private fixture inputs remain unchanged and public fixtures contain no user project/research data. No live AI, hardware, firmware, closed-loop motor operation or fatigue rating is approved by these checks. See [release guide](docs/RELEASE_2_22_0_KO.md) and [aggregate evidence](docs/native2220-validation.json).
+
 # 2.21.0 electrical workspace and exact product catalogue
 
 Affected source regression: **482 passed** (481 passed, 3 warnings in 49.82s; lazy SciPy: 1 passed in 6.71s). Frozen Windows EXE: **392 native checks**. All **190** bundled CAD modules and the native entry match the tested source. Actual automatic/hardware and software rendering are exercised; the software driver remains unmodified.

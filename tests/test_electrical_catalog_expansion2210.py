@@ -79,7 +79,7 @@ def test_support_counts_distinguish_registerable_maps_manual_items_and_discovery
     assert counts["registerable"] == counts["board_pinouts"] + counts["product_diagrams"] + counts["manual"]
     assert catalog_support("rpi_pico2") == catalog_support("rpi_zero2w") == "board_pins"
     assert all(catalog_support(identifier) == "terminals" for identifier in NEW_PRODUCTS)
-    assert catalog_support("robotis_xl330_m288t") == "manual"
+    assert catalog_support("robotis_xl330_m288t") == "terminals"
     assert catalog_support("stm32_nucleo_family") == catalog_support("not_known") == "reference"
     counts["total"] = -1
     assert catalog_counts()["total"] == len(CATALOG)

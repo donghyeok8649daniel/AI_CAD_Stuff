@@ -64,6 +64,7 @@ class ElectricalWorkbenchDialog(QDialog):
         self.original = Design.model_validate(design)
         self.draft = self.original.model_copy(deep=True)
         self.checked = None
+        self.ai_request = None
         self._changed = False
         self._rows = []
         self._visible_rows = []
@@ -168,6 +169,12 @@ class ElectricalWorkbenchDialog(QDialog):
         actions.addWidget(self.focus_button)
         actions.addStretch(1)
         left_layout.addLayout(actions)
+        correspondence = QHBoxLayout()
+        self.link_button = button(word('기존 회로 ↔ CAD 대응…', 'Link existing circuit ↔ CAD…'), self.link_selected)
+        self.link_button.setObjectName('electricalWorkbenchLink'); correspondence.addWidget(self.link_button)
+        self.ai_button = button(word('AI 배선 요청…', 'Prepare AI wiring…'), self.prepare_ai_request)
+        self.ai_button.setObjectName('electricalWorkbenchAiRequest'); correspondence.addWidget(self.ai_button)
+        correspondence.addStretch(1); left_layout.addLayout(correspondence)
         splitter.addWidget(left)
 
         right = QWidget()
@@ -319,7 +326,7 @@ class ElectricalWorkbenchDialog(QDialog):
             'Electrical CAD {electrical_parts}   ·   Registered {registered_parts}   ·   Unregistered {unregistered_parts}   ·   Pending {pending_components}   ·   Connection issues {blocked_components}').format(**counts))
         self.overview.setText(word('회로 항목 {components}개 · 전선 {wires}개 · 기존 CAD 연결 {legacy_components}개 · 사용자 정의 {custom_components}개 · 확인된 모식도 없음 {missing_diagrams}개. 저장 전 변경은 이 창의 초안에만 반영됩니다.',
             'Circuit items {components} · Wires {wires} · Legacy CAD links {legacy_components} · Custom {custom_components} · No verified diagram {missing_diagrams}. Changes stay in this draft until saved.').format(**counts))
-        self.apply_button.setEnabled(self._changed)
+        self.apply_button.setEnabled(self._changed or bool(self.ai_request))
         self.filter_rows()
 
     def filter_rows(self, *_):
@@ -363,6 +370,7 @@ class ElectricalWorkbenchDialog(QDialog):
         row = self.selected_row()
         self.register_button.setEnabled(bool(row))
         self.focus_button.setEnabled(bool(row and row.part_id in self._parts))
+        self.link_button.setEnabled(bool(self.selected_row() and self.draft.electrical and self.draft.electrical.components))
         self.source_button.setEnabled(False)
         self.metadata_button.setEnabled(False)
         self._metadata_candidates = ()
@@ -456,6 +464,40 @@ class ElectricalWorkbenchDialog(QDialog):
         # circuit field changes. Child editors already own independent models.
         self.adopt_design(self.draft.model_copy(update={'electrical': workspace}))
 
+    def adopt_circuit_editor(self, editor):
+        """Keep CAD role changes and queued requests in this private draft."""
+        raw = self.draft.model_dump(mode='json')
+        workspace = getattr(editor, 'accepted_workspace', None) or getattr(editor, 'workspace', None)
+        if workspace is not None: raw['electrical'] = workspace.model_dump(mode='json')
+        accepted_parts = getattr(editor, 'accepted_parts', None)
+        if accepted_parts is not None: raw['parts'] = accepted_parts
+        self.adopt_design(raw)
+        if getattr(editor, 'ai_request', None): self.queue_ai_request(editor.ai_request)
+
+    def link_selected(self):
+        row = self.selected_row()
+        if not row or not self.link_button.isEnabled(): return
+        from .electrical_part_dialog import ElectricalCadLinkDialog
+        dialog = ElectricalCadLinkDialog(self, self.draft, row.component_id or None, row.part_id or None)
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted and dialog.checked is not None: self.adopt_design(dialog.checked)
+        finally: dialog.deleteLater()
+
+    def queue_ai_request(self, request):
+        self.ai_request = dict(request)
+        self.apply_button.setText(word('전장 변경 저장 · AI 요청 준비', 'Save electrical changes · prepare AI'))
+        self.apply_button.setEnabled(True)
+        self.notice.setText(word('AI 요청 대기 중 · 저장하면 메인 AI 입력창으로 준비합니다. 초안 생성은 메인 버튼으로 시작하며 취소하면 요청을 폐기합니다.',
+            'AI request queued · save prepares it in the main AI input. Generate draft starts it; cancel discards this request.'))
+
+    def prepare_ai_request(self):
+        from PySide6.QtWidgets import QInputDialog
+        prompt, ok = QInputDialog.getMultiLineText(self, word('AI 배선 요청 준비', 'Prepare AI wiring request'),
+            word('원하는 부품·핀·전선 변경을 입력하세요. 저장 후 메인 AI 입력창으로 준비합니다.', 'Describe component, pin or wire changes. Save prepares the request in the main AI input.'))
+        if not ok or not prompt.strip(): return
+        row = self.selected_row()
+        self.queue_ai_request(dict(prompt=prompt.strip(), component_id=row.component_id if row else '', part_id=row.part_id if row else '', terminal=''))
+
     def register_selected(self, *_ , catalog_id=None):
         row = self.selected_row()
         if row is None: return
@@ -475,11 +517,13 @@ class ElectricalWorkbenchDialog(QDialog):
     def edit_schematic(self):
         from .electrical_schematic import ElectricalSchematicDialog
         workspace = self.draft.electrical or ElectricalWorkspace()
-        dialog = ElectricalSchematicDialog(self, workspace, parts=[part.model_dump(mode='json') for part in self.draft.parts])
+        dialog = ElectricalSchematicDialog(self, workspace, parts=[part.model_dump(mode='json') for part in self.draft.parts], design=self.draft)
         try:
             dialog.partActivated.connect(self.partActivated.emit)
+            row = self.selected_row()
+            if row and row.component_id: dialog.focus_component(row.component_id)
             if dialog.exec() == QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
-                self.adopt_workspace(dialog.accepted_workspace)
+                self.adopt_circuit_editor(dialog)
         finally: dialog.deleteLater()
 
     def edit_circuit(self):
@@ -490,7 +534,7 @@ class ElectricalWorkbenchDialog(QDialog):
             if row and row.component_id:
                 index = next((index for index, component in enumerate(dialog.components) if component['id'] == row.component_id), -1)
                 if index >= 0: dialog.table.selectRow(index)
-            if dialog.exec() == QDialog.DialogCode.Accepted: self.adopt_workspace(dialog.workspace)
+            if dialog.exec() == QDialog.DialogCode.Accepted: self.adopt_circuit_editor(dialog)
         finally: dialog.deleteLater()
 
     def focus_selected(self):
@@ -565,10 +609,11 @@ class ElectricalWorkbenchDialog(QDialog):
 
     def reject(self):
         self.checked = None
+        self.ai_request = None
         super().reject()
 
     def accept(self):
-        if not self._changed: return
+        if not self._changed and not self.ai_request: return
         try: self.checked = Design.model_validate(self.draft.model_dump(mode='json'))
         except (ValueError, TypeError) as exc:
             QMessageBox.warning(self, word('전장 변경 확인', 'Check electrical changes'), str(exc)[:1200])

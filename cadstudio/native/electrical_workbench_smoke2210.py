@@ -17,7 +17,7 @@ def run(app, window, path):
     from ..electrical_readiness import build_electrical_readiness
     from ..electrical_catalog import catalog_counts, catalog_support
     from .document import read_project
-    from .electrical_part_dialog import ElectricalPartDialog
+    from .electrical_part_dialog import ElectricalPartDialog, ElectricalCadLinkDialog
     from .electrical_dialog import ComponentDialog, ElectricalDialog
     from .electrical_schematic import ElectricalSchematicDialog
     from .electrical_workbench import ElectricalWorkbenchDialog
@@ -103,6 +103,11 @@ def run(app, window, path):
         tool = window.findChild(type(window.electrical_tools), 'electricalWorkspaceTools')
         app.processEvents(); window.grab().save(str(path.with_name('electrical-workbench-main-toolbar2210.png')))
         check(tool is not None and tool.isVisible(), 'top toolbar exposes the electrical workspace beside part color')
+        direct=window.toolbar.widgetForAction(window.actions['wiring_diagram'])
+        check(direct is not None and direct.isVisible(), 'top toolbar exposes a direct circuit button outside the electrical menu')
+        toolbar_order=window.toolbar.actions()
+        check(toolbar_order.index(window.actions['wiring_diagram'])==toolbar_order.index(window.actions['color'])+1,
+              'direct circuit button immediately follows selected part color')
 
         def edit_workspace(child):
             check(child.report.counts['electrical_parts'] == 2 and child.report.counts['unregistered_parts'] == 2,
@@ -186,6 +191,55 @@ def run(app, window, path):
         window.redo(); wait(lambda: not window.busy)
         check(window.document.design == final, 'Redo restores all exact model registrations and resistor wiring')
 
+        window.select_parts(['board']); QTest.mouseClick(direct,Qt.MouseButton.LeftButton); app.processEvents()
+        panel=window.wiring_window
+        board_component=next(c for c in panel.workspace.components if c.part_id=='board')
+        check(panel._selected_id()==board_component.id,'direct circuit button finds the selected CAD body in the circuit')
+        panel.focus_component('source')
+        check(window.selected is None,'selecting an unlinked circuit source does not keep a misleading CAD selection')
+        window.select_parts(['board'])
+        check(panel._selected_id()==board_component.id,'CAD selection highlights the corresponding saved circuit component')
+        panel.view.fitInView(panel.component_items[board_component.id].sceneBoundingRect(),Qt.AspectRatioMode.KeepAspectRatio)
+        item=panel.component_items[board_component.id]
+        point=panel.view.mapFromScene(item.mapToScene(item.boundingRect().center()))
+        window.select_parts([])
+        QTest.mouseClick(panel.view.viewport(),Qt.MouseButton.LeftButton,pos=point); app.processEvents()
+        check(window.selected=='board','actual circuit-body click keeps the CAD association selected')
+        QTest.mouseClick(panel.cad_button,Qt.MouseButton.LeftButton);app.processEvents()
+        check(window.selected=='board' and window.workspace.currentData()=='model','Show CAD part returns to the actual 3D body')
+        panel.focus_component('source'); before_link=deepcopy(window.document.design)
+        link_entries=len(window.document.journal.data['entries'])
+        def link_supply(editor):
+            check(editor.component_combo.currentData()=='source','saved circuit link action selects the existing source ID')
+            editor.part_combo.setCurrentIndex(editor.part_combo.findData('yellow_housing'))
+            QTest.mouseClick(editor.bind_button,Qt.MouseButton.LeftButton)
+            check(window.document.design==before_link,'link preview leaves the live CAD and circuit unchanged')
+            editor.grab().save(str(path.with_name('electrical-cad-link2220.png')))
+            QTest.mouseClick(editor.apply_button,Qt.MouseButton.LeftButton)
+        state=own_modal(link_supply,ElectricalCadLinkDialog)
+        QTest.mouseClick(panel.link_button,Qt.MouseButton.LeftButton);wait(lambda:state['done']);wait(lambda:not window.busy)
+        final=deepcopy(window.document.design)
+        check(len(window.document.journal.data['entries'])==link_entries+1,'saved existing circuit correspondence adds one history transaction')
+        source=next(c for c in final['electrical']['components'] if c['id']=='source')
+        check(source['part_id']=='yellow_housing' and source['part_registration'],'link save retains the source ID and registers its selected body')
+        check(final['parts'][-1]['role']=='electrical' and final['parts'][-1]['color']=='#FFD400','link save updates only declared role while preserving custom color')
+        check(len(final['electrical']['components'])==len(before_link['electrical']['components']),'link save never duplicates circuit components')
+        window.document.write(saved);check(read_project(saved).design.model_dump(mode='json')==final,'save and reopen retain the exact circuit and CAD correspondence')
+        window.undo();wait(lambda:not window.busy);check(window.document.design==before_link,'Undo restores the prior association and body role')
+        window.redo();wait(lambda:not window.busy);check(window.document.design==final,'Redo restores the saved association and body role')
+        window.select_parts(['yellow_housing']);panel=window.wiring_window
+        check(panel._selected_id()=='source','newly linked CAD body finds its existing circuit item without a second registration')
+        panel.focus_component('source',notify=False)
+        panel.grab().save(str(path.with_name('electrical-cad-correspondence2220.png')))
+
+        def cancel_link(editor):
+            QTest.mouseClick(editor.unbind_button,Qt.MouseButton.LeftButton)
+            check(not next(c for c in editor.draft.electrical.components if c.id=='source').part_id,'unlink preview only changes the private link draft')
+            editor.reject()
+        state=own_modal(cancel_link,ElectricalCadLinkDialog)
+        QTest.mouseClick(panel.link_button,Qt.MouseButton.LeftButton);wait(lambda:state['done'])
+        check(window.document.design==final,'Cancel leaves the saved existing component and CAD correspondence intact')
+
         def cancel_workspace(child):
             select_body(child, 'board')
             def rename(editor):
@@ -211,6 +265,29 @@ def run(app, window, path):
                       'English 600 px workspace retains the final Cancel control')
                 child.grab().save(str(path.with_name('electrical-workbench-en2210.png'))); child.reject()
             finally: language.set_language(previous_language, persist=False)
+
+        # Exercise the redraw + disposal path that previously exposed native
+        # graphics-wrapper GC faults, using only owned private circuit drafts.
+        import gc
+        from shiboken6 import isValid
+        from PySide6.QtCore import QCoreApplication, QEvent
+        for index in range(2):
+            draft_panel=ElectricalSchematicDialog(window,final['electrical'],parts=final['parts'],design=final)
+            draft_panel.show();draft_panel.focus_component('legacy');app.processEvents()
+            def unlink_private(editor):
+                QTest.mouseClick(editor.unbind_button,Qt.MouseButton.LeftButton)
+                QTest.mouseClick(editor.apply_button,Qt.MouseButton.LeftButton)
+            state=own_modal(unlink_private,ElectricalCadLinkDialog)
+            QTest.mouseClick(draft_panel.link_button,Qt.MouseButton.LeftButton);wait(lambda:state['done'])
+            check(not next(c for c in draft_panel.workspace.components if c.id=='legacy').part_id,
+                  f'owned lifetime cycle {index+1}: child correspondence Save redraws the private circuit')
+            draft_panel.reject();draft_panel.deleteLater()
+            QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+            dialogs[:]=[dialog for dialog in dialogs if isValid(dialog)]
+            del draft_panel
+            gc.collect();app.processEvents()
+            check(window.document.design==final,
+                  f'owned lifetime cycle {index+1}: parent Cancel and graphics GC preserve the live design')
 
         fixture = os.environ.get('CADSTUDIO_ELECTRICAL_FIXTURE', '')
         if fixture:

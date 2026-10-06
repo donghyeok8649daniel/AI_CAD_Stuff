@@ -130,6 +130,12 @@ def run(app,window,path):
         QTest.mouseClick(panel.cad_button,Qt.MouseButton.LeftButton);app.processEvents()
         check(window.workspace.currentData()=='model' and window.selected_parts==['controller'],
               'Show CAD part selects the registered controller in the real 3D viewport')
+        check(getattr(window,'wiring_window',None) is None and panel._selected_id()=='pi',
+              'Show CAD part preserves circuit selection without opening a duplicate viewer')
+        action=window.actions['wiring_diagram'];direct=window.toolbar.widgetForAction(action)
+        check(direct is not None and direct.isVisible(),
+              'the direct circuit toolbar button remains available beside part colour')
+        QTest.mouseClick(direct,Qt.MouseButton.LeftButton);app.processEvents()
         wiring=window.wiring_window;dialogs.append(wiring)
         check(wiring.isVisible() and wiring.objectName()=='floatingWiringDiagram'
               and wiring._selected_id()=='pi' and not wiring.editable,
@@ -152,6 +158,21 @@ def run(app,window,path):
         focus.click();app.processEvents()
         check(not any(dock.isVisible() for dock in docks),'Focus circuit removes all four CAD side and timeline panels')
         check(window.circuit_focus_panels==preferences,'focused circuit stores the exact prior panel visibility preferences')
+        panel.focus_component('driver');app.processEvents()
+        check(not any(dock.isVisible() for dock in docks) and window.selected_parts==[],
+              'focused selection of a circuit-only driver keeps all CAD panels hidden')
+        panel.focus_component('pi');app.processEvents()
+        check(not any(dock.isVisible() for dock in docks) and window.selected_parts==['controller'],
+              'focused linked board selection updates CAD selection without reopening panels')
+        QTest.mouseClick(panel.cad_button,Qt.MouseButton.LeftButton);app.processEvents()
+        check(window.workspace.currentData()=='model' and [dock.isVisible() for dock in docks]==preferences,
+              'explicit Show CAD exits focused circuit and restores prior panel visibility')
+        window.show_circuit_workspace();app.processEvents();panel=window.circuit_panel
+        focus=next(item for item in panel.findChildren(QPushButton)
+                   if item.text().startswith(('회로도 크게 보기','Focus circuit')))
+        focus.click();app.processEvents()
+        check(not any(dock.isVisible() for dock in docks) and window.circuit_focus_panels==preferences,
+              'reentering focused circuit retains the same saved panel preferences')
         focus.click();app.processEvents()
         check([dock.isVisible() for dock in docks]==preferences,'restoring circuit panels preserves deliberately hidden panels')
         focus.click();app.processEvents();panel.fit_scene()

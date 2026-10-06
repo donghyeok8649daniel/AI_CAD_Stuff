@@ -203,6 +203,9 @@ def register_part(raw: Design | dict, part_id: str, args: RegistrationSpec | dic
     component["product_pinout_catalog_id"] = catalog_id if product else ""
     checked = ElectricalComponent.model_validate(component)
     design.electrical = _with_nodes(workspace, checked.model_dump())
+    if existing and not changed_model:
+        from .circuit_connections import preserve_physical_wire_connections
+        design.electrical = preserve_physical_wire_connections(workspace, design.electrical)
     body.role = "electrical"
     if spec.apply_default_color:
         from .part_roles import COLORS
@@ -238,6 +241,53 @@ def unregister_part(raw: Design | dict, part_id: str) -> Design:
     return Design.model_validate(design.model_dump())
 
 
+def bind_component_to_part(raw: Design | dict, component_id: str, part_id: str,
+                           *, apply_default_color: bool = False) -> Design:
+    """Attach an existing circuit item to a CAD body without copying the item.
+
+    Existing pins, ratings, wires and layout survive. A legacy exact model is
+    bound only if its preserved pin labels validate against that exact diagram;
+    incompatible labels are rejected, never silently dropped.
+    """
+    if not isinstance(apply_default_color, bool):
+        raise ValueError('기본 색상 적용은 true 또는 false로 지정하세요.')
+    design = _design(raw)
+    body = _body(design, part_id)
+    component = next((item for item in design.electrical.components if item.id == component_id), None) if design.electrical else None
+    if component is None:
+        raise ValueError('기존 회로 부품 ID를 선택하세요.')
+    if any(item.id != component_id and item.part_id == part_id for item in design.electrical.components):
+        raise ValueError('이 CAD 부품은 이미 다른 회로 부품에 연결되어 있습니다. 먼저 기존 링크를 해제하세요.')
+    data = component.model_dump()
+    if component.catalog_id:
+        entry, expected, board, product = _checked_model(component.catalog_id, component.kind)
+        if not data.get('source_url'):
+            data['source_url'] = entry.source_url
+        if board:
+            data['pinout_catalog_id'] = component.catalog_id
+        if product:
+            data['product_pinout_catalog_id'] = component.catalog_id
+    data.update(part_id=part_id, part_registration=True)
+    checked = ElectricalComponent.model_validate(data)
+    design.electrical.components = [checked if item.id == component_id else item for item in design.electrical.components]
+    body.role = 'electrical'
+    if apply_default_color:
+        from .part_roles import COLORS
+        body.color = COLORS['electrical']
+    return Design.model_validate(design.model_dump())
+
+
+def unbind_component_from_part(raw: Design | dict, component_id: str) -> Design:
+    """Remove one CAD link while preserving the circuit item and every wire."""
+    design = _design(raw)
+    component = next((item for item in design.electrical.components if item.id == component_id), None) if design.electrical else None
+    if component is None:
+        raise ValueError('링크를 해제할 기존 회로 부품 ID를 선택하세요.')
+    component.part_id = ''
+    component.part_registration = False
+    return Design.model_validate(design.model_dump())
+
+
 def _registered_pair(raw, part_id, target_part_id):
     design = _design(raw)
     component = _registration(design, part_id)
@@ -257,7 +307,10 @@ def connect_registered_pin(raw: Design | dict, part_id: str, pin_key: str,
         raise ValueError("확인된 MCU / 보드 모델을 먼저 등록한 뒤 실제 신호 핀을 선택하세요.")
     if pin_key not in {pin.key for pin in board.pins if pin.kind == "signal"}:
         raise ValueError("선택한 MCU의 실제 신호 핀 목록에 없는 핀입니다.")
-    design.electrical = assign_pin(design.electrical, component.id, pin_key, target.id, target_terminal)
+    from .circuit_connections import preserve_physical_wire_connections
+    previous = design.electrical
+    design.electrical = preserve_physical_wire_connections(previous,
+        assign_pin(previous, component.id, pin_key, target.id, target_terminal))
     return Design.model_validate(design.model_dump())
 
 
@@ -285,6 +338,7 @@ def register_terminal_node(raw: Design | dict, part_id: str, terminal_key: str, 
     component = _registration(design, part_id)
     if component is None:
         raise ValueError("실제 CAD 부품을 먼저 전장 부품으로 등록하세요.")
+    previous = design.electrical.model_copy(deep=True)
     if component.kind == "mcu":
         if terminal_key.startswith('supply:'):
             from .board_supply import assign_board_supply_node
@@ -294,6 +348,8 @@ def register_terminal_node(raw: Design | dict, part_id: str, terminal_key: str, 
         key = _terminal_key(component, terminal_key, allow_create=True)
         _add_node(design.electrical, node_id)
         component.terminal_pins[key] = node_id
+    from .circuit_connections import preserve_physical_wire_connections
+    design.electrical = preserve_physical_wire_connections(previous, design.electrical)
     return Design.model_validate(design.model_dump())
 
 
@@ -303,10 +359,13 @@ def connect_registered_terminal(raw: Design | dict, part_id: str, terminal: str,
     from .mcu_connections import _add_node, _new_node
 
     design, source, target = _registered_pair(raw, part_id, target_part_id)
+    previous = design.electrical.model_copy(deep=True)
     if terminal.startswith('supply:') or target_terminal.startswith('supply:'):
         from .circuit_connections import connect_schematic_terminals
         source_terminal=terminal if terminal in ('a','b') or terminal.startswith('supply:') else 'port:'+_terminal_key(source,terminal)
         design.electrical=connect_schematic_terminals(design.electrical,source.id,source_terminal,target.id,target_terminal)
+        from .circuit_connections import preserve_physical_wire_connections
+        design.electrical = preserve_physical_wire_connections(previous, design.electrical)
         return Design.model_validate(design.model_dump())
     source_terminal = terminal if terminal in ("a", "b") else "port:" + _terminal_key(source, terminal)
     if source.id == target.id and source_terminal == target_terminal:
@@ -330,4 +389,6 @@ def connect_registered_terminal(raw: Design | dict, part_id: str, terminal: str,
             setattr(source, source_terminal, node)
         else:
             source.terminal_pins[source_terminal.partition(":")[2]] = node
+    from .circuit_connections import preserve_physical_wire_connections
+    design.electrical = preserve_physical_wire_connections(previous, design.electrical)
     return Design.model_validate(design.model_dump())

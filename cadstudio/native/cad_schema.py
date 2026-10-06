@@ -105,6 +105,15 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
     tool('electrical_register',registration_fields)
     tool('electrical_connect',dict(pin=text,target_part_id=text,target_terminal=text),('pin','target_part_id','target_terminal'))
     tool('electrical_unregister',{})
+    tool('electrical_bind',dict(component_id=text,apply_default_color=boolean),('component_id',))
+    tool('electrical_unbind',{})
+    wire_fields=dict(name=text,wire_color=color,length_mm=number,cross_section_mm2=number,
+                     max_current_a=number,analysis_enabled=boolean)
+    tool('electrical_wire_add',dict(source_terminal=text,target_id=text,target_terminal=text,**wire_fields),
+         ('source_terminal','target_id','target_terminal'))
+    tool('electrical_wire_edit',dict(source_id=text,source_terminal=text,target_id=text,target_terminal=text,
+         closed=boolean,resistivity_ohm_mm2_per_m=number,**wire_fields))
+    tool('electrical_wire_delete',{})
     # Editing-only plans cannot invent another part ID. In particular, a
     # feature ID is not its owning part ID (small models confuse the two).
     # If create remains available without declared IDs, allow new targets.
@@ -112,7 +121,8 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         for action in actions:
             name=action['properties']['tool']['const']
             if name=='create' and new_parts:action['properties']['target']=enum(*new_parts)
-            elif name not in ('joint','edit_joint','parameter','motion_link','power_path'):action['properties']['target']=enum(*dict.fromkeys((*existing_parts,*new_parts)))
+            elif name not in ('joint','edit_joint','parameter','motion_link','power_path','electrical_unbind',
+                              'electrical_wire_add','electrical_wire_edit','electrical_wire_delete'):action['properties']['target']=enum(*dict.fromkeys((*existing_parts,*new_parts)))
     if connections:
         joint = next(a for a in actions if a['properties']['tool']['const'] == 'joint')
         actions.remove(joint)
@@ -130,7 +140,9 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         # Electrical-only scopes receive complete arguments. Fallback plans
         # still pass the same strict PowerPathSpec/RegistrationSpec validators.
         for action in actions:
-            if action['properties']['tool']['const'] in ('power_path','electrical_register'):
+            if action['properties']['tool']['const'] in ('power_path','edit_feature','electrical_register',
+                    'electrical_connect','electrical_bind','electrical_unbind','electrical_wire_add',
+                    'electrical_wire_edit','electrical_wire_delete'):
                 action['properties']['args']={'type':'object'}
     if not actions or not shapes:raise ValueError('At least one known tool and shape must be available.')
     # The kernel accepts explicit measurement contracts, but a small LLM's

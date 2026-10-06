@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from copy import deepcopy
 from PySide6.QtCore import Qt, QPointF, QRectF, QTimer, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPainterPath, QPainterPathStroker
 from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QGraphicsScene,
-    QGraphicsView, QHBoxLayout, QLabel, QSplitter, QVBoxLayout, QWidget, QMessageBox, QGraphicsItem, QGraphicsPathItem)
+    QGraphicsView, QHBoxLayout, QLabel, QSplitter, QVBoxLayout, QWidget, QMessageBox, QGraphicsItem, QGraphicsPathItem, QInputDialog)
 
 from ..electrical import ElectricalResult, ElectricalWorkspace, ElectricalSchematicPosition
 from .widgets import button, label
@@ -60,19 +61,28 @@ class ElectricalSchematicDialog(QDialog):
     partActivated = Signal(str)
     simulationRequested = Signal()
     wireActionRequested = Signal(str,object)
+    componentSelected = Signal(str)
+    linkRequested = Signal(object)
+    aiRequested = Signal(object)
 
-    def __init__(self, parent, workspace, result=None, parts=(), *, editable=True, view_mode='physical'):
+    def __init__(self, parent, workspace, result=None, parts=(), *, editable=True, view_mode='physical', inspection_only=False, design=None):
         super().__init__(parent)
-        self.editable = editable
+        self.inspection_only = inspection_only
+        self.editable = editable and not inspection_only
+        editable = self.editable
         self.view_mode=view_mode if view_mode in ('physical','symbols') else 'physical'
         language = getattr(QApplication.instance(), 'cad_language', None)
         self.english = getattr(language, 'language', 'ko') == 'en'
         self.setWindowTitle(self._word('전장 회로도 · 부품 / 핀 / 배선', 'Circuit schematic · components / pins / wiring'))
         self.resize(1240, 820)
         self.workspace = ElectricalWorkspace.model_validate(workspace).model_copy(deep=True)
-        self.parts = tuple(parts)
+        self.parts = tuple(deepcopy(parts))
+        self.design_reference = design
         self.workspace_changed = False
         self.accepted_workspace = None
+        self.accepted_parts = None
+        self.ai_request = None
+        self._selection_emitting = True
         self.result = ElectricalResult.model_validate(result) if result is not None else None
         self.component_items = {}
         self.node_positions = {}
@@ -91,8 +101,15 @@ class ElectricalSchematicDialog(QDialog):
         self.route_timer = QTimer(self)
         self.route_timer.setSingleShot(True)
         self.route_timer.timeout.connect(self._route)
+        self.fit_timer = QTimer(self)
+        self.fit_timer.setSingleShot(True)
+        self.fit_timer.timeout.connect(self._fit_view)
 
-        layout = QVBoxLayout(self)
+        # Qt owns the unused editor widgets as one hidden subtree in previews.
+        # Keeping removed QLayoutItems in Python creates competing ownership
+        # during cyclic collection and can also make a later warning orphaned.
+        self.editor_controls = QWidget(self) if inspection_only else self
+        layout = QVBoxLayout(self.editor_controls)
         layout.addWidget(label(self._word(
             '부품 드래그: 배치 · 시작/대상 핀 클릭: 연결 · 선택 편집: 모델/정격 변경 · 실물 몸체 클릭: 확대/CAD 보기.' if editable else
             '저장된 회로를 메인 화면에서 확인합니다. 회로 편집에서 부품·핀·배선을 변경하고 저장하세요.',
@@ -157,6 +174,15 @@ class ElectricalSchematicDialog(QDialog):
             'Click a wire path/body to select and delete it. Existing net connections: Edit circuit → select pin → Disconnect pin.'),True),1)
         layout.addLayout(wires)
 
+        correspondence = QHBoxLayout()
+        self.link_button = button(self._word('CAD 대응 설정…', 'Link CAD body…'), self.edit_cad_link)
+        self.link_button.setObjectName('schematicLinkCad'); correspondence.addWidget(self.link_button)
+        self.ai_button = button(self._word('AI 배선 요청…', 'Prepare AI wiring…'), self.prepare_ai_request)
+        self.ai_button.setObjectName('schematicAiRequest'); correspondence.addWidget(self.ai_button)
+        correspondence.addWidget(label(self._word('CAD 보기: 실제 부품 찾기 · 대응 설정: 기존 회로 부품을 CAD에 연결',
+            'Show CAD: locate the body · Link CAD: associate an existing circuit component'), True), 1)
+        layout.addLayout(correspondence)
+
         from .mcu_pin_dialog import PinDiagramView
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.addWidget(self.view)
@@ -210,6 +236,26 @@ class ElectricalSchematicDialog(QDialog):
             self.close_button.hide()
             self.inspector.setToolTip(self._word('메인 화면에서는 저장된 회로를 표시합니다. 회로 편집에서 변경하고 저장하세요.',
                 'The main workspace displays the saved circuit. Use Edit circuit to make and save changes.'))
+        if inspection_only:
+            # Preview panes are much shorter than the standalone editor. Keep
+            # their actual circuit canvas, rather than eight rows of editor UI.
+            layout.removeWidget(self.splitter)
+            preview_layout = QVBoxLayout(self)
+            compact = QHBoxLayout()
+            navigation.removeWidget(self.mode_picker); self.mode_picker.show(); compact.addWidget(self.mode_picker)
+            compact.addWidget(button(self._word('전체 맞춤', 'Fit all'), self.fit_scene))
+            compact.addWidget(button('+', lambda: self.view.scale(1.25, 1.25)))
+            compact.addWidget(button('−', lambda: self.view.scale(.8, .8)))
+            controls.removeWidget(self.expand_button); self.expand_button.show(); compact.addWidget(self.expand_button)
+            self.preview_warnings = QLabel()
+            self.preview_warnings.setObjectName('schematicPreviewWarnings')
+            self.preview_warnings.setStyleSheet('color:#c48718;')
+            compact.addWidget(self.preview_warnings)
+            compact.addStretch(1)
+            preview_layout.addLayout(compact); preview_layout.addWidget(self.splitter, 1); self.splitter.show()
+            preview_layout.setContentsMargins(4, 4, 4, 4); preview_layout.setSpacing(4)
+            self.editor_controls.hide()
+            for widget in self.editor_controls.findChildren(QWidget): widget.hide()
         self._draw()
         self.refresh_mcu_list()
         self._selection_changed()
@@ -218,6 +264,7 @@ class ElectricalSchematicDialog(QDialog):
         return english if self.english else korean
 
     def open_simulation(self):
+        if self.inspection_only: return
         if not self.editable:
             self.simulationRequested.emit();return
         from .drive_simulation_dialog import DriveSimulationDialog
@@ -232,6 +279,7 @@ class ElectricalSchematicDialog(QDialog):
         self.fit_scene()
 
     def _changed(self):
+        if self.inspection_only: return
         self.workspace_changed = True
         self.apply_button.setEnabled(True)
 
@@ -252,30 +300,78 @@ class ElectricalSchematicDialog(QDialog):
         self.delete_wire_button.setEnabled(bool(identifier and self._component(identifier).kind=='wire'))
         self.expand_button.setEnabled(bool(identifier and self._component(identifier).kind in ('mcu','load','motor','actuator')))
         self.cad_button.setEnabled(bool(identifier and self._component(identifier).part_id))
+        self.link_button.setEnabled(bool(identifier and self.parts))
         if identifier:
             c = self._component(identifier)
-            self.inspector.setText(f'{c.name} · {c.catalog_id or c.kind} · {c.a} / {c.b}' +
-                (f' · CAD: {c.part_id}' if c.part_id else ''))
+            part = next((p for p in self.parts if p['id'] == c.part_id), None)
+            state = self._word('등록됨', 'Registered') if c.part_registration else self._word('기존 대응 · 등록 확인 필요', 'Legacy link · registration pending')
+            linked = f"{part['name']} [{part['id']}] · {state}" if part else (
+                self._word('없는 CAD 부품: ', 'Missing CAD body: ') + c.part_id if c.part_id else self._word('CAD 대응 없음 · 대응 설정에서 연결하세요.', 'No CAD association · use Link CAD body.'))
+            self.inspector.setText(f'{c.name} [{c.id}] · {c.catalog_id or c.kind} · {c.a} / {c.b} · CAD: {linked}')
             if c.kind == 'mcu':
                 self.mcu_combo.setCurrentIndex(self.mcu_combo.findData(identifier))
         else:
             self.inspector.setText(self._word('부품을 선택하면 이름·모델·CAD 연결을 확인하고 편집할 수 있습니다.',
                 'Select a component to inspect its name, model and linked CAD part.'))
+        if self._selection_emitting: self.componentSelected.emit(identifier or '')
 
     def show_pin_details(self):
         self.pin_panel.show()
         self.splitter.setSizes([850, 350])
         self.pin_view.fit()
 
-    def focus_component(self, identifier):
+    def focus_component(self, identifier, *, notify=True, zoom=True):
         item=self.component_items.get(identifier)
         if item is None:return False
-        self.scene.clearSelection();item.setSelected(True)
-        self.view.fitInView(item.mapRectToScene(item.boundingRect()).adjusted(-45,-45,45,45),Qt.AspectRatioMode.KeepAspectRatio)
-        if self.view.transform().m11()>2:self.view.resetTransform();self.view.scale(2,2);self.view.centerOn(item)
+        old = self._selection_emitting; self._selection_emitting = notify
+        try:
+            self.scene.blockSignals(True); self.scene.clearSelection(); item.setSelected(True); self.scene.blockSignals(False)
+            self._selection_changed()
+            if zoom:
+                self.view.fitInView(item.mapRectToScene(item.boundingRect()).adjusted(-45,-45,45,45),Qt.AspectRatioMode.KeepAspectRatio)
+                if self.view.transform().m11()>2:self.view.resetTransform();self.view.scale(2,2);self.view.centerOn(item)
+        finally: self._selection_emitting = old
         return True
 
+    def focus_part(self, part_id, *, zoom=True):
+        identifier = next((c.id for c in self.workspace.components if c.part_id == part_id), None)
+        return self.focus_component(identifier, notify=False, zoom=zoom) if identifier else False
+
+    def edit_cad_link(self):
+        if self.inspection_only: return
+        identifier = self._selected_id()
+        if not identifier: return
+        if not self.editable: self.linkRequested.emit(identifier); return
+        from .electrical_part_dialog import ElectricalCadLinkDialog, circuit_link_design
+        try: dialog = ElectricalCadLinkDialog(self, circuit_link_design(self.parts, self.workspace, self.design_reference), identifier)
+        except (ValueError, TypeError) as exc: self.status.setText(str(exc)[:1200]); return
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted and dialog.checked is not None:
+                self.parts = tuple(p.model_dump(mode='json') for p in dialog.checked.parts)
+                self._adopt(dialog.checked.electrical)
+                self.focus_component(identifier)
+                self.status.setText(self._word('CAD 대응 초안을 변경했습니다. 회로도 변경 저장으로 반영하세요.', 'CAD association draft updated. Save circuit changes to apply.'))
+        finally: dialog.deleteLater()
+
+    def prepare_ai_request(self):
+        if self.inspection_only: return
+        prompt, ok = QInputDialog.getMultiLineText(self, self._word('AI 배선 요청 준비', 'Prepare AI wiring request'),
+            self._word('원하는 부품·핀·전선 변경을 입력하세요. 메인 AI 입력창에 준비한 뒤 초안 생성 버튼으로 실행합니다.',
+                       'Describe component, pin or wire changes. The request is prepared in the main AI panel; Generate draft starts it.'))
+        if not ok or not prompt.strip(): return
+        identifier = self._selected_id()
+        component = next((c for c in self.workspace.components if c.id == identifier), None)
+        request = dict(prompt=prompt.strip(), component_id=identifier or '', part_id=component.part_id if component else '',
+                       terminal=self.selected_terminal[1] if self.selected_terminal and self.selected_terminal[0] == identifier else '')
+        if not self.editable: self.aiRequested.emit(request); return
+        self.ai_request = request
+        self.apply_button.setText(self._word('전장 변경 저장 · AI 요청 준비', 'Save electrical changes · prepare AI'))
+        self.apply_button.setEnabled(True)
+        self.status.setText(self._word('AI 요청을 대기시켰습니다. 저장하면 메인 AI 입력창으로 전달되며, 취소하면 폐기됩니다.',
+            'AI request queued. Save transfers it to the main AI input; cancel discards it.'))
+
     def show_linked_part(self):
+        if self.inspection_only: return
         identifier=self._selected_id()
         if identifier:
             part_id=self._component(identifier).part_id
@@ -285,7 +381,7 @@ class ElectricalSchematicDialog(QDialog):
         self.selected_terminal=None;self.disconnect_button.setEnabled(False)
         self.focus_component(identifier)
         part_id=self._component(identifier).part_id
-        if part_id:self.partActivated.emit(part_id)
+        if part_id and not self.inspection_only:self.partActivated.emit(part_id)
 
     def refresh_mcu_list(self, selected_id=None):
         selected_id = selected_id or self.mcu_combo.currentData()
@@ -304,14 +400,18 @@ class ElectricalSchematicDialog(QDialog):
         self.pin_view.fit()
 
     def edit_mcu_pins(self, *_args, pin=None):
+        if self.inspection_only: return
         if not self.editable:self.editRequested.emit();return
         from .mcu_pin_dialog import McuPinDialog
         dialog = McuPinDialog(self, self.workspace, self.parts, self.mcu_combo.currentData())
         if pin: dialog.select_pin(pin)
-        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
-            self._adopt(dialog.accepted_workspace)
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
+                self._adopt(dialog.accepted_workspace)
+        finally: dialog.deleteLater()
 
     def _adopt(self, workspace):
+        if self.inspection_only: return
         from ..electrical import evaluate_electrical
         self.workspace = ElectricalWorkspace.model_validate(workspace).model_copy(deep=True)
         self._changed()
@@ -332,6 +432,7 @@ class ElectricalSchematicDialog(QDialog):
         except ValueError as exc:self.status.setText(str(exc))
 
     def add_wire(self):
+        if self.inspection_only: return
         if not self.editable:self.wireActionRequested.emit('add',self.selected_terminal);return
         from .wire_connection_dialog import WireConnectionDialog
         dialog=WireConnectionDialog(self,self.workspace,english=self.english,selected_terminal=self.selected_terminal)
@@ -345,6 +446,7 @@ class ElectricalSchematicDialog(QDialog):
         finally:dialog.deleteLater()
 
     def delete_selected_wire(self):
+        if self.inspection_only: return
         identifier=self._selected_id()
         if not identifier:return
         if not self.editable:self.wireActionRequested.emit('delete',identifier);return
@@ -356,27 +458,36 @@ class ElectricalSchematicDialog(QDialog):
         except ValueError as exc:self.status.setText(str(exc))
 
     def add_component(self):
+        if self.inspection_only: return
         if not self.editable: self.editRequested.emit(); return
         from .electrical_dialog import ComponentDialog
         dialog = ComponentDialog(self, self.parts)
         dialog.kind.setCurrentIndex(dialog.kind.findData(self.kind_combo.currentData()))
-        if dialog.exec() != QDialog.DialogCode.Accepted: return
-        self._replace_component(dialog.candidate())
-        self.fit_scene()
+        try:
+            if dialog.exec() != QDialog.DialogCode.Accepted: return
+            self._replace_component(dialog.candidate()); self.fit_scene()
+        finally: dialog.deleteLater()
 
     def edit_selected(self):
+        if self.inspection_only: return
         if not self.editable: self.editRequested.emit(); return
         identifier = self._selected_id()
         if identifier: self.edit_component(identifier)
 
     def edit_component(self, identifier):
+        if self.inspection_only: return
         if not self.editable: self.editRequested.emit(); return
         from .electrical_dialog import ComponentDialog
         dialog = ComponentDialog(self, self.parts, self._component(identifier).model_dump())
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            self._replace_component(dialog.candidate())
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self._replace_component(dialog.candidate())
+        finally: dialog.deleteLater()
 
     def _replace_component(self, candidate):
+        if self.inspection_only: return
+        old = next((c for c in self.workspace.components if c.id == candidate['id']), None)
+        previous_part_id = old.part_id if old else ''
         raw = self.workspace.model_dump()
         replaced = False
         for index, old in enumerate(raw['components']):
@@ -387,7 +498,10 @@ class ElectricalSchematicDialog(QDialog):
         if not replaced: raw['components'].append(candidate)
         raw['nodes'] = list(dict.fromkeys([*raw['nodes'], candidate['a'], candidate['b'],
             *candidate.get('signal_pins', {}).values(), *candidate.get('terminal_pins', {}).values(), *candidate.get('board_supply_pins',{}).values()]))
-        try: self._adopt(ElectricalWorkspace.model_validate(raw))
+        try:
+            from .electrical_part_dialog import validate_circuit_cad_assignment
+            parts, workspace = validate_circuit_cad_assignment(self.parts, ElectricalWorkspace.model_validate(raw), candidate['id'], previous_part_id, self.design_reference)
+            self.parts = parts; self._adopt(workspace)
         except ValueError as exc: QMessageBox.warning(self, self._word('부품 입력 확인', 'Check component'), str(exc)[:800])
 
     def expand_selected(self):
@@ -518,6 +632,7 @@ class ElectricalSchematicDialog(QDialog):
             y += height + 150
 
     def auto_arrange(self):
+        if self.inspection_only: return
         self._drawing = True
         self._arrange(save=True)
         self._drawing = False
@@ -550,12 +665,19 @@ class ElectricalSchematicDialog(QDialog):
         if self._drawing: return
         selected=self._selected_id()
         blocked=self.scene.blockSignals(True)
-        try:self._route_body()
-        finally:self.scene.blockSignals(blocked)
-        if selected:
-            for item in self._route_items:
-                if item.data(WIRE_ROLE)==selected:item.setSelected(True);break
-        self._selection_changed()
+        notify=self._selection_emitting
+        self._selection_emitting=False
+        try:
+            self._route_body()
+            if selected:
+                for item in self._route_items:
+                    if item.data(WIRE_ROLE)==selected:item.setSelected(True);break
+            # Rerouting updates inspectors and restores a selected wire; it is
+            # not a user selection. Do not reopen CAD panels on Fit or resize.
+            self._selection_changed()
+        finally:
+            self._selection_emitting=notify
+            self.scene.blockSignals(blocked)
 
     def _route_body(self):
         for item in self._route_items: self.scene.removeItem(item)
@@ -682,7 +804,8 @@ class ElectricalSchematicDialog(QDialog):
             self.routing_note = self._word(
                 f'{len(routed.unrouted)}개 단자를 같은 노드 라벨로 연결 표시합니다. 자동 배치나 부품 이동으로 배선을 정리할 수 있습니다.',
                 f'{len(routed.unrouted)} terminals use matching net labels. Auto arrange or move components to simplify wiring.')
-            self._text(self.routing_note, QPointF(self.scene.itemsBoundingRect().left(), self.scene.itemsBoundingRect().bottom()+35), BUS, 9)
+            visible = self.visible_scene_bounds()
+            self._text(self.routing_note, QPointF(visible.left(), visible.bottom()+35), BUS, 9)
         else:
             self.routing_note = ''
         if not rectangles:
@@ -692,25 +815,56 @@ class ElectricalSchematicDialog(QDialog):
         warnings=board_supply_warnings(self.workspace,self.result,language='en' if self.english else 'ko')
         visible=list(warnings[:4])
         if len(warnings)>4:visible.append(self._word(f'그 외 {len(warnings)-4}개 · 마우스를 올려 상세 확인',f'{len(warnings)-4} more · hover for details'))
-        self.supply_warnings.setText('\n'.join(visible));self.supply_warnings.setToolTip('\n'.join(warnings)[:12000]);self.supply_warnings.setVisible(bool(warnings))
-        bounds = self.scene.itemsBoundingRect().adjusted(-35,-35,35,35)
+        warning_details='\n'.join(warnings)[:12000]
+        self.supply_warnings.setText('\n'.join(visible));self.supply_warnings.setToolTip(warning_details)
+        self.supply_warnings.setVisible(bool(warnings) and not self.inspection_only)
+        if self.inspection_only:
+            # Inspection summaries remain available without covering the
+            # before/after canvas with hidden editor widgets.
+            self.view.setToolTip(warning_details)
+            self.preview_warnings.setText(self._word(f'전원 경고 {len(warnings)}개', f'{len(warnings)} power warnings') if warnings else '')
+            self.preview_warnings.setToolTip(warning_details)
+            self.preview_warnings.setVisible(bool(warnings))
+        bounds = self.visible_scene_bounds().adjusted(-35,-35,35,35)
         self.scene.setSceneRect(bounds)
+
+    def visible_scene_bounds(self):
+        """Physical wire paths replace hidden symbols; hidden positions are not framing."""
+        bounds = QRectF()
+        for item in (*self.component_items.values(), *self._route_items):
+            if item.isVisible(): bounds = bounds.united(item.sceneBoundingRect())
+        return bounds
 
     def fit_scene(self):
         self.route_timer.stop()
         self._route()
+        self._fit_view()
+
+    def _fit_view(self):
+        # A layout resize changes the viewport, not the circuit topology. Avoid
+        # deleting/recreating routed graphics from an asynchronous resize.
+        if not self.isVisible(): return
         self.view.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def showEvent(self, event):
         super().showEvent(event)
-        self.fit_scene()
+        self._fit_view()
+        self.fit_timer.start(0)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.inspection_only and hasattr(self, 'fit_timer'): self.fit_timer.start(0)
 
     def accept(self):
         if not self.editable: return
+        self.fit_timer.stop()
         self.route_timer.stop()
         self.accepted_workspace = ElectricalWorkspace.model_validate(self.workspace.model_dump()).model_copy(deep=True)
+        self.accepted_parts = deepcopy(list(self.parts))
         super().accept()
 
     def reject(self):
+        self.fit_timer.stop()
         self.route_timer.stop()
+        self.accepted_workspace = None; self.accepted_parts = None; self.ai_request = None
         super().reject()

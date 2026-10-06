@@ -8,7 +8,7 @@ Manufacturers' physical numbers are only printed when the source verifies them.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 
@@ -648,6 +648,149 @@ PRODUCT_DIAGRAMS += (
         "OUT follows internal VDD, while SDA/SCL follow Vin.",
         "Adafruit #6357 AS5600 guide Pinouts: power pins, I2C pins, OUT and DIR jumper.",
         logic_supply=("VIN", 3.0, 5.0), logic_signals=("SDA", "SCL")),
+)
+
+MOTOR_CHECKED_DATE = "2026-10-07"
+MOTOR_DIAGRAM_IDS = (
+    "pololu_4845", "pololu_4847", "pololu_5725", "pololu_4753",
+    "stepperonline_17hs16_2004s1", "stepperonline_17hs19_2004s1", "stepperonline_23hs22_2804s",
+    "robotis_xl330_m288t", "robotis_xl430_w250t", "robotis_xm430_w350t", "robotis_xm430_w350r",
+    "concentric_lact6p_12v_10", "concentric_lact8p_12v_10", "concentric_lact10p_12v_10",
+    "maxon_ec_i40_496655",
+)
+
+
+def _gearmotor_diagram(catalog_id, model, source, counts):
+    # These four exact pages each document this colour/function table. This
+    # helper is not a rule for deriving a pinout from a product family or colour.
+    return _module_diagram(catalog_id, model, source, (
+        ("MOTOR_RED", "Red · motor terminal", "power", "left", ("Brushed motor terminal; polarity selects direction",)),
+        ("MOTOR_BLACK", "Black · motor terminal", "power", "left", ("Other motor terminal; not encoder ground",)),
+        ("ENCODER_VCC", "Blue · encoder Vcc", "power", "left", ("Separate encoder supply 3.5–20 V",)),
+        ("ENCODER_GND", "Green · encoder GND", "ground", "left", ("Encoder return, independent of motor leads",)),
+        ("ENCODER_A", "Yellow · encoder A", "signal", "right", ("Quadrature A output; 0 to encoder Vcc",)),
+        ("ENCODER_B", "White · encoder B", "signal", "right", ("Quadrature B output; 0 to encoder Vcc",)),
+    ),
+        f"정확한 모델의 색상표입니다. {counts} CPR은 모터축의 A/B 양 채널 모든 에지를 센 값입니다. "
+        "핀 번호·커넥터 순서를 추정하지 않습니다. 모터 검정선은 GND가 아니며 엔코더 Vcc는 별도입니다. "
+        "5 V 엔코더 신호를 3.3 V GPIO와 자동 호환시키지 않습니다.",
+        f"Exact model wire colours. {counts} CPR counts all edges of both channels on the motor shaft. "
+        "No inferred connector numbers/order. Black motor lead is not GND; encoder Vcc is separate. "
+        "5 V encoder outputs are not automatically compatible with 3.3 V GPIO.",
+        "Exact Pololu product: item specifications, exact gear ratio and Using the encoder wire/function table.",
+        logic_supply=("encoder_vcc", 3.5, 20.0), logic_signals=("ENCODER_A", "ENCODER_B"))
+
+
+def _stepper_diagram(catalog_id, model, source, evidence):
+    return _module_diagram(catalog_id, model, source, (
+        ("A_POS", "A+ · Black", "power", "left", ("Phase A winding end, not DC source positive",)),
+        ("A_NEG", "A− · Green", "power", "left", ("Other phase A winding end, not GND",)),
+        ("B_POS", "B+ · Red", "power", "right", ("Phase B winding end, not DC source positive",)),
+        ("B_NEG", "B− · Blue", "power", "right", ("Other phase B winding end, not GND",)),
+    ),
+        "정확한 모델의 두 권선을 표시합니다. 네 선 모두 구동기 출력에 연결하는 권선 단자이며 접지가 아닙니다. "
+        "상별 정격 전류는 DC 입력 전류가 아닙니다. 커넥터 물리 방향을 추정하지 않으며 다른 NEMA 모델에 적용하지 않습니다. "
+        "초퍼·스텝·탈조 시뮬레이션 없이 연결 검토용으로 등록합니다.",
+        "Two windings of this exact model. All four leads connect to driver outputs; none is GND. "
+        "Phase current is not DC supply consumption. No inferred physical connector orientation or shared NEMA-family pinout. "
+        "Pending wiring reference; no chopper, stepping or lost-step simulation.", evidence)
+
+
+def _dynamixel_diagram(catalog_id, model, source, voltage, *, rs485=False, xl330=False):
+    data = (
+        (("DATA_POS", "3 · DATA+", "signal", "right", ("RS-485 differential data positive",)),
+         ("DATA_NEG", "4 · DATA−", "signal", "right", ("RS-485 differential data negative",)))
+        if rs485 else
+        (("DATA", "3 · DATA", "signal", "right", ("Half-duplex TTL digital packet bus",)),)
+    )
+    if rs485:
+        ko = "RS-485형 R의 차동 버스이며 GPIO TX/RX에 직접 연결하지 않습니다. 트랜시버·종단·반이중 방향 제어가 필요합니다."
+        en = "R variant uses differential RS-485, not raw GPIO TX/RX. Verify transceiver, termination and half-duplex direction control."
+        reference = "external_rs485_transceiver"
+    elif xl330:
+        ko = "XL330의 DATA는 3.3 V TTL이며 제조사에서 5 V 호환을 명시합니다. 다른 DYNAMIXEL의 5 V 버스와 구분하세요. 반이중 회로가 필요합니다."
+        en = "XL330 DATA is 3.3 V TTL with documented 5 V compatibility; unlike other DYNAMIXEL 5 V buses. A half-duplex interface is required."
+        reference = "ttl_3v3"
+    else:
+        ko = "TTL형 T는 5 V 또는 5 V tolerant MCU용 반이중 회로를 사용합니다. 3.3 V GPIO의 허용 전압·레벨 변환을 확인하세요."
+        en = "T variant requires the documented 5 V/5 V tolerant MCU half-duplex interface. Verify 3.3 V GPIO limits and level translation."
+        reference = "ttl_5v"
+    diagram = _module_diagram(catalog_id, model, source, (
+        ("GND", "1 · GND", "ground", "left", ("Power and communications return",)),
+        ("VDD", "2 · VDD", "power", "left", (f"Motor/controller input supply {voltage}",)),
+        *data,
+    ), ko + " DATA는 RC 서보 PWM 단자가 아닙니다. 내부 센서는 외부 A/B 엔코더 단자로 추가하지 않습니다. "
+        "단자 참조이며 패킷·토크 제어와 실제 구동을 검증하지 않습니다.",
+        en + " DATA is not an RC servo PWM pin. Internal position sensors do not expose invented A/B terminals. "
+        "Terminal reference only; packets, torque control and actual motion are not validated.",
+        "ROBOTIS exact model Specifications, Connector Information and Communication Circuit; confirmed physical terminal numbers.")
+    return replace(diagram, terminals=tuple(
+        replace(pin, signal_voltage_reference=reference, signal_level_note=ko, signal_level_note_en=en)
+        if pin.kind == "signal" else pin for pin in diagram.terminals))
+
+
+GLIDEFORCE_WIRING_SOURCE = "https://www.pololu.com/file/0J1238/LD-Linear-Actuator-Data-Sheet-201208.pdf"
+
+
+def _linear_actuator_diagram(catalog_id, model, source):
+    # Exact feedback/P versions only. The without-potentiometer variant has
+    # opposite direction for the same red/black polarity and is not mapped.
+    return _module_diagram(catalog_id, model, source, (
+        ("MOTOR_BLACK", "Power 1 · Black", "power", "left", ("Motor terminal; not feedback return",)),
+        ("MOTOR_RED", "Power 2 · Red", "power", "left", ("Motor terminal; red positive / black negative retracts P variant",)),
+        ("POT_WIPER", "Feedback 1 · Blue", "signal", "right", ("Potentiometer wiper; position signal",)),
+        ("POT_EXC_NEG", "Feedback 2 · White · EXC−", "other", "right", ("Potentiometer excitation end; not internally motor black",)),
+        ("POT_NC", "Feedback 3 · N.C.", "other", "right", ("Unused cavity; do not connect",)),
+        ("POT_EXC_POS", "Feedback 4 · Yellow · EXC+", "other", "right", ("Other potentiometer excitation end; not motor power",)),
+    ),
+        "제조사 Rev.20201208 5쪽의 mating-end 번호를 사용합니다. P(피드백)형은 빨강 +/검정 −에서 수축합니다. "
+        "포텐셔미터 파랑은 wiper, 흰색·노랑은 여자 양끝입니다. 저항 신호를 모터 12 V 전원으로 취급하지 않습니다. "
+        "리미트·부하·속도·duty를 별도로 확인해야 하며 반복시험 정격을 승인하지 않습니다.",
+        "Manufacturer Rev.20201208 p.5 mating-end numbers. Feedback P variant retracts with red positive/black negative. "
+        "Blue is the potentiometer wiper; white/yellow are its excitation ends. Potentiometer signal is separate from motor 12 V power. "
+        "Check limits, load, speed and duty separately; no fatigue-test operating approval.",
+        "Concentric LD Rev.20201208 p.5 Electrical and Connector Wiring: " + GLIDEFORCE_WIRING_SOURCE)
+
+
+PRODUCT_DIAGRAMS += (
+    _gearmotor_diagram("pololu_4845", "Pololu #4845 · 47:1 25D HP 12 V encoder", "https://www.pololu.com/product/4845", 48),
+    _gearmotor_diagram("pololu_4847", "Pololu #4847 · 99:1 25D HP 12 V encoder", "https://www.pololu.com/product/4847", 48),
+    _gearmotor_diagram("pololu_5725", "Pololu #5725 · 47:1 25D HP 24 V encoder", "https://www.pololu.com/product/5725", 48),
+    _gearmotor_diagram("pololu_4753", "Pololu #4753 · 50:1 37D 12 V encoder", "https://www.pololu.com/product/4753", 64),
+    _stepper_diagram("stepperonline_17hs16_2004s1", "StepperOnline 17HS16-2004S1", "https://www.omc-stepperonline.com/nema-17-bipolar-45ncm-64oz-in-2a-42x42x40mm-4-wires-w-1m-cable-connector-17hs16-2004s1",
+        "Exact 17HS16-2004S1 product Connection table and drawing dated 2020-10-30: BLK/GRN phase A, RED/BLU phase B."),
+    _stepper_diagram("stepperonline_17hs19_2004s1", "StepperOnline 17HS19-2004S1", "https://www.omc-stepperonline.com/nema-17-bipolar-59ncm-84oz-in-2a-42x48mm-4-wires-w-1m-cable-connector-17hs19-2004s1",
+        "Exact 17HS19-2004S1 product Connection table; manufacturer explicitly warns 17HE19-2004S has different wiring."),
+    _stepper_diagram("stepperonline_23hs22_2804s", "StepperOnline 23HS22-2804S", "https://www.omc-stepperonline.com/nema-23-bipolar-1-8deg-1-26nm-178-4oz-in-2-8a-2-5v-57x57x56mm-4-wires-23hs22-2804s",
+        "Exact 23HS22-2804S product Connection table and drawing dated 2020-10-30; 2.8 A/phase, 1.20 Nm holding torque."),
+    _dynamixel_diagram("robotis_xl330_m288t", "ROBOTIS DYNAMIXEL XL330-M288-T", "https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/", "3.7–6 V (5 V recommended)", xl330=True),
+    _dynamixel_diagram("robotis_xl430_w250t", "ROBOTIS DYNAMIXEL XL430-W250-T", "https://emanual.robotis.com/docs/en/dxl/x/xl430-w250/", "6.5–12 V (11.1 V recommended)"),
+    _dynamixel_diagram("robotis_xm430_w350t", "ROBOTIS DYNAMIXEL XM430-W350-T", "https://emanual.robotis.com/docs/en/dxl/x/xm430-w350/", "10–14.8 V (12 V recommended)"),
+    _dynamixel_diagram("robotis_xm430_w350r", "ROBOTIS DYNAMIXEL XM430-W350-R", "https://emanual.robotis.com/docs/en/dxl/x/xm430-w350/", "10–14.8 V (12 V recommended)", rs485=True),
+    _linear_actuator_diagram("concentric_lact6p_12v_10", "Concentric LACT6P-12V-10 · Pololu #3647", "https://www.pololu.com/product/3647"),
+    _linear_actuator_diagram("concentric_lact8p_12v_10", "Concentric LACT8P-12V-10 · Pololu #3649", "https://www.pololu.com/product/3649"),
+    _linear_actuator_diagram("concentric_lact10p_12v_10", "Concentric LACT10P-12V-10 · Pololu #3651", "https://www.pololu.com/product/3651"),
+    _module_diagram("maxon_ec_i40_496655", "maxon EC-i 40 · 496655 · 36 V 70 W Hall",
+        "https://www.maxongroup.com/maxon/view/product/motor/ecmotor/EC-i/496655", (
+            ("WINDING_1", "Motor 1 · Red · winding 1", "power", "left", ("Switched phase 1; not DC supply positive",)),
+            ("WINDING_2", "Motor 2 · Black · winding 2", "power", "left", ("Switched phase 2; not GND",)),
+            ("WINDING_3", "Motor 3 · White · winding 3", "power", "left", ("Switched phase 3",)),
+            ("MOTOR_NC", "Motor 4 · N.C.", "other", "left", ("Not connected; do not wire",)),
+            ("HALL_1", "Sensor 1 · Yellow · Hall 1", "signal", "right", ("Commutation Hall signal 1; not quadrature A",)),
+            ("HALL_2", "Sensor 2 · Brown · Hall 2", "signal", "right", ("Commutation Hall signal 2; not quadrature B",)),
+            ("HALL_3", "Sensor 3 · Grey · Hall 3", "signal", "right", ("Commutation Hall signal 3; not encoder index Z",)),
+            ("HALL_GND", "Sensor 4 · Blue · GND", "ground", "right", ("Hall supply return; not motor winding",)),
+            ("HALL_VCC", "Sensor 5 · Green · VHall", "power", "right", ("Separate Hall supply 4.5–24 VDC; not motor 36 V",)),
+            ("HALL_NC", "Sensor 6 · N.C.", "other", "right", ("Not connected; do not wire",)),
+        ),
+        "2025년 3월 공식 카탈로그 309쪽의 정확한 496655 열과 두 커넥터 번호입니다. 모터 Molex 39-01-2040, 센서 430-25-0600. "
+        "36 V 모터 전원과 Hall 4.5–24 V 전원은 별개입니다. Hall은 정류용이며 A/B/Z 엔코더가 아닙니다. "
+        "신호 허용 전압·구동기·정류·열 조건을 별도로 검증하며 2단자 DC 부하로 해석하지 않습니다.",
+        "Exact 496655 column and connector numbers in maxon March 2025 catalog p.309. Motor Molex 39-01-2040, sensor 430-25-0600. "
+        "Motor 36 V and Hall 4.5–24 V supplies are separate. Hall commutation signals are not A/B/Z encoder channels. "
+        "Signal limits, drive, commutation and thermal conditions remain separate; not a two-terminal DC simulation.",
+        "maxon March 2025 EC-i 40 catalog p.309, SKU 496655 data column, Connection motor and Connection sensor tables: "
+        "https://www.maxongroup.com/medias/sys_master/root/9406692130846/Cataloge-Page-EN-309.pdf"),
 )
 
 _BY_ID = {diagram.catalog_id: diagram for diagram in PRODUCT_DIAGRAMS}
