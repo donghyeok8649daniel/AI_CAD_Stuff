@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 import pytest
 
 from cadstudio.electrical_catalog import component_prefill, get_catalog_entry, search_catalog
-from cadstudio.product_diagrams import SOURCE_CHECKED_DATE, available_product_diagrams, product_diagram
+from cadstudio.product_diagrams import EXPANSION_CHECKED_DATE, SOURCE_CHECKED_DATE, available_product_diagrams, product_diagram
 
 
 def _terminals(identifier):
@@ -22,12 +22,16 @@ def test_exact_product_diagrams_are_immutable_unique_and_source_linked():
         assert entry is not None and entry.source_url == diagram.source_url
         assert len({pin.key for pin in diagram.terminals}) == len(diagram.terminals)
         assert len({(pin.side, pin.position) for pin in diagram.terminals}) == len(diagram.terminals)
-        checked='2026-10-06' if diagram.catalog_id in ('hbk_u10m_25kn_passive','maxon_ec_i52_667065','ti_ads131m04','ti_ads1232','avia_hx711','sensirion_sht31_dis_b','sensirion_sht45_ad1b') else SOURCE_CHECKED_DATE
+        if diagram.catalog_id in ('ti_ref5025aid', 'meanwell_hdr60_5', 'meanwell_lrs600_24') or diagram.catalog_id.startswith('adafruit_'):
+            checked = EXPANSION_CHECKED_DATE
+        else:
+            checked='2026-10-06' if diagram.catalog_id in ('hbk_u10m_25kn_passive','maxon_ec_i52_667065','ti_ads131m04','ti_ads1232','avia_hx711','sensirion_sht31_dis_b','sensirion_sht45_ad1b') else SOURCE_CHECKED_DATE
         assert checked in diagram.note and checked in diagram.note_en
         assert diagram.evidence and "시뮬레이션" in diagram.note
         host = urlsplit(diagram.source_url)
         assert host.scheme == "https" and host.hostname in {
             "look.ams-osram.com", "www.pololu.com", "www.vishay.com", "www.st.com", "www.ia.omron.com",'www.ti.com','sensirion.com','cdn.sparkfun.com','www.hbm.com','www.maxongroup.com',
+            "www.meanwell.com", "learn.adafruit.com",
         }
         assert "Not a dimensioned PCB/footprint" in diagram.note_en
         for terminal in diagram.terminals:

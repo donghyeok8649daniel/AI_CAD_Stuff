@@ -402,6 +402,254 @@ PRODUCT_DIAGRAMS += (
         (3,'VDD','VDD','power','left'),(4,'VSS','VSS','ground','left')),
         'Sensirion SHT4x V7.3 June 2026 DFN4 pin assignment; exact AD1B address 0x44.'),
 )
+EXPANSION_CHECKED_DATE = "2026-10-07"
+
+
+def _module_diagram(catalog_id, model, source, terminals, note, note_en, evidence,
+                    *, logic_supply=None, logic_signals=()):
+    """Lay out verified functional terminals without inventing physical order.
+
+    Tuples explicitly supply every terminal's key, label, kind and function.
+    Side coordinates only arrange the vector drawing. A repeated supply pad
+    can be represented by one labelled functional terminal, never inferred
+    electrical wiring between separately named rails.
+    """
+    positions = {"left": 0, "right": 0}
+    pins = []
+    for key, label, kind, side, functions in terminals:
+        levels = {}
+        if key in logic_signals and logic_supply is not None:
+            reference, low, high = logic_supply
+            levels = dict(
+                signal_voltage_reference=reference,
+                signal_voltage_min_v=low, signal_voltage_max_v=high,
+                signal_level_note="신호 기준은 실제 보드 로직 전원입니다. 전원 범위가 상대 GPIO 호환을 승인하지 않습니다.",
+                signal_level_note_en="Signal reference follows the actual board logic rail. Its supply range does not approve the other device's GPIO compatibility.")
+        pins.append(ProductTerminal(key, label, kind, side, positions[side], functions, **levels))
+        positions[side] += 1
+    return ProductDiagram(
+        catalog_id, model, source, tuple(pins),
+        note + " 기능별 자체 벡터 모식도이며 단자 좌우 배치는 실물 순서가 아닙니다. "
+        "치수가 있는 PCB/풋프린트나 내부 회로·펌웨어 시뮬레이션이 아닙니다. "
+        f"공식 자료 확인일 {EXPANSION_CHECKED_DATE}.",
+        note_en + " Functional vector reference; left/right positions are not physical pad order. "
+        "Not a dimensioned PCB/footprint or internal-circuit/firmware simulation. "
+        f"Official source checked {EXPANSION_CHECKED_DATE}.", evidence)
+
+
+PRODUCT_DIAGRAMS += (
+    _module_diagram(
+        "ti_ref5025aid", "TI REF5025AID · SOIC-8 IC", "https://www.ti.com/lit/ds/symlink/ref50.pdf",
+        (
+            ("DNC_1", "1 · DNC", "other", "left", ("Do not connect",)),
+            ("VIN", "2 · VIN", "power", "left", ("Input supply 2.7–18 V for REF5025AID",)),
+            ("TEMP", "3 · TEMP", "signal", "left", ("Temperature-dependent analog output",)),
+            ("GND", "4 · GND", "ground", "left", ("Reference return",)),
+            ("TRIM_NR", "5 · TRIM/NR", "other", "right", ("Output trim / noise-reduction network",)),
+            ("OUT", "6 · VOUT", "power", "right", ("2.5 V reference output; ±10 mA source/sink limit",)),
+            ("NC_7", "7 · NC", "other", "right", ("No internal connection",)),
+            ("DNC_8", "8 · DNC", "other", "right", ("Do not connect",)),
+        ),
+        "표준 AI 등급 SOIC-8 칩입니다. EI 등급의 1번 EN이나 42 V 입력을 적용하지 않습니다. "
+        "원격 SENSE 핀이 없으며 사용자 여자 캐리어·버퍼·센스 회로의 전체 단자도와 다릅니다. 출력 한계는 소비전류가 아닙니다.",
+        "Standard AI-grade SOIC-8 chip, not an EI-grade 42 V/EN variant. No remote SENSE pins; "
+        "this is not the complete user's excitation carrier, buffer or sensing circuit. Output limits are not consumption.",
+        "TI SBOS410O (October 2025) Table 4-1, Figure 5-1 and Table 5-1; §6.3 REF5025 recommended supply and output limits."),
+    _module_diagram(
+        "meanwell_hdr60_5", "MEAN WELL HDR-60-5 · 5 V PSU",
+        "https://www.meanwell.com/Upload/PDF/HDR-60/HDR-60-SPEC.PDF",
+        (
+            ("AC_L", "5 · AC/L", "other", "left", ("AC line input 85–264 VAC",)),
+            ("AC_N", "6 · AC/N", "other", "left", ("AC neutral input",)),
+            ("DC_NEG", "1,2 · −V", "ground", "right", ("DC output return; two parallel screws",)),
+            ("DC_POS", "3,4 · +V", "power", "right", ("5 V output; two parallel screws; 6.5 A capacity, 32.5 W",)),
+        ),
+        "5 V 모델은 32.5 W입니다. 각 출력의 병렬 나사는 하나의 기능 단자로 표시합니다. "
+        "Class II이며 FG 단자를 만들지 않습니다. AC 입력·전원 변환·안전·회생 전력은 미해석이며 자동 DC 전원으로 등록하지 않습니다.",
+        "The 5 V variant is 32.5 W. Parallel output screws share one functional terminal. "
+        "Class II; no invented FG terminal. AC, conversion, installation and regeneration are not analysed; not an automatic DC source.",
+        "HDR-60-SPEC 2026-04-03 p2 model column and p4 visually checked Terminal Pin No. Assignment: 5 AC/L, 6 AC/N."),
+    _module_diagram(
+        "meanwell_lrs600_24", "MEAN WELL LRS-600-24 · 24 V PSU",
+        "https://www.meanwell.com/Upload/PDF/LRS-600/LRS-600-SPEC.PDF",
+        (
+            ("AC_L", "1 · AC/L", "other", "left", ("AC line; set 115/230 VAC input selector for the installation",)),
+            ("AC_N", "2 · AC/N", "other", "left", ("AC neutral",)),
+            ("FG", "3 · FG / PE", "other", "left", ("Protective/frame earth; distinct from DC output return",)),
+            ("DC_NEG", "4–6 · −V", "ground", "right", ("DC output return; three parallel screws",)),
+            ("DC_POS", "7–9 · +V", "power", "right", ("24 V output; three parallel screws; 25 A capacity",)),
+        ),
+        "FG는 DC −V와 별개입니다. 24 V·25 A는 출력 용량이며 부하 소비전류나 회생 전력 흡수 능력이 아닙니다. "
+        "입력 선택 스위치를 확인해야 하며 AC·변환·접지·설치 안전을 DC 계산으로 승인하지 않습니다.",
+        "FG is distinct from −V. The 24 V/25 A output capacity is neither load consumption nor rated regenerative absorption. "
+        "Check the mains selector. The DC solver does not approve AC conversion, earthing or installation.",
+        "LRS-600-SPEC 2025-09-12 p2 exact -24 column and p4 visually checked Terminal Pin No. Assignment."),
+    _module_diagram(
+        "adafruit_904", "Adafruit INA219 breakout · #904",
+        "https://learn.adafruit.com/adafruit-ina219-current-sensor-breakout/pinouts",
+        (
+            ("VIN", "VIN / VCC", "power", "left", ("2.7–5.5 V logic supply",)),
+            ("GND", "GND", "ground", "left", ("Logic return",)),
+            ("SCL", "SCL", "signal", "left", ("I2C clock; 10 kΩ pull-up to VCC",)),
+            ("SDA", "SDA", "signal", "left", ("I2C data; 10 kΩ pull-up to VCC",)),
+            ("VIN_POS", "Vin+", "power", "right", ("High-side current sense: source side",)),
+            ("VIN_NEG", "Vin−", "power", "right", ("High-side current sense: load side, not GND",)),
+        ),
+        "Adafruit #904 외부 기능 단자입니다. Vin−는 접지가 아닙니다. 주소 A0/A1 솔더 점퍼는 외부 GPIO 핀으로 만들지 않습니다. "
+        "I2C 기본 주소 0x40이며 내부 shunt·ADC 측정 동작은 별도입니다.",
+        "Adafruit #904 external terminals. Vin− is not ground. Address A0/A1 solder jumpers are not invented GPIO terminals. "
+        "Default I2C address 0x40; internal shunt/ADC behaviour is separate.",
+        "Adafruit #904 product and INA219 guide Pinouts: Power Pins, Data Pins, Current Sense Inputs and Address Jumpers.",
+        logic_supply=("VCC", 2.7, 5.5), logic_signals=("SCL", "SDA")),
+    _module_diagram(
+        "adafruit_4226", "Adafruit INA260 breakout · #4226",
+        "https://learn.adafruit.com/adafruit-ina260-current-voltage-power-sensor-breakout/pinouts",
+        (
+            ("VCC", "Vcc", "power", "left", ("2.7–5.5 V logic supply",)),
+            ("GND", "GND", "ground", "left", ("Logic return",)),
+            ("SCL", "SCL", "signal", "left", ("I2C clock; pull-up to Vcc",)),
+            ("SDA", "SDA", "signal", "left", ("I2C data; pull-up to Vcc",)),
+            ("ALERT", "Alert", "signal", "left", ("Alert output referenced to Vcc",)),
+            ("VIN_POS", "Vin+", "power", "right", ("Current-sense source side",)),
+            ("VIN_NEG", "Vin−", "power", "right", ("Current-sense load side, not logic ground",)),
+            ("VBUS", "VBus", "other", "right", ("Voltage sense; tied to Vin+ by default VB jumper",)),
+        ),
+        "VB 점퍼의 기본 VBus–Vin+ 연결과 low-side 변경을 구분해야 합니다. A0/A1 주소 점퍼는 핀으로 추가하지 않습니다. "
+        "Vin−와 GND를 자동 연결하지 않으며 측정 기능을 회로 구동 모델로 가정하지 않습니다.",
+        "Check the default VBus–Vin+ VB jumper before low-side wiring. A0/A1 address jumpers are not additional terminals. "
+        "Vin− and GND are not automatically wired; measurement functions do not define a drive model.",
+        "Adafruit #4226 INA260 guide Pinouts: power/data/current-sense pins, Alert pin and VBus pin.",
+        logic_supply=("VCC", 2.7, 5.5), logic_signals=("SCL", "SDA", "ALERT")),
+    _module_diagram(
+        "adafruit_1085", "Adafruit ADS1115 STEMMA QT · #1085",
+        "https://learn.adafruit.com/adafruit-4-channel-adc-breakouts/pinouts",
+        (
+            ("VIN", "VIN", "power", "left", ("2–5 V supply",)),
+            ("GND", "GND", "ground", "left", ("Supply and analog return",)),
+            ("SCL", "SCL", "signal", "left", ("I2C clock; 10 kΩ pull-up to VIN",)),
+            ("SDA", "SDA", "signal", "left", ("I2C data; 10 kΩ pull-up to VIN",)),
+            ("ALRT", "ALRT", "signal", "left", ("Comparator / conversion-ready output",)),
+            *((f"A{i}", f"A{i}", "signal", "right", (f"Analog input {i}",)) for i in range(4)),
+            ("APLUS", "A+", "power", "right", ("Filtered VIN output; not an ADC input",)),
+            ("AMINUS", "A−", "ground", "right", ("Filtered GND output; not an ADC input",)),
+        ),
+        "현재 STEMMA QT 버전의 기능 단자입니다. "
+        "구형 ADDR 헤더나 뒷면 주소 점퍼를 같은 외부 핀으로 추정하지 않습니다. 실물 리비전을 확인하세요. A+/A−는 전원 출력입니다.",
+        "Functional terminals of the current STEMMA QT variant. Do not infer the old ADDR header from its back-side address jumper. "
+        "Confirm the physical revision. A+/A− are supply outputs.",
+        "Adafruit #1085 product variant and ADS1115 guide Pinouts, including QT A+/A− power outputs and A0–A3 inputs.",
+        logic_supply=("VIN", 2.0, 5.0), logic_signals=("SCL", "SDA")),
+    _module_diagram(
+        "adafruit_5346", "Adafruit MCP23017 breakout · #5346",
+        "https://learn.adafruit.com/adafruit-mcp23017-i2c-gpio-expander/pinouts",
+        (
+            ("VIN", "VIN", "power", "left", ("3–5 V supply / logic rail",)),
+            ("GND", "GND", "ground", "left", ("Supply return",)),
+            ("SCL", "SCL", "signal", "left", ("I2C clock; level-shifted with pull-up",)),
+            ("SDA", "SDA", "signal", "left", ("I2C data; level-shifted with pull-up",)),
+            ("IA", "IA", "signal", "left", ("Port A interrupt; configurable polarity / open drain",)),
+            ("IB", "IB", "signal", "left", ("Port B interrupt; configurable polarity / open drain",)),
+            ("RST", "RST", "signal", "left", ("Active-low reset",)),
+            *((f"D{i}", f"D{i}", "other", "left", (f"I2C address strap bit {i}; not port A{i}",)) for i in range(3)),
+            *((f"{bank}{i}", f"{bank}{i}", "signal", "right",
+               (("Digital output only recommended by manufacturer erratum",) if i == 7
+                else ("Digital GPIO; not an analog input",))) for bank in ("A", "B") for i in range(8)),
+        ),
+        "정확한 #5346 보드입니다. 2026-09-22 제조사 안내에 따라 A7/B7 입력 사용 시 SDA 손상 가능성이 있어 출력 전용으로 표시합니다. "
+        "A/B 번호는 아날로그 채널이 아닙니다. 기본 주소 0x20이며 실제 I2C·확장 GPIO 펌웨어 동작은 별도입니다.",
+        "Exact #5346 breakout. The manufacturer's 2026-09-22 erratum warns of SDA corruption when A7/B7 are inputs; "
+        "these are labelled output-only. A/B are digital, not analog channels. Default address 0x20; GPIO firmware behaviour is separate.",
+        "Adafruit #5346 MCP23017 guide Pinouts and A7/B7 erratum; D0/D1/D2 address straps, IA/IB and RST.",
+        logic_supply=("VIN", 3.0, 5.0), logic_signals=("SCL", "SDA")),
+    _module_diagram(
+        "adafruit_815", "Adafruit PCA9685 servo PWM · #815",
+        "https://learn.adafruit.com/16-channel-pwm-servo-driver/pinouts",
+        (
+            ("VCC", "VCC", "power", "left", ("3–5 V logic supply; PWM high level",)),
+            ("VPLUS", "V+", "power", "left", ("Separate servo-power rail; repeated parallel pads",)),
+            ("GND", "GND", "ground", "left", ("Common logic/servo return; repeated parallel pads",)),
+            ("SCL", "SCL", "signal", "left", ("I2C clock; pull-up to VCC",)),
+            ("SDA", "SDA", "signal", "left", ("I2C data; pull-up to VCC",)),
+            ("OE", "OE", "signal", "left", ("High disables PWM outputs; pulled low by default",)),
+            *((f"PWM{i}", f"{i} · PWM", "signal", "right", ("PWM output; high level is VCC; all channels share frequency",)) for i in range(16)),
+        ),
+        "VCC와 서보 V+는 별도 전원입니다. 채널별 V+/GND 반복 패드는 각각 하나의 공통 기능 단자로 표시합니다. "
+        "16개 PWM은 동일 주파수이며 모터 동력·H-bridge 출력이 아닙니다. 0–15는 채널 번호로 헤더 패드 번호가 아닙니다.",
+        "VCC and servo V+ are separate. Repeated channel V+/GND pads are represented by their common functional terminals. "
+        "The 16 PWM channels share frequency and are not H-bridge power outputs. 0–15 are channel numbers, not physical pad numbers.",
+        "Adafruit #815 PCA9685 guide Pinouts: control inputs, VCC/V+ distinction and PWM outputs.",
+        logic_supply=("VCC", 3.0, 5.0), logic_signals=("SCL", "SDA", *tuple(f"PWM{i}" for i in range(16)))),
+    _module_diagram(
+        "adafruit_3190", "Adafruit DRV8871 breakout · #3190",
+        "https://learn.adafruit.com/adafruit-drv8871-brushed-dc-motor-driver-breakout/pinouts",
+        (
+            ("VM", "VM / Power+", "power", "left", ("6.5–45 V motor supply; parallel power pads",)),
+            ("GND", "GND / Power−", "ground", "left", ("Common power/control return",)),
+            ("IN1", "IN1", "signal", "left", ("Bridge control input 1; 3/5 V logic compatible",)),
+            ("IN2", "IN2", "signal", "left", ("Bridge control input 2; 3/5 V logic compatible",)),
+            ("OUT1", "OUT1", "power", "right", ("Switched motor terminal 1; not logic ground",)),
+            ("OUT2", "OUT2", "power", "right", ("Switched motor terminal 2; not logic ground",)),
+        ),
+        "별도 로직 VCC를 만들지 않습니다. 두 출력 모두 스위칭 모터 단자이며 OUT2를 GND로 취급하지 않습니다. "
+        "VM 입력 최소 6.5 V를 지키며 모터 PWM·전류 제한·열 한계를 DC 부하 모델이 계산하지 않습니다.",
+        "No invented logic VCC terminal. Both outputs are switched motor terminals; OUT2 is not GND. "
+        "VM requires at least 6.5 V. The DC load model does not calculate PWM, current limiting or thermal limits.",
+        "Adafruit #3190 DRV8871 guide Pinouts: motor power, IN1/IN2 controls and motor outputs."),
+    _module_diagram(
+        "adafruit_2857", "Adafruit SHT31-D breakout · #2857",
+        "https://learn.adafruit.com/adafruit-sht31-d-temperature-and-humidity-sensor-breakout/pinouts",
+        (
+            ("VIN", "Vin", "power", "left", ("2.5–5 V supply",)),
+            ("GND", "GND", "ground", "left", ("Supply return",)),
+            ("SCL", "SCL", "signal", "right", ("I2C clock; 10 kΩ pull-up to Vin",)),
+            ("SDA", "SDA", "signal", "right", ("I2C data; 10 kΩ pull-up to Vin",)),
+            ("ADR", "ADR", "other", "left", ("I2C address strap: low 0x44 / high 0x45",)),
+            ("RST", "RST", "signal", "left", ("Active-low reset; board pull-up",)),
+            ("ALR", "ALR", "signal", "right", ("Alert output",)),
+        ),
+        "정확한 Adafruit 보드 외부 단자입니다. DFN IC의 핀 번호를 헤더 번호로 쓰지 않습니다. "
+        "I2C 풀업은 Vin 기준이므로 5 V Vin과 3.3 V GPIO의 호환을 자동 승인하지 않습니다.",
+        "Exact breakout terminals, not the DFN IC pin numbers. I2C pull-ups follow Vin; "
+        "5 V Vin does not automatically approve a 3.3 V GPIO connection.",
+        "Adafruit #2857 SHT31-D guide Pinouts: power/data pins, ADR, RST and ALR.",
+        logic_supply=("VIN", 2.5, 5.0), logic_signals=("SCL", "SDA")),
+    _module_diagram(
+        "adafruit_2652", "Adafruit BME280 breakout · #2652",
+        "https://learn.adafruit.com/adafruit-bme280-humidity-barometric-pressure-temperature-sensor-breakout/pinouts",
+        (
+            ("VIN", "Vin", "power", "left", ("3–5 V board input",)),
+            ("GND", "GND", "ground", "left", ("Common return",)),
+            ("3VO", "3Vo", "power", "left", ("Regulated 3.3 V output, not supply input",)),
+            ("SCK", "SCK / SCL", "signal", "right", ("Shared SPI clock / I2C clock terminal",)),
+            ("SDI", "SDI / SDA", "signal", "right", ("Shared SPI MOSI / I2C data terminal",)),
+            ("SDO", "SDO", "signal", "right", ("SPI MISO or I2C address strap; default 0x77, low 0x76",)),
+            ("CS", "CS", "signal", "right", ("SPI active-low chip select",)),
+        ),
+        "동일한 SCK/SCL·SDI/SDA 패드를 별도 핀으로 복제하지 않습니다. SPI/I2C 모드와 SDO 주소 설정을 확인하세요. "
+        "3Vo는 출력이며 보드 로직 레벨 시프터의 기준은 Vin입니다.",
+        "Shared SCK/SCL and SDI/SDA pads are not duplicated. Check SPI/I2C mode and SDO address selection. "
+        "3Vo is an output; the board level shifters follow Vin.",
+        "Adafruit #2652 BME280 guide Pinouts: power pins and SPI/I2C logic pins.",
+        logic_supply=("VIN", 3.0, 5.0), logic_signals=("SCK", "SDI", "SDO", "CS")),
+    _module_diagram(
+        "adafruit_6357", "Adafruit AS5600 STEMMA QT · #6357",
+        "https://learn.adafruit.com/adafruit-as5600-magnetic-angle-sensor/pinouts",
+        (
+            ("VIN", "Vin", "power", "left", ("3 V or 5 V board supply",)),
+            ("V3O", "V3o", "power", "left", ("Regulated 3.3 V output",)),
+            ("GND", "GND", "ground", "left", ("Supply return",)),
+            ("SDA", "SDA", "signal", "right", ("I2C data; level shifted, pull-up to Vin; address 0x36",)),
+            ("SCL", "SCL", "signal", "right", ("I2C clock; level shifted, pull-up to Vin",)),
+            ("OUT", "OUT", "signal", "right", ("Analog/PWM angle output referenced to internal VDD, not Vin",)),
+        ),
+        "DIR은 뒷면 점퍼 설정이며 추가 헤더 핀으로 만들지 않습니다. 절대각 I2C/아날로그/PWM 출력이며 quadrature A/B가 아닙니다. "
+        "OUT의 내부 VDD 기준과 SDA/SCL의 Vin 기준을 혼동하지 마세요.",
+        "DIR is a back-side jumper, not an invented header terminal. Absolute-angle I2C/analog/PWM output, not quadrature A/B. "
+        "OUT follows internal VDD, while SDA/SCL follow Vin.",
+        "Adafruit #6357 AS5600 guide Pinouts: power pins, I2C pins, OUT and DIR jumper.",
+        logic_supply=("VIN", 3.0, 5.0), logic_signals=("SDA", "SCL")),
+)
+
 _BY_ID = {diagram.catalog_id: diagram for diagram in PRODUCT_DIAGRAMS}
 
 

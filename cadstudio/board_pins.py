@@ -400,6 +400,31 @@ PINOUTS += (BoardPinout('st_nucleo_g474re','ST NUCLEO-G474RE · MB1367 selected 
 ),3.3,
     'UM2505 Rev 7 표 15의 선택한 CN5/CN6/CN9 단자와 표 7 E5V CN7.6만 표시합니다. 전체 Morpho 모식도가 아닙니다. E5V는 4.75–5.25 V·500 mA 상한이며 JP5 5–6과 외부 전원 먼저·USB 나중 절차를 확인하세요. PA5는 LD2와 SB6로 연결되어 후보 SPI 수집에서는 SB6 OFF를 검토하세요. 보드 리비전·전원 점퍼·펌웨어는 실제 확인해야 합니다. ADC CLKIN은 별도 발진 부품입니다. 확인일 2026-10-06.',
     'Selected CN5/CN6/CN9 terminals from UM2505 Rev 7 Table 15 and E5V CN7.6 from Table 7 only, not a full Morpho map and not a dimensioned PCB layout. E5V: 4.75–5.25 V, 500 mA maximum, JP5 pins 5–6, external power before USB. PA5 drives LD2 via SB6; review SB6 OFF for SPI acquisition. Confirm board revision, supply jumpers and firmware. ADC CLKIN needs a separate oscillator. Official source checked 2026-10-06.'),)
+PINOUTS += (
+    BoardPinout(
+        "rpi_zero2w", "Raspberry Pi Zero 2 W · J8",
+        "https://datasheets.raspberrypi.com/rpizero2/raspberry-pi-zero-2-w-reduced-schematics.pdf",
+        _rpi_pins(), 3.3,
+        "공식 PiZero 2 W R1 회로도의 J8 40개 패드 번호·BCM GPIO입니다. J8는 DNF로 표시되므로 "
+        "헤더가 실제 장착됐는지 확인하세요. ID_SD/ID_SC는 EEPROM용 참고 단자입니다. "
+        + _SCHEMATIC_NOTE_KO.replace(SOURCE_CHECKED_DATE, "2026-10-07"),
+        "J8's 40 physical pads and BCM GPIOs checked against the PiZero 2 W R1 reduced schematic. "
+        "J8 is marked DNF: confirm the fitted header. ID_SD/ID_SC are EEPROM reference pins. "
+        + _SCHEMATIC_NOTE.replace(SOURCE_CHECKED_DATE, "2026-10-07")),
+    BoardPinout(
+        "rpi_pico2", "Raspberry Pi Pico 2 · RP2350",
+        "https://datasheets.raspberrypi.com/pico/pico-2-datasheet.pdf",
+        _pico_pins(), 3.3,
+        "Pico 2 데이터시트 2026-07-03판 그림 2·4와 3.1절에서 40개 가장자리 단자와 표시된 UART/I2C/SPI/ADC "
+        "기능을 별도로 확인했습니다. SWD·내부 GP23/24/25/29는 제외합니다. GPIO는 3.3 V로 고정이며 "
+        "칩의 1.8 V I/O 가능성을 보드에 적용하지 않습니다. "
+        + _SCHEMATIC_NOTE_KO.replace(SOURCE_CHECKED_DATE, "2026-10-07"),
+        "40 edge pins and depicted UART/I2C/SPI/ADC functions independently checked against Pico 2 "
+        "datasheet 2026-07-03, Figures 2/4 and §3.1. Excludes SWD and internal GP23/24/25/29. "
+        "Board I/O is fixed at 3.3 V; the chip's optional 1.8 V I/O is not applicable here. "
+        + _SCHEMATIC_NOTE.replace(SOURCE_CHECKED_DATE, "2026-10-07")),
+)
+
 _BY_ID = {pinout.catalog_id: pinout for pinout in PINOUTS}
 
 

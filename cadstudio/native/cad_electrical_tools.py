@@ -7,6 +7,7 @@ GUIDANCE = '''electrical_register: target is an EXISTING CAD part ID (or one cre
 electrical_connect: target is the source registered CAD part ID (MCU or verified electronic product). args={pin:exact_GPIO_key,target_part_id:registered_target_CAD_ID,target_terminal:"pin:GPIO_key"|"port:signal_terminal_key"|"a"|"b"}. Use physical pin labels and keys from registered_electrical_features / available_electrical_models; pin numbers are not BCM GPIO numbers. Register each actual CAD part before wiring it. On a non-MCU product pin is its exact named terminal key, not an invented header position; typed power/ground terminal connections are passive labels and never automatically become a DC power branch. A declared sensor/driver signal port is not its power A/B terminal. This creates a passive signal net; no firmware or complete voltage compatibility claim. Power/reference/reset pins are not ordinary GPIO. Use power_path with measured/verified operating inputs for supply calculations; never wire GPIO to a battery or motor power terminal as a normal signal.
 electrical_unregister: target is an existing registered CAD part ID, args={}. Remove its electrical registration only when explicitly requested. The CAD body remains; other devices and net labels are preserved, and their now-unconnected endpoints remain visible.'''
 GUIDANCE += '\nSaved measurement_reference and force_acquisition_review are offline reference data. Keep unknown force/frequency/calibration as unknown. Do not infer usable bandwidth from ADC sample rate, manufacture a serial calibration, or claim hardware, firmware or closed-loop qualification. Check actual supply terminals separately from GPIO and retain catalog worst-case ranges when editing a known measurement product.'
+GUIDANCE += '\nSaved electrical_readiness lists registration, documented terminal and passive power-path deficits. Address the requested devices with exact sources and explicit wiring rather than hiding issues by deleting devices, clearing nets, disabling relevant checks or marking pending hardware as approved. An unused GPIO is not a fault. A housing reserved for electronics is not itself a powered device. A custom carrier containing a known IC is not automatically the exact bare IC; preserve its manually defined ports and surrounding circuitry. Do not invent a model, internal regulator connection, load current or firmware behavior to clear a readiness finding.'
 
 
 def measurement_context(component):
@@ -36,6 +37,30 @@ def force_review_context(design):
         findings=[dict(code=item.code, severity=item.severity,
                        component_id=item.component_id) for item in findings[:16]],
         omitted_findings=max(0, len(review.findings)-16))
+
+
+def readiness_context(design):
+    """Bounded structural deficits, with no execution or fabricated approvals."""
+    if not design.electrical and not any(p.role=='electrical' for p in design.parts):
+        return None
+    from ..electrical_readiness import build_electrical_readiness
+    report=build_electrical_readiness(design,language='en')
+    priority={'blocked':0,'pending':1,'info':2}
+    findings=sorted(report.issues,key=lambda item:priority[item.severity])
+    unresolved=[p for p in report.parts if p.registration_status!='registered']
+    devices=[c for c in report.components if c.kind!='wire']
+    return dict(status=report.status,counts=report.counts,
+        hardware_execution_supported=False,firmware_execution_supported=False,
+        dc_calculation_performed=False,
+        missing_registrations=[dict(part_id=p.part_id,status=p.registration_status) for p in unresolved[:24]],
+        devices=[dict(component_id=c.component_id,part_id=c.part_id,catalog_id=c.catalog_id,
+            model_status=c.model_status,diagram_available=c.diagram_available,power_status=c.power_status,
+            assigned_terminals=c.assigned_terminals,isolated_terminals=c.isolated_terminals,
+            analysis_enabled=c.analysis_enabled) for c in devices[:24]],
+        findings=[dict(code=i.code,severity=i.severity,part_id=i.part_id,
+            component_id=i.component_id,terminal=i.terminal) for i in findings[:40]],
+        omitted=dict(registrations=max(0,len(unresolved)-24),devices=max(0,len(devices)-24),
+            findings=max(0,len(findings)-40)))
 
 
 def model_context():

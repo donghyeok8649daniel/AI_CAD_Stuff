@@ -1,3 +1,9 @@
+# 2.21.0 electrical workspace and exact product catalogue
+
+Affected source regression: **482 passed** (481 passed, 3 warnings in 49.82s; lazy SciPy: 1 passed in 6.71s). Frozen Windows EXE: **392 native checks**. All **190** bundled CAD modules and the native entry match the tested source. Actual automatic/hardware and software rendering are exercised; the software driver remains unmodified.
+
+Checks cover native CAD-linked registration, exact product terminal diagrams and source distinctions, documented passive supply/return topology, isolated and stale physical terminals, catalogue search and selected-body assignment, nested schematic/power editors, one-history Save, Cancel/Undo/Redo, saved project reopening, original colours/groups and CAD actor reuse. Korean/English 600 px dialogs and the visible top-level workspace entry are exercised. Existing physical circuit/wire editing and registration flows are rerun. The private tester audit is report-only and its input bytes remain unchanged. Public fixtures contain no user project/research data. No hardware, firmware, closed-loop motor operation or fatigue rating is approved by these checks. See [release guide](docs/RELEASE_2_21_0_KO.md) and [aggregate evidence](docs/native2210-validation.json).
+
 # 2.20.0 chamber, materials and force acquisition
 
 Affected source regression: **517 passed** (516 passed, 149 warnings in 164.34s (0:02:44); lazy SciPy: 1 passed in 8.79s). Frozen Windows EXE: **609 native checks**. All **187** bundled CAD modules and the native entry match the tested source. Actual automatic/hardware and software rendering are exercised; the software driver remains unmodified.

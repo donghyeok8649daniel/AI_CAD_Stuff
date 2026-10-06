@@ -134,9 +134,14 @@ def run(app,window,path):
         check(wiring.isVisible() and wiring.objectName()=='floatingWiringDiagram'
               and wiring._selected_id()=='pi' and not wiring.editable,
               'linked CAD selection retains the same component in a separate physical wiring window')
-        wiring.reject();window.actions['wiring_diagram'].trigger();app.processEvents()
-        check(wiring.isVisible() and window.actions['wiring_diagram'] in window.toolbar.actions(),
-              'the top toolbar circuit action opens the separate board and wiring window')
+        wiring.reject()
+        tool=window.electrical_tools;menu=tool.menu();action=window.actions['wiring_diagram']
+        check(tool.isVisible() and tool.defaultAction() is window.actions['electrical_workbench']
+              and action in menu.actions(), 'the visible grouped electrical toolbar retains direct circuit access')
+        menu.popup(tool.mapToGlobal(tool.rect().bottomLeft()));app.processEvents()
+        QTest.mouseClick(menu,Qt.MouseButton.LeftButton,pos=menu.actionGeometry(action).center());app.processEvents()
+        check(wiring.isVisible() and not menu.isVisible(),
+              'clicking the electrical toolbar circuit menu opens the separate board and wiring window')
         wiring.reject();window.show_circuit_workspace();app.processEvents();panel=window.circuit_panel
         docks=(window.browser_dock,window.property_dock,window.ai_dock,window.timeline_dock)
         old_visibility=[dock.isVisible() for dock in docks]

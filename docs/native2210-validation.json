@@ -1,0 +1,56 @@
+{
+  "version": "2.21.0",
+  "total_source_passed": 482,
+  "source_tests": "481 passed, 3 warnings in 49.82s",
+  "lazy_scipy_tests": "1 passed in 6.71s",
+  "source_modules_verified": 190,
+  "native_entry_verified": true,
+  "frozen_checks": 392,
+  "software_driver_unmodified": true,
+  "flows": [
+    {
+      "name": "electrical-workbench-auto",
+      "checks": 44,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "c9563acca452fef7e5ba78a203546b9e5da3698f9ee7bd3010a35d3758371470"
+    },
+    {
+      "name": "electrical-workbench-software",
+      "checks": 44,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "c9563acca452fef7e5ba78a203546b9e5da3698f9ee7bd3010a35d3758371470"
+    },
+    {
+      "name": "circuit-canvas-auto",
+      "checks": 87,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "1423207dc4c3b2372197860793c379fcf71196c1e0805e2bc78da176a0d2cdf1"
+    },
+    {
+      "name": "circuit-canvas-software",
+      "checks": 87,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "1423207dc4c3b2372197860793c379fcf71196c1e0805e2bc78da176a0d2cdf1"
+    },
+    {
+      "name": "registration-auto",
+      "checks": 65,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "afec8a19a3821cdbf6c4655592883dac7bf43a8bb69238700e3e0de89a55f44d"
+    },
+    {
+      "name": "registration-software",
+      "checks": 65,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "afec8a19a3821cdbf6c4655592883dac7bf43a8bb69238700e3e0de89a55f44d"
+    }
+  ],
+  "contains_user_project_data": false,
+  "scope": "Transactional native electrical workspace, source-backed exact product terminals and read-only CAD registration/passive topology inspection; no hardware, firmware or research solver execution"
+}

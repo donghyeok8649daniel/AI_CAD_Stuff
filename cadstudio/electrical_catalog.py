@@ -579,12 +579,135 @@ CATALOG: tuple[ElectricalCatalogEntry, ...] = (
 )
 
 
+# Exact modules checked on 2026-10-07. These rows remain pending DC references:
+# a terminal map makes a product registerable, not an operating-current model.
+CATALOG += (
+    ElectricalCatalogEntry(
+        "ti_ref5025aid", "정밀 기준전압 IC", "Texas Instruments", "REF5025AID · SOIC-8", "REF50",
+        "https://www.ti.com/lit/ds/symlink/ref50.pdf",
+        "표준 등급 SOIC-8 IC, 기준 출력 2.5 V. 입력 2.7–18 V, 출력 source/sink ±10 mA는 한계이며 소비전류가 아닙니다. 원격 SENSE 핀이 없습니다. 사용자 여자 회로·캐리어 보드 전체와 구분하세요.",
+        reference_only=True, aliases=("ref5025aid", "ref5025aid soic8", "reference voltage", "기준전압", "여자")),
+    ElectricalCatalogEntry(
+        "meanwell_hdr60_5", "DIN 전원 공급기", "MEAN WELL", "HDR-60-5", "HDR-60",
+        "https://www.meanwell.com/Upload/PDF/HDR-60/HDR-60-SPEC.PDF",
+        "5 V 출력·6.5 A 용량·32.5 W 모델, 조정 5.0–5.5 V. 입력 85–264 VAC, Class II. 같은 시리즈의 60 W를 이 모델에 적용하지 않습니다. AC 동작·안전·전원 변환·회생 전력은 시뮬레이션하지 않습니다.",
+        reference_only=True, aliases=("hdr-60-5", "hdr60 5", "meanwell", "5v", "smps", "din", "전원 공급기")),
+    ElectricalCatalogEntry(
+        "meanwell_lrs600_24", "전원 공급기", "MEAN WELL", "LRS-600-24", "LRS-600",
+        "https://www.meanwell.com/Upload/PDF/LRS-600/LRS-600-SPEC.PDF",
+        "24 V 출력·25 A 용량·600 W, 조정 22.8–26.4 V. 115/230 VAC 입력은 선택 스위치를 확인해야 합니다. FG와 DC −V는 다릅니다. 출력 용량을 소비전류나 회생 전력 흡수 능력으로 가정하지 않습니다.",
+        reference_only=True, aliases=("lrs-600-24", "lrs600 24", "meanwell", "24v", "smps", "전원 공급기")),
+    ElectricalCatalogEntry(
+        "adafruit_904", "전류·전압 센서 보드", "Adafruit", "INA219 breakout · #904", "INA219",
+        "https://learn.adafruit.com/adafruit-ina219-current-sensor-breakout/pinouts",
+        "정확한 Adafruit #904 보드. VCC 2.7–5.5 V, I2C SDA/SCL은 VCC에 10 kΩ 풀업됩니다. Vin+/Vin− 측정 경로는 GND와 별개입니다. 측정 범위는 MCU 소비전류·구동 능력이 아닙니다.",
+        reference_only=True, aliases=("ina219", "904", "current sensor", "전류 센서", "전압 센서", "shunt")),
+    ElectricalCatalogEntry(
+        "adafruit_4226", "전류·전압 센서 보드", "Adafruit", "INA260 breakout · #4226", "INA260",
+        "https://learn.adafruit.com/adafruit-ina260-current-voltage-power-sensor-breakout/pinouts",
+        "정확한 Adafruit #4226 보드. VCC 2.7–5.5 V, I2C 풀업·Alert 출력 기준은 VCC입니다. VBus는 기본 Vin+에 연결되며 low-side 측정은 VB 점퍼 변경을 확인해야 합니다.",
+        reference_only=True, aliases=("ina260", "4226", "current sensor", "전류 센서", "전력 센서")),
+    ElectricalCatalogEntry(
+        "adafruit_1085", "ADC 보드", "Adafruit", "ADS1115 STEMMA QT · #1085", "ADS1115",
+        "https://learn.adafruit.com/adafruit-4-channel-adc-breakouts/pinouts",
+        "현재 #1085 STEMMA QT 변형의 외부 기능 단자. VIN 2–5 V, 16-bit I2C ADC. A0–A3는 아날로그 입력이며 A+/A−는 전원 출력입니다. 구형 ADDR 헤더와 QT 주소 점퍼를 혼동하지 마세요.",
+        reference_only=True, aliases=("ads1115", "1085", "adc", "아날로그", "전압 측정"), functional_roles=("adc",)),
+    ElectricalCatalogEntry(
+        "adafruit_5346", "GPIO 확장 보드", "Adafruit", "MCP23017 breakout · #5346", "MCP23017",
+        "https://learn.adafruit.com/adafruit-mcp23017-i2c-gpio-expander/pinouts",
+        "정확한 #5346 보드, 3–5 V I2C GPIO 확장. A/B는 디지털 포트이며 아날로그 입력이 아닙니다. 제조사 최신 안내에 따라 A7/B7은 출력 전용으로 사용합니다. 주소 D0/D1/D2와 포트 A0/A1/A2는 다릅니다.",
+        reference_only=True, aliases=("mcp23017", "5346", "gpio expander", "gpio 확장", "입출력"), functional_roles=("controller",)),
+    ElectricalCatalogEntry(
+        "adafruit_815", "PWM 서보 제어 보드", "Adafruit", "PCA9685 servo driver · #815", "PCA9685",
+        "https://learn.adafruit.com/16-channel-pwm-servo-driver/pinouts",
+        "정확한 #815 보드, 16 PWM 출력. VCC 3–5 V 로직과 서보 V+ 전원을 별도로 연결합니다. PWM 상한은 VCC이며 모든 채널은 같은 주파수입니다. H-bridge나 모터 동력 출력이 아닙니다.",
+        reference_only=True, aliases=("pca9685", "815", "servo", "서보", "pwm"), functional_roles=("controller",)),
+    ElectricalCatalogEntry(
+        "adafruit_3190", "DC 모터 드라이버 보드", "Adafruit", "DRV8871 breakout · #3190", "DRV8871",
+        "https://learn.adafruit.com/adafruit-drv8871-brushed-dc-motor-driver-breakout/pinouts",
+        "정확한 #3190 보드. 모터 입력 VM 6.5–45 V, IN1/IN2 제어와 OUT1/OUT2 모터 출력. 별도 로직 VCC 단자가 없습니다. 최대 전류는 동작 소비전류가 아니며 PWM·전류 제한·모터 구동은 별도 검증 대상입니다.",
+        reference_only=True, aliases=("drv8871", "3190", "motor driver", "h bridge", "모터 드라이버"), functional_roles=("motor_driver",)),
+    ElectricalCatalogEntry(
+        "adafruit_2857", "온습도 센서 보드", "Adafruit", "SHT31-D breakout · #2857", "SHT31-D",
+        "https://learn.adafruit.com/adafruit-sht31-d-temperature-and-humidity-sensor-breakout/pinouts",
+        "정확한 #2857 보드, Vin 2.5–5 V. I2C 기본 주소 0x44, ADR로 0x45 변경. SDA/SCL 풀업 기준은 Vin이며 RST·ALR 외부 단자를 포함합니다. Sensirion DFN IC 핀 배치와 다릅니다.",
+        reference_only=True, aliases=("sht31", "sht31d", "2857", "온습도", "humidity", "temperature"), functional_roles=("humidity_temperature",)),
+    ElectricalCatalogEntry(
+        "adafruit_2652", "환경 센서 보드", "Adafruit", "BME280 breakout · #2652", "BME280",
+        "https://learn.adafruit.com/adafruit-bme280-humidity-barometric-pressure-temperature-sensor-breakout/pinouts",
+        "정확한 #2652 보드. Vin 3–5 V, 3Vo는 레귤레이터 출력입니다. SCK/SCL과 SDI/SDA는 각각 같은 단자이며 SPI/I2C 모드를 선택합니다. SDO는 SPI MISO 또는 I2C 주소 설정입니다.",
+        reference_only=True, aliases=("bme280", "2652", "온습도", "기압", "humidity", "pressure"), functional_roles=("humidity_temperature",)),
+    ElectricalCatalogEntry(
+        "adafruit_6357", "자기각 엔코더 보드", "Adafruit", "AS5600 STEMMA QT · #6357", "AS5600",
+        "https://learn.adafruit.com/adafruit-as5600-magnetic-angle-sensor/pinouts",
+        "정확한 #6357 보드, Vin 3/5 V, 절대각 I2C 주소 0x36. OUT은 내부 VDD 기준 아날로그/PWM이며 quadrature A/B가 아닙니다. DIR은 뒷면 점퍼로 설정합니다. AS5600 SOIC IC나 다른 판매자 모듈과 구분하세요.",
+        reference_only=True, aliases=("as5600", "6357", "encoder", "엔코더", "절대각", "angle"),
+        functional_roles=("encoder",), encoder_interface="absolute_i2c"),
+)
+
 _BY_ID = {entry.catalog_id: entry for entry in CATALOG}
 
 
 def get_catalog_entry(catalog_id: str) -> ElectricalCatalogEntry | None:
     """Look up an immutable starter catalog entry by its stable ID."""
     return _BY_ID.get(catalog_id)
+
+
+def catalog_support(catalog_id: str) -> Literal["board_pins", "terminals", "manual", "reference"]:
+    """Describe registration and external pin availability, never simulation approval.
+
+    A reference-only DC row can still have an exact terminal map and register
+    as a pending physical product. Family discovery links cannot. ``manual``
+    means an exact catalog row without a verified header/terminal map; its
+    generic A/B ports do not certify a physical connector.
+    """
+    from .board_pins import board_pinout
+    from .product_diagrams import product_diagram
+
+    entry = get_catalog_entry(catalog_id)
+    if entry is None:
+        return "reference"
+    if board_pinout(catalog_id) is not None and not entry.reference_only:
+        return "board_pins"
+    if product_diagram(catalog_id) is not None:
+        return "terminals"
+    return "reference" if entry.reference_only else "manual"
+
+
+def catalog_counts() -> dict[str, int]:
+    """Return disjoint support counts for displaying truthful library coverage."""
+    counts = {"total": len(CATALOG), "registerable": 0, "board_pinouts": 0,
+              "product_diagrams": 0, "manual": 0, "reference": 0}
+    keys = {"board_pins": "board_pinouts", "terminals": "product_diagrams",
+            "manual": "manual", "reference": "reference"}
+    for entry in CATALOG:
+        support = catalog_support(entry.catalog_id)
+        counts[keys[support]] += 1
+        counts["registerable"] += support != "reference"
+    return counts
+
+
+def catalog_model_candidates(manufacturer: str, model: str) -> tuple[ElectricalCatalogEntry, ...]:
+    """Suggest exact product metadata matches for explicit user review only.
+
+    This neither registers a component nor equates a CAD envelope/carrier with
+    the product. Search aliases, family names, partial model substrings and
+    similar variants are deliberately excluded. Package-qualified REF5025AID
+    metadata is an IC reference, never proof of a complete excitation board.
+    """
+    def identity(value):
+        return "".join(character for character in value.casefold() if character.isalnum())
+
+    maker = identity(manufacturer)
+    wanted = identity(model)
+    if not maker or not wanted:
+        return ()
+    maker_aliases = {"ti": "texasinstruments", "stmicro": "stmicroelectronics"}
+    maker = maker_aliases.get(maker, maker)
+    exact_models = {"ti_ref5025aid": ("REF5025AID", "REF5025AID SOIC8")}
+    return tuple(entry for entry in CATALOG
+                 if identity(entry.manufacturer) == maker
+                 and wanted in {identity(value) for value in (entry.model, *exact_models.get(entry.catalog_id, ()))})
 
 
 def catalog_functions(catalog_id: str) -> tuple[ElectricalFunction, ...]:

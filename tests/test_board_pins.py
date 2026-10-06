@@ -26,7 +26,7 @@ def test_catalog_models_have_safe_unique_physical_coordinates_and_official_sourc
             "pip-assets.raspberrypi.com", "docs.arduino.cc", "www.st.com",
             "datasheets.raspberrypi.com",
         }
-        checked='2026-10-06' if board.catalog_id=='st_nucleo_g474re' else SOURCE_CHECKED_DATE
+        checked = '2026-10-07' if board.catalog_id in ('rpi_pico2', 'rpi_zero2w') else ('2026-10-06' if board.catalog_id=='st_nucleo_g474re' else SOURCE_CHECKED_DATE)
         assert checked in board.note
         assert "확인일" in board.note and checked in board.note_en
         assert "not a dimensioned PCB layout" in board.note_en
@@ -142,7 +142,7 @@ def test_duplicate_physical_signals_reference_existing_canonical_signal_keys():
 
 def test_unverified_model_families_and_similar_variants_have_no_guessed_pinout():
     for identifier in ("", "stm32_nucleo_family", "stm32f103c8t6", "blue_pill",
-                       "nucleo_g0b1re", "rpi_pico2", "arduino_uno_r4_wifi", "rpi5"):
+                       "nucleo_g0b1re", "rpi_pico2w", "arduino_uno_r4_wifi", "rpi5"):
         assert board_pinout(identifier) is None
 
 

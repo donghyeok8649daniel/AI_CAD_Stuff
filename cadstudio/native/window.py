@@ -98,6 +98,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         file.addAction(self.action('print_mode','3D 프린팅 · STL 미리보기…',self.print_mode_dialog,None,'file'))
         file.addAction(self.action('print_profile','3D 프린터 · 전체 여유 / 공차…',self.print_profile_dialog,None,'dimension'));assembly.addAction(self.actions['print_profile'])
         model.addAction(self.action('electronics_mount','전장부품 장착 자리…',self.electronics_mount_dialog,None,'assembly'));assembly.addAction(self.actions['electronics_mount'])
+        engineering.addAction(self.action('electrical_workbench','전장 작업…',self.electrical_workbench_dialog,None,'assembly'))
         engineering.addAction(self.action('electrical','전장 회로 · 배선 / 전압강하…',self.electrical_dialog,None,'assembly'))
         engineering.addAction(self.action('circuit_workspace','메인 회로도 작업 공간',self.show_circuit_workspace,None,'assembly'))
         engineering.addAction(self.action('wiring_diagram','회로도',self.open_wiring_diagram,None,'assembly'))
@@ -146,6 +147,11 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.toolbar=QToolBar('작업 공간');self.toolbar.setObjectName('modelToolbar');self.toolbar.setMovable(False);self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.toolbar.setIconSize(QSize(25,25));self.addToolBar(self.toolbar)
         for key in ('new','open','save'):self.toolbar.addAction(self.actions[key])
         self.toolbar.addSeparator();self.workspace=combo([('model','설계'),('assembly','조립'),('specimen','시편'),('print','3D 프린팅'),('circuit','회로도')]);self.workspace.setMinimumWidth(95);self.workspace.setToolTip('작업 공간을 선택하면 필요한 도구가 나타납니다.');self.toolbar.addWidget(self.workspace);self.toolbar.addSeparator();self.mode_tools={'model':[],'assembly':[],'specimen':[],'print':[],'circuit':[]}
+        self.toolbar.addAction(self.actions['color'])
+        self.electrical_tools=QToolButton();self.electrical_tools.setObjectName('electricalWorkspaceTools');self.electrical_tools.setDefaultAction(self.actions['electrical_workbench']);self.electrical_tools.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.electrical_tools.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        electrical_menu=QMenu(self.electrical_tools)
+        for key in ('wiring_diagram','circuit_workspace','electrical_register','electrical','mcu_pins','power_path','force_acquisition','drive_simulation'):electrical_menu.addAction(self.actions[key])
+        self.electrical_tools.setMenu(electrical_menu);self.toolbar.addWidget(self.electrical_tools);self.toolbar.addSeparator()
         self.plane=combo([('XY','XY 평면'),('XZ','XZ 평면'),('YZ','YZ 평면'),('custom','사용자 작업 평면…')]);self.mode_tools['model'].append(self.toolbar.addWidget(self.plane));self.mode_tools['model'].append(self.toolbar.addAction(icon('sketch'),'스케치 작성',lambda:self.start_sketch(self.plane.currentData())))
         for key in ('extrude','face_sketch','edit_sketch'):self.add_mode_tool('model',key)
         advanced=QToolButton();advanced.setText('3D 도구');advanced.setIcon(icon('extrude'));advanced.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);advanced.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup);advanced_menu=QMenu(advanced)
@@ -156,10 +162,11 @@ class MainWindow(QMainWindow,PartSelectionUI):
         b.setMenu(menu);self.add_part_action=self.toolbar.addWidget(b)
         for key in ('face_joint','drive','joint_hardware','gears','robot','mate'):self.add_mode_tool('assembly',key)
         self.add_mode_tool('assembly','electrical')
-        self.add_mode_tool('circuit','electrical');self.add_mode_tool('circuit','electrical_register');self.add_mode_tool('circuit','mcu_pins')
+        self.add_mode_tool('circuit','electrical_workbench');self.add_mode_tool('circuit','electrical_register');self.add_mode_tool('circuit','mcu_pins')
         self.add_mode_tool('assembly','loop');self.add_mode_tool('assembly','robot_study')
         for key in ('chamber','force_acquisition','materials'):self.add_mode_tool('specimen',key)
-        self.add_mode_tool('print','print_mode');self.add_mode_tool('print','print_profile');self.add_mode_tool('print','interference');self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure']);self.toolbar.addAction(self.actions['color']);self.toolbar.addAction(self.actions['wiring_diagram']);self.toolbar.addAction(self.actions['parameters']);self.toolbar.addSeparator()
+        self.add_mode_tool('print','print_mode');self.add_mode_tool('print','print_profile');self.add_mode_tool('print','interference');self.add_mode_tool('specimen','specimen');self.add_mode_tool('specimen','tensile');self.toolbar.addAction(self.actions['measure'])
+        self.toolbar.addAction(self.actions['parameters']);self.toolbar.addSeparator()
         for key in ('undo','redo','fit'):self.toolbar.addAction(self.actions[key])
         self.toolbar.addAction(icon('ai'),'설계 명령',lambda:self.ai_dock.setVisible(not self.ai_dock.isVisible()));self.workspace.currentIndexChanged.connect(self.workspace_changed);self.workspace_changed()
     def add_mode_tool(self,mode,key):
@@ -354,6 +361,24 @@ class MainWindow(QMainWindow,PartSelectionUI):
         index=self.workspace.findData('circuit')
         if self.workspace.currentIndex()!=index:self.workspace.setCurrentIndex(index)
         else:self.refresh_circuit_workspace()
+
+    def electrical_workbench_dialog(self,part_id=None):
+        if self.busy or self.sketching:return
+        if isinstance(part_id,bool):part_id=None
+        from .electrical_workbench import ElectricalWorkbenchDialog
+        try:dialog=ElectricalWorkbenchDialog(self,self.document.design or Design(),part_id or self.selected)
+        except (ValueError,TypeError) as exc:self.show_error(str(exc));return
+        def focus_part(identifier):
+            # A workbench already displays its circuit; focusing CAD must not
+            # open another modal circuit viewer from the main circuit mode.
+            self.workspace.setCurrentIndex(self.workspace.findData('model'))
+            self.show_electrical_cad_part(identifier)
+        dialog.partActivated.connect(focus_part)
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted and dialog.checked is not None:
+                self.apply_design(dialog.checked.model_dump(mode='json'),'전장 작업 / 부품 등록 · 배선 편집',
+                    {'tool':'electrical-workbench','component_ids':[c.id for c in dialog.checked.electrical.components] if dialog.checked.electrical else []})
+        finally:dialog.deleteLater()
 
     def refresh_circuit_workspace(self):
         from ..electrical import ElectricalWorkspace,evaluate_electrical
@@ -1071,7 +1096,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         electrical=(self.document.design.get('electrical') or {}).get('components',[])
         linked=[c['name'] for c in electrical if c.get('part_id')==part['id']]
         registration=button('전장 피처 · 모델 / 모식도 편집' if linked else '이 CAD 부품을 전장으로 등록…',lambda:self.electrical_part_dialog(part['id']),not bool(linked));registration.setObjectName('partElectricalRegister');self.property_layout.addWidget(registration)
-        if linked:self.property_layout.addWidget(button('전장 연결 · '+', '.join(linked[:2]),self.electrical_dialog))
+        if linked or part.get('role')=='electrical':self.property_layout.addWidget(button('전장 등록 / 배선 상태…',lambda:self.electrical_workbench_dialog(part['id'])))
         if group:
             self.property_layout.addWidget(button(group['name']+' · 그룹 전체 선택',lambda:self.select_parts(group['part_ids'])))
             self.property_layout.addWidget(button('그룹 해제 · Ctrl+Shift+G',self.ungroup_parts))
