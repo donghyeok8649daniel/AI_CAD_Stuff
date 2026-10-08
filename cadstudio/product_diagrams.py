@@ -793,7 +793,27 @@ PRODUCT_DIAGRAMS += (
         "https://www.maxongroup.com/medias/sys_master/root/9406692130846/Cataloge-Page-EN-309.pdf"),
 )
 
+from .electrical_catalog_data import DYNAMIXEL_ROWS, SOURCE_CHECKED_DATE as CATALOG_EXPANSION_CHECKED_DATE
+
+EXPANDED_DIAGRAM_IDS = tuple(row[0] for row in DYNAMIXEL_ROWS)
+
+for _identifier, _model, _slug, _voltage, _range, _bus, _xl330, _rs485 in DYNAMIXEL_ROWS:
+    _diagram = _dynamixel_diagram(_identifier, "ROBOTIS DYNAMIXEL " + _model,
+        "https://emanual.robotis.com/docs/en/dxl/x/" + _slug + "/",
+        _range + f" ({_voltage:g} V recommended)", xl330=_xl330, rs485=_rs485)
+    if _identifier.startswith("robotis_xm540"):
+        _diagram = replace(_diagram,
+            note=_diagram.note + " XM540의 별도 External Port 및 Dual Joint 커넥터는 이 통신 단자 모식도에 포함하지 않습니다.",
+            note_en=_diagram.note_en + " XM540 External Port and Dual Joint connectors are not included in this communication-terminal reference.")
+    PRODUCT_DIAGRAMS += (replace(_diagram,
+        note=_diagram.note.replace(MOTOR_CHECKED_DATE, CATALOG_EXPANSION_CHECKED_DATE),
+        note_en=_diagram.note_en.replace(MOTOR_CHECKED_DATE, CATALOG_EXPANSION_CHECKED_DATE),
+        evidence=_diagram.evidence + f" Exact model source checked {CATALOG_EXPANSION_CHECKED_DATE}."),)
+del _identifier, _model, _slug, _voltage, _range, _bus, _xl330, _rs485, _diagram
+
 _BY_ID = {diagram.catalog_id: diagram for diagram in PRODUCT_DIAGRAMS}
+if len(_BY_ID) != len(PRODUCT_DIAGRAMS):
+    raise RuntimeError("Product diagram IDs must be unique")
 
 
 def product_diagram(catalog_id: str) -> ProductDiagram | None:

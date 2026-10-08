@@ -8,22 +8,8 @@ class ConnectionInterrupted(ValueError):
 
 
 def classified_error(error):
-    from .codex_connection import safe_error
-    # Only structured transport types or well-known network phrases are retryable.
-    # Authentication/quota/bad-request status always overrides transport wrappers.
-    import json
-    text=json.dumps(error,ensure_ascii=True).lower()
-    def statuses(value):
-        if isinstance(value,dict):
-            for key,item in value.items():
-                if key.lower() in ('httpstatuscode','status_code') and isinstance(item,int):yield item
-                yield from statuses(item)
-        elif isinstance(value,list):
-            for item in value:yield from statuses(item)
-    codes=list(statuses(error))
-    permanent=any(c in (400,401,403,404,409,422,429) for c in codes) or any(s in text for s in ('usagelimit','usage_limit','rate_limit','ratelimit','quota','credits','limit reached','unauthorized','authentication','token expired','401','sign in','not logged','contextwindowexceeded','badrequest','invalid params','unsupported'))
-    transient=any(s in text for s in ('httpconnectionfailed','responsestreamconnectionfailed','responsestreamdisconnected','responsetoomanyfailedattempts','internalservererror','connection reset','connection refused','network is unreachable','dns error','error sending request','stream disconnected','connection closed','timed out','temporarily unavailable')) or any(c>=500 or c in (408,425) for c in codes)
-    if transient and not permanent:return ConnectionInterrupted('Codex 통신이 일시적으로 끊겼습니다. 연결 복구를 기다립니다.')
+    from .codex_errors import safe_error, error_details
+    if error_details(error)['category'] == 'network':return ConnectionInterrupted(safe_error(error))
     return ValueError(safe_error(error))
 
 

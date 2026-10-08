@@ -1,0 +1,98 @@
+{
+  "version": "2.23.0",
+  "total_source_passed": 973,
+  "source_tests": "972 passed, 27 warnings in 190.95s (0:03:10)",
+  "lazy_scipy_tests": "1 passed in 5.52s",
+  "source_modules_verified": 201,
+  "native_entry_verified": true,
+  "frozen_checks": 837,
+  "software_driver_unmodified": true,
+  "flows": [
+    {
+      "name": "electrical-workbench-auto",
+      "checks": 67,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "ee3c90b9eaf27335e22073ffc03cbcffa0a0ec7b3a6d48a3c500cabec904f5a7"
+    },
+    {
+      "name": "electrical-workbench-software",
+      "checks": 67,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "ee3c90b9eaf27335e22073ffc03cbcffa0a0ec7b3a6d48a3c500cabec904f5a7"
+    },
+    {
+      "name": "circuit-canvas-auto",
+      "checks": 93,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "01076432d27cb540dde5de26eff266c376d2fc0cff8af44c7f4dfae0afe1e786"
+    },
+    {
+      "name": "circuit-canvas-software",
+      "checks": 93,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "01076432d27cb540dde5de26eff266c376d2fc0cff8af44c7f4dfae0afe1e786"
+    },
+    {
+      "name": "registration-auto",
+      "checks": 65,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "afec8a19a3821cdbf6c4655592883dac7bf43a8bb69238700e3e0de89a55f44d"
+    },
+    {
+      "name": "registration-software",
+      "checks": 65,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "afec8a19a3821cdbf6c4655592883dac7bf43a8bb69238700e3e0de89a55f44d"
+    },
+    {
+      "name": "ai-wiring-auto",
+      "checks": 32,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "8ad71029a27241a8f2ee501dcbddfd7897aeb000f788042a4a6ae0cfcf319e4f"
+    },
+    {
+      "name": "ai-wiring-software",
+      "checks": 32,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "8ad71029a27241a8f2ee501dcbddfd7897aeb000f788042a4a6ae0cfcf319e4f"
+    },
+    {
+      "name": "program-auto",
+      "checks": 117,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "e77ae20ac67556efd9c81df35974e909fd225017008f46816c2bb2a9a889bcdb"
+    },
+    {
+      "name": "program-software",
+      "checks": 117,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "dcf6c267148b39f3d617a5e06c656ef45789e0f5f9d267f0a20b92a82222eff0"
+    },
+    {
+      "name": "code-workflow-auto",
+      "checks": 44,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "2a22eeb6d35d213c051673ca8af5e1a82ad66fff3de1c06595cc419a60edaa20"
+    },
+    {
+      "name": "code-workflow-software",
+      "checks": 45,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "86a49f39d1a4006e3eb4e035c07f97994e9bbb5ea6019017db3fce41eba5a155"
+    }
+  ],
+  "contains_user_project_data": false,
+  "scope": "Automatic exact-board GPIO/PWM command tracing through saved physical wires, declared DC/thermal safety, catalog expansion, Codex error diagnosis and bounded geometry reuse; no full firmware/OS or hardware execution"
+}

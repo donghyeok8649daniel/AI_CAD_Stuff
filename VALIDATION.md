@@ -1,3 +1,9 @@
+# 2.23.0 code, wiring and declared electrical safety
+
+Affected source regression: **973 passed** (972 passed, 27 warnings in 190.95s (0:03:10); lazy SciPy: 1 passed in 5.52s). Frozen Windows EXE: **837 native checks**. All **201** bundled CAD modules and the native entry match the tested source. Automatic/hardware and software rendering are exercised with the unmodified software driver.
+
+Checks cover actual source upload, exact board/pin lookup, saved-wire signal receivers, separate DC/rating/thermal evaluation, explicit Save/Cancel, history Undo/Redo and reopen. Nested child Apply followed by workbench Cancel preserves the live design. Repeated owned Qt worker cancellation, DeferredDelete and GC are exercised in the native EXE. Unknown code, ambiguous boards, unsupported input/OS/firmware and missing physical ratings remain explicit. Catalog AC/DC fuse ratings and declared resistance/power values are source-linked. Geometry session reuse is bounded, releases on cancellation and retains relative boolean-tool invalidation and real collision checks. Codex authentication, usage, protocol, request and network categories are tested without source prose or credentials in the diagnosis file. No full firmware, live GPIO, target MCU build, FOC, physical thermal certification or research solver is approved by these checks. Public data contains no user CAD or research projects. See [release guide](docs/RELEASE_2_23_0_KO.md) and [aggregate evidence](docs/native2230-validation.json).
+
 # 2.22.0 physical AI wiring, CAD links and motor catalogue
 
 Affected source regression: **638 passed** (637 passed, 3 warnings in 94.23s (0:01:34); lazy SciPy: 1 passed in 10.18s). Frozen Windows EXE: **514 native checks**. All **192** bundled CAD modules and the native entry match the tested source. Actual automatic/hardware and software rendering are exercised; the software driver remains unmodified.

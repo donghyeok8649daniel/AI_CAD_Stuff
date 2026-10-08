@@ -28,6 +28,7 @@ class CodexSetupDialog(QDialog):
         row = QHBoxLayout(); row.addWidget(self.path)
         self.browse_button = button('찾기…', self.browse); row.addWidget(self.browse_button); layout.addLayout(row)
         self.install_button = button('Codex 설치 안내 ↗', lambda: QDesktopServices.openUrl(QUrl(INSTALL_URL))); layout.addWidget(self.install_button)
+        self.diagnostics_button=button('연결 진단 보기…',self.show_diagnostics);layout.addWidget(self.diagnostics_button)
         self.login_button = button('ChatGPT로 로그인', lambda: self.start(True), True); layout.addWidget(self.login_button)
         self.check_button = button('기존 로그인 사용 · 모델 찾기', lambda: self.start(False), True); layout.insertWidget(layout.indexOf(self.login_button), self.check_button)
         self.browser_button = button('로그인 페이지 다시 열기 ↗', self.open_login); self.browser_button.hide(); layout.addWidget(self.browser_button)
@@ -50,6 +51,20 @@ class CodexSetupDialog(QDialog):
     def browse(self):
         path, _ = QFileDialog.getOpenFileName(self, 'Codex 실행 파일 선택', '', 'Codex (codex.exe);;모든 파일 (*)')
         if path: self.path.setText(path); self.invalidate()
+
+    def show_diagnostics(self):
+        import json
+        from .codex_connection import data_root
+        from .. import __version__
+        dialog=QDialog(self);dialog.setWindowTitle('Codex 연결 진단');dialog.resize(620,400)
+        layout=QVBoxLayout(dialog);view=QPlainTextEdit(dialog);view.setReadOnly(True)
+        try:
+            path=data_root()/'codex-diagnostics.json'
+            rows=json.loads(path.read_text(encoding='utf-8')) if path.is_file() and path.stat().st_size<65536 else []
+            rows=[{k:v for k,v in row.items() if k in ('category','method','rpc_code','http_status','at','app_version')} for row in rows[-32:] if isinstance(row,dict)] if isinstance(rows,list) else []
+        except (OSError,ValueError,TypeError):rows=[]
+        view.setPlainText('Prompt CAD Studio '+__version__+'\n\n'+(json.dumps(rows,ensure_ascii=False,indent=2) if rows else '저장된 연결 오류 없음')+'\n\n로그인 정보·API 키·프롬프트·작업물은 이 진단에 포함되지 않습니다.')
+        layout.addWidget(view);layout.addWidget(button('닫기',dialog.accept));dialog.exec();dialog.deleteLater()
 
     def invalidate(self):
         self.catalog = []; self.models.clear(); self.models.setEnabled(False); self.use_button.setEnabled(False)

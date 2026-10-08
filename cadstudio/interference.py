@@ -103,9 +103,9 @@ def check_joint_travel(before, after, *, check=lambda: None, max_samples=1440):
     A last-clear sample is a useful stop suggestion, not a certified hard stop.
     Limits are recomputed after edits; there is no stale cached safety range.
     """
-    from .kernel import KERNEL_LOCK, build
+    from .kernel import KERNEL_LOCK, build, local_shape_session
     from .assembly_motion import set_joint_motion
-    with KERNEL_LOCK:
+    with KERNEL_LOCK, local_shape_session():
         before = Design.model_validate(before).model_copy(deep=True)
         after = Design.model_validate(after).model_copy(deep=True)
         changes = motion_changes(before, after)

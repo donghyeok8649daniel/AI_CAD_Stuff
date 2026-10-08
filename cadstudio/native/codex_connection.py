@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 from .local_ai import DraftControl
 from .. import __version__
 from .codex_reconnect import ConnectionInterrupted,classified_error
+from .codex_errors import safe_error, record_error
 
 INSTALL_URL = 'https://learn.chatgpt.com/docs/codex/cli'
 IDENTIFIER = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}')
@@ -70,18 +71,6 @@ def login_url(value):
     return value
 
 
-def safe_error(error):
-    """Classify without displaying server prose, headers, tokens or prompts."""
-    text = json.dumps(error, ensure_ascii=True).lower()
-    if any(word in text for word in ('usage_limit', 'usagelimit', 'rate_limit', 'ratelimit', 'quota', 'credits', 'limit reached')):
-        return 'Codex 사용량 한도에 도달했습니다. Codex에서 남은 사용량과 초기화 시간을 확인하세요. API로 전환하지 않았습니다.'
-    if any(word in text for word in ('unauthorized', 'authentication', 'token expired', '401', 'sign in', 'not logged')):
-        return 'Codex 로그인이 필요하거나 만료되었습니다. Codex 연결에서 ChatGPT로 다시 로그인하세요.'
-    if any(word in text for word in ('model', 'unsupported', 'not found', 'invalid params')):
-        return 'Codex 모델 또는 연결 형식이 지원되지 않습니다. 모델 목록을 새로 찾고 Codex CLI를 업데이트하세요.'
-    return 'Codex 연결 또는 설계 요청에 실패했습니다. 인터넷 연결과 Codex 로그인·사용량을 확인하세요. 현재 설계는 변경되지 않았습니다.'
-
-
 class _ProcessJob:
     """Windows closes the owned process tree even if the CAD exits mid-request."""
     def __init__(self, pid):
@@ -128,7 +117,9 @@ class CodexSession:
         self.tool_overrides = {}
         self.process = None; self.reader = None; self.job = None
         self.pending = {}; self.events = asyncio.Queue(maxsize=4096); self.serial = 0
+        self.pending_methods = {}
         self.active_thread = None; self.active_turn = None; self.login_id = None
+        self.initialized = False
 
     async def __aenter__(self):
         self.cwd.mkdir(parents=True, exist_ok=True)
@@ -153,6 +144,7 @@ class CodexSession:
             self.reader = asyncio.create_task(self._read())
             await self.rpc('initialize', {'clientInfo': {'name': 'prompt_cad_studio', 'title': 'Prompt CAD Studio', 'version': __version__}})
             await self.send({'method': 'initialized', 'params': {}})
+            self.initialized = True
             # Disable inherited integrations for this CAD thread only, without
             # changing the user's config. config/read is handled locally by
             # Codex; configuration is never logged or persisted by the CAD.
@@ -184,7 +176,9 @@ class CodexSession:
                 if 'id' in packet and 'method' not in packet:
                     future = self.pending.pop(packet['id'], None)
                     if future and not future.done():
-                        if 'error' in packet: future.set_exception(classified_error(packet['error']))
+                        if 'error' in packet:
+                            record_error((self.profile or data_root()) / 'codex-diagnostics.json', packet['error'], self.pending_methods.get(packet['id'], ''))
+                            future.set_exception(classified_error(packet['error']))
                         else: future.set_result(packet.get('result', {}))
                 elif 'id' in packet:
                     # This integration only consumes declarative CAD plans.
@@ -198,7 +192,8 @@ class CodexSession:
         except Exception:
             failure=ValueError('Codex 응답 형식을 읽지 못했습니다. CLI를 업데이트하고 다시 연결하세요.')
         finally:
-            error = failure or ConnectionInterrupted('Codex 연결이 끊겼습니다. 다시 연결합니다.')
+            error = failure or (ConnectionInterrupted('Codex 연결이 끊겼습니다. 다시 연결합니다.') if self.initialized
+                else ValueError('Codex CLI를 시작하지 못했습니다. 실행 파일과 CLI 설치 상태를 확인하세요.'))
             for future in self.pending.values():
                 if not future.done(): future.set_exception(error)
             self.pending.clear()
@@ -207,11 +202,13 @@ class CodexSession:
     async def rpc(self, method, params, timeout=30):
         self.serial += 1; identifier = self.serial
         future = asyncio.get_running_loop().create_future(); self.pending[identifier] = future
+        self.pending_methods[identifier] = method
         try:
             await self.send({'id': identifier, 'method': method, 'params': params})
             return await asyncio.wait_for(future, timeout)
         finally:
             self.pending.pop(identifier, None)
+            self.pending_methods.pop(identifier, None)
 
     async def event(self):
         item = await self.events.get()
@@ -292,12 +289,16 @@ class CodexSession:
                 turn = params.get('turn', {})
                 if turn.get('id') != self.active_turn: continue
                 self.active_turn = None
-                if turn.get('status') != 'completed': raise classified_error(turn.get('error', {}))
+                if turn.get('status') != 'completed':
+                    record_error((self.profile or data_root()) / 'codex-diagnostics.json', turn.get('error', {}), 'turn/completed')
+                    raise classified_error(turn.get('error', {}))
                 if not final: raise ValueError('Codex가 CAD 작업 계획을 반환하지 않았습니다. 요청을 다시 확인하세요.')
                 return final
             elif method == 'error':
                 if params.get('willRetry', False):progress('Codex 연결 대기 · 서버 자동 재연결 중 · 취소 가능')
-                else:raise classified_error(params)
+                else:
+                    record_error((self.profile or data_root()) / 'codex-diagnostics.json', params, 'error')
+                    raise classified_error(params)
 
     async def __aexit__(self, *args):
         if self.process:

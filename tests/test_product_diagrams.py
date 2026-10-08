@@ -23,7 +23,9 @@ def test_exact_product_diagrams_are_immutable_unique_and_source_linked():
         assert entry is not None and entry.source_url == diagram.source_url
         assert len({pin.key for pin in diagram.terminals}) == len(diagram.terminals)
         assert len({(pin.side, pin.position) for pin in diagram.terminals}) == len(diagram.terminals)
-        if diagram.catalog_id in MOTOR_DIAGRAM_IDS:
+        if entry.source_checked_date:
+            checked = entry.source_checked_date
+        elif diagram.catalog_id in MOTOR_DIAGRAM_IDS:
             checked = MOTOR_CHECKED_DATE
         elif diagram.catalog_id in ('ti_ref5025aid', 'meanwell_hdr60_5', 'meanwell_lrs600_24') or diagram.catalog_id.startswith('adafruit_'):
             checked = EXPANSION_CHECKED_DATE

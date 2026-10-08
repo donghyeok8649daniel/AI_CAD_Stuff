@@ -1,4 +1,4 @@
-"""Small, source-linked electrical parts index for the native CAD workbench.
+"""Source-linked electrical parts index for the native CAD workbench.
 
 Catalog entries are references, not electrical models. A recommended power
 supply current, an absolute maximum, and a motor stall current are *not* the
@@ -49,6 +49,14 @@ class ElectricalCatalogEntry:
     encoder_counts_per_rev: int | None = None
     encoder_reference: Literal["motor_shaft", "encoder_shaft"] | None = None
     motor_gear_ratio: float | None = None
+    # Source evidence and ratings are separate from operating consumption.
+    # An AC fuse voltage must never be silently reused as a DC withstand value.
+    source_checked_date: str = ""
+    evidence: str = ""
+    voltage_rating_type: Literal["dc", "ac", "ac_dc"] | None = None
+    fuse_current_a: float | None = None
+    rated_power_w: float | None = None
+    contact_resistance_ohm: float | None = None
 
     @property
     def display_name(self) -> str:
@@ -729,7 +737,13 @@ CATALOG += (
         aliases=("496655", "ec-i40", "eci40", "bldc", "brushless", "브러시리스", "모터"), functional_roles=("motor",)),
 )
 
+from .electrical_catalog_data import EXPANDED_CATALOG_ROWS
+
+CATALOG += tuple(ElectricalCatalogEntry(**row) for row in EXPANDED_CATALOG_ROWS)
+
 _BY_ID = {entry.catalog_id: entry for entry in CATALOG}
+if len(_BY_ID) != len(CATALOG):
+    raise RuntimeError("Electrical catalog IDs must be unique")
 
 
 def get_catalog_entry(catalog_id: str) -> ElectricalCatalogEntry | None:
@@ -864,4 +878,16 @@ def component_prefill(entry: ElectricalCatalogEntry) -> dict[str, object]:
         values["rated_voltage_v"] = entry.rated_voltage_v
     if entry.suggested_kind in ("motor", "actuator") and entry.rated_current_a is None:
         values["analysis_enabled"] = False
+    safety: dict[str, object] = {}
+    if entry.fuse_current_a is not None and entry.suggested_kind == "switch":
+        safety["fuse_current_a"] = entry.fuse_current_a
+        if entry.voltage_rating_type in ("dc", "ac_dc") and entry.rated_voltage_v is not None:
+            safety["max_voltage_v"] = entry.rated_voltage_v
+        if entry.contact_resistance_ohm is not None:
+            values["contact_resistance_ohm"] = entry.contact_resistance_ohm
+    if entry.rated_power_w is not None and entry.suggested_kind == "resistor":
+        safety["rated_power_w"] = entry.rated_power_w
+    if safety:
+        safety["source_url"] = entry.source_url
+        values["safety"] = safety
     return values

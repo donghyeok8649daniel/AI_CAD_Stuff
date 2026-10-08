@@ -134,6 +134,9 @@ class ComponentDialog(QDialog):
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setWidget(body);layout.addWidget(scroll,1)
         self.old=old
+        self.safety_fields=deepcopy({'safety':old['safety']} if 'safety' in old else {})
+        self.safety_kind=old.get('kind','battery')
+        self.safety_catalog_id=old.get('catalog_id','')
         self.name=QLineEdit(old.get('name',''));form.addRow('이름',self.name)
         self.analysis_enabled=QCheckBox('정격 입력 완료 · DC 계산에 포함');self.analysis_enabled.setObjectName('electricalAnalysisEnabled');self.analysis_enabled.setChecked(old.get('analysis_enabled',True));form.addRow(self.analysis_enabled)
         self.catalog_id=old.get('catalog_id','')
@@ -207,6 +210,9 @@ class ComponentDialog(QDialog):
 
     def refresh_fields(self):
         kind=self.kind.currentData()
+        if kind!=self.safety_kind:
+            # A fuse or motor's limits do not describe a different device kind.
+            self.safety_fields={};self.safety_kind=kind;self.safety_catalog_id=''
         if self.catalog_id and kind!=self.catalog_kind:
             self.catalog_id='';self.source_url='';self.update_catalog_note()
         self.a_caption.setText('MCU VCC / 노드' if kind=='mcu' else '배터리 + / 공급 노드' if kind=='battery' else '첫 번째 단자 / 노드')
@@ -240,6 +246,7 @@ class ComponentDialog(QDialog):
         if catalog.exec()!=QDialog.DialogCode.Accepted or not catalog.entry:return
         values=component_prefill(catalog.entry)
         if not values:return
+        changed_model=values['catalog_id']!=self.catalog_id
         if values['catalog_id']!=self.catalog_id:
             if self.signal_pins.toPlainText().strip() or self.terminal_pins.toPlainText().strip() or self.supply_fields.get('board_supply_pins'):
                 if QMessageBox.question(self,'핀 연결 해제 확인','모델을 바꾸면 이 부품의 기존 핀 연결을 해제합니다. 계속할까요?')!=QMessageBox.StandardButton.Yes:return
@@ -262,6 +269,9 @@ class ComponentDialog(QDialog):
         self.capacitor_polarized.setChecked(values.get('capacitor_polarized',False))
         self.catalog_id=values['catalog_id']
         self.source_url=values['source_url']
+        if changed_model:
+            self.safety_fields=deepcopy({'safety':values['safety']} if 'safety' in values else {})
+        self.safety_kind=kind;self.safety_catalog_id=self.catalog_id
         required={'battery':('voltage_v',),'wire':('length_mm','cross_section_mm2'),
                   'resistor':('resistance_ohm',),'capacitor':('capacitance_f',),
                   'inductor':('inductance_h','winding_resistance_ohm'),
@@ -303,6 +313,7 @@ class ComponentDialog(QDialog):
                     **({'capacitor_polarized':self.capacitor_polarized.isChecked()} if kind=='capacitor' else {}),
                     **({'wire_color':self.wire_color.text().strip() or None,'wire_endpoints':self.old.get('wire_endpoints',[])} if kind=='wire' else {}),
                     **({'measurement':self.old['measurement']} if kind in ('load','mcu') and 'measurement' in self.old and self.catalog_id==self.old.get('catalog_id','') else {}),
+                    **(deepcopy(self.safety_fields) if kind==self.safety_kind and self.catalog_id==self.safety_catalog_id else {}),
                     **self.supply_fields,**values)
 
     def accept(self):
@@ -323,6 +334,8 @@ class ElectricalDialog(QDialog):
         self.has_schematic_positions='schematic_positions' in ((design or {}).get('electrical') or {})
         self.force_chain=deepcopy(((design or {}).get('electrical') or {}).get('force_chain'))
         self.has_force_chain='force_chain' in ((design or {}).get('electrical') or {})
+        self.programs=deepcopy(((design or {}).get('electrical') or {}).get('programs',[]))
+        self.has_programs='programs' in ((design or {}).get('electrical') or {})
         layout=QVBoxLayout(self);layout.addWidget(label('배터리 +는 공급, -는 리턴입니다. 같은 노드 이름으로 단자를 연결하고 실제 배터리 전압·정격·전선 치수를 입력하세요.',True))
         header=QHBoxLayout();self.name=QLineEdit(((design or {}).get('electrical') or {}).get('name','전장 회로'))
         header.addWidget(QLabel('회로 이름'));header.addWidget(self.name,1);layout.addLayout(header)
@@ -415,6 +428,10 @@ class ElectricalDialog(QDialog):
         self.original_nodes=tuple(workspace.nodes)
         self.schematic_positions={key:position.model_dump() for key,position in workspace.schematic_positions.items()}
         self.has_schematic_positions='schematic_positions' in workspace.model_fields_set or bool(self.schematic_positions)
+        self.force_chain=workspace.force_chain.model_dump() if workspace.force_chain else None
+        self.has_force_chain='force_chain' in workspace.model_fields_set
+        self.programs=[program.model_dump() for program in workspace.programs]
+        self.has_programs='programs' in workspace.model_fields_set or bool(self.programs)
         self.refresh();self.calculate()
 
     def edit_mcu_pins(self):
@@ -472,9 +489,17 @@ class ElectricalDialog(QDialog):
 
     def remove(self):
         row=self.table.currentRow()
-        if row>=0:self.components.pop(row);self.refresh();self.calculate()
+        if row>=0:
+            component=self.components[row]
+            if any(program.get('board_component_id')==component['id'] for program in self.programs):
+                QMessageBox.warning(self,'연결된 코드 확인','이 보드에 연결된 코드가 있습니다. 코드 업로드 창에서 코드를 먼저 제거하거나 다른 보드로 연결한 뒤 부품을 삭제하세요.')
+                return
+            self.components.pop(row);self.refresh();self.calculate()
 
     def demo(self):
+        if self.programs:
+            QMessageBox.warning(self,'연결된 코드 확인','코드가 연결된 보드가 있어 예시 회로로 교체하지 않았습니다. 코드 업로드 창에서 먼저 연결을 정리하세요.')
+            return
         if self.components and QMessageBox.question(self,'예시로 바꾸기','현재 회로를 예시 회로로 교체할까요?')!=QMessageBox.StandardButton.Yes:return
         self.components=[
             dict(id='demo-battery',name='가상 12 V 배터리',kind='battery',a='VPLUS',b='GND',voltage_v=12,internal_resistance_ohm=.08,max_current_a=2),
@@ -492,6 +517,8 @@ class ElectricalDialog(QDialog):
         raw=dict(name=self.name.text().strip() or '전장 회로',nodes=nodes,components=self.components)
         if self.has_force_chain:
             raw['force_chain']=deepcopy(self.force_chain)
+        if self.has_programs:
+            raw['programs']=deepcopy(self.programs)
         if self.has_schematic_positions:
             ids={component['id'] for component in self.components}
             raw['schematic_positions']={key:position for key,position in self.schematic_positions.items() if key in ids}

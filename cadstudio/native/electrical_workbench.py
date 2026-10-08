@@ -226,6 +226,13 @@ class ElectricalWorkbenchDialog(QDialog):
         circuit_actions.addWidget(self.inspection_button)
         circuit_actions.addStretch(1)
         layout.addLayout(circuit_actions)
+        simulation_actions = QHBoxLayout()
+        self.program_button = button(word('코드 업로드 · 배선 자동 시뮬레이션…', 'Upload code · automatic wiring simulation…'), self.edit_programs)
+        self.program_button.setObjectName('electricalWorkbenchPrograms')
+        self.safety_button = button(word('쇼트 / 정격 / 발열 점검…', 'Short / ratings / heat check…'), self.edit_safety)
+        self.safety_button.setObjectName('electricalWorkbenchSafety')
+        simulation_actions.addWidget(self.program_button);simulation_actions.addWidget(self.safety_button);simulation_actions.addStretch(1)
+        layout.addLayout(simulation_actions)
         self.tabs.addTab(page, word('현재 설계의 전장', 'Electronics in this design'))
         self.query.textChanged.connect(self.filter_rows)
         self.kind_filter.currentIndexChanged.connect(self.filter_rows)
@@ -536,6 +543,32 @@ class ElectricalWorkbenchDialog(QDialog):
                 if index >= 0: dialog.table.selectRow(index)
             if dialog.exec() == QDialog.DialogCode.Accepted: self.adopt_circuit_editor(dialog)
         finally: dialog.deleteLater()
+
+    def edit_programs(self):
+        from .program_simulation_dialog import ProgramSimulationDialog
+        workspace=self.draft.electrical or ElectricalWorkspace()
+        row=self.selected_row()
+        selected=row.component_id if row and row.kind=='mcu' else ''
+        dialog=ProgramSimulationDialog(workspace,self,'en' if english() else 'ko',selected)
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted:
+                raw=self.draft.model_dump(mode='json')
+                circuit=workspace.model_dump(mode='json')
+                circuit['programs']=[p.model_dump(mode='json') for p in dialog.attachments]
+                raw['electrical']=circuit
+                self.adopt_design(Design.model_validate(raw))
+        finally:dialog.deleteLater()
+
+    def edit_safety(self):
+        from .electrical_safety_dialog import ElectricalSafetyDialog
+        workspace=self.draft.electrical or ElectricalWorkspace()
+        row=self.selected_row()
+        dialog=ElectricalSafetyDialog(self,workspace,row.component_id if row else '')
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted and dialog.workspace is not None:
+                raw=self.draft.model_dump(mode='json');raw['electrical']=dialog.workspace.model_dump(mode='json')
+                self.adopt_design(Design.model_validate(raw))
+        finally:dialog.deleteLater()
 
     def focus_selected(self):
         row = self.selected_row()

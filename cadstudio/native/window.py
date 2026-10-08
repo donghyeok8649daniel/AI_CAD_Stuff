@@ -103,6 +103,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
         engineering.addAction(self.action('circuit_workspace','메인 회로도 작업 공간',self.show_circuit_workspace,None,'assembly'))
         engineering.addAction(self.action('wiring_diagram','회로도',self.open_wiring_diagram,None,'assembly'))
         engineering.addAction(self.action('drive_simulation','모터 / 엔코더 · 폐루프 시뮬레이션…',self.open_drive_simulation,None,'assembly'))
+        engineering.addAction(self.action('program_simulation','코드 업로드 · 배선 자동 시뮬레이션…',self.open_program_simulation,None,'assembly'))
+        engineering.addAction(self.action('electrical_safety','쇼트 / 정격 / 발열 점검…',self.open_electrical_safety,None,'assembly'))
         engineering.addAction(self.action('electrical_register','CAD 부품 · 전장 등록 / 모식도…',self.electrical_part_dialog,None,'assembly'))
         engineering.addAction(self.action('mcu_pins','MCU 선택 / 핀 연결…',self.mcu_pin_dialog,None,'assembly'))
         engineering.addAction(self.action('power_path','전원 연결 설계…',self.power_path_dialog,None,'assembly'))
@@ -151,7 +153,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.toolbar.addAction(self.actions['wiring_diagram'])
         self.electrical_tools=QToolButton();self.electrical_tools.setObjectName('electricalWorkspaceTools');self.electrical_tools.setDefaultAction(self.actions['electrical_workbench']);self.electrical_tools.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.electrical_tools.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         electrical_menu=QMenu(self.electrical_tools)
-        for key in ('wiring_diagram','circuit_workspace','electrical_register','electrical','mcu_pins','power_path','force_acquisition','drive_simulation'):electrical_menu.addAction(self.actions[key])
+        for key in ('wiring_diagram','circuit_workspace','electrical_register','electrical','mcu_pins','power_path','force_acquisition','program_simulation','electrical_safety','drive_simulation'):electrical_menu.addAction(self.actions[key])
         self.electrical_tools.setMenu(electrical_menu);self.toolbar.addWidget(self.electrical_tools);self.toolbar.addSeparator()
         self.plane=combo([('XY','XY 평면'),('XZ','XZ 평면'),('YZ','YZ 평면'),('custom','사용자 작업 평면…')]);self.mode_tools['model'].append(self.toolbar.addWidget(self.plane));self.mode_tools['model'].append(self.toolbar.addAction(icon('sketch'),'스케치 작성',lambda:self.start_sketch(self.plane.currentData())))
         for key in ('extrude','face_sketch','edit_sketch'):self.add_mode_tool('model',key)
@@ -567,6 +569,36 @@ class MainWindow(QMainWindow,PartSelectionUI):
         dialog=DriveSimulationDialog(self,raw)
         dialog.exec()
         dialog.deleteLater()
+
+    def open_program_simulation(self):
+        if self.busy or self.sketching:return
+        from ..electrical import ElectricalWorkspace
+        from .program_simulation_dialog import ProgramSimulationDialog
+        raw=deepcopy(self.document.design) if self.document.design else Design().model_dump(mode='json')
+        workspace=ElectricalWorkspace.model_validate(raw.get('electrical') or {})
+        selected=next((c.id for c in workspace.components if c.part_id==self.selected and c.kind=='mcu'),'')
+        dialog=ProgramSimulationDialog(workspace,self,self.language_service.language,selected)
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted:
+                updated=workspace.model_dump(mode='json')
+                updated['programs']=[p.model_dump(mode='json') for p in dialog.attachments]
+                raw['electrical']=updated
+                self.commit_electrical_editor(raw,'코드 첨부 / 배선 시뮬레이션',{'tool':'electrical-program','programs':[p.name for p in dialog.attachments]})
+        finally:dialog.deleteLater()
+
+    def open_electrical_safety(self):
+        if self.busy or self.sketching:return
+        from ..electrical import ElectricalWorkspace
+        from .electrical_safety_dialog import ElectricalSafetyDialog
+        raw=deepcopy(self.document.design) if self.document.design else Design().model_dump(mode='json')
+        workspace=ElectricalWorkspace.model_validate(raw.get('electrical') or {})
+        selected=next((c.id for c in workspace.components if c.part_id==self.selected),'')
+        dialog=ElectricalSafetyDialog(self,workspace,selected)
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted and dialog.workspace is not None:
+                raw['electrical']=dialog.workspace.model_dump(mode='json')
+                self.commit_electrical_editor(raw,'전장 정격 / 발열 조건',{'tool':'electrical-safety'})
+        finally:dialog.deleteLater()
 
     def make_wiring_panel(self,raw):
         from .electrical_schematic import ElectricalSchematicDialog

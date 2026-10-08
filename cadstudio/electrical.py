@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 from .measurement_specs import MeasurementSpec, ForceChainSpec
+from .program_attachment import ProgramAttachment
 
 
 class ElectricalModel(BaseModel):
@@ -29,6 +30,36 @@ Kind = Literal["battery", "wire", "switch", "resistor", "capacitor", "inductor",
 class ElectricalWireEndpoint(ElectricalModel):
     component_id: str = Field(min_length=1,max_length=40,pattern=r"^[A-Za-z0-9_-]+$")
     terminal: str = Field(min_length=1,max_length=48,pattern=r"^(a|b|(pin|port|supply):[A-Za-z0-9_-]+)$")
+
+
+class ElectricalSafetySpec(ElectricalModel):
+    """Declared operating limits; absent values are never inferred as safe.
+
+    A thermal resistance must describe this assembled cooling environment.
+    Datasheet package metrics on a different test PCB are not substitutes.
+    A fuse rating is not a trip curve, so it does not automatically open a net.
+    """
+
+    max_voltage_v: float | None = Field(default=None, gt=0, le=1000)
+    rated_power_w: float | None = Field(default=None, gt=0, le=1e7)
+    fuse_current_a: float | None = Field(default=None, gt=0, le=10000)
+    max_temperature_c: float | None = Field(default=None, ge=-273.15, le=2000)
+    thermal_resistance_k_per_w: float | None = Field(default=None, gt=0, le=1e6)
+    ambient_temperature_c: float | None = Field(default=None, ge=-273.15, le=2000)
+    duty_cycle: float | None = Field(default=None, ge=0, le=1)
+    # Only necessary for device models whose absorbed electrical power is not
+    # wholly heat (for example a motor's mechanical output is not heat).
+    heat_loss_fraction: float | None = Field(default=None, ge=0, le=1)
+    source_url: str = Field(default="", max_length=500)
+
+    @model_validator(mode="after")
+    def documented_source(self):
+        if self.source_url:
+            parsed = urlsplit(self.source_url)
+            if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
+                    or any(c.isspace() or ord(c) < 32 for c in self.source_url)):
+                raise ValueError("정격·열 조건 출처는 안전한 HTTPS 주소로 지정하세요.")
+        return self
 
 
 class ElectricalComponent(ElectricalModel):
@@ -76,6 +107,7 @@ class ElectricalComponent(ElectricalModel):
     pinout_catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
     product_pinout_catalog_id: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:/-]*$")
     measurement: MeasurementSpec | None = None
+    safety: ElectricalSafetySpec | None = None
 
     @model_serializer(mode="wrap")
     def compatible_registration_fields(self, handler):
@@ -92,7 +124,7 @@ class ElectricalComponent(ElectricalModel):
                                ("capacitor_polarized", False)):
             if field not in self.model_fields_set and getattr(self, field) == default:
                 data.pop(field, None)
-        for field,default in (("wire_color",None),("wire_endpoints",[]),("measurement",None)):
+        for field,default in (("wire_color",None),("wire_endpoints",[]),("measurement",None),("safety",None)):
             if field not in self.model_fields_set and getattr(self,field)==default:data.pop(field,None)
         return data
 
@@ -100,6 +132,11 @@ class ElectricalComponent(ElectricalModel):
     def required_values(self):
         if self.a == self.b:
             raise ValueError("전장 부품 양 끝은 서로 다른 노드에 연결해야 합니다.")
+        if self.safety is not None:
+            if self.safety.fuse_current_a is not None and self.kind != "switch":
+                raise ValueError("퓨즈 정격은 개방·닫힘 접점 모델에만 지정하세요. 정격만으로 용단 시간을 추정하지 않습니다.")
+            if self.safety.heat_loss_fraction is not None and self.kind not in ("motor", "actuator", "mcu", "load"):
+                raise ValueError("부하의 열 손실 비율은 모터·액추에이터·MCU·일반 부하에만 지정하세요.")
         if self.measurement is not None and self.kind not in ('load','mcu'):
             raise ValueError('Measurement references attach to sensor/ADC loads or MCU boards, not power or motor branches.')
         if (self.wire_color or self.wire_endpoints) and self.kind!='wire':
@@ -191,6 +228,9 @@ class ElectricalWorkspace(ElectricalModel):
     components: list[ElectricalComponent] = Field(default_factory=list, max_length=256)
     schematic_positions: dict[Identifier, ElectricalSchematicPosition] = Field(default_factory=dict, max_length=256)
     force_chain: ForceChainSpec | None = None
+    # Source attachments are declarative simulation inputs, never executable
+    # plugins. Older history snapshots retain their exact absent-field form.
+    programs: list['ProgramAttachment'] = Field(default_factory=list, max_length=32)
 
     @model_serializer(mode="wrap")
     def compatible_schematic_positions(self, handler):
@@ -201,6 +241,7 @@ class ElectricalWorkspace(ElectricalModel):
         if "schematic_positions" not in self.model_fields_set and not self.schematic_positions:
             data.pop("schematic_positions", None)
         if 'force_chain' not in self.model_fields_set and self.force_chain is None:data.pop('force_chain',None)
+        if 'programs' not in self.model_fields_set and not self.programs:data.pop('programs',None)
         return data
 
     @model_validator(mode="after")
@@ -212,6 +253,11 @@ class ElectricalWorkspace(ElectricalModel):
         if len({component.id for component in self.components}) != len(self.components):
             raise ValueError("전장 부품 ID는 중복될 수 없습니다.")
         component_ids = {component.id for component in self.components}
+        boards = {component.id for component in self.components if component.kind == 'mcu'}
+        if any(program.board_component_id and program.board_component_id not in boards for program in self.programs):
+            raise ValueError('프로그램은 등록된 MCU / MPU 회로 부품에 연결해야 합니다.')
+        if len({(program.sha256, program.board_component_id) for program in self.programs}) != len(self.programs):
+            raise ValueError('동일한 보드에 같은 프로그램을 중복 첨부할 수 없습니다.')
         if any(identifier not in component_ids for identifier in self.schematic_positions):
             raise ValueError("회로도 배치는 등록된 전장 부품 ID에만 지정할 수 있습니다.")
         allowed = set(self.nodes)

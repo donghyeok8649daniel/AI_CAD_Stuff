@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from threading import RLock
 
@@ -14,6 +16,27 @@ from .constraints import anchors, solve_sketch, solve_assembly
 from .sketch_engine import extrude_regions, sketch_status, projected_face
 
 KERNEL_LOCK = RLock()
+_local_shape_session = ContextVar('local_shape_session', default=None)
+
+
+@contextmanager
+def local_shape_session():
+    """Reuse up to 256 local BReps for one operation, releasing them on exit.
+
+    Joint surveys can visit hundreds of poses in assemblies larger than the
+    persistent 32-shape cache. Keep their unchanged geometry only for this
+    operation. Relative boolean tools remain part of the key at every pose.
+    """
+    if _local_shape_session.get() is not None:
+        yield
+        return
+    cache = {}
+    token = _local_shape_session.set(cache)
+    try:
+        yield
+    finally:
+        cache.clear()
+        _local_shape_session.reset(token)
 
 
 def exact_bounds(shape):
@@ -223,8 +246,17 @@ def local_shape(design,part,_stack=()):
     # still include their relative placement in `tools`, so moving one against
     # the other invalidates the local result as it should.
     local_part=part.model_copy(update={'transform':type(part.transform)(),
+                                      'id':'geometry','source_part_id':'','fixed':False,
+                                      'material':None,'product':None,
                                       'name':'Geometry','color':'#AEB6BF','role':'unspecified'})
-    return _part_cached(local_part.model_dump_json(),asset,tuple(tools))
+    key = (local_part.model_dump_json(), asset, tuple(tools))
+    cache = _local_shape_session.get()
+    if cache is not None and key in cache:
+        return cache[key]
+    shape = _part_cached(*key)
+    if cache is not None and len(cache) < 256:
+        cache[key] = shape
+    return shape
 
 
 @lru_cache(maxsize=8)
