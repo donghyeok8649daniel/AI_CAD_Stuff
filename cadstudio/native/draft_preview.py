@@ -17,19 +17,19 @@ class DraftPreviewDialog(QDialog):
         word=self.word
         self.setWindowTitle(word('AI 설계 · 적용 전 비교','AI design · Review before apply'));self.resize(1080,760);self.setMinimumSize(800,560)
         self.before=before;self.after=after;self.validation=validation or {};self.blocked=self.validation.get('status')=='needs_repair';layout=QVBoxLayout(self)
-        layout.addWidget(label(word('간섭이 남은 초안입니다. 원본은 그대로이며, 수정 후 검증을 통과하면 적용할 수 있습니다.','This draft has interference. The original is unchanged; repair and validate before applying.') if self.blocked else word('아직 원본에 적용하지 않았습니다. 변경 전·후 형상과 작업 내용을 확인하세요.','The original is unchanged. Review the before/after geometry and operations.'),True))
+        layout.addWidget(label(word('검증 수정이 필요한 초안입니다. 원본은 그대로이며, 수정 후 검증을 통과하면 적용할 수 있습니다.','This draft requires validation repairs. The original is unchanged; repair and validate before applying.') if self.blocked else word('아직 원본에 적용하지 않았습니다. 변경 전·후 형상과 작업 내용을 확인하세요.','The original is unchanged. Review the before/after geometry and operations.'),True))
         self.mode=choice([('after',word('변경 후 · AI 초안','After · AI draft')),('before',word('변경 전 · 현재 설계','Before · current design'))]);layout.addWidget(self.mode)
         self.tabs=QTabWidget();self.tabs.setObjectName('aiDraftReviewTabs');layout.addWidget(self.tabs,1)
         geometry=QWidget();geometry_layout=QVBoxLayout(geometry);geometry_layout.setContentsMargins(0,0,0,0)
         self.viewport=CADViewport();geometry_layout.addWidget(self.viewport,1)
         self.issues=choice([('all','전체 초안 보기')]+[(i,f"{c['a']} ↔ {c['b']} · {c['volume']:.4g} mm³") for i,c in enumerate(self.validation.get('collisions',[]))]);self.issues.setVisible(self.blocked);geometry_layout.addWidget(self.issues)
         self.tabs.addTab(geometry,word('CAD 형상','CAD geometry'))
-        self.before_design=before_design;self.after_design=after_design;self.electrical_panel=None
+        self.before_design=before_design;self.after_design=after_design;self.electrical_panel=None;self.electrical_tab=None;self.bom_tab=None
         from ..electrical_diff import electrical_changes
         self.electrical_changes=(electrical_changes(before_design,after_design)
                                 if after_design is not None else ())
         if self.electrical_changes:
-            electrical=QWidget();self.electrical_layout=QVBoxLayout(electrical);self.electrical_layout.setContentsMargins(0,0,0,0)
+            electrical=QWidget();self.electrical_tab=electrical;self.electrical_layout=QVBoxLayout(electrical);self.electrical_layout.setContentsMargins(0,0,0,0)
             self.electrical_layout.addWidget(label(word('배선 미리보기입니다. 아래 변경표와 회로를 확인한 뒤 적용하세요. 원본은 아직 변경되지 않았습니다.','Wiring preview. Review the changes and circuit before applying. The original is unchanged.'),True))
             self.change_table=QTableWidget(len(self.electrical_changes),4)
             self.change_table.setObjectName('aiElectricalChangeTable')
@@ -59,9 +59,23 @@ class DraftPreviewDialog(QDialog):
             self.electrical_layout.addWidget(self.change_table)
             self.tabs.addTab(electrical,word('배선 / CAD 부품 대응','Wiring / CAD links'))
             self.tabs.setCurrentIndex(1)
+        bom=self.validation.get('bom')
+        if bom:
+            self.bom_tab=QWidget();bom_layout=QVBoxLayout(self.bom_tab)
+            bom_layout.addWidget(label(word('원본 BOM과 실제 CAD 부품의 수량·명시 사양 대조입니다. 제조사 형상·조립·강도 인증은 별도입니다.','Actual CAD bodies compared with original BOM quantities and explicit specifications. Manufacturer geometry, fit and strength validation remain separate.'),True))
+            rows=bom['items'];self.bom_table=QTableWidget(len(rows),5);self.bom_table.setObjectName('aiBomReconciliationTable')
+            self.bom_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.bom_table.setHorizontalHeaderLabels([word('BOM 부품','BOM item'),word('BOM 수량','BOM qty'),word('CAD 수량','CAD qty'),word('대조 결과','Comparison'),word('연결 부품 / 확인 항목','Linked bodies / details')])
+            for row_index,row in enumerate(rows):
+                values=[row['name'],str(row['expected_quantity'] if row['expected_quantity'] is not None else '?'),str(row['actual_quantity']),row['message'],', '.join(row['part_ids'])+' · '+'; '.join(row['issues'])]
+                for column,value in enumerate(values):
+                    item=QTableWidgetItem(value);item.setToolTip(escape(value));self.bom_table.setItem(row_index,column,item)
+            self.bom_table.horizontalHeader().setStretchLastSection(True);self.bom_table.setColumnWidth(0,180);self.bom_table.setColumnWidth(3,160)
+            bom_layout.addWidget(self.bom_table);bom_layout.addWidget(label(bom['summary'],True,user_text=True))
+            self.tabs.addTab(self.bom_tab,word('BOM 대조','BOM comparison'))
         self.details=QTextEdit();self.details.setReadOnly(True);self.details.setPlainText(summary);self.details.setMaximumHeight(80 if self.electrical_changes else 140);layout.addWidget(self.details)
         self.repair_note=QLineEdit();self.repair_note.setMaxLength(1000);self.repair_note.setPlaceholderText('추가 수정 지시 (선택) · 예: 시편 치수는 유지하고 클램프 홈을 넓혀줘');self.repair_note.setVisible(self.blocked and repairable);layout.addWidget(self.repair_note)
-        row=QHBoxLayout();row.addWidget(button(word('돌아가기','Back'),self.reject));row.addStretch();self.repair_button=button(word('AI로 간섭 수정 계속','Continue AI interference repair'),lambda:self.done(2),True);self.repair_button.setVisible(self.blocked and repairable);row.addWidget(self.repair_button);self.apply_button=button(word('검증 통과 후 적용 가능','Validation required before apply') if self.blocked else word('확인 · 설계에 적용','Confirm · Apply to design'),self.accept,not self.blocked);self.apply_button.setEnabled(not self.blocked);row.addWidget(self.apply_button);layout.addLayout(row)
+        row=QHBoxLayout();row.addWidget(button(word('돌아가기','Back'),self.reject));row.addStretch();self.repair_button=button(word('AI로 검증 수정 계속','Continue AI validation repair'),lambda:self.done(2),True);self.repair_button.setVisible(self.blocked and repairable);row.addWidget(self.repair_button);self.apply_button=button(word('검증 통과 후 적용 가능','Validation required before apply') if self.blocked else word('확인 · 설계에 적용','Confirm · Apply to design'),self.accept,not self.blocked);self.apply_button.setEnabled(not self.blocked);row.addWidget(self.apply_button);layout.addLayout(row)
         self.issues.currentIndexChanged.connect(self.show_issue)
         self.mode.currentIndexChanged.connect(self.show_state);self.tabs.currentChanged.connect(self.show_state);self.show_state()
     @staticmethod
@@ -71,7 +85,8 @@ class DraftPreviewDialog(QDialog):
         return json.dumps(value,ensure_ascii=False,separators=(',',':'))
     def word(self,ko,en):return en if self.english else ko
     def show_state(self):
-        if self.tabs.currentIndex()==1:
+        if self.bom_tab is not None and self.tabs.currentWidget() is self.bom_tab:return
+        if self.electrical_tab is not None and self.tabs.currentWidget() is self.electrical_tab:
             from ..electrical_diff import electrical_snapshot
             from .electrical_schematic import ElectricalSchematicDialog
             design=self.after_design if self.mode.currentData()=='after' else self.before_design

@@ -83,6 +83,7 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         **transform['properties']),('kind','parent','child'))
     tool('motion_link',dict(driver=text,driven=text,ratio=number,offset=number,driver_axis=enum('x','y','z','rx','ry','rz'),driven_axis=enum('x','y','z','rx','ry','rz')),('driver','driven','ratio'))
     tool('parameter',dict(value=text),('value',))
+    tool('bom_bind',dict(item_id=text),('item_id',))
     tool('power_path',dict(
         name=text,source_voltage_v=number,source_internal_resistance_ohm=number,
         source_max_current_a=number,source_enabled=boolean,source_part_id=text,
@@ -173,6 +174,17 @@ def plan_schema(allowed_tools=None,allowed_shapes=None,*,single_part=False,conne
         action_bounds={key:value for key,value in schema['properties']['actions'].items()
                        if key in ('minItems','maxItems')}
         schema=compact(schema)
+        # The unrestricted ASCII target contract repeats across every tool.
+        # Share its exact type/pattern rather than weakening the grammar to
+        # recover context space when a new tool is added. Scoped target enums
+        # remain inline so their explicit create/edit IDs stay easy to inspect.
+        target_contract=dict(type='string',pattern='^[a-zA-Z0-9_-]+$')
+        target_actions=list(schema['properties']['actions']['items'].get('anyOf',[]))
+        if 'base' in schema['properties']:target_actions.append(schema['properties']['base'])
+        shared=[action for action in target_actions if action['properties'].get('target')==target_contract]
+        if len(shared)>1:
+            schema['$defs']['Target']=target_contract
+            for action in shared:action['properties']['target']=ref('Target')
         # Keep the overall operation budget explicit for provider planning.
         schema['properties']['actions'].update(action_bounds)
     return schema

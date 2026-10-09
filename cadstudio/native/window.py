@@ -11,7 +11,7 @@ from uuid import uuid4
 from PySide6.QtCore import Qt,QTimer,QThreadPool,QSize,Slot,QSignalBlocker
 from PySide6.QtGui import QAction,QActionGroup,QKeySequence,QColor,QIcon
 from PySide6.QtWidgets import (QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QDockWidget,QTreeWidget,QTreeWidgetItem,QTreeWidgetItemIterator,QListWidget,QListWidgetItem,QAbstractItemView,QStackedWidget,QScrollArea,QToolBar,QToolButton,QMenu,QLineEdit,QComboBox,QCheckBox,QPlainTextEdit,QFileDialog,QMessageBox,QDialog,QDialogButtonBox,QColorDialog,QProgressBar,QLabel,QSplitter,QInputDialog,QLayout)
-from .document import Document,read_project
+from .document import Document,read_project,resolve_project_path
 from .widgets import icon,number,label,button,clear_layout,Worker
 from .viewport import CADViewport
 from .sketch import SketchEditor,combo
@@ -34,7 +34,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def __init__(self,restore=False):
         super().__init__();self.setObjectName('nativeCADMainWindow');self.resize(1500,920);self.setMinimumSize(820,560)
         self.selected_joint=None;self.selected_feature=None
-        self.document=Document();self.result=None;self.selected=None;self.selected_parts=[];self.selected_sketch=None;self.selected_profile=None;self.busy=False;self.worker=None;self.sketching=False;self.joint_picks=None;self.last_draft=None;self.ai_task=None;self.ai_stage='';self.ai_started=0;self.data_dir=DATA_DIR;self.data_dir.mkdir(parents=True,exist_ok=True);self.autosave=self.data_dir/'native-autosave.cad.json';self.operation_serial=0
+        self.document=Document();self.result=None;self.selected=None;self.selected_parts=[];self.selected_sketch=None;self.selected_profile=None;self.busy=False;self.worker=None;self.sketching=False;self.joint_picks=None;self.last_draft=None;self.ai_task=None;self.ai_stage='';self.ai_started=0;self.data_dir=DATA_DIR;self.data_dir.mkdir(parents=True,exist_ok=True);self.autosave=self.data_dir/'native-autosave.pcad';self.operation_serial=0
         from .i18n import install_language
         self.language_service=install_language(self.data_dir/'ui-settings.json')
         from .notifications import CompletionNotifier
@@ -51,7 +51,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
         from .shortcuts import ShortcutRouter
         self.shortcut_router=ShortcutRouter(self)
         self.provider.setCurrentIndex(self.provider.findData('codex' if self.codex_config['model'] else 'ollama'));self.ai_dock.show();self.ai_dock.raise_()
-        if restore and self.autosave.exists():QTimer.singleShot(120,lambda:self.open_project(self.autosave,recovery=True))
+        recovery_path=self.recovery_autosave_path() if restore else None
+        if recovery_path:QTimer.singleShot(120,lambda:self.open_project(recovery_path,recovery=True))
     def action(self,key,title,fn,shortcut=None,ico=None):
         a=QAction(icon(ico),title,self) if ico else QAction(title,self);a.triggered.connect(fn)
         if shortcut:a.setShortcut(QKeySequence(shortcut))
@@ -67,13 +68,17 @@ class MainWindow(QMainWindow,PartSelectionUI):
         file=self.menuBar().addMenu('파일(&F)');file.addAction(self.action('new','새 설계',self.new_document,'Ctrl+N','file'));file.addAction(self.action('open','열기…',lambda:self.open_project(),'Ctrl+O','open'));file.addAction(self.action('save','저장',self.save,'Ctrl+S','save'));file.addAction(self.action('save_as','다른 이름으로 저장…',lambda:self.save(True),'Ctrl+Shift+S'));file.addSeparator()
         file.addAction(self.action('recover','최근 자동저장 복구…',self.recover_autosave,None,'history'))
         file.addAction(self.action('references','연구 저장소 · AI 참고자료…',self.reference_dialog))
+        file.addAction(self.action('bom','BOM 보고 설계…',self.bom_dialog,None,'open'))
+        file.addAction(self.action('bom_bind','선택 CAD 부품을 BOM 행에 연결…',self.bind_selected_bom))
+        file.addAction(self.action('cad_files','CAD 파일 열기 연결…',self.cad_file_settings))
         export_menu=file.addMenu('내보내기')
         export_menu.addAction(self.action('research_package','피로시험 조건 / 데이터 양식…',self.research_package_dialog))
         file.addAction(self.action('import_model','CAD 부품 가져오기 · STEP / IGES / STL…',self.import_model,'Ctrl+Shift+I','open'))
         for fmt,title in [('step','STEP · CAD 교환'),('stl','STL · 메시'),('f3d','F3D · Fusion 변환'),('ipt','IPT · Inventor 부품 변환'),('zip','Fusion / Inventor 변환 패키지')]:export_menu.addAction(title,lambda f=fmt:self.export_file(f))
         examples=file.addMenu('예제 열기')
         for name,path in [('면 스케치 · 구속 · 전체 기록','analytic_history.cad.json'),('스케치 피처 기록','feature_history.cad.json')]:
-            if (ROOT/'examples'/path).exists():examples.addAction(name,lambda p=path:self.open_project(ROOT/'examples'/p))
+            example=resolve_project_path(ROOT/'examples'/path)
+            if example.exists():examples.addAction(name,lambda p=example:self.open_project(p))
         examples.addAction('2링크 조립',lambda:self.add_preset('robot_arm'));file.addSeparator();file.addAction('종료',self.close)
         edit=self.menuBar().addMenu('편집(&E)');edit.addAction(self.action('undo','실행 취소',self.undo,'Ctrl+Z','undo'));edit.addAction(self.action('redo','다시 실행',self.redo,'Ctrl+Y','redo'));edit.addAction(self.action('delete','선택 부품 삭제',self.delete_part,None,'delete'))
         model=self.menuBar().addMenu('모델링(&M)');model.addAction(self.action('sketch','새 스케치 · XY',lambda:self.start_sketch('XY'),None,'sketch'));model.addAction(self.action('face_sketch','면 스케치',self.start_face_sketch,None,'sketch'));model.addAction(self.action('edit_sketch','스케치 편집 · Shift+E',self.edit_sketch,None,'sketch'));model.addSeparator()
@@ -104,6 +109,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         engineering.addAction(self.action('wiring_diagram','회로도',self.open_wiring_diagram,None,'assembly'))
         engineering.addAction(self.action('drive_simulation','모터 / 엔코더 · 폐루프 시뮬레이션…',self.open_drive_simulation,None,'assembly'))
         engineering.addAction(self.action('program_simulation','코드 업로드 · 배선 자동 시뮬레이션…',self.open_program_simulation,None,'assembly'))
+        engineering.addAction(self.action('firmware','Codex 펌웨어 생성 / 검토…',self.open_firmware,None,'ai'))
         engineering.addAction(self.action('electrical_safety','쇼트 / 정격 / 발열 점검…',self.open_electrical_safety,None,'assembly'))
         engineering.addAction(self.action('electrical_register','CAD 부품 · 전장 등록 / 모식도…',self.electrical_part_dialog,None,'assembly'))
         engineering.addAction(self.action('mcu_pins','MCU 선택 / 핀 연결…',self.mcu_pin_dialog,None,'assembly'))
@@ -153,7 +159,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.toolbar.addAction(self.actions['wiring_diagram'])
         self.electrical_tools=QToolButton();self.electrical_tools.setObjectName('electricalWorkspaceTools');self.electrical_tools.setDefaultAction(self.actions['electrical_workbench']);self.electrical_tools.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon);self.electrical_tools.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         electrical_menu=QMenu(self.electrical_tools)
-        for key in ('wiring_diagram','circuit_workspace','electrical_register','electrical','mcu_pins','power_path','force_acquisition','program_simulation','electrical_safety','drive_simulation'):electrical_menu.addAction(self.actions[key])
+        for key in ('wiring_diagram','circuit_workspace','electrical_register','electrical','mcu_pins','power_path','force_acquisition','firmware','program_simulation','electrical_safety','drive_simulation'):electrical_menu.addAction(self.actions[key])
         self.electrical_tools.setMenu(electrical_menu);self.toolbar.addWidget(self.electrical_tools);self.toolbar.addSeparator()
         self.plane=combo([('XY','XY 평면'),('XZ','XZ 평면'),('YZ','YZ 평면'),('custom','사용자 작업 평면…')]);self.mode_tools['model'].append(self.toolbar.addWidget(self.plane));self.mode_tools['model'].append(self.toolbar.addAction(icon('sketch'),'스케치 작성',lambda:self.start_sketch(self.plane.currentData())))
         for key in ('extrude','face_sketch','edit_sketch'):self.add_mode_tool('model',key)
@@ -467,7 +473,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if self.busy or self.sketching:return
         if isinstance(part_id,bool):part_id=None
         from .electrical_workbench import ElectricalWorkbenchDialog
-        try:dialog=ElectricalWorkbenchDialog(self,self.document.design or Design(),part_id or self.selected)
+        try:dialog=ElectricalWorkbenchDialog(self,self.document.design or Design(),part_id or self.selected,codex_config=self.firmware_settings())
         except (ValueError,TypeError) as exc:self.show_error(str(exc));return
         def focus_part(identifier):
             # A workbench already displays its circuit; focusing CAD must not
@@ -569,6 +575,97 @@ class MainWindow(QMainWindow,PartSelectionUI):
         dialog=DriveSimulationDialog(self,raw)
         dialog.exec()
         dialog.deleteLater()
+
+    def cad_file_settings(self):
+        from ..file_associations import register,unregister,is_registered,open_default_apps,registration_message
+        if not getattr(sys,'frozen',False):
+            self.show_error('CAD 파일 연결은 설치된 Windows EXE에서 설정하세요.');return
+        executable=Path(sys.executable)
+        try:connected=is_registered(executable)
+        except (OSError,ValueError):connected=False
+        box=QMessageBox(self);box.setWindowTitle('CAD 파일 열기 연결')
+        box.setText(('✓ CAD 파일 연결 등록됨\n\n' if connected else '')+registration_message())
+        enable=box.addButton('CAD 파일 연결 등록',QMessageBox.ButtonRole.AcceptRole)
+        settings=box.addButton('Windows 기본 앱 설정…',QMessageBox.ButtonRole.ActionRole)
+        remove=box.addButton('이 앱의 연결 등록 해제',QMessageBox.ButtonRole.DestructiveRole) if connected else None
+        box.addButton(QMessageBox.StandardButton.Close);box.exec()
+        try:
+            if box.clickedButton()==enable:register(executable);self.message('CAD 파일 연결을 등록했습니다.')
+            elif box.clickedButton()==settings:open_default_apps()
+            elif remove is not None and box.clickedButton()==remove:unregister(executable);self.message('이 앱의 CAD 파일 연결 등록을 해제했습니다.')
+        except (OSError,ValueError,RuntimeError) as exc:self.show_error(str(exc))
+
+    def bom_dialog(self):
+        if self.busy or self.sketching or self.ai_task:return
+        from .bom_design_dialog import BomDesignDialog
+        dialog=BomDesignDialog((self.document.design or {}).get('bom'),self,self.language_service.language)
+        try:
+            if dialog.exec()!=QDialog.DialogCode.Accepted or dialog.accepted_bom is None:return
+            raw=deepcopy(self.document.design) if self.document.design else Design().model_dump()
+            raw['bom']=dialog.accepted_bom.model_dump()
+            if raw==self.document.design:self.prepare_bom_request();return
+            self.apply_design(raw,'BOM 가져오기 / 검토',{'tool':'bom-import','source_sha256':dialog.accepted_bom.source_sha256},after=self.prepare_bom_request)
+        finally:dialog.deleteLater()
+
+    def refresh_bom_status(self):
+        if not hasattr(self,'bom_status'):return
+        raw=self.document.design or {};document=raw.get('bom')
+        if not document:self._bom_status_key=None;self.bom_status.setText('BOM 없음');self.bom_status.setToolTip('');return
+        try:
+            identity=json.dumps({'bom':document,'parts':[{key:part.get(key) for key in ('id','bom','geometry','features','profile_sketch_id','source_part_id','transform','role','product')} for part in raw.get('parts',[])]},ensure_ascii=False,sort_keys=True,separators=(',',':'))
+            if getattr(self,'_bom_status_key',None)==identity:return
+            from ..bom_design import reconcile_bom
+            report=reconcile_bom(raw)
+            self._bom_status_key=identity
+            self.bom_status.setText(document['source_name']+' · '+report.summary)
+            self.bom_status.setToolTip('\n'.join(row.name+' · '+row.message+' · '+'; '.join(row.issues) for row in report.items))
+        except (ValueError,RuntimeError) as exc:self.bom_status.setText('BOM 대조 확인 필요');self.bom_status.setToolTip(str(exc))
+
+    def prepare_bom_request(self):
+        if self.busy or self.ai_task:return
+        document=(self.document.design or {}).get('bom')
+        if not document:return
+        from ..bom_design import bom_prompt
+        self.ai_mode.setCurrentIndex(self.ai_mode.findData('design'))
+        self.prompt.setPlainText(bom_prompt(document));self.last_draft=None;self.ai_retained_draft=None;self.accept_draft.setEnabled(False)
+        self.ai_result.setPlainText('BOM 설계 요청이 준비되었습니다. 필요한 동작·조립 조건을 덧붙이고 초안 생성을 누르세요. BOM 대조는 제조사 형상·강도 인증이 아닙니다.')
+        self.refresh_bom_status();self.ai_dock.show();self.ai_dock.raise_();self.prompt.setFocus()
+
+    def bind_selected_bom(self):
+        if self.busy or self.sketching or self.ai_task:return
+        document=(self.document.design or {}).get('bom');selected=list(self.selected_parts)
+        if not document or not selected:self.show_error('BOM을 먼저 가져오고 연결할 CAD 부품을 선택하세요.');return
+        rows=document['items'];labels=[f"{row['name']} [{row['id']}] · 수량 {row.get('quantity') or '?'}" for row in rows]
+        choice,ok=QInputDialog.getItem(self,'BOM 부품 연결','선택한 각 CAD 부품은 한 개의 제품에 대응합니다.',labels,0,False)
+        if not ok:return
+        from ..bom_design import bind_bom_part
+        raw=self.document.design
+        try:
+            row=rows[labels.index(choice)]
+            for identifier in selected:raw=bind_bom_part(raw,document,row['id'],identifier)
+            self.apply_design(raw.model_dump(),'CAD / BOM 부품 연결',{'tool':'bom-bind','part_ids':selected,'item_id':row['id']})
+        except (ValueError,RuntimeError) as exc:self.show_error(str(exc))
+
+    def firmware_settings(self):
+        return {**self.codex_config,'effort':self.cloud_effort.currentData(),
+                'deadline':self.ai_timeout.currentData(),'catalog':deepcopy(self.codex_catalog),
+                'references':deepcopy(self.reference_materials)}
+
+    def open_firmware(self):
+        if self.busy or self.sketching:return
+        from ..electrical import ElectricalWorkspace
+        from .firmware_dialog import FirmwareDialog
+        raw=deepcopy(self.document.design) if self.document.design else Design().model_dump(mode='json')
+        workspace=ElectricalWorkspace.model_validate(raw.get('electrical') or {})
+        selected=next((c.id for c in workspace.components if c.part_id==self.selected),'')
+        dialog=FirmwareDialog(workspace,self,self.language_service.language,selected,
+                              codex_config=self.firmware_settings())
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
+                raw['electrical']=dialog.accepted_workspace.model_dump(mode='json')
+                self.commit_electrical_editor(raw,'펌웨어 생성 / 검토',
+                    {'tool':'electrical-firmware','bundles':[b.name for b in dialog.accepted_workspace.firmware_bundles]})
+        finally:dialog.deleteLater()
 
     def open_program_simulation(self):
         if self.busy or self.sketching:return
@@ -885,6 +982,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.prompt=QPlainTextEdit();self.prompt.setObjectName('designPrompt');self.prompt.setPlaceholderText('만들 형상과 치수, 바꿀 부분을 입력하세요.\n예: 선택한 구멍을 지름 6 mm로 줄여줘.');self.prompt.setMinimumHeight(84);self.prompt.setMaximumHeight(84);v.addWidget(self.prompt)
         self.reference_button=button('GitHub 연구자료 · 파일 첨부…',self.reference_dialog);v.addWidget(self.reference_button)
         self.reference_status=label('참고자료 없음',True);v.addWidget(self.reference_status)
+        self.bom_button=button('BOM 보고 설계…',self.bom_dialog);self.bom_button.setObjectName('bomDesignButton');v.addWidget(self.bom_button)
+        self.bom_status=label('BOM 없음',True);self.bom_status.setObjectName('bomDesignStatus');v.addWidget(self.bom_status)
         self.provider=combo([('local','오프라인 치수 명령 · 키 불필요'),('codex','Codex · ChatGPT 구독'),('openai','OpenAI · 유료 API'),('ollama','로컬 AI · Ollama')]);v.addWidget(self.provider)
         self.openai_setup_button=button('OpenAI 연결 · API 키 발급…',self.openai_setup);self.openai_setup_button.setToolTip('로그인·키 발급·결제 설정 안내를 엽니다.');v.addWidget(self.openai_setup_button)
         self.codex_setup_button=button('Codex 연결 · ChatGPT로 로그인…',self.codex_setup);v.addWidget(self.codex_setup_button)
@@ -1031,7 +1130,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if self.workspace.currentData()=='circuit' and not self.sketching:self.refresh_circuit_workspace()
         self.refresh_wiring_diagram()
     def about_dialog(self):
-        QMessageBox.about(self,APP_NAME,f'Prompt CAD Studio v{__version__}\nWindows native CAD · Qt / VTK / Open CASCADE\n\nUnits: mm\nProject + history: .cad.json\nDirect geometry export: STEP / STL\nF3D: requires Fusion · IPT: requires Inventor\nAutodesk conversion transfers geometry, not the feature timeline.')
+        QMessageBox.about(self,APP_NAME,f'Prompt CAD Studio v{__version__}\nWindows native CAD · Qt / VTK / Open CASCADE\n\nUnits: mm\nProject + history: .pcad (legacy .cad.json supported)\nDirect geometry export: STEP / STL\nF3D: requires Fusion · IPT: requires Inventor\nAutodesk conversion transfers geometry, not the feature timeline.')
     def change_language(self,code):
         try:self.language_service.set_language(code)
         except OSError:self.show_error('언어 설정을 저장하지 못했습니다.')
@@ -1096,6 +1195,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             except Exception as exc:self.message('자동 저장 실패: '+str(exc))
     def part(self):return next((p for p in (self.document.design or {}).get('parts',[]) if p['id']==self.selected),None)
     def rebuild_tree(self):
+        self.refresh_bom_status()
         self.tree.blockSignals(True);self.tree.clear();root=QTreeWidgetItem([self.document.design['name'] if self.document.design else '새 설계']);root.setIcon(0,icon('assembly'));self.tree.addTopLevelItem(root);origin=QTreeWidgetItem(root,['원점 / 기준 평면']);origin.setIcon(0,icon('origin'))
         for plane in ('XY','XZ','YZ'):
             i=QTreeWidgetItem(origin,[plane+' 평면']);i.setData(0,Qt.ItemDataRole.UserRole,('plane',plane))
@@ -1547,18 +1647,23 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.reset_role_view(restore=False)
         self.set_references([])
         self.document=Document();self.result=None;self.selected=None;self.selected_parts=[];self.selected_sketch=None;self.selected_profile=None;self.last_draft=None;self.viewport.load(None);self.viewport.joints.set_design(None);self.viewport.hidden.clear();self.isolation_hidden=None;self.actions['isolate'].setChecked(False);self.rebuild_tree();self.rebuild_timeline();self.show_properties();self.title()
+    def recovery_autosave_path(self):
+        if self.autosave.exists():return self.autosave
+        legacy=self.data_dir/'native-autosave.cad.json'
+        return legacy if legacy.exists() else None
     def recover_autosave(self):
         if self.busy or self.sketching:return
-        if not self.autosave.exists():self.message('복구할 자동저장 파일이 없습니다.');return
+        recovery_path=self.recovery_autosave_path()
+        if not recovery_path:self.message('복구할 자동저장 파일이 없습니다.');return
         if not self.check_save():return
-        self.open_project(self.autosave,recovery=True)
+        self.open_project(recovery_path,recovery=True)
     def open_project(self,path=None,recovery=False):
         if self.busy or self.sketching:return
         if not recovery and not self.check_save():return
-        if not path:path,_=QFileDialog.getOpenFileName(self,'CAD 프로젝트 열기',str(self.document.path.parent if self.document.path else ROOT/'examples'),'CAD 프로젝트 (*.cad.json *.json)')
+        if not path:path,_=QFileDialog.getOpenFileName(self,'CAD 프로젝트 열기',str(self.document.path.parent if self.document.path else ROOT/'examples'),'Prompt CAD 프로젝트 (*.pcad *.cad.json *.json);;Prompt CAD 프로젝트 (*.pcad);;기존 CAD JSON 프로젝트 (*.cad.json *.json)')
         if not path:return
         self.cancel_ai()
-        path=Path(path)
+        path=resolve_project_path(path)
         def work():
             with KERNEL_LOCK:project=read_project(path);r=preview(project.design);return project,r
         def done(result):
@@ -1570,9 +1675,12 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if self.busy or self.sketching or not self.document.design:return False
         path=self.document.path
         if save_as or not path:
-            chosen,_=QFileDialog.getSaveFileName(self,'CAD 프로젝트 저장',str(path or Path.home()/'Documents'/(self.document.design['name']+'.cad.json')),'CAD 프로젝트 (*.cad.json)')
+            default=path or Path.home()/'Documents'/(self.document.design['name']+'.pcad')
+            if path and save_as and not path.name.lower().endswith('.pcad'):
+                default=path.with_name(path.name[:-9]+'.pcad') if path.name.lower().endswith('.cad.json') else path.with_suffix('.pcad')
+            chosen,_=QFileDialog.getSaveFileName(self,'CAD 프로젝트 저장',str(default),'Prompt CAD 프로젝트 (*.pcad);;기존 CAD JSON 프로젝트 (*.cad.json)')
             if not chosen:return False
-            path=Path(chosen if chosen.lower().endswith('.cad.json') else chosen+'.cad.json')
+            path=Path(chosen if chosen.lower().endswith(('.pcad','.cad.json')) else chosen+'.pcad')
         try:self.document.write(path);self.title();self.message('설계와 전체 작업 기록 저장: '+str(path));return True
         except Exception as exc:self.show_error(str(exc));return False
     def export_file(self,fmt):
@@ -1623,10 +1731,15 @@ class MainWindow(QMainWindow,PartSelectionUI):
         prompt=repair_draft['prompt'] if repair_draft else self.prompt.toPlainText().strip()
         if not prompt:self.ai_result.setPlainText('설계 명령을 입력하세요. 예: 직경 20 mm, 높이 10 mm인 원통을 만들어줘.');self.prompt.setFocus();return
         if len(prompt)>4000:self.show_error('명령은 4,000자 이내로 입력하세요.');return
-        provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,selected_feature=getattr(self,'selected_feature',None),selected_joint=getattr(self,'selected_joint',None),mode=(self.document.design or {}).get('mode','specimen'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();effort=self.cloud_effort.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
+        provider=self.provider.currentData();key=self.key.text().strip() or os.getenv('OPENAI_API_KEY','');model=self.ollama_models.model_name() if provider=='ollama' else self.model.text().strip();request=DraftRequest(prompt=prompt,current=self.document.design,selected_part=self.selected,selected_feature=getattr(self,'selected_feature',None),selected_joint=getattr(self,'selected_joint',None),mode=(self.document.design or {}).get('mode','specimen'),bom=(self.document.design or {}).get('bom'));serial=self.operation_serial;deadline=self.ai_timeout.currentData();effort=self.cloud_effort.currentData();self.last_draft=None;self.accept_draft.setEnabled(False)
         if repair_draft:request=DraftRequest.model_validate(repair_draft['request'])
         else:request.references=deepcopy(self.reference_materials)
-        if request.references and provider=='local':self.show_error('참고자료를 읽으려면 Codex, Ollama 또는 OpenAI를 선택하세요.');return
+        if request.bom is not None and self.ai_mode.currentData()=='design':
+            from ..bom_design import preflight_bom_design,BomInputRequired
+            try:preflight_bom_design(request)
+            except BomInputRequired as exc:
+                self.ai_result.setPlainText('BOM 입력 확인 필요\n\n'+str(exc));self.message('BOM을 검토한 뒤 초안을 생성하세요. 현재 설계는 변경되지 않았습니다.');return
+        if (request.references or request.bom) and provider=='local':self.show_error('참고자료를 읽으려면 Codex, Ollama 또는 OpenAI를 선택하세요.');return
         repair=deepcopy(repair_draft['response'].get('repair')) if repair_draft else None
         self.ai_retained_draft=repair_draft
         self.ai_draft_context=dict(serial=serial,provider=provider,prompt=prompt,request=request.model_dump())
@@ -1657,13 +1770,14 @@ class MainWindow(QMainWindow,PartSelectionUI):
             with KERNEL_LOCK:
                 d=Design.model_validate(result['design']);r=preview(d)
                 from .draft_repair import review_candidate
-                result['validation']=review_candidate(d,request.current,r,control.check)
+                result['validation']=review_candidate(d,request.current,r,control.check,bom=request.bom)
             return dict(response=result,design=d.model_dump(),preview=r,serial=serial,provider=provider,prompt=prompt,request=request.model_dump())
         from .ai_task import AITask
         self.ai_task=AITask(work,self);self.ai_task.completed.connect(self.ai_complete,Qt.ConnectionType.QueuedConnection);self.ai_task.failed.connect(self.ai_failed,Qt.ConnectionType.QueuedConnection);self.ai_task.progress.connect(self.ai_progress,Qt.ConnectionType.QueuedConnection)
         self.ai_started=time.monotonic();self.ai_stage='모델 연결 / 준비 중…';self.ai_controls(True);self.ai_tick();self.ai_timer.start();self.ai_task.start()
     def ai_controls(self,running):
         self.reference_button.setEnabled(not running);self.actions['references'].setEnabled(not running)
+        self.bom_button.setEnabled(not running);self.actions['bom'].setEnabled(not running);self.actions['bom_bind'].setEnabled(not running)
         self.accept_draft.setVisible(not running and self.ai_mode.currentData()=='design')
         self.generate_button.setEnabled(not running and not self.busy and not self.sketching);self.cancel_ai_button.setVisible(running);self.ai_status_button.setVisible(running)
         for widget in (self.ai_mode,self.provider,self.prompt,self.ollama_models,self.model,self.key,self.ai_timeout,self.astra_button,self.cloud_effort,self.openai_setup_button,self.codex_setup_button):widget.setEnabled(not running)
@@ -1713,9 +1827,17 @@ class MainWindow(QMainWindow,PartSelectionUI):
         task,error=packet
         if task is not self.ai_task:return
         from ..power_paths import PowerInputRequired,REQUIRED_POWER_INPUTS
+        from ..bom_design import BomInputRequired
         text=str(error)
         self.retain_ai_checkpoint()
         self.finish_ai_task()
+        if isinstance(error,BomInputRequired):
+            notice='BOM 입력 확인 필요\n\n'+text[:2400]+'\n\nBOM 보고 설계…에서 입력과 부품 수량을 검토한 뒤 다시 생성하세요. 현재 설계는 변경되지 않았습니다.'
+            if self.language_service.language=='en':
+                notice='BOM inputs need review\n\n'+text[:2400]+'\n\nOpen Design from BOM… to review the inputs and part quantities, then generate again. The current design is unchanged.'
+            if not self.restore_repair_draft(notice):self.ai_result.setPlainText(notice)
+            self.message('BOM inputs need review · open Design from BOM…' if self.language_service.language=='en' else 'BOM 입력 확인 필요 · BOM 보고 설계…를 여세요.')
+            return
         if isinstance(error,PowerInputRequired):
             if self.provider.currentData()=='codex':
                 self.codex_connection_verified=True
@@ -1754,7 +1876,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if draft['serial']!=self.operation_serial:
             self.ai_result.setPlainText('초안 생성 중 현재 설계가 바뀌었습니다. 새 설계를 기준으로 다시 생성하세요.');return
         from .draft_summary import draft_summary
-        self.last_draft=draft;self.ai_result.setPlainText(draft_summary(response,r));self.accept_draft.setEnabled(not self.busy and not self.sketching);self.message('미리보기 준비 · 간섭 부위를 확인하고 AI로 수정을 계속하세요.' if response.get('validation',{}).get('status')=='needs_repair' else '설계 초안 생성 완료 · 내용을 확인하고 적용하세요.')
+        self.last_draft=draft;self.ai_result.setPlainText(draft_summary(response,r));self.accept_draft.setEnabled(not self.busy and not self.sketching);self.message('미리보기 준비 · 검증 항목을 확인하고 AI로 수정을 계속하세요.' if response.get('validation',{}).get('status')=='needs_repair' else '설계 초안 생성 완료 · 내용을 확인하고 적용하세요.')
         self.accept_draft.setText('미리보기 / 수정' if response.get('validation',{}).get('status')=='needs_repair' else '미리보기 / 적용')
         self.completion_notifier.notify(response.get('validation',{}).get('status')=='needs_repair')
         self.ai_scroll.ensureWidgetVisible(self.ai_result,0,8)
@@ -1764,16 +1886,18 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if draft['serial']!=self.operation_serial:self.show_error('초안 생성 이후 설계가 변경되었습니다. 다시 생성하세요.');return
         from .draft_preview import DraftPreviewDialog
         dialog=DraftPreviewDialog(self,self.result,draft['preview'],self.ai_result.toPlainText(),validation=draft['response'].get('validation'),repairable=bool(draft['response'].get('repair')),before_design=self.document.design,after_design=draft['design'])
-        outcome=dialog.exec()
-        if outcome==QDialog.DialogCode.Accepted:self.apply_draft()
-        elif outcome==2:
-            retry=deepcopy(draft)
-            if dialog.repair_note.text().strip():retry['response']['repair']['user_instruction']=dialog.repair_note.text().strip()
-            self.generate_draft(repair_draft=retry)
+        try:
+            outcome=dialog.exec()
+            if outcome==QDialog.DialogCode.Accepted:self.apply_draft()
+            elif outcome==2:
+                retry=deepcopy(draft)
+                if dialog.repair_note.text().strip():retry['response']['repair']['user_instruction']=dialog.repair_note.text().strip()
+                self.generate_draft(repair_draft=retry)
+        finally:dialog.deleteLater()
     def apply_draft(self):
         draft=self.last_draft
         if not draft or self.busy or self.sketching:return
-        if draft['response'].get('validation',{}).get('status')=='needs_repair':self.message('간섭이 남은 초안입니다. 미리보기에서 AI로 수정한 후 적용하세요.');return
+        if draft['response'].get('validation',{}).get('status')=='needs_repair':self.message('검증 수정이 필요한 초안입니다. 미리보기에서 AI로 수정한 후 적용하세요.');return
         if draft['serial']!=self.operation_serial:self.show_error('초안 생성 이후 설계가 변경되었습니다. 현재 설계로 초안을 다시 생성하세요.');return
         self.document.prompt=draft['prompt'];context=dict(source='openai' if draft['provider'] in ('openai','codex') else 'local',provider=draft['provider'],prompt=draft['prompt'],summary=draft['response']['summary'],assumptions=draft['response'].get('assumptions',[]),tool='prompt',tool_actions=draft['response'].get('tool_actions',[]),journal_base=draft['response'].get('journal_base'),journal_steps=draft['response'].get('journal_steps',[]));self.apply_design(draft['design'],'설계 명령 적용',context,fit=True);self.last_draft=None;self.accept_draft.setEnabled(False)
     def help_dialog(self):

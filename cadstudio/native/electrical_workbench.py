@@ -54,8 +54,9 @@ class ElectricalWorkbenchDialog(QDialog):
     """One native entrypoint for discovery, registration, wiring and inspection."""
     partActivated = Signal(str)
 
-    def __init__(self, parent, design, part_id=None):
+    def __init__(self, parent, design, part_id=None, *, codex_config=None):
         super().__init__(parent)
+        self.codex_config=dict(codex_config or {})
         self.setWindowTitle(word('전장 작업 · CAD 부품 / 실제 제품 / 핀 / 배선',
                                  'Electrical workspace · CAD / products / pins / wiring'))
         self.setObjectName('electricalWorkbench')
@@ -228,10 +229,12 @@ class ElectricalWorkbenchDialog(QDialog):
         layout.addLayout(circuit_actions)
         simulation_actions = QHBoxLayout()
         self.program_button = button(word('코드 업로드 · 배선 자동 시뮬레이션…', 'Upload code · automatic wiring simulation…'), self.edit_programs)
+        self.firmware_button = button(word('Codex 펌웨어 생성 / 검토…', 'Codex firmware · generate / review…'), self.edit_firmware)
+        self.firmware_button.setObjectName('electricalWorkbenchFirmware')
         self.program_button.setObjectName('electricalWorkbenchPrograms')
         self.safety_button = button(word('쇼트 / 정격 / 발열 점검…', 'Short / ratings / heat check…'), self.edit_safety)
         self.safety_button.setObjectName('electricalWorkbenchSafety')
-        simulation_actions.addWidget(self.program_button);simulation_actions.addWidget(self.safety_button);simulation_actions.addStretch(1)
+        simulation_actions.addWidget(self.firmware_button);simulation_actions.addWidget(self.program_button);simulation_actions.addWidget(self.safety_button);simulation_actions.addStretch(1)
         layout.addLayout(simulation_actions)
         self.tabs.addTab(page, word('현재 설계의 전장', 'Electronics in this design'))
         self.query.textChanged.connect(self.filter_rows)
@@ -543,6 +546,17 @@ class ElectricalWorkbenchDialog(QDialog):
                 if index >= 0: dialog.table.selectRow(index)
             if dialog.exec() == QDialog.DialogCode.Accepted: self.adopt_circuit_editor(dialog)
         finally: dialog.deleteLater()
+
+    def edit_firmware(self):
+        from .firmware_dialog import FirmwareDialog
+        workspace=self.draft.electrical or ElectricalWorkspace()
+        row=self.selected_row()
+        dialog=FirmwareDialog(workspace,self,'en' if english() else 'ko',
+            row.component_id if row else '',codex_config=self.codex_config)
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
+                self.adopt_workspace(dialog.accepted_workspace)
+        finally:dialog.deleteLater()
 
     def edit_programs(self):
         from .program_simulation_dialog import ProgramSimulationDialog

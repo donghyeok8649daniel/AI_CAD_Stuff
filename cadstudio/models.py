@@ -700,6 +700,9 @@ class Material(StrictModel):
         return data
 
 
+from .bom_design import BomDocument, BomPartBinding
+
+
 class Part(StrictModel):
     id: str = Field(min_length=1, max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
     name: str = Field(min_length=1, max_length=80)
@@ -713,6 +716,7 @@ class Part(StrictModel):
     source_part_id: str = Field(default='',max_length=40)
     material: Material | None = None
     product: ProductMetadata | None = None
+    bom: BomPartBinding | None = None
 
     @model_serializer(mode='wrap')
     def compatible_profile(self,handler):
@@ -721,6 +725,7 @@ class Part(StrictModel):
         if not self.source_part_id:data.pop('source_part_id',None)
         if self.material is None:data.pop('material',None)
         if self.product is None:data.pop('product',None)
+        if self.bom is None:data.pop('bom',None)
         if self.role=='unspecified':data.pop('role',None)
         return data
 
@@ -840,6 +845,7 @@ class Design(StrictModel):
     part_groups: list[PartGroup] = Field(default_factory=list,max_length=256)
     print_profile: PrintProfile | None = None
     electrical: ElectricalWorkspace | None = None
+    bom: BomDocument | None = None
 
     @model_validator(mode='before')
     @classmethod
@@ -851,7 +857,7 @@ class Design(StrictModel):
     @model_serializer(mode='wrap')
     def compatible_parameters(self,handler):
         data=handler(self)
-        for key in ('parameters','dimension_bindings','assets','motion_links','configurations','part_groups','print_profile','electrical'):
+        for key in ('parameters','dimension_bindings','assets','motion_links','configurations','part_groups','print_profile','electrical','bom'):
             if not data.get(key):data.pop(key,None)
         return data
 
@@ -958,12 +964,19 @@ class DraftRequest(StrictModel):
     selected_feature: str | None = Field(default=None, max_length=40)
     selected_joint: str | None = Field(default=None, max_length=40)
     references: list[ReferenceMaterial] = Field(default_factory=list, max_length=8)
+    bom: BomDocument | None = None
 
     @model_validator(mode='after')
     def reference_budget(self):
         if sum(len(r.text) for r in self.references)>60000:
             raise ValueError('참고자료는 합계 60,000자 이하여야 합니다. 필요한 문서를 선택하세요.')
         return self
+
+    @model_serializer(mode='wrap')
+    def compatible_bom_request(self,handler):
+        data=handler(self)
+        if self.bom is None:data.pop('bom',None)
+        return data
 
 
 GEOMETRY_TYPES = {c.model_fields["kind"].default: c for c in (RoundSpecimen, FlatSpecimen, Wafer, Link, Plate, Bracket, Cylinder, SpurGear, Extrusion, SweepGeometry, LoftGeometry)}

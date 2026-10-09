@@ -26,7 +26,8 @@ class AITask(QObject):
         except Exception as exc:
             if not self.control.cancelled.is_set():
                 from ..power_paths import PowerInputRequired
-                try:self.failed.emit((self,exc if isinstance(exc,PowerInputRequired) else str(exc)))
+                from ..bom_design import BomInputRequired
+                try:self.failed.emit((self,exc if isinstance(exc,(PowerInputRequired,BomInputRequired)) else str(exc)))
                 except RuntimeError:pass
         else:
             try:self.completed.emit((self,result))

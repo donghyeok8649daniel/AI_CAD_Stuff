@@ -17,15 +17,10 @@ for folder in ['licenses','examples','integrations','docs']:
     shutil.copytree(root/folder,args.bundle/folder,dirs_exist_ok=True)
 for name in ['README.md','THIRD_PARTY.md','VALIDATION.md','requirements-lock.txt']:
     shutil.copy2(root/name,args.bundle/name)
-(args.bundle/'Create Desktop Shortcut.ps1').write_text('''$cadExe = Join-Path $PSScriptRoot 'PromptCADStudio.exe'
-if (-not (Test-Path -LiteralPath $cadExe)) { throw 'Extract the entire ZIP first.' }
-$cadShell = New-Object -ComObject WScript.Shell
-$cadShortcut = $cadShell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'Prompt CAD Studio.lnk'))
-$cadShortcut.TargetPath = $cadExe
-$cadShortcut.WorkingDirectory = $PSScriptRoot
-$cadShortcut.IconLocation = "$cadExe,0"
-$cadShortcut.Description = 'Prompt CAD Studio'
-$cadShortcut.Save()
+shutil.copy2(root/'scripts/install_native.ps1',args.bundle/'Install.ps1')
+shutil.copy2(root/'scripts/remove_native_registration.ps1',args.bundle/'Remove CAD File Registration.ps1')
+(args.bundle/'Create Desktop Shortcut.ps1').write_text('''$ErrorActionPreference = 'Stop'
+& (Join-Path $PSScriptRoot 'Install.ps1')
 ''',encoding='utf-8-sig')
 (args.bundle/'Local AI Setup.ps1').write_text("Start-Process -FilePath (Join-Path $PSScriptRoot 'PromptCADStudio.exe') -ArgumentList '--setup-ai' -WindowStyle Hidden\n",encoding='utf-8-sig')
 make_manifest(args.bundle,__version__)

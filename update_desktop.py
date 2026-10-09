@@ -109,6 +109,22 @@ def restart(folder):
     hidden_process([str(Path(folder) / EXE)], cwd=str(folder), env=env)
 
 
+def refresh_file_registration(folder, result):
+    """Keep an opted-in installation registered; never claim new defaults."""
+    if os.name != 'nt':
+        return result
+    from cadstudio.file_associations import is_registered, register
+    try:
+        executable = Path(folder) / EXE
+        if is_registered(executable):
+            register(executable)
+    except (OSError, ValueError, RuntimeError) as exc:
+        # The release is already applied. An association failure must not turn
+        # a successful file replacement into a failed update or a retry loop.
+        result['file_association_warning'] = 'CAD 파일 연결 갱신을 완료하지 못했습니다. Install.ps1을 다시 실행하세요. ' + str(exc)
+    return result
+
+
 def show_window(args):
     import tkinter as tk
     from tkinter import filedialog, messagebox, ttk
@@ -182,6 +198,7 @@ def show_window(args):
             try:
                 wait_for_app(args.wait_pid)
                 result = apply_archive(folder, None, None, lambda text, value: messages.put(('progress', text, value)), release=release)
+                refresh_file_registration(folder, result)
                 messages.put(('done', folder, result))
             except Exception as exc:
                 messages.put(('error', str(exc)))
@@ -219,6 +236,8 @@ def show_window(args):
                     state['running'] = False
                     progress['value'] = 100
                     status.set(f'v{message[2]["version"]} 업데이트 완료. 이전 파일과 임시 다운로드를 정리했습니다.')
+                    if message[2].get('file_association_warning'):
+                        status.set(status.get() + '\n' + message[2]['file_association_warning'])
                     action.configure(text='CAD 실행', state='normal', command=lambda: (restart(message[1]), root.destroy()))
                     if args.restart:
                         restart(message[1])
@@ -273,6 +292,7 @@ def main():
         if args.apply_archive:
             wait_for_app(args.wait_pid)
             result = apply_archive(args.install_dir, args.apply_archive, args.sha256)
+            refresh_file_registration(args.install_dir, result)
             if args.report:
                 args.report.write_text(json.dumps(result), encoding='utf-8')
             if args.restart:

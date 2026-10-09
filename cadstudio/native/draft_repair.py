@@ -8,14 +8,14 @@ from ..interference import assess, check_joint_travel, describe, exact_collision
 from ..kernel import KERNEL_LOCK, build, exact_bounds
 from ..models import Design
 from ..preview_metadata import geometry_key
-from .cad_scope import Scope
+from .cad_scope import Scope, expand_bom_scope
 
 
 def fingerprint(request):
     return hashlib.sha256(request.model_dump_json().encode('utf-8')).hexdigest()
 
 
-def review_candidate(design, baseline, verified, check=lambda: None, *, baseline_collisions=None):
+def review_candidate(design, baseline, verified, check=lambda: None, *, baseline_collisions=None, bom=None):
     check()
     report = assess(design, baseline, collisions=verified['stats']['collisions'],
                     baseline_collisions=baseline_collisions, check=check)
@@ -27,8 +27,22 @@ def review_candidate(design, baseline, verified, check=lambda: None, *, baseline
         issues.append('부품 간섭을 수정해야 합니다.\n' + describe(design, report['blocked']))
     if travel and travel['blocked']:
         issues.append(travel_message(design, travel))
+    selected_bom=bom or (baseline.bom if baseline else None)
+    bom_report=None;pending=[]
+    if selected_bom is not None:
+        from ..bom_design import reconcile_bom
+        if design.bom is None or design.bom.model_dump()!=selected_bom.model_dump():
+            issues.append('원본 BOM이 변경되거나 제거되었습니다. 원본 부품표를 보존하세요.')
+        bom_report=reconcile_bom(design,selected_bom).model_dump()
+        if bom_report['stale_part_ids']:issues.append('BOM 원본/행 연결 불일치: '+', '.join(bom_report['stale_part_ids']))
+        for row in bom_report['items']:
+            detail=row['name']+' ['+row['item_id']+']: '+'; '.join(row['issues'])
+            if row['status'] in ('missing','mismatch') or any('실제 치수 검증 불가' in issue for issue in row['issues']):
+                issues.append(detail or row['message'])
+            elif row['status']=='unresolved':pending.append(detail)
     return dict(status='needs_repair' if issues else 'ready', issues=issues,
-                collisions=report['blocked'], existing=report['existing'], travel=travel)
+                collisions=report['blocked'], existing=report['existing'], travel=travel,
+                bom=bom_report,pending_checks=pending)
 
 
 def repair_scope(scope):
@@ -65,6 +79,8 @@ def measured_feedback(design, review, check=lambda: None):
                 facts.append(fact)
             lines.append('Measured CAD intersections (mm; extents are bounds, not a commanded cut):\n' + json.dumps(facts, ensure_ascii=False, separators=(',', ':')))
     lines.append('Return a corrected COMPLETE plan executed from the ORIGINAL current_design, not a patch against the rejected draft. Keep the original requested dimensions, colors, all required bodies and joint relationships. Do not delete, shrink a specimen, group, hide or union separate functional parts to evade collision checks. For an inserted specimen/shaft, create a real slot/bore/pocket in its support, with explicit assembly clearance; coincident contact is allowed, overlapping volume is not. Do not scatter assembly parts merely to eliminate intersections. Correct joint offsets in the original joint action for joint-driven placement. Preserve correctly implemented actions; use local overlap coordinates with the documented face frame to position cuts. In feedback, local coordinates refer to the PART frame; hole/pocket profiles refer to the selected FACE bounding-box midpoint. Check both frames before calculating a profile center.')
+    if review.get('bom'):
+        lines.append('BOM reconciliation (actual persisted body mappings):\n'+json.dumps(review['bom'],ensure_ascii=False,separators=(',',':'))+'\nPreserve the original BOM. Repair actual quantities, product identities, dimensions and bom_bind mappings. Never remove rows, change quantity, alter the BOM or hide differences. Unknown values cannot be verified by inventing them.')
     return '\n\n'.join(lines)
 
 
@@ -81,6 +97,8 @@ class DraftRepair:
             if resume.get('request_fingerprint') != fingerprint(request):
                 raise ValueError('초안의 원본 설계나 요청이 바뀌었습니다. 현재 설계로 새 초안을 생성하세요.')
             self.prior_attempts = int(resume.get('attempts', 0))
+        from ..bom_design import preflight_bom_design
+        self.bom_requirements = preflight_bom_design(request)
 
     def initial_scope(self):
         if not self.seed: return None
@@ -140,7 +158,7 @@ class DraftRepair:
     def check(self, result, verified, plan, scope, check=lambda: None, *, checkpoint=None, provider='', attempts=0):
         baseline_collisions = self.baseline_collisions(check)
         review = review_candidate(result.design, self.request.current, verified, check,
-                                  baseline_collisions=baseline_collisions)
+                                  baseline_collisions=baseline_collisions,bom=self.request.bom)
         result_data = result.model_dump()
         result_data['validation'] = review
         if review['existing']:
@@ -150,7 +168,7 @@ class DraftRepair:
         except (ValueError, RuntimeError):feedback='\n'.join(review['issues'])+'\n간섭 위치의 상세 계산은 완료되지 않았습니다. 원래 치수와 조립 관계를 유지하며 배치 또는 홈을 수정하세요.'
         # Prefer fewer conflicts, then smaller overlap. An invalid later attempt never
         # replaces an earlier renderable result. No partial execution is presented.
-        score = (len(review['collisions']) + bool(review['travel']), sum(c['volume'] for c in review['collisions']))
+        score = (len(review['issues']), sum(c['volume'] for c in review['collisions']))
         if self.score is None or score < self.score:
             self.score = score
             retained_scope = repair_scope(scope)
@@ -158,6 +176,7 @@ class DraftRepair:
                 old_ids = {p.id for p in self.request.current.parts} if self.request.current else set()
                 identifiers=tuple(p.id for p in result.design.parts if p.id not in old_ids)
                 if len(identifiers)<=32:retained_scope = replace(retained_scope, new_parts=identifiers)
+            retained_scope = expand_bom_scope(retained_scope, self.request, result.design)
             self.best = dict(result=result_data, plan=plan, feedback=feedback, scope=asdict(retained_scope))
             if checkpoint:checkpoint(self.pending(provider, attempts), verified)
         raise ValueError(feedback)
@@ -185,4 +204,5 @@ class DraftRepair:
             if str(error) != feedback:
                 feedback += '\nLast attempted correction was invalid: ' + str(error)[:1800] + '\nRepair the retained renderable plan below; do not repeat that invalid correction.'
             return scope, self.messages(scope, feedback, self.best['plan'])
+        scope = expand_bom_scope(scope, self.request)
         return scope, self.messages(scope, str(error)[:1800], plan)

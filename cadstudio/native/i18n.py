@@ -9,6 +9,9 @@ from shiboken6 import isValid
 
 
 PAIRS = '''전장 작업…|Electrical workspace…
+Codex 펌웨어 생성 / 검토…|Codex firmware · generate / review…
+코드 업로드 · 배선 자동 시뮬레이션…|Upload code · automatic wiring simulation…
+쇼트 / 정격 / 발열 점검…|Short / ratings / heat check…
 회로도에서 이 부품 찾기|Find this part in the circuit
 기존 회로 부품과 CAD 대응 설정…|Link an existing circuit component to this CAD body…
 회로 부품 / CAD 대응 변경|Change circuit / CAD association
@@ -750,6 +753,14 @@ def install_language(path):
     return service
 
 EN.update({'회로도':'Circuit', '메인 회로도 작업 공간':'Main circuit workspace'})
+EN.update({'BOM 보고 설계…':'Design from BOM…',
+           '선택 CAD 부품을 BOM 행에 연결…':'Link selected CAD parts to a BOM row…',
+           'BOM 없음':'No BOM',
+           'CAD 파일 열기 연결…':'CAD file opening…',
+           'CAD 파일 연결 등록':'Register CAD file opening',
+           'Windows 기본 앱 설정…':'Windows default apps…',
+           '이 앱의 연결 등록 해제':'Remove this app registration',
+           'AI로 검증 수정 계속':'Continue AI validation repair'})
 EN.update({'✓ Codex 연결 완료 · 모델 선택됨':'✓ Codex connected · model selected',
            '선택 핀 연결 해제':'Disconnect selected pin',
            '부품 드래그: 배치 · 선택 편집: 모델 변경 · 핀 연결 버튼으로 배선':'Drag: arrange · Edit selected: change model · Wire pins: connect',

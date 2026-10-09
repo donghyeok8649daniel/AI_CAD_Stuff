@@ -131,9 +131,18 @@ class Document:
         if not autosave:self.path=path;self.dirty=False
 
 
+def resolve_project_path(path):
+    """Follow a migrated legacy filename only when the requested file is gone."""
+    path=Path(path)
+    if not path.exists() and path.name.lower().endswith('.cad.json'):
+        migrated=path.with_name(path.name[:-9]+'.pcad')
+        if migrated.is_file():return migrated
+    return path
+
+
 def read_project(path,*,max_bytes=MAX_PROJECT_READ_BYTES):
     """Read a checked project with a bounded default, adjustable by the caller."""
-    path=Path(path)
+    path=resolve_project_path(path)
     if max_bytes is not None and (type(max_bytes) is not int or max_bytes<=0):
         raise ValueError('프로젝트 읽기 한도는 양의 바이트 수 또는 None이어야 합니다.')
     def check_size(size):

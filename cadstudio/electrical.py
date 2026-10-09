@@ -16,6 +16,7 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 from .measurement_specs import MeasurementSpec, ForceChainSpec
 from .program_attachment import ProgramAttachment
+from .firmware_bundle import FirmwareBundle
 
 
 class ElectricalModel(BaseModel):
@@ -231,6 +232,9 @@ class ElectricalWorkspace(ElectricalModel):
     # Source attachments are declarative simulation inputs, never executable
     # plugins. Older history snapshots retain their exact absent-field form.
     programs: list['ProgramAttachment'] = Field(default_factory=list, max_length=32)
+    # Generated firmware is portable review data, separate from the bounded
+    # GPIO trace attachments. Preserve absent legacy fields in exact journals.
+    firmware_bundles: list[FirmwareBundle] = Field(default_factory=list, max_length=16)
 
     @model_serializer(mode="wrap")
     def compatible_schematic_positions(self, handler):
@@ -242,6 +246,8 @@ class ElectricalWorkspace(ElectricalModel):
             data.pop("schematic_positions", None)
         if 'force_chain' not in self.model_fields_set and self.force_chain is None:data.pop('force_chain',None)
         if 'programs' not in self.model_fields_set and not self.programs:data.pop('programs',None)
+        if 'firmware_bundles' not in self.model_fields_set and not self.firmware_bundles:
+            data.pop('firmware_bundles',None)
         return data
 
     @model_validator(mode="after")
@@ -258,6 +264,10 @@ class ElectricalWorkspace(ElectricalModel):
             raise ValueError('프로그램은 등록된 MCU / MPU 회로 부품에 연결해야 합니다.')
         if len({(program.sha256, program.board_component_id) for program in self.programs}) != len(self.programs):
             raise ValueError('동일한 보드에 같은 프로그램을 중복 첨부할 수 없습니다.')
+        if len({bundle.id for bundle in self.firmware_bundles}) != len(self.firmware_bundles):
+            raise ValueError('펌웨어 묶음 ID는 중복될 수 없습니다.')
+        if any(bundle.binding.board_component_id not in component_ids for bundle in self.firmware_bundles):
+            raise ValueError('펌웨어가 연결된 회로 부품을 먼저 확인하세요. 부품 삭제 전에 해당 펌웨어를 분리해야 합니다.')
         if any(identifier not in component_ids for identifier in self.schematic_positions):
             raise ValueError("회로도 배치는 등록된 전장 부품 ID에만 지정할 수 있습니다.")
         allowed = set(self.nodes)

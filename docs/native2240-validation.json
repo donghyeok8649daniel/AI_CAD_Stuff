@@ -1,0 +1,179 @@
+{
+  "version": "2.24.0",
+  "total_source_passed": 1262,
+  "source_tests": "1261 passed, 1 skipped, 34 warnings in 109.86s (0:01:49)",
+  "lazy_scipy_tests": "1 passed, 1 warning in 4.58s",
+  "source_modules_verified": 210,
+  "native_entry_verified": true,
+  "file_associations_verified": true,
+  "updater_entry_verified": true,
+  "updater_file_associations_verified": true,
+  "frozen_checks": 1033,
+  "software_driver_unmodified": true,
+  "flows": [
+    {
+      "name": "electrical-workbench-auto",
+      "checks": 67,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "ee3c90b9eaf27335e22073ffc03cbcffa0a0ec7b3a6d48a3c500cabec904f5a7"
+    },
+    {
+      "name": "electrical-workbench-software",
+      "checks": 67,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "ee3c90b9eaf27335e22073ffc03cbcffa0a0ec7b3a6d48a3c500cabec904f5a7"
+    },
+    {
+      "name": "circuit-canvas-auto",
+      "checks": 93,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "01076432d27cb540dde5de26eff266c376d2fc0cff8af44c7f4dfae0afe1e786"
+    },
+    {
+      "name": "circuit-canvas-software",
+      "checks": 93,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "01076432d27cb540dde5de26eff266c376d2fc0cff8af44c7f4dfae0afe1e786"
+    },
+    {
+      "name": "registration-auto",
+      "checks": 65,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "afec8a19a3821cdbf6c4655592883dac7bf43a8bb69238700e3e0de89a55f44d"
+    },
+    {
+      "name": "registration-software",
+      "checks": 65,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "afec8a19a3821cdbf6c4655592883dac7bf43a8bb69238700e3e0de89a55f44d"
+    },
+    {
+      "name": "ai-wiring-auto",
+      "checks": 32,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "8ad71029a27241a8f2ee501dcbddfd7897aeb000f788042a4a6ae0cfcf319e4f"
+    },
+    {
+      "name": "ai-wiring-software",
+      "checks": 32,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "8ad71029a27241a8f2ee501dcbddfd7897aeb000f788042a4a6ae0cfcf319e4f"
+    },
+    {
+      "name": "program-auto",
+      "checks": 117,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "878e245baf74973082c5427801e2ca1efef3c3db4a4bd5f3dcfd1cbe592c4b1f"
+    },
+    {
+      "name": "program-software",
+      "checks": 117,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "9f255265b83aec98db855ec008f8ad49264ed2294fbc8a5694e158e40e99d72a"
+    },
+    {
+      "name": "code-workflow-auto",
+      "checks": 44,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "776c0fc786d2bb1e2190575c8f8cfa9875b5d0c75802fefcae7abb59ed090a89"
+    },
+    {
+      "name": "code-workflow-software",
+      "checks": 45,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "9045257953a9c80424453b2728fd7f18cc3c2cf09ec4b702c601bfa5791fc757"
+    },
+    {
+      "name": "firmware-auto",
+      "checks": 43,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "641b7c45eca02a6315bf9f3c77157fc8b8101f3148249c89bcc4499f61419b18"
+    },
+    {
+      "name": "firmware-software",
+      "checks": 44,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "a8df695bffcdacd7e82f25cb08aea154803954910b9dc76d5107289b4f9b6935"
+    },
+    {
+      "name": "bom-auto",
+      "checks": 54,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "20c8f3a3bb553c721dbee6f72ddd26060ba881ed1eb9b8be0029a580880d87f5"
+    },
+    {
+      "name": "bom-software",
+      "checks": 55,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "5f582af05c4e9c29aa1520f0d5d644c4d5158ae1f84980ab5a5d8896d08e8b19"
+    }
+  ],
+  "contains_user_project_data": false,
+  "cad_file_opening": {
+    "extension": ".pcad",
+    "native_file_type": true,
+    "legacy_cad_json_context_only": true,
+    "json_default_changed": false,
+    "userchoice_written": false,
+    "uninstall_preserves_later_edits": true
+  },
+  "bom_native_checks": {
+    "bom-auto": 54,
+    "bom-software": 55
+  },
+  "live_subscription_probe": {
+    "success": true,
+    "files": 6,
+    "source_audit": true,
+    "syntax_check": true,
+    "portable_project_reopened": true,
+    "undo_redo_preserved": true,
+    "atomic_export_verified": true,
+    "generated_code_executed": false,
+    "paid_api_calls": 0,
+    "hardware_calls": 0
+  },
+  "live_bom_subscription_probe": {
+    "success": true,
+    "attempts": 1,
+    "elapsed_s": 17.125,
+    "subscription_turn_completed": true,
+    "expected_quantity": 2,
+    "actual_quantity": 2,
+    "all_items_matched": true,
+    "body_size_mm": [
+      60,
+      35,
+      4
+    ],
+    "body_volume_mm3": 8400,
+    "color": "#FFFFFF",
+    "clear_gap_mm": 100,
+    "shape_and_style_match": true,
+    "original_bom_preserved": true,
+    "source_unchanged": true,
+    "portable_save_open": true,
+    "history_steps": 4,
+    "action_count": 4,
+    "generated_code_executed": false,
+    "paid_api_calls": 0,
+    "hardware_calls": 0
+  },
+  "scope": "Exact-board Codex subscription firmware source generation, private review/edit, portable save/history, wiring/pin audits, cancellable syntax checks and atomic new-folder export; offline BOM review, persistent CAD-instance bindings and measured quantity/dimension reconciliation; per-user native .pcad opening with existing PCAD and JSON choices preserved; no full target build, firmware/OS/FOC emulation or device execution"
+}

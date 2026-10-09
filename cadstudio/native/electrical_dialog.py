@@ -336,6 +336,8 @@ class ElectricalDialog(QDialog):
         self.has_force_chain='force_chain' in ((design or {}).get('electrical') or {})
         self.programs=deepcopy(((design or {}).get('electrical') or {}).get('programs',[]))
         self.has_programs='programs' in ((design or {}).get('electrical') or {})
+        self.firmware_bundles=deepcopy(((design or {}).get('electrical') or {}).get('firmware_bundles',[]))
+        self.has_firmware_bundles='firmware_bundles' in ((design or {}).get('electrical') or {})
         layout=QVBoxLayout(self);layout.addWidget(label('배터리 +는 공급, -는 리턴입니다. 같은 노드 이름으로 단자를 연결하고 실제 배터리 전압·정격·전선 치수를 입력하세요.',True))
         header=QHBoxLayout();self.name=QLineEdit(((design or {}).get('electrical') or {}).get('name','전장 회로'))
         header.addWidget(QLabel('회로 이름'));header.addWidget(self.name,1);layout.addLayout(header)
@@ -432,6 +434,8 @@ class ElectricalDialog(QDialog):
         self.has_force_chain='force_chain' in workspace.model_fields_set
         self.programs=[program.model_dump() for program in workspace.programs]
         self.has_programs='programs' in workspace.model_fields_set or bool(self.programs)
+        self.firmware_bundles=[bundle.model_dump() for bundle in workspace.firmware_bundles]
+        self.has_firmware_bundles='firmware_bundles' in workspace.model_fields_set or bool(self.firmware_bundles)
         self.refresh();self.calculate()
 
     def edit_mcu_pins(self):
@@ -491,12 +495,18 @@ class ElectricalDialog(QDialog):
         row=self.table.currentRow()
         if row>=0:
             component=self.components[row]
+            if any(bundle['binding']['board_component_id']==component['id'] for bundle in self.firmware_bundles):
+                QMessageBox.warning(self,'연결된 펌웨어 확인','이 부품에 저장된 펌웨어가 있습니다. 펌웨어 생성 / 검토 창에서 먼저 제거한 뒤 부품을 삭제하세요.')
+                return
             if any(program.get('board_component_id')==component['id'] for program in self.programs):
                 QMessageBox.warning(self,'연결된 코드 확인','이 보드에 연결된 코드가 있습니다. 코드 업로드 창에서 코드를 먼저 제거하거나 다른 보드로 연결한 뒤 부품을 삭제하세요.')
                 return
             self.components.pop(row);self.refresh();self.calculate()
 
     def demo(self):
+        if self.firmware_bundles:
+            QMessageBox.warning(self,'연결된 펌웨어 확인','저장된 펌웨어가 연결되어 예시 회로로 교체하지 않았습니다. 펌웨어 생성 / 검토 창에서 먼저 연결을 정리하세요.')
+            return
         if self.programs:
             QMessageBox.warning(self,'연결된 코드 확인','코드가 연결된 보드가 있어 예시 회로로 교체하지 않았습니다. 코드 업로드 창에서 먼저 연결을 정리하세요.')
             return
@@ -519,6 +529,8 @@ class ElectricalDialog(QDialog):
             raw['force_chain']=deepcopy(self.force_chain)
         if self.has_programs:
             raw['programs']=deepcopy(self.programs)
+        if self.has_firmware_bundles:
+            raw['firmware_bundles']=deepcopy(self.firmware_bundles)
         if self.has_schematic_positions:
             ids={component['id'] for component in self.components}
             raw['schematic_positions']={key:position for key,position in self.schematic_positions.items() if key in ids}
