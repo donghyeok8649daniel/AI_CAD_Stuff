@@ -1,3 +1,11 @@
+# 2.24.1 preserve ordinary JSON defaults during PCAD registration
+
+Windows may infer an implied default from a lone OpenWithProgID even when a file extension's explicit default and protected UserChoice are unchanged. The2.24.0 generic JSON entry caused this on a normally unassigned JSON installation. Registration now advertises only `.pcad` and migrates an intact old ownership record by retiring unchanged app-owned generic JSON entries. User edits and existing defaults remain intact; legacy `.cad.json` has a filename-filtered context action. Transaction failures restore prior entries and ownership state.
+
+Affected source regression: **1272 passed** (1271 passed, 1 skipped, 34 warnings in 152.13s (0:02:32); lazy SciPy: 1 passed, 1 warning in 4.63s). Rebuilt Windows EXE: **1033 checks** across unchanged CAD, circuit, firmware and BOM flows. All **210** bundled CAD modules, native entry and standalone updater association helper match tested source; the software driver is unmodified. Frozen tests execute no AI-generated program, paid API or device command. Real symlink creation remains skipped where the test account lacks permission; reparse/junction rejection is tested.
+
+The2.24.0 actual subscription BOM and firmware probes remain prior-version evidence; their generation/persistence implementations are unchanged. They are not repeated subscription calls for this patch. Firmware source audit and review are distinct from a target SDK build, MCU/Linux/FOC emulation or hardware readiness. A separate guarded installation queries actual Explorer JSON and PCAD selections and rejects changed ordinary JSON behavior. See [Korean note](docs/RELEASE_2_24_1_KO.md), [English note](docs/RELEASE_2_24_1_EN.md) and [aggregate evidence](docs/native2241-validation.json).
+
 # 2.24.0 firmware source generation, BOM design and Windows CAD opening
 
 Affected source regression: **1262 passed** (1261 passed, 1 skipped, 34 warnings in 109.86s (0:01:49); lazy SciPy: 1 passed, 1 warning in 4.58s). Frozen Windows EXE: **1033 native checks**. All **210** bundled CAD modules and the native entry match the tested source. Automatic/hardware and software rendering use the unchanged software driver.

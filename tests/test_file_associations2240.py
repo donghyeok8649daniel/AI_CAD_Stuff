@@ -9,6 +9,7 @@ class Registry:
         self.values = {}
         self.keys = set()
         self.fail = None
+        self.delete_fail = None
         self.machine_defaults = {}
 
     def get(self, key, name):
@@ -32,6 +33,9 @@ class Registry:
         self.values[key, name] = value
 
     def delete(self, key, name):
+        if self.delete_fail == (key, name):
+            self.delete_fail = None
+            raise OSError('simulated registry delete failure')
         self.values.pop((key, name), None)
 
     def prune_empty(self, key):
@@ -45,6 +49,23 @@ def executable(tmp_path):
     path.parent.mkdir()
     path.write_bytes(b'unit test executable placeholder')
     return path
+
+
+def schema2_registration(executable):
+    """Seed the published v2.24 ownership layout without a Windows write."""
+    import json
+    backend = Registry()
+    F.register(executable, _backend=backend)
+    stored = json.loads(backend.get(F.STATE_KEY, F.STATE_VALUE)[0])
+    legacy_values = [(F.APPLICATION + r'\SupportedTypes', '.json'),
+                     (F.LEGACY_OPEN_WITH, F.PROGID)]
+    for key, name in legacy_values:
+        backend.set(key, name, ('', F.REG_SZ))
+        stored['entries'].append(dict(key=key, name=name, value=''))
+    stored['schema'] = 2
+    stored['created_keys'].append(F.LEGACY_OPEN_WITH)
+    backend.set(F.STATE_KEY, F.STATE_VALUE, (json.dumps(stored), F.REG_SZ))
+    return backend
 
 
 def test_native_extension_default_preserves_json_and_nondefault_legacy_action(executable):
@@ -61,10 +82,111 @@ def test_native_extension_default_preserves_json_and_nondefault_legacy_action(ex
     assert backend.get(F.PCAD, '') == (F.PROGID, F.REG_SZ)
     assert backend.get(F.CAPABILITIES + r'\FileAssociations', '.pcad') == (F.PROGID, F.REG_SZ)
     assert backend.get(F.CAPABILITIES + r'\FileAssociations', '.json') is None
+    assert backend.get(F.LEGACY_OPEN_WITH, F.PROGID) is None
+    assert backend.get(F.APPLICATION + r'\SupportedTypes', '.json') is None
+    assert not any(entry.key == F.LEGACY_OPEN_WITH or
+        (entry.key, entry.name) == (F.APPLICATION + r'\SupportedTypes', '.json')
+        for entry in F.registration_plan(executable))
     assert result['extension'] == '.pcad' and result['pcad_default_assigned']
     assert backend.get(F.CAD_VERB + r'\command', '') == (f'"{executable}" --open "%1"', F.REG_SZ)
     assert F.is_registered(executable, _backend=backend)
     assert not any('.cad.json' in entry.key for entry in F.registration_plan(executable))
+
+
+def test_schema2_migration_retires_only_owned_generic_json_and_keeps_choices(executable):
+    import json
+    backend = schema2_registration(executable)
+    preserved = {
+        (F.CLASSES + r'\.json', ''): ('ExistingJsonEditor', F.REG_SZ),
+        (r'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.json\UserChoice', 'ProgId'): ('ChosenJsonEditor', F.REG_SZ),
+        (r'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.json\UserChoice', 'Hash'): ('opaque-json-choice', F.REG_SZ),
+        (r'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pcad\UserChoice', 'ProgId'): ('ChosenPCAD', F.REG_SZ),
+        (r'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pcad\UserChoice', 'Hash'): ('opaque-pcad-choice', F.REG_SZ),
+    }
+    backend.values.update(preserved)
+    result = F.register(executable, _backend=backend)
+    assert result['legacy_json_general_values_removed'] == 2
+    assert result['legacy_json_user_edits_preserved'] == 0
+    assert result['protected_pcad_userchoice_preserved']
+    assert all(backend.get(*address) == value for address, value in preserved.items())
+    assert backend.get(F.LEGACY_OPEN_WITH, F.PROGID) is None
+    assert not backend.key_exists(F.LEGACY_OPEN_WITH)
+    assert backend.get(F.APPLICATION + r'\SupportedTypes', '.json') is None
+    assert backend.get(F.CAD_VERB, 'AppliesTo') == (F.CAD_FILENAME_QUERY, F.REG_SZ)
+    assert backend.get(F.PCAD, '') == (F.PROGID, F.REG_SZ)
+    stored = json.loads(backend.get(F.STATE_KEY, F.STATE_VALUE)[0])
+    assert stored['schema'] == 3 and F.LEGACY_OPEN_WITH not in stored['created_keys']
+    assert F.is_registered(executable, _backend=backend)
+    assert F.register(executable, _backend=backend)['legacy_json_general_values_removed'] == 0
+    F.unregister(executable, _backend=backend)
+    assert backend.values == preserved
+
+
+@pytest.mark.parametrize('edited', ['open_with', 'supported_type'])
+def test_schema2_migration_preserves_later_user_edits_and_other_handlers(executable, edited):
+    backend = schema2_registration(executable)
+    address = ((F.LEGACY_OPEN_WITH, F.PROGID) if edited == 'open_with' else
+               (F.APPLICATION + r'\SupportedTypes', '.json'))
+    backend.values[address] = ('later user edit', F.REG_SZ)
+    other = (F.LEGACY_OPEN_WITH, 'OtherJSON.Editor')
+    backend.values[other] = ('', F.REG_SZ)
+    assert F.is_registered(executable, _backend=backend)
+    result = F.register(executable, _backend=backend)
+    assert result['legacy_json_general_values_removed'] == result['legacy_json_user_edits_preserved'] == 1
+    assert backend.values[address] == ('later user edit', F.REG_SZ)
+    assert backend.values[other] == ('', F.REG_SZ)
+    F.unregister(executable, _backend=backend)
+    assert backend.values == {address: ('later user edit', F.REG_SZ), other: ('', F.REG_SZ)}
+
+
+def test_schema2_migration_does_not_recreate_already_removed_legacy_value(executable):
+    backend = schema2_registration(executable)
+    backend.delete(F.LEGACY_OPEN_WITH, F.PROGID)
+    result = F.register(executable, _backend=backend)
+    assert result['legacy_json_general_values_removed'] == 1
+    assert backend.get(F.LEGACY_OPEN_WITH, F.PROGID) is None
+    assert F.is_registered(executable, _backend=backend)
+
+
+@pytest.mark.parametrize('failure', ['delete', 'command_write', 'state_write'])
+def test_schema2_migration_failure_restores_entire_previous_registration(executable, failure):
+    backend = schema2_registration(executable)
+    before = dict(backend.values)
+    keys_before = set(backend.keys)
+    if failure == 'delete':
+        backend.delete_fail = (F.LEGACY_OPEN_WITH, F.PROGID)
+    elif failure == 'command_write':
+        backend.fail = (F.CAD_VERB + r'\command', '')
+    else:
+        backend.fail = (F.STATE_KEY, F.STATE_VALUE)
+    with pytest.raises(OSError, match='simulated'):
+        F.register(executable, _backend=backend)
+    assert backend.values == before and backend.keys == keys_before
+    assert F.is_registered(executable, _backend=backend)
+
+
+@pytest.mark.parametrize('schema', [2, 3])
+def test_retired_json_ownership_corruption_is_rejected_before_any_write(executable, schema):
+    import json
+    backend = schema2_registration(executable)
+    stored = json.loads(backend.get(F.STATE_KEY, F.STATE_VALUE)[0])
+    stored['schema'] = schema
+    if schema == 2:
+        stored['entries'][-1]['value'] = 'unrecognized retired ownership value'
+    backend.values[F.STATE_KEY, F.STATE_VALUE] = (json.dumps(stored), F.REG_SZ)
+    before = dict(backend.values)
+    with pytest.raises(F.AssociationError, match='소유 정보'):
+        F.register(executable, _backend=backend)
+    assert backend.values == before
+
+
+def test_new_uninstaller_can_remove_schema2_without_reclaiming_user_edits(executable):
+    backend = schema2_registration(executable)
+    address = F.LEGACY_OPEN_WITH, F.PROGID
+    backend.values[address] = ('later user edit', F.REG_SZ)
+    result = F.unregister(executable, _backend=backend)
+    assert result['preserved'] == 1
+    assert backend.values == {address: ('later user edit', F.REG_SZ)}
 
 
 @pytest.mark.parametrize('source', ['per_user', 'machine', 'userchoice'])

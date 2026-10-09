@@ -1,5 +1,7 @@
 **BOM 설계 · 전용 프로젝트 파일:** 메인 AI 패널의 **BOM 보고 설계…**에서 CSV/TSV/XLSX·붙여넣기 부품표를 검토하고, 실제 CAD 수량·치수를 미리보기에서 대조합니다. 새 프로젝트는 `.pcad`로 저장합니다. `Install.ps1`은 바로가기와 `.pcad` 열기 연결을 등록하며 기존 기본 앱 선택과 일반 JSON 연결은 보존합니다. 이전 `.cad.json`도 계속 읽습니다. [BOM 안내](docs/BOM_DESIGN_KO.md) · [파일 연결 안내](docs/FILE_ASSOCIATIONS_KO.md)
 
+**2.24.1 · 전용 파일 연결 보정:** 새 저장은 `.pcad`입니다. 기본 앱이 없는 일반 `.json`에도 CAD가 자동 선택될 수 있던 Windows 연결을 수정했습니다. 기존 `.cad.json` 읽기와 이름 변경 후 경로 복구를 유지합니다. [한국어 안내](docs/RELEASE_2_24_1_KO.md) · [English](docs/RELEASE_2_24_1_EN.md).
+
 **2.24.0 · 앱에서 Codex 펌웨어 생성:** 등록한 보드·실제 핀·저장된 배선을 참고해 STM32 HAL / Arduino / Raspberry Pi 코드 후보를 만들고, 여러 파일을 검토·편집·프로젝트 저장·내보내기합니다. 배선 변경과 수동 핀 오류를 확인하고 생성·검사·저장을 취소해도 기존 작업을 보존합니다. 기존 ChatGPT 구독 연결을 사용하며 생성 코드를 실행하거나 플래싱하지 않습니다. SDK·전체 대상 빌드와 실물 동작은 별도 확인이 필요합니다. [한국어 사용법](docs/RELEASE_2_24_0_KO.md) · [English guide](docs/RELEASE_2_24_0_EN.md).
 
 **2.23.0 · 코드·배선 추적 / 안전 점검:** 코드 업로드로 정확한 보드·GPIO·저장된 전선을 찾아 신호 명령을 추적합니다. 쇼트·허용 전류·전압·퓨즈·발열 조건을 별도 검사하고 미확인 조건을 구분합니다. 전장 카탈로그는 235개(등록 가능 164개), 공식 제품 단자 자료 49개로 확대했습니다. Codex 오류 종류·진단을 보강하고 큰 조립체의 관절 검사에서 형상을 재사용합니다. 전체 MCU 펌웨어·Linux·FOC 실행은 지원 범위가 아닙니다. [사용법과 검증 범위](docs/RELEASE_2_23_0_KO.md).
@@ -50,7 +52,7 @@
 
 **2.8.0:** 선택 해제·회전, 클릭 가능한 XYZ 축, 실제 관절 구조, AI 커스텀 조립, 선택만/분해 보기와 부품별 STEP·STL 출력. [사용 방법](docs/ASSEMBLY_PARTS_KO.md)
 
-# Prompt CAD Studio · Native 2.24.0
+# Prompt CAD Studio · Native 2.24.1
 
 **v2.7.0 — Codex · ChatGPT 구독 모드:** 기존 Codex 로그인으로 설계 요청을 실행합니다. AI 패널에서 Codex 선택 → Codex 연결 → 기존 로그인 사용 → 모델 선택. API 키가 필요하지 않으며 Codex 구독 사용량이 적용됩니다. [연결 방법과 한계](docs/CODEX_MODE_KO.md).
 

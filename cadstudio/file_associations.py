@@ -4,6 +4,8 @@ The native extension gets a normal ProgID and open command. Its default is
 assigned only when no existing .pcad default or protected UserChoice exists.
 Legacy .cad.json gets a filename-filtered context action without defaulting
 JSON to CAD. Existing user choices are never rewritten.
+Generic JSON OpenWith and SupportedTypes registrations are deliberately absent:
+Windows can choose a lone registered candidate as an implied JSON default.
 The registration is opt-in through installation or the application's command.
 """
 from dataclasses import dataclass
@@ -31,6 +33,7 @@ STATE_VALUE = 'State'
 CAD_FILENAME_QUERY = 'System.FileName:~"*.cad.json"'
 DEFAULT_APPS_URI = 'ms-settings:defaultapps?registeredAppUser=' + quote(APP_NAME, safe='')
 REG_SZ = 1
+SCHEMA = 3
 
 
 class AssociationError(RuntimeError):
@@ -65,11 +68,9 @@ def registration_plan(executable):
         Entry(PROJECT + r'\shell\open\command', '', command),
         Entry(APPLICATION, 'FriendlyAppName', FRIENDLY_NAME),
         Entry(APPLICATION + r'\SupportedTypes', EXTENSION, ''),
-        Entry(APPLICATION + r'\SupportedTypes', '.json', ''),
         Entry(APPLICATION + r'\shell\open\command', '', command),
         Entry(OPEN_WITH, PROGID, ''),
         Entry(PCAD, '', PROGID),
-        Entry(LEGACY_OPEN_WITH, PROGID, ''),
         Entry(CAPABILITIES, 'ApplicationName', FRIENDLY_NAME),
         Entry(CAPABILITIES, 'ApplicationDescription', 'Open Prompt CAD Studio .pcad projects and legacy .cad.json files.'),
         Entry(CAPABILITIES, 'ApplicationIcon', icon),
@@ -81,6 +82,21 @@ def registration_plan(executable):
         Entry(CAD_VERB, 'AppliesTo', CAD_FILENAME_QUERY),
         Entry(CAD_VERB + r'\command', '', command),
     ]
+
+
+def _retired_entries():
+    # A lone generic JSON OpenWith candidate can become Windows' implied
+    # default even without changing its explicit default or UserChoice.
+    return [Entry(APPLICATION + r'\SupportedTypes', '.json', ''),
+            Entry(LEGACY_OPEN_WITH, PROGID, '')]
+
+
+def _state_plan(plan, schema):
+    if schema == 2:
+        return [*plan, *_retired_entries()]
+    if schema == SCHEMA:
+        return plan
+    raise ValueError('Unsupported association ownership schema')
 
 
 class _WindowsRegistry:
@@ -167,17 +183,23 @@ def _state(backend, plan):
         if stored[1] != REG_SZ:
             raise ValueError()
         data = json.loads(stored[0])
-        addresses = {(entry.key, entry.name) for entry in plan}
+        if type(data['schema']) is not int:
+            raise ValueError()
+        owned_plan = _state_plan(plan, data['schema'])
+        addresses = {(entry.key, entry.name) for entry in owned_plan}
         required = addresses - {(PCAD, '')}
         records = data['entries']
         stored_addresses = {(record['key'], record['name']) for record in records}
-        if (data['schema'] != 2 or data['app'] != APP_NAME or
+        retired = {(entry.key, entry.name): entry.value for entry in _retired_entries()}
+        if (data['app'] != APP_NAME or
                 not isinstance(data['executable'], str) or
                 len(records) != len(stored_addresses) or
                 not required <= stored_addresses <= addresses or
                 any(not isinstance(record['value'], str) for record in records) or
+                any(record['value'] != retired[record['key'], record['name']]
+                    for record in records if (record['key'], record['name']) in retired) or
                 not isinstance(data['created_keys'], list) or
-                not set(data['created_keys']).issubset(_key_candidates(plan))):
+                not set(data['created_keys']).issubset(_key_candidates(owned_plan))):
             raise ValueError()
         return data
     except (TypeError, KeyError, ValueError):
@@ -203,7 +225,8 @@ def register(executable, *, _backend=None):
 
     Existing unrelated values in our named slots cause a failure before any
     writes. Re-registration updates an intact registration from another app
-    folder. The same original, created-key inventory survives that update.
+    folder. Created-key ownership survives that update. Schema 2's generic
+    JSON candidates are retired only when their owned values are unchanged.
     """
     path = _executable(executable)
     plan = registration_plan(path)
@@ -224,13 +247,25 @@ def register(executable, *, _backend=None):
             continue
         if backend.get(entry.key, entry.name) != expected.get((entry.key, entry.name)):
             raise AssociationError('기존 파일 연결이 다른 설정과 겹칩니다. 현재 설정을 보존했습니다.')
-    created_keys = set(old_state['created_keys']) if old_state else set()
-    created_keys.update(key for key in _key_candidates(plan) if not backend.key_exists(key))
-    state = {'schema': 2, 'app': APP_NAME, 'executable': str(path),
+    original_keys = set(old_state['created_keys']) if old_state else set()
+    candidates = set(_key_candidates(plan))
+    created_keys = original_keys & candidates
+    created_keys.update(key for key in candidates if not backend.key_exists(key))
+    state = {'schema': SCHEMA, 'app': APP_NAME, 'executable': str(path),
              'entries': [dict(key=entry.key, name=entry.name, value=entry.value) for entry in plan],
              'created_keys': sorted(created_keys)}
     snapshots = []
+    retired_removed = retired_preserved = 0
     try:
+        if old_state and old_state['schema'] == 2:
+            for entry in _retired_entries():
+                current = backend.get(entry.key, entry.name)
+                if current == expected[entry.key, entry.name]:
+                    snapshots.append((entry.key, entry.name, current))
+                    backend.delete(entry.key, entry.name)
+                    retired_removed += 1
+                elif current is not None:
+                    retired_preserved += 1
         for entry in [*plan, Entry(STATE_KEY, STATE_VALUE, json.dumps(state, ensure_ascii=False))]:
             snapshots.append((entry.key, entry.name, backend.get(entry.key, entry.name)))
             backend.set(entry.key, entry.name, (entry.value, REG_SZ))
@@ -240,13 +275,22 @@ def register(executable, *, _backend=None):
             if key in created_keys:
                 backend.prune_empty(key)
         raise
+    # Retire only keys created by the old registration and now empty. The
+    # shared .json parent and any values changed by the user remain intact.
+    for key in sorted(original_keys - candidates, key=lambda key: (key.count('\\'), key), reverse=True):
+        try:
+            backend.prune_empty(key)
+        except OSError:
+            pass  # An empty retired key is harmless; owned values are committed.
     if _backend is None:
         _notify_shell()
     return {'registered': True, 'executable': str(path), 'json_default_changed': False,
             'extension': EXTENSION, 'pcad_default_assigned': default_owned or default_free,
             'existing_pcad_default_preserved': protected_choice or not (default_owned or default_free),
             'protected_pcad_userchoice_preserved': protected_choice,
-            'userchoice_written': False, 'legacy_json_default_changed': False}
+            'userchoice_written': False, 'legacy_json_default_changed': False,
+            'legacy_json_general_values_removed': retired_removed,
+            'legacy_json_user_edits_preserved': retired_preserved}
 
 
 def is_registered(executable, *, _backend=None):
@@ -254,9 +298,10 @@ def is_registered(executable, *, _backend=None):
     path = _executable(executable)
     backend = _backend if _backend is not None else _WindowsRegistry()
     state = _state(backend, registration_plan(path))
+    ignored = {(PCAD, '')} | {(entry.key, entry.name) for entry in _retired_entries()}
     return bool(state and Path(state['executable']) == path and all(
         backend.get(entry['key'], entry['name']) == (entry['value'], REG_SZ)
-        for entry in state['entries'] if (entry['key'], entry['name']) != (PCAD, '')))
+        for entry in state['entries'] if (entry['key'], entry['name']) not in ignored))
 
 
 def unregister(executable, *, _backend=None):
@@ -285,7 +330,7 @@ def unregister(executable, *, _backend=None):
     except Exception:
         _restore(backend, snapshots)
         raise
-    for key in reversed(_key_candidates(plan)):
+    for key in reversed(_key_candidates(_state_plan(plan, state['schema']))):
         if key in state['created_keys']:
             backend.prune_empty(key)
     if _backend is None:
