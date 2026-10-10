@@ -24,6 +24,7 @@ class ElectricalModel(BaseModel):
 
 
 Identifier = str
+MAX_ELECTRICAL_NODES = 512
 Kind = Literal["battery", "wire", "switch", "resistor", "capacitor", "inductor",
                "load", "motor", "actuator", "mcu"]
 
@@ -225,7 +226,7 @@ class ElectricalSchematicPosition(ElectricalModel):
 class ElectricalWorkspace(ElectricalModel):
     schema_version: Literal[1] = 1
     name: str = Field(default="전장 회로", min_length=1, max_length=100)
-    nodes: list[Identifier] = Field(default_factory=lambda: ["GND"], min_length=1, max_length=128)
+    nodes: list[Identifier] = Field(default_factory=lambda: ["GND"], min_length=1, max_length=MAX_ELECTRICAL_NODES)
     components: list[ElectricalComponent] = Field(default_factory=list, max_length=256)
     schematic_positions: dict[Identifier, ElectricalSchematicPosition] = Field(default_factory=dict, max_length=256)
     force_chain: ForceChainSpec | None = None

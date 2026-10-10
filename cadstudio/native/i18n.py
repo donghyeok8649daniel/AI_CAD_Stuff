@@ -669,6 +669,17 @@ EN.update({
 EN.update({'CAD 부품 · 전장 등록 / 모식도…': 'CAD part · electrical registration / diagram…', '이 CAD 부품을 전장으로 등록…': 'Register this CAD part as electrical…', '전장 피처 · 모델 / 모식도 편집': 'Electrical feature · edit model / diagram', '정격 입력 완료 · DC 계산에 포함': 'Ratings entered · include in DC analysis', '정격 입력 전 · DC 계산 제외': 'Ratings pending · excluded from DC analysis', '전장으로 등록할 CAD 부품을 먼저 만들거나 가져오세요.': 'First create or import the CAD part to register as electrical.', '전장 피처를 더블클릭하면 모델·핀 모식도를 편집합니다.': 'Double-click the electrical feature to edit its model / pin diagram.', '사용자 정의': 'Custom', 'DC 계산 포함': 'Included in DC analysis'})
 
 
+EN.update({
+    '기계 기능 · 체결 / 관절 / 액추에이터…':'Mechanical function · fastener / joint / actuator…',
+    '연결 부품의 기계 기능 지정…':'Assign mechanical functions to connected parts…',
+    '관절 구속은 운동 관계입니다. 체결부품·수동 지지부·실제 구동기는 별도로 지정합니다.':'A joint defines a motion relationship. Fasteners, passive supports and actual actuators are declared separately.',
+    '기계 기능 미지정':'Mechanical function unspecified',
+    '체결 부품 · 볼트 / 너트 / 고정 핀':'Fastener · bolt / nut / retaining pin',
+    '수동 관절 지지 구조':'Passive joint support',
+    '구동기 · 모터 / 액추에이터':'Actuator · motor / powered actuator',
+    '동력 전달 부품':'Mechanical transmission',
+})
+
 def translate(text,language):
     if language!='en' or not isinstance(text,str):return text
     if text in EN:return EN[text]

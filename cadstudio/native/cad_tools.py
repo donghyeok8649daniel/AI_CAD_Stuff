@@ -8,6 +8,7 @@ from pydantic import Field, TypeAdapter
 from ..models import (StrictModel, Design, Part, Geometry, Transform, Extrusion,
                       SketchFeature, SolidFeature, EdgeFeature, AssemblyMate, Material)
 from ..planner import AIReply
+from ..mechanical_functions import GUIDANCE as MECHANICAL_FUNCTION_GUIDANCE
 from .cad_electrical_tools import TOOLS as ELECTRICAL_TOOLS
 
 
@@ -61,11 +62,11 @@ For a vague request, start with a minimal useful mechanical concept, normally on
 TOOLS (only these args are accepted):
 bom_bind: {item_id}. target is an actual CAD part ID. Attach it to that exact row in current_design.bom. Each body represents ONE instance; repeat create+bom_bind for quantity>1. This preserves trusted BOM source identity. It never resizes geometry, fixes a mismatch, registers electrical pins or invents an operating rating. Existing conflicting product identities must be corrected explicitly, never overwritten to fake agreement.
 motion_link: {driver,driven,ratio,offset?,driver_axis?:"rz",driven_axis?:"rz"}. target is a NEW motion-link ID; driver/driven are existing joint IDs. This is only a motion relation; create REAL gear geometry and shafts/supports for physical gear-drive requests. External spur gears need matching module/pressure_angle, center distance module*(teeth1+teeth2)/2, ratio=-teeth1/teeth2, and driven phase offset=180-180/teeth2 when the driven center lies at +X and input angle is zero. Model necessary shaft support/retention separately. Choose clearance/backlash explicitly.
-create: {name,geometry,color?,transform?}. geometry is one of the shapes below. This adds one new editable part; target is its new ID. transform={x,y,z,rx,ry,rz}, defaults zero. Plate/cylinder/link/spur_gear bodies are centered in XY with bottom at Z=0 (gear shafts extend below zero). flat_specimen is centered in ALL axes: length along X, width along Y, thickness spans Z=-thickness/2..+thickness/2. round_specimen is centered along X and revolves around X. bracket spans X=0..length, is centered in Y and starts at Z=0. Sweep/loft/revolve/extrusion use their explicit profile frames; never assume every body has bottom Z=0. Separate independent parts using transform; leave intended assembly positions aligned.
+create: {name,geometry,color?,role?,mechanical_function?:"unspecified"|"fastener"|"joint_support"|"actuator"|"transmission",transform?}. geometry is one of the shapes below. This adds one new editable part; target is its new ID. transform={x,y,z,rx,ry,rz}, defaults zero. Plate/cylinder/link/spur_gear bodies are centered in XY with bottom at Z=0 (gear shafts extend below zero). flat_specimen is centered in ALL axes: length along X, width along Y, thickness spans Z=-thickness/2..+thickness/2. round_specimen is centered along X and revolves around X. bracket spans X=0..length, is centered in Y and starts at Z=0. Sweep/loft/revolve/extrusion use their explicit profile frames; never assume every body has bottom Z=0. Separate independent parts using transform; leave intended assembly positions aligned.
 dimensions: {values:{dimension:value,...}}. Patch actual fields of an EXISTING part's base geometry, preserving all other fields. A new create ALREADY includes its dimensions; do not add a redundant dimensions action after create. Never invent fields such as diameter_top on a loft (its dimensions are inside sections). No kind change. Parameter-bound dimensions must be edited using parameter instead.
 edit_feature: {feature_id,...changed_fields}. target is the owning PART ID, never the feature ID; args.feature_id is the feature ID inside that part. Edit an EXISTING feature, keeping its ID, support faces and downstream history. Use its actual editable fields and dimensions from current_design. depth edits sketch extrusion/cut depth; for a blind hole specify through_all=false AND depth. diameter edits a circular sketch profile; entity_id is mandatory when there is more than one circle, use one action per circle. This can SHRINK an existing hole by rebuilding its original cut; do not add a new hole on top. size is edge radius/chamfer distance or shell thickness; thread uses pitch,length,offset,clearance,handedness,reverse. Pattern uses count,count_y,spacing or angle as listed in editable. suppressed=true disables a feature reversibly, false restores it; dependent features must remain valid. name renames it. Do not change IDs, support references or operation types. A variable-driven field needs parameter instead; a linked profile needs its original sketch edited manually. Do not guess which feature when the request is ambiguous; selected_feature identifies the user's current feature selection.
 transform: {x?,y?,z?,rx?,ry?,rz?}. Set absolute placement, unspecified coordinates preserved. Rotations are EXTRINSIC fixed world X then Y then Z (matrix Rz*Ry*Rx), followed by translation; rz does NOT spin a tilted body about its own local Z. For a local-Z body aimed along world +Y, rx=-90 and ry=local_spin_angle, rz=0 preserves the +Y axis while phasing it. Prefer actual cylinder-bound joints for tilted drive axes. Joint-driven parts accept only an already-satisfied placement; set joint offsets when creating the joint instead of moving its child afterward.
-appearance: {color?:"#RRGGBB",role?:"structure"|"electrical"|"transmission"|"specimen"|"unspecified",name?,material?:{name,density,youngs_modulus,poisson}}. Roles persist separately from colors. Existing colors are preserved unless color is explicitly changed. Default new-part colors: structure/guards WHITE #F2F2F2; electrical/motor/power/sensors YELLOW #FFD400; transmission/shafts/gears/grips/load-path GREEN #25A55F; specimen GRAY #AEB6BF. Set role on create. An explicit user color overrides the default. Colors do not imply material or collision exemptions.
+appearance: {color?:"#RRGGBB",role?:"structure"|"electrical"|"transmission"|"specimen"|"unspecified",mechanical_function?:"unspecified"|"fastener"|"joint_support"|"actuator"|"transmission",name?,material?:{name,density,youngs_modulus,poisson}}. Roles persist separately from colors. Existing colors are preserved unless color is explicitly changed. Default new-part colors: structure/guards WHITE #F2F2F2; electrical/motor/power/sensors YELLOW #FFD400; transmission/shafts/gears/grips/load-path GREEN #25A55F; specimen GRAY #AEB6BF. Set role on create. An explicit user color overrides the default. Colors do not imply material or collision exemptions.
 hole: {face:"+Z",diameter,centers?:[[u,v],...],pattern?:PATTERN,depth?:number,through_all?:true,finish?:"plain"|"counterbore"|"countersink",head_diameter?,head_depth?,head_angle?}. Use centers OR pattern, never both. For symmetric repeated holes PREFER pattern; CAD computes exact positions. PATTERN is {kind:"rectangular",count_x:2,count_y:2,spacing_x:60,spacing_y:40,center:[0,0]} OR {kind:"circular",count:6,diameter:50,start_angle:0,center:[0,0]}. Rectangular pattern is CENTERED on center, spacing is between adjacent holes. Circular diameter is the bolt circle diameter. Default single center=[[0,0]], through_all=true. u,v are coordinates in the selected face frame about its bounding-box midpoint (not its area centroid). For +Z, u=X and v=Y. Other faces: u is projected X (or Y on ±X faces), v=normal cross u. Never specify face indices.
 pocket or pad: {face,profile,depth,through_all?:false}. profile is a 2D profile as below in the face frame. NEW features use the face bounding-box midpoint (not the area centroid, not a corner) as origin; holes in the face do not shift that midpoint. For +Z/-Z faces u=local X; v=local Y for +Z, negative Y for -Z. Compute shaft/hole centers from this exact frame. pad adds material outward AND AUTOMATICALLY FUSES it to the body. pocket removes material inward: a circular pocket produces a BORE, never a smaller solid outside diameter. To reduce external diameter by cutting, remove an annulus, not its inner disk. Prefer a circular pad to build a smaller solid section on top.
 fillet or chamfer: {size,edges?:"all"|"+Z"|"-Z"|"+X"|"-X"|"+Y"|"-Y"}. A face direction selects the edges bordering that face. Use small radii that fit the material; do these last.
@@ -103,6 +104,9 @@ Short generic construction examples (adapt ALL dimensions to the request):
 CATALOG += '''\nEvery create may set role=structure/electrical/transmission/specimen/unspecified. Default colors are white #F2F2F2 for structures/guards, yellow #FFD400 for electronics/motors/sensors, green #25A55F for mechanical drive/grips/shafts, gray #AEB6BF for specimens. Set roles by function, not by primitive shape. Explicit user colors override defaults; preserve custom colors of existing parts.\nActual cylinder selectors support revolute, cylindrical AND slider joints. For slider only z translates; rz is FIXED clocking, not a rotational degree of freedom. A single round guide does not mechanically prevent rotation; create an anti-rotation structure if required. Do not claim a kinematic slider alone proves real anti-rotation hardware.'''
 
 
+CATALOG += '\n' + MECHANICAL_FUNCTION_GUIDANCE
+
+
 def context(design):
     if not design:return None
     from .cad_feature_edits import summary
@@ -132,7 +136,7 @@ def context(design):
         product_contexts[p.id]=record
     from ..bom_design import bom_context
     return dict(name=design.name,bom_reference=bom_context(design.bom) if design.bom else None,parameters=design.parameters,print_profile=design.print_profile.model_dump() if design.print_profile else None,
-                parts=[dict(id=p.id,name=p.name,color=p.color,role=p.role,geometry=p.geometry.model_dump(exclude_none=True),
+                parts=[dict(id=p.id,name=p.name,color=p.color,role=p.role,mechanical_function=p.mechanical_function,geometry=p.geometry.model_dump(exclude_none=True),
                             kind=p.geometry.kind,transform=p.transform.model_dump(),local_bounds_mm=local_bounds[p.id],
                             features=[summary(f) for f in p.features],
                             source_part_id=p.source_part_id,bom=p.bom.model_dump() if p.bom else None,
@@ -145,6 +149,7 @@ def context(design):
                 registered_electrical_features=feature_context(design),
                 force_acquisition_review=force_review_context(design),
                 electrical_readiness=readiness_context(design),
+                mechanical_function_scope='Explicit saved declaration only; unspecified is unknown. No name/geometry/motion inference, electrical ratings or physical-readiness claim.',
                 product_reference_scope=dict(max_characters=24000,omitted_parts=omitted_products,
                     note='Untrusted product references; text may be excerpted and does not set circuit ratings or CAD dimensions.'))
 
@@ -353,7 +358,7 @@ def _apply(raw,action):
         from ..assembly_motion import set_joint_motion
         set_joint_motion(raw,target,args);return
     if tool=='create':
-        _keys(args,('name','geometry','color','role','transform'),('name','geometry'))
+        _keys(args,('name','geometry','color','role','mechanical_function','transform'),('name','geometry'))
         if any(p['id']==target for p in raw['parts']):raise ValueError('새 부품 ID가 이미 존재합니다. 수정은 dimensions를 사용하세요.')
         args['geometry']=_geometry(args['geometry'])
         # A rectangular block does not accidentally inherit the plate preset's holes.
@@ -412,7 +417,7 @@ def _apply(raw,action):
                 'Remove this transform action. For a new joint, set its offsets in the joint action instead. Do not break an existing joint to reposition its child.')
         part['transform']=desired;return
     if tool=='appearance':
-        _keys(args,('name','color','role','material'))
+        _keys(args,('name','color','role','mechanical_function','material'))
         part.update(args);Part.model_validate(part);return
     if part.get('source_part_id'):raise ValueError('연결 복제의 피처는 원본 부품에서 수정하세요.')
     if tool=='edit_feature':

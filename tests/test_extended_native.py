@@ -90,7 +90,12 @@ def test_native_motion_dialog_and_empty_assembly(app):
 def test_inspection_material_and_configuration_dialogs(app):
     from cadstudio.native.inspection_dialog import InspectionDialog,MaterialDialog
     from cadstudio.native.configuration_dialog import ConfigurationDialog
-    raw=assembly().model_dump();w=MaterialDialog(None,raw,'a');w.show();wait(app,lambda:w.checked is not None);raw=w.checked.model_dump();close(app,w)
+    raw=assembly().model_dump();w=MaterialDialog(None,raw,'a')
+    # The material editor preserves unassigned material until explicit input.
+    w.name.setText('Synthetic density fixture');w.inputs['density'].setText('7800')
+    w.show();wait(app,lambda:w.checked is not None)
+    assert w.checked.parts[0].material.density==7800
+    raw=w.checked.model_dump();close(app,w)
     w=InspectionDialog(None,raw,'a');w.show();wait(app,lambda:w.checked is not None)
     assert 'mm' in w.output.text();w.mode.setCurrentIndex(w.mode.findData('mass'));wait(app,lambda:w.checked is not None);assert 'kg' in w.output.text()
     w.mode.setCurrentIndex(w.mode.findData('section'));w.origin[2].setValue(2);wait(app,lambda:w.checked is not None);assert '단면적' in w.output.text();close(app,w)

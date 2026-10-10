@@ -380,7 +380,7 @@ PINOUTS: tuple[BoardPinout, ...] = (
                 "GPIO23/24/25. Not a Pico W or Pico 2 pinout. " + _SCHEMATIC_NOTE),
 )
 _G474_SOURCE='https://www.st.com/resource/en/user_manual/um2505-stm32g4-nucleo64-boards-mb1367-stmicroelectronics.pdf'
-PINOUTS += (BoardPinout('st_nucleo_g474re','ST NUCLEO-G474RE · MB1367 selected DAQ headers',_G474_SOURCE,(
+PINOUTS += (BoardPinout('st_nucleo_g474re','ST NUCLEO-G474RE · MB1367 selected Arduino / Morpho headers',_G474_SOURCE,(
     _pin('NC_CN6_1','CN6.1 · NC',('Reserved for test',),'other','left',0),
     _pin('IOREF_CN6_2','CN6.2 · IOREF',('I/O reference',),'other','left',1),
     _pin('NRST_CN6_3','CN6.3 · NRST',('PG10-NRST reset',),'reset','left',2),
@@ -392,14 +392,30 @@ PINOUTS += (BoardPinout('st_nucleo_g474re','ST NUCLEO-G474RE · MB1367 selected 
     _pin('PA5','CN5.6 · D13 / PA5',('GPIO','SPI1_SCK','LD2 via SB6; disconnect SB6 if using this candidate SPI clock'),'signal','right',0),
     _pin('PA6','CN5.5 · D12 / PA6',('GPIO','SPI1_MISO'),'signal','right',1),
     _pin('PA7','CN5.4 · D11 / PA7',('GPIO','SPI1_MOSI','TIM3_CH2'),'signal','right',2),
-    _pin('PB6','CN5.3 · D10 / PB6',('GPIO','SPIx_CS','TIM4_CH1'),'signal','right',3),
+    _pin('PB6','CN5.3 · D10 / PB6',('GPIO','SPIx_CS','TIM4_CH1','PA9 high can enable UCPD1_CC1 dead-battery Rd; PWR_CR3.UCPD1_DBDIS=1 disables it'),'signal','right',3),
     _pin('PC7','CN5.2 · D9 / PC7',('GPIO','TIM3_CH2 or TIM8_CH2'),'signal','right',4),
     _pin('PB5','CN9.5 · D4 / PB5',('GPIO',),'signal','right',5),
     _pin('GND_CN5_7','CN5.7 · GND',('GND',),'ground','right',6),
     _pin('E5V_CN7_6','CN7.6 · E5V',('External input 4.75–5.25 V; 500 mA maximum; JP5 pins 5–6; external supply before USB',),'power','left',8),
+    _pin('PA11','CN10.14 · PA11',('GPIO','FDCAN1_RX','AF9: FDCAN1_RX','LQFP64 pad 45; target MCU pin, not ST-LINK USB'),'signal','right',7),
+    _pin('PA12','CN10.12 · PA12',('GPIO','FDCAN1_TX','AF9: FDCAN1_TX','LQFP64 pad 46; target MCU pin, not ST-LINK USB'),'signal','right',8),
+    _pin('PB10','CN10.25 · PB10',('GPIO','USART3_TX','AF7: USART3_TX','LQFP64 pad 30; CN9.7 / D6 is the same GPIO'),'signal','right',9),
+    _pin('PB11','CN10.18 · PB11',('GPIO','USART3_RX','AF7: USART3_RX','LQFP64 pad 33'),'signal','right',10),
+    _pin('PB12','CN10.16 · PB12',('GPIO','LQFP64 pad 34'),'signal','right',11),
+    _pin('PB8','CN10.3 · PB8',('GPIO','I2C1_SCL','AF4: I2C1_SCL','LQFP64 pad 61; CN5.10 / D15 is the same GPIO','BOOT0 shared; inspect JP7/SB4 and option bytes; I2C requires open-drain configuration'),'signal','right',12),
+    _pin('PB9','CN10.5 · PB9',('GPIO','I2C1_SDA','AF4: I2C1_SDA','LQFP64 pad 62; CN5.9 / D14 is the same GPIO','Optional CN8.5 / A4 route via SB34 replaces PC1; I2C requires open-drain configuration'),'signal','right',13),
+    _pin('PC6','CN10.4 · PC6',('GPIO','LQFP64 pad 38'),'signal','right',14),
+    _pin('PA8','CN10.23 · PA8',('GPIO','TIM1_CH1','AF6: TIM1_CH1; input capture or output compare/PWM','LQFP64 pad 42; CN9.8 / D7 is the same GPIO'),'signal','left',9),
+    _pin('PA9','CN10.21 · PA9',('GPIO','TIM1_CH2','AF6: TIM1_CH2; input capture or output compare/PWM','LQFP64 pad 43; CN5.1 / D8 is the same GPIO','UCPD1_DBCC1: high PA9 can enable PB6 dead-battery Rd; PWR_CR3.UCPD1_DBDIS=1 disables it'),'signal','left',10),
+    _pin('PC0','CN7.38 · PC0',('GPIO','LQFP64 pad 8; CN8.6 / A5 shares this selected route','SB36 selects PC0; SB37 selects PA15 instead; inspect fitted bridges'),'signal','left',11),
+    _pin('PC1','CN7.36 · PC1',('GPIO','LQFP64 pad 9; CN8.5 / A4 shares this selected route','SB35 selects PC1; SB34 selects PB9 instead; inspect fitted bridges'),'signal','left',12),
+    _pin('PC2','CN7.35 · PC2',('GPIO','LQFP64 pad 10'),'signal','left',13),
+    _pin('PC3','CN7.37 · PC3',('GPIO','LQFP64 pad 11'),'signal','left',14),
+    _pin('PB0','CN7.34 · PB0',('GPIO','LQFP64 pad 24; CN8.4 / A3 is the same GPIO'),'signal','left',15),
+    _pin('PB1','CN10.24 · PB1',('GPIO','LQFP64 pad 25'),'signal','left',16),
 ),3.3,
-    'UM2505 Rev 7 표 15의 선택한 CN5/CN6/CN9 단자와 표 7 E5V CN7.6만 표시합니다. 전체 Morpho 모식도가 아닙니다. E5V는 4.75–5.25 V·500 mA 상한이며 JP5 5–6과 외부 전원 먼저·USB 나중 절차를 확인하세요. PA5는 LD2와 SB6로 연결되어 후보 SPI 수집에서는 SB6 OFF를 검토하세요. 보드 리비전·전원 점퍼·펌웨어는 실제 확인해야 합니다. ADC CLKIN은 별도 발진 부품입니다. 확인일 2026-10-06.',
-    'Selected CN5/CN6/CN9 terminals from UM2505 Rev 7 Table 15 and E5V CN7.6 from Table 7 only, not a full Morpho map and not a dimensioned PCB layout. E5V: 4.75–5.25 V, 500 mA maximum, JP5 pins 5–6, external power before USB. PA5 drives LD2 via SB6; review SB6 OFF for SPI acquisition. Confirm board revision, supply jumpers and firmware. ADC CLKIN needs a separate oscillator. Official source checked 2026-10-06.'),)
+    'UM2505 Rev 7 표 15·16의 선택 Arduino/Morpho 단자와 표 7 E5V, DS12288 Rev 6의 LQFP64 핀·선택 AF입니다. 전체 보드 배치는 아닙니다. 중복 헤더는 같은 GPIO입니다. PC0/PC1은 SB36/35 선택 경로이며 PA15/PB9 대체 경로와 실장 브리지를 확인하세요. PB8은 BOOT0와 공유합니다. PA5는 LD2/SB6, PA9·PB6은 UCPD dead-battery Rd와 관련되며 PWR_CR3.UCPD1_DBDIS=1 조건을 확인하세요. E5V는 4.75–5.25 V·500 mA, JP5 5–6, 외부 전원 먼저·USB 나중입니다. 보드 리비전·I/O 전압·펌웨어·별도 ADC CLKIN 발진기를 확인하세요. 확인일 2026-10-10.',
+    'Selected Arduino/Morpho terminals: UM2505 Rev 7 Tables 15/16 and E5V Table 7; LQFP64 pads/selected AFs: DS12288 Rev 6. Not a full board map and not a dimensioned PCB layout. Duplicate headers share one GPIO. PC0/PC1 require SB36/35 routes; check PA15/PB9 alternatives and fitted bridges. PB8 shares BOOT0. PA5 shares LD2/SB6. PA9 can enable PB6 dead-battery Rd; check PWR_CR3.UCPD1_DBDIS=1. E5V: 4.75–5.25 V, 500 mA maximum, JP5 pins 5–6, external power before USB. Confirm board revision, I/O voltage, firmware and separate ADC CLKIN oscillator. Official source checked 2026-10-10.'),)
 PINOUTS += (
     BoardPinout(
         "rpi_zero2w", "Raspberry Pi Zero 2 W · J8",

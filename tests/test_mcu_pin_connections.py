@@ -256,9 +256,9 @@ def test_large_board_exceeds_legacy_32pin_limit_and_node_creation_stays_guarded(
     workspace = ElectricalWorkspace.model_validate(raw)
     assert len(part(workspace, "pi").signal_pins) > 32
     assert ElectricalWorkspace.model_validate_json(workspace.model_dump_json()) == workspace
-    raw["nodes"].extend(f"NET_{index}" for index in range(128 - len(raw["nodes"])))
+    raw["nodes"].extend(f"NET_{index}" for index in range(512 - len(raw["nodes"])))
     saturated = ElectricalWorkspace.model_validate(raw)
-    with pytest.raises(ValueError, match="128"):
+    with pytest.raises(ValueError, match="512"):
         assign_pin_node(saturated, "pi", "D2", "NEW_NET")
     # Existing nets are still editable at the size bound.
     assert part(assign_pin_node(saturated, "pi", "D2", "SIG_B"), "pi").signal_pins["D2"] == "SIG_B"

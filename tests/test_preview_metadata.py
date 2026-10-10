@@ -16,6 +16,7 @@ def test_verified_geometry_reused_without_mutating_old_metadata():
     data = old.model_dump()
     data.update(name='New document', electrical=dict(nodes=['GND'], components=[]))
     data['parts'][0].update(name='New name', color='#FFD400', role='electrical')
+    data['parts'][0]['mechanical_function']='actuator'
     changed = Design.model_validate(data)
     reused = reuse_preview(changed, old.model_dump(), result)
     assert reused['meshes'][0]['name'] == 'New name'

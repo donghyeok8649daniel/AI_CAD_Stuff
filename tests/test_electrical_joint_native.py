@@ -59,6 +59,8 @@ def graphics_free(monkeypatch):
 
     def prepare(viewport):
         viewport.window = NoDraw(viewport.window)
+        # A hidden widget has no showEvent; initialize the existing no-GL stub.
+        viewport.initialize()
 
     return prepare
 

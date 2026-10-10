@@ -26,7 +26,7 @@ def test_catalog_models_have_safe_unique_physical_coordinates_and_official_sourc
             "pip-assets.raspberrypi.com", "docs.arduino.cc", "www.st.com",
             "datasheets.raspberrypi.com",
         }
-        checked = '2026-10-07' if board.catalog_id in ('rpi_pico2', 'rpi_zero2w') else ('2026-10-06' if board.catalog_id=='st_nucleo_g474re' else SOURCE_CHECKED_DATE)
+        checked = '2026-10-07' if board.catalog_id in ('rpi_pico2', 'rpi_zero2w') else ('2026-10-10' if board.catalog_id=='st_nucleo_g474re' else SOURCE_CHECKED_DATE)
         assert checked in board.note
         assert "확인일" in board.note and checked in board.note_en
         assert "not a dimensioned PCB layout" in board.note_en

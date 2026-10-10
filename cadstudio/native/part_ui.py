@@ -177,6 +177,7 @@ class PartSelectionUI(PartInspectionUI):
         self.property_layout.addWidget(button('선택 부품별 STEP / STL 내보내기',self.export_selected_parts))
         self.property_layout.addWidget(button('● 선택 부품 색상',self.color_selection,True))
         self.property_layout.addWidget(button('부품 역할 / 기본색…',self.role_selection))
+        self.property_layout.addWidget(button('기계 기능 · 체결 / 관절 / 액추에이터…',self.mechanical_function_selection))
         self.property_layout.addWidget(button('선택 부품 그룹 · Ctrl+G',self.group_parts))
         for group in groups:
             name=QLineEdit(group['name']);name.setMaxLength(80);name.setToolTip('그룹 이름 · Enter로 적용');self.property_layout.addWidget(name)
@@ -214,6 +215,26 @@ class PartSelectionUI(PartInspectionUI):
             for part in data['parts']:
                 if part['id'] in ids:assign_role(part,dialog.role.currentData(),dialog.use_color.isChecked())
             self.apply_design(data,'부품 역할 / 기본색 변경',{'part_ids':ids,'role':dialog.role.currentData()},after=lambda:self.select_parts(ids))
+        finally:dialog.deleteLater()
+
+    def mechanical_function_selection(self):
+        if self.busy or self.sketching:return
+        ids=self.selected_ids()
+        if not ids:return
+        from .mechanical_function_dialog import MechanicalFunctionDialog
+        from ..mechanical_functions import assign_mechanical_function
+        from PySide6.QtWidgets import QDialog
+        parts=[p for p in self.document.design['parts'] if p['id'] in ids]
+        dialog=MechanicalFunctionDialog(self,parts)
+        try:
+            if dialog.exec()!=QDialog.DialogCode.Accepted:return
+            value=dialog.function.currentData()
+            if value is None:return
+            data=deepcopy(self.document.design)
+            for part in data['parts']:
+                if part['id'] in ids:assign_mechanical_function(part,value)
+            if data==self.document.design:return
+            self.apply_design(data,'기계 기능 변경',{'part_ids':ids,'mechanical_function':value},after=lambda:self.select_parts(ids))
         finally:dialog.deleteLater()
 
     def write_part_clipboard(self,payload):

@@ -157,9 +157,11 @@ class PinDiagramView(QGraphicsView):
         self.pin_items = {}; self.pin_positions = {}
 
     def mousePressEvent(self, event):
-        item = self.itemAt(event.position().toPoint())
-        if item is not None and item.data(0):
-            self.pin_clicked.emit(str(item.data(0))); event.accept(); return
+        # Connected wires are drawn above the pad. Keep the pad/caption
+        # selectable through an unlabelled line at the same screen position.
+        for item in self.items(event.position().toPoint()):
+            if item.data(0):
+                self.pin_clicked.emit(str(item.data(0))); event.accept(); return
         super().mousePressEvent(event)
 
     def wheelEvent(self, event):

@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "version": "3.0.1",
+  "public_release": true,
+  "success": true,
+  "source_regression": {
+    "passed": 2442,
+    "receipt_sha256": "ba96eea174743e9f3def24efee23a4a32cf0dc0df520dc038a465125196e2546",
+    "count_basis": "Full current pytest suite only",
+    "observer": {
+      "mode": "python-source-free",
+      "interval_seconds": 60,
+      "samples": 26,
+      "cleanup_success": true
+    }
+  },
+  "native_validation": {
+    "frozen_flows": [
+      {
+        "flow": "g474_and_purpose",
+        "checks": 216,
+        "report_sha256": "db1393ef2003b8db9c2bfd76ab95ae12c01dca17031eaba816b3c741d93b1192"
+      },
+      {
+        "flow": "full_project",
+        "checks": 232,
+        "report_sha256": "7c60cc8db5207865e9511d3c2f0fae12b0b83bb68b34fb4fd9b603b81ef94417"
+      }
+    ],
+    "checks_are_not_additional_unique_tests": true,
+    "source_g474_checks": 216,
+    "source_full_project_checks": 232,
+    "independent_source_flow": 5,
+    "source_receipt_sha256": "fb582b619e38f263f8d4e0e43c6ec46bf5587c1319ea422a79420f45f6d240c0",
+    "native_modules": 222,
+    "modules_exact": true,
+    "native_entry_exact": true,
+    "software_driver_unmodified": true,
+    "observer": {
+      "mode": "python-source-free",
+      "interval_seconds": 60,
+      "samples": 9,
+      "cleanup_success": true
+    }
+  },
+  "full_project": {
+    "actors": 146,
+    "history_entries": 327,
+    "CAD_parts": 146,
+    "electrical_nodes": 298,
+    "electrical_components": 164,
+    "physical_wires": 129,
+    "firmware_source_and_library_files": 16,
+    "firmware_count_basis": "Materialized source plus library files; reviewed, never executed",
+    "BOM_rows": 146,
+    "BOM_bound_parts": 146,
+    "BOM_rows_missing_dimensions": 146,
+    "actual_new_GPIO_interactions": [
+      "PA11",
+      "PA12",
+      "PB10",
+      "PB11",
+      "PB12",
+      "PB8",
+      "PB9",
+      "PC6",
+      "PA8",
+      "PA9",
+      "PC0",
+      "PC1",
+      "PC2",
+      "PC3",
+      "PB0",
+      "PB1"
+    ],
+    "input_preserved": true,
+    "normal_Open_separate_Save_As_and_reopen": true,
+    "source_first_Open_seconds_once": 210.891,
+    "source_reopen_seconds_once": 169.953,
+    "timing_is_benchmark": false,
+    "controlled_cold_cache": false
+  },
+  "claims": {
+    "physical_SDK_build_verified": false,
+    "MCU_execution_verified": false,
+    "device_operation_verified": false,
+    "physical_hardware_verified": false,
+    "strength_verified": false,
+    "firmware_logic_verified": false,
+    "every_native_crash_fixed": false,
+    "live_AI_calls": 0,
+    "SDK_executions": 0,
+    "hardware_calls": 0,
+    "generated_code_executed": false
+  },
+  "retained_failures": {
+    "earlier_failed_fixtures_and_logs_retained": true,
+    "source4_counted_as_pass": false,
+    "Final1_counted_as_pass": false,
+    "deliberately_stopped_runs_counted_as_pass": false
+  },
+  "public_scope": {
+    "raw_checks_included": false,
+    "private_paths_included": false,
+    "photographs_included": false,
+    "private_names_included": false,
+    "firmware_code_included": false,
+    "credentials_included": false
+  },
+  "release_guides": [
+    "docs/RELEASE_3_0_1_KO.md",
+    "docs/RELEASE_3_0_1_EN.md"
+  ],
+  "matched_periodic_control": {
+    "historical": true,
+    "before_request_ownership_fix": true,
+    "current_release_source_comparison": false,
+    "comparison_success": false,
+    "experiment_completed": true,
+    "periodic_off_equal_cycles": 12,
+    "periodic_off_passed": true,
+    "periodic_on_equal_cycles_before_fault": 3,
+    "periodic_on_passed": false,
+    "periodic_on_natural_access_violation": true,
+    "native_fault_cause_proven": false,
+    "interpretation": "Supports a periodic-watchdog association; does not establish the exact native fault cause",
+    "receipt_sha256": "010af543c73c85eeff490c5204274d96375a0f59b6bc3d09998d13e4975ded6a"
+  },
+  "separate_scalar_arithmetic_proof": {
+    "forward_cases": 581,
+    "inverse_cases": 1426,
+    "bit_identical_forward_matrices": 581,
+    "max_direct_angle_delta_degrees": 2.5579538487363607e-13,
+    "max_end_to_end_angle_delta_degrees": 5.684341886080802e-14,
+    "history_tolerance_changed": false,
+    "constraints_sha256": "172d975196d3bf75b1126abc2e102c8c66a654c106fe7443d6e09c56b078eb17",
+    "oracle_sha256": "6793279fc1226061c2092601d40bcf12d2cc16efd14b9747cc37170da21f2b6e",
+    "added_to_source_regression_count": false,
+    "exact_native_fault_cause_proven": false
+  },
+  "verification_receipt_sha256": "729614137322875a904081032a232ce79e6f32f6fb22325bae06915febba8861"
+}

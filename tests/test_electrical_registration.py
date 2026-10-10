@@ -269,7 +269,7 @@ def test_pending_all_kinds_skip_bad_zero_resistance_and_large_board_nodes_remain
                for branch in result.components)
     design = register_part(original(), "board", dict(catalog_id="rpi4b"))
     raw = design.model_dump()
-    raw["electrical"]["nodes"].extend(f"NET_{index}" for index in range(128 - len(raw["electrical"]["nodes"])))
+    raw["electrical"]["nodes"].extend(f"NET_{index}" for index in range(512 - len(raw["electrical"]["nodes"])))
     saturated = Design.model_validate(raw); before = saturated.model_dump()
     with pytest.raises(ValueError):
         register_part(saturated, "encoder", dict(catalog_id="pololu_4755"))

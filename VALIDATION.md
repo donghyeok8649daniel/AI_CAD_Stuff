@@ -1,3 +1,15 @@
+# 3.0.1 electrical capacity, G474 pins, purpose and native validation
+
+Full current source regression: **2442 passed**. Frozen Windows EXE: **216 checks** for the synthetic G474/purpose flow and **232 checks** for the separate full-project flow. These native checks and the separate scalar arithmetic proof are not additional unique pytest tests. All **222** native modules and the native entry match the frozen source; the software driver is unchanged.
+
+The actual full-project review preserved **146 actors**, **327 history entries**, **298 electrical nodes**, **129 physical wires**, and **16 materialized firmware source/library files**. Normal Open, cancel-only reviews, a separate Save As, and reopen were exercised with the owned input unchanged. All 16 added canonical G474 GPIOs were selected through the real pin table/diagram. All **146** CAD parts have BOM bindings, while **146 BOM rows still lack dimensions**; bindings do not establish product geometry or readiness.
+
+Source first Open took **210.891s** and source reopen **169.953s** in one run. Cache state was not controlled; these measurements are not benchmarks. Python source-free periodic stack observers produced bounded evidence and cleaned up; fatal handling and external process limits remained active.
+
+The historical matched typed comparison, performed before the request ownership fix, completed 12 equal cycles with periodic native dumping off; its on arm ended in a natural access violation after 3 equal cycles. The comparison's success remains false. This supports a watchdog association without establishing the exact native fault cause; these prior arms are separate from the fresh Final3/Source5/frozen validation. A separate compiled oracle checked 581 bit-identical scalar forward matrices and 1426 inverse cases with unchanged history tolerances. Earlier failed fixtures/logs are retained; Source4 and Final1 deliberate stops are not counted as passes.
+
+No live AI request, SDK build, generated-code execution, firmware/MCU execution, device command, physical hardware validation, or strength qualification is claimed. Not every native crash is proven fixed. Raw Qt captures may omit WGL pixels; actual VTK framebuffer evidence remains separate and private. Public output contains aggregate evidence only, without private paths, names, photographs, code, or credentials. See the [Korean release guide](docs/RELEASE_3_0_1_KO.md), [English guide](docs/RELEASE_3_0_1_EN.md), and [aggregate evidence](docs/native3001-validation.json).
+
 # 3.0.0 AI usability, Codex recovery, firmware libraries and electrical diagnosis
 
 Affected source regression: **1430 passed**, 1 skipped. Lazy SciPy and the 12 automatic timeline-label regressions are included in that total. Frozen Windows EXE: **433 checks** across 12 isolated synthetic flows, with actual selected renderers recorded. All **217** bundled CAD modules, the native entry and standalone updater match the tested source; the software renderer DLL is unchanged. Frozen flows use no model requests, generated program execution or device operation.

@@ -94,6 +94,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         model.addAction(self.action('extrude','3D 돌출 / 깊이 편집 · E',self.extrude_dialog,None,'extrude'));edit.addAction(self.action('parameters','변수 / 연결 치수 · U',self.parameter_dialog,None,'dimension'))
         assembly=self.menuBar().addMenu('조립(&A)');assembly.addAction(self.action('joint_hardware','실제 관절 구조…',self.joint_hardware_dialog,None,'assembly'));assembly.addAction(self.action('face_joint','면으로 조인트',self.start_face_joint,None,'assembly'));self.actions['face_joint'].setCheckable(True);assembly.addAction(self.action('drive','관절 구동',self.drive_joints,None,'origin'));assembly.addAction(self.action('robot','로봇 치수',self.robot_dialog,None,'assembly'));assembly.addAction(self.action('mate','기준점으로 연결…',self.mate_dialog,None,'assembly'));model.addAction(self.action('specimen','시편 설계',self.specimen_dialog,None,'specimen'))
         assembly.addAction(self.action('loop','폐루프 연결…',self.closure_dialog,None,'assembly'));assembly.addAction(self.action('four_bar','4절 링크 추가',self.add_four_bar,None,'assembly'))
+        assembly.addAction(self.action('mechanical_function','기계 기능 · 체결 / 관절 / 액추에이터…',self.mechanical_function_selection))
         model.addAction(self.action('hole','구멍 뚫기…',self.hole_dialog,None,'cut'));model.addAction(self.action('measure','길이 측정…',self.measure_dialog,None,'dimension'))
         model.addAction(self.action('thread','나사산 · 수나사 / 암나사 · T',self.thread_dialog,None,'thread'))
         model.addAction(self.action('revolve','스케치 회전 · Revolve…',self.revolve_dialog,None,'extrude'))
@@ -1408,6 +1409,10 @@ class MainWindow(QMainWindow,PartSelectionUI):
         chamber=self.chamber_context([part['id']])
         if chamber:self.property_layout.addWidget(button('챔버 치수 / 밀봉 인터페이스 편집',lambda:self.chamber_dialog(context=chamber)))
         self.property_layout.insertWidget(2,button('부품 역할 / 기본색…',self.role_selection))
+        from ..mechanical_functions import function_label,mechanical_function
+        purpose=label(function_label(mechanical_function(part),language=self.language_service.language),True)
+        purpose.setObjectName('partMechanicalFunction');self.property_layout.insertWidget(3,purpose)
+        self.property_layout.insertWidget(4,button('기계 기능 · 체결 / 관절 / 액추에이터…',self.mechanical_function_selection))
         if part.get('source_part_id'):
             self.property_layout.addWidget(label('연결된 원본: '+part['source_part_id']+' · 형상은 원본을 따라갑니다.',True));self.property_layout.addWidget(button('원본 편집',lambda:self.select_part(part['source_part_id'])));self.property_layout.addWidget(button('연결 해제 · 독립 부품으로',self.unlink_part))
             for w in inputs.values():w.setEnabled(False)
@@ -1652,6 +1657,14 @@ class MainWindow(QMainWindow,PartSelectionUI):
         from ..assembly_motion import JOINT_TITLES,JOINT_AXES
         mate=next(m for m in self.document.design['mates'] if m['id']==identifier);names={p['id']:p['name'] for p in self.document.design['parts']};clear_layout(self.property_layout);self.property_layout.addWidget(label('조립 구속 · '+JOINT_TITLES[mate['kind']]));self.property_layout.addWidget(label(names[mate['parent']]+' → '+names[mate['child']]));self.property_layout.addWidget(label('운동 축: '+(', '.join(a.upper() for a in JOINT_AXES[mate['kind']]) or '없음 · 강체 연결')+'\n이동 XYZ: '+', '.join(f"{mate[k]:g}" for k in ('x','y','z'))+' mm\n회전 XYZ: '+', '.join(f"{mate[k]:g}" for k in ('rx','ry','rz'))+' °',True));self.property_layout.addWidget(button('연결된 부품 선택',lambda:self.select_parts([mate['parent'],mate['child']])));self.property_layout.addWidget(button('관절 구동 · 간섭 확인',self.drive_joints,True));self.property_layout.addWidget(button('고급 구속 / 오프셋 편집',lambda:self.mate_dialog(identifier)))
         readiness=(self.result or {}).get('stats',{}).get('joint_readiness',{}).get(identifier,{})
+        from ..mechanical_functions import mechanical_function,function_label
+        parts={p['id']:p for p in self.document.design['parts']}
+        functions='\n'.join(parts[key]['name']+' · '+function_label(mechanical_function(parts[key]),language=self.language_service.language) for key in (mate['parent'],mate['child']))
+        self.property_layout.addWidget(label(functions,True,user_text=True))
+        self.property_layout.addWidget(label('관절 구속은 운동 관계입니다. 체결부품·수동 지지부·실제 구동기는 별도로 지정합니다.',True))
+        def classify_connected():
+            self.select_parts([mate['parent'],mate['child']]);self.mechanical_function_selection()
+        self.property_layout.addWidget(button('연결 부품의 기계 기능 지정…',classify_connected))
         if readiness:
             status=label(readiness['title']+'\n'+'\n'.join(readiness['details']),True);self.property_layout.addWidget(status)
             from ..joint_readiness import COLORS

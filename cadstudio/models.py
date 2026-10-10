@@ -4,9 +4,10 @@ from __future__ import annotations
 import math
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator, model_serializer, field_validator
 from .electrical import ElectricalWorkspace
 from .part_product import ProductMetadata
+from .mechanical_functions import MechanicalFunction
 
 
 class StrictModel(BaseModel):
@@ -710,6 +711,8 @@ class Part(StrictModel):
     transform: Transform = Field(default_factory=Transform)
     color: str = Field(default="#70aebf", pattern=r"^#[0-9a-fA-F]{6}$")
     role: Literal['unspecified','structure','electrical','transmission','specimen'] = 'unspecified'
+    mechanical_function: MechanicalFunction = Field(default='unspecified',
+        description='Explicit mechanical purpose only; no name/geometry inference, powered-operation or physical-readiness claim.')
     fixed: bool = False
     features: list[Union[SketchFeature,EdgeFeature,ThreadFeature,SolidFeature]] = Field(default_factory=list, max_length=128)
     profile_sketch_id: str = Field(default='',max_length=40)
@@ -727,6 +730,7 @@ class Part(StrictModel):
         if self.product is None:data.pop('product',None)
         if self.bom is None:data.pop('bom',None)
         if self.role=='unspecified':data.pop('role',None)
+        if self.mechanical_function=='unspecified':data.pop('mechanical_function',None)
         return data
 
 
@@ -965,6 +969,14 @@ class DraftRequest(StrictModel):
     selected_joint: str | None = Field(default=None, max_length=40)
     references: list[ReferenceMaterial] = Field(default_factory=list, max_length=8)
     bom: BomDocument | None = None
+
+    @field_validator('current', mode='before')
+    @classmethod
+    def own_current_design(cls, value):
+        # Nested Design validators solve joints; own typed inputs first.
+        if isinstance(value, Design):
+            return value.model_copy(deep=True)
+        return value
 
     @model_validator(mode='after')
     def reference_budget(self):

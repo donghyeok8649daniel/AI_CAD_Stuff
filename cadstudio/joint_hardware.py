@@ -77,6 +77,7 @@ def add_revolute_hardware(raw=None, dimensions=None, *, mate_id=None, origin=(0,
     from .part_roles import new_part_style
     for key,name,geometry,z,color in rows:
         parts.append(Part(id=prefix+key,name=name,geometry=geometry,**new_part_style(geometry['kind'],'structure' if key in ('mount','housing') else 'transmission'),
+                          mechanical_function='transmission' if key in ('shaft','output') else 'joint_support',
                           fixed=key=='mount' and not existing,transform=_pose(root+basis@np.array([0,0,z]),basis)).model_dump())
     by_id={p['id']:p for p in parts}
     if any(p['id'] in original_parts for p in parts):raise ValueError('관절 구조의 부품 ID가 중복됩니다.')

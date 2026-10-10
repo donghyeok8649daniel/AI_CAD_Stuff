@@ -23,9 +23,10 @@ _local_shape_session = ContextVar('local_shape_session', default=None)
 def local_shape_session():
     """Reuse up to 256 local BReps for one operation, releasing them on exit.
 
-    Joint surveys can visit hundreds of poses in assemblies larger than the
-    persistent 32-shape cache. Keep their unchanged geometry only for this
-    operation. Relative boolean tools remain part of the key at every pose.
+    Previews revisit local faces after their world build, and joint surveys
+    can visit hundreds of poses beyond the persistent 32-shape cache. Keep
+    unchanged geometry only for this operation. Relative boolean tools remain
+    part of the key at every pose.
     """
     if _local_shape_session.get() is not None:
         yield
@@ -248,7 +249,8 @@ def local_shape(design,part,_stack=()):
     local_part=part.model_copy(update={'transform':type(part.transform)(),
                                       'id':'geometry','source_part_id':'','fixed':False,
                                       'material':None,'product':None,
-                                      'name':'Geometry','color':'#AEB6BF','role':'unspecified'})
+                                      'name':'Geometry','color':'#AEB6BF','role':'unspecified',
+                                      'mechanical_function':'unspecified'})
     key = (local_part.model_dump_json(), asset, tuple(tools))
     cache = _local_shape_session.get()
     if cache is not None and key in cache:
@@ -301,7 +303,7 @@ def build(design: Design):
 
 
 def preview(design: Design):
-    with KERNEL_LOCK:
+    with KERNEL_LOCK, local_shape_session():
         shapes = build(design)
         meshes = []
         for part, shape in zip(design.parts, shapes):

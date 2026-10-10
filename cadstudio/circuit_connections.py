@@ -8,7 +8,7 @@ substituted for the separate A/B DC power model.
 
 from __future__ import annotations
 
-from .electrical import ElectricalComponent, ElectricalWorkspace
+from .electrical import MAX_ELECTRICAL_NODES, ElectricalComponent, ElectricalWorkspace
 from .mcu_connections import (ConnectionEndpoint, assign_pin, assign_pin_node,
                               connection_endpoints, disconnect_pin)
 
@@ -64,8 +64,8 @@ def _add_node(workspace: ElectricalWorkspace, node_id: str) -> None:
                        for character in node_id)):
         raise ValueError("노드 ID는 40자 이내의 영문·숫자·_·-로 지정하세요.")
     if node_id not in workspace.nodes:
-        if len(workspace.nodes) >= 128:
-            raise ValueError("회로 노드는 최대 128개까지 지정할 수 있습니다. 기존 노드를 선택하세요.")
+        if len(workspace.nodes) >= MAX_ELECTRICAL_NODES:
+            raise ValueError(f"회로 노드는 최대 {MAX_ELECTRICAL_NODES}개까지 지정할 수 있습니다. 기존 노드를 선택하세요.")
         workspace.nodes.append(node_id)
 
 

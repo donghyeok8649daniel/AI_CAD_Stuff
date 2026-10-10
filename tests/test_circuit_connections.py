@@ -154,7 +154,7 @@ def test_explicit_net_assignment_preserves_named_nodes_layout_and_unrelated_endp
 
 def test_fresh_node_limit_rejects_disconnect_or_unassigned_target_without_partial_edits():
     raw = circuit().model_dump()
-    raw["nodes"].extend(f"NET_{index}" for index in range(128 - len(raw["nodes"])))
+    raw["nodes"].extend(f"NET_{index}" for index in range(512 - len(raw["nodes"])))
     workspace = ElectricalWorkspace.model_validate(raw); original = workspace.model_dump()
     for operation in (
         lambda: disconnect_schematic_terminal(workspace, "battery", "a"),
@@ -162,7 +162,7 @@ def test_fresh_node_limit_rejects_disconnect_or_unassigned_target_without_partia
         lambda: connect_schematic_terminals(workspace, "pi", "pin:GPIO17", "driver", "port:AIN1"),
         lambda: assign_schematic_node(workspace, "sensor", "port:PWM", "NEW_NODE"),
     ):
-        with pytest.raises(ValueError, match="128"):
+        with pytest.raises(ValueError, match="512"):
             operation()
         assert workspace.model_dump() == original
 

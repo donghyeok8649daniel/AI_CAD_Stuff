@@ -65,9 +65,92 @@ def anchors(geometry):
     return out
 
 
+def _compose_quaternion(p,q):
+    px,py,pz,pw=p;qx,qy,qz,qw=q
+    cross=(py*qz-pz*qy,pz*qx-px*qz,px*qy-py*qx)
+    return (pw*qx+qw*px+cross[0],pw*qy+qw*py+cross[1],
+            pw*qz+qw*pz+cross[2],pw*qw-px*qx-py*qy-pz*qz)
+
+
+def _xyz_matrix(rx,ry,rz):
+    """Extrinsic xyz degrees: scalar qz * qy * qx represents Rz @ Ry @ Rx.
+
+    Preserve half-angle composition and matrix arithmetic order used by saved
+    histories; direct full-angle products can amplify an ULP near gimbal lock.
+    """
+    angles=[value*(math.pi/180.) for value in (rx,ry,rz)]
+    sx,sy,sz=(math.sin(a/2) for a in angles)
+    cx,cy,cz=(math.cos(a/2) for a in angles)
+    x,y,z,w=_compose_quaternion((0.,0.,sz,cz),_compose_quaternion((0.,sy,0.,cy),(sx,0.,0.,cx)))
+    x2,y2,z2,w2=x*x,y*y,z*z,w*w
+    xy,zw,xz,yw,yz,xw=x*y,z*w,x*z,y*w,y*z,x*w
+    return np.array([[x2-y2-z2+w2,2*(xy-zw),2*(xz+yw)],
+                     [2*(xy+zw),-x2+y2-z2+w2,2*(yz-xw)],
+                     [2*(xz-yw),2*(yz+xw),-x2-y2+z2+w2]])
+
+
+def _xyz_angles(matrix):
+    """Canonical xyz degrees, with third angle zero at gimbal lock.
+
+    Frames permit small axis errors. The polar factor preserves the previous
+    nearest-rotation interpretation rather than biasing one axis with Gram-Schmidt.
+    Scalar arithmetic also avoids a native rotation object for every history mate.
+    """
+    rows=[[float(value) for value in row] for row in matrix]
+    if len(rows)!=3 or any(len(row)!=3 for row in rows) or not all(math.isfinite(v) for row in rows for v in row):
+        raise ValueError('조립 회전 행렬은 유한한 3 × 3 행렬이어야 합니다.')
+
+    def cofactors(m):
+        (a,b,c),(d,e,f),(g,h,i)=m
+        co=[[e*i-f*h,f*g-d*i,d*h-e*g],
+            [c*h-b*i,a*i-c*g,b*g-a*h],
+            [b*f-c*e,c*d-a*f,a*e-b*d]]
+        return co,a*co[0][0]+b*co[0][1]+c*co[0][2]
+
+    _,det=cofactors(rows)
+    if det<=0:raise ValueError('조립 회전 기준은 오른손 좌표계여야 합니다.')
+    gram=[[sum(rows[i][k]*rows[j][k] for k in range(3)) for j in range(3)] for i in range(3)]
+    if any(abs(gram[i][j]-(i==j))>1e-12+(1e-5 if i==j else 0) for i in range(3) for j in range(3)):
+        for _ in range(20):
+            co,det=cofactors(rows)
+            updated=[[.5*(rows[i][j]+co[i][j]/det) for j in range(3)] for i in range(3)]
+            change=max(abs(updated[i][j]-rows[i][j]) for i in range(3) for j in range(3))
+            rows=updated
+            if change<=1e-15:break
+        else:raise ValueError('조립 회전 기준의 직교화를 완료하지 못했습니다.')
+
+    # Keep this association explicit: one trace ULP is amplified near gimbal lock.
+    trace=rows[0][0]+(rows[1][1]+rows[2][2])
+    choice=max(range(4),key=lambda i:rows[i][i] if i<3 else trace)
+    if choice==3:
+        q=[rows[2][1]-rows[1][2],rows[0][2]-rows[2][0],rows[1][0]-rows[0][1],1+trace]
+    else:
+        i=choice;j=(i+1)%3;k=(j+1)%3
+        q=[0.,0.,0.,0.]
+        q[i]=1-trace+2*rows[i][i]
+        q[j]=rows[j][i]+rows[i][j]
+        q[k]=rows[k][i]+rows[i][k]
+        q[3]=rows[k][j]-rows[j][k]
+    norm=math.sqrt(sum(value*value for value in q))
+    x,y,z,w=(value/norm for value in q)
+    a,b,c,d=w-y,x+z,y+w,z-x
+    middle=2*math.atan2(math.hypot(c,d),math.hypot(a,b))
+    half_sum,half_difference=math.atan2(b,a),math.atan2(d,c)
+    if middle<=1e-7:
+        first,third=2*half_sum,0.
+    elif math.pi-middle<=1e-7:
+        first,third=-2*half_difference,0.
+    else:
+        first,third=half_sum-half_difference,half_sum+half_difference
+    angles=[first,middle-math.pi/2,third]
+    for i,angle in enumerate(angles):
+        if angle < -math.pi:angles[i]+=2*math.pi
+        elif angle > math.pi:angles[i]-=2*math.pi
+    return tuple(map(math.degrees,angles))
+
+
 def transform_matrix(t):
-    from scipy.spatial.transform import Rotation
-    return Rotation.from_euler("xyz",[t.rx,t.ry,t.rz],degrees=True).as_matrix()
+    return _xyz_matrix(t.rx,t.ry,t.rz)
 
 
 def solve_assembly(design,solve_loops=True):
@@ -93,9 +176,8 @@ def solve_assembly(design,solve_loops=True):
             pa,ca=anchors(parent.geometry),anchors(child.geometry)
             if mate.parent_anchor not in pa or mate.child_anchor not in ca:
                 raise ValueError("조립 구속의 기준점이 현재 형상에 없습니다.")
-            from scipy.spatial.transform import Rotation
             parent_rotation=transform_matrix(parent.transform)
-            relative=Rotation.from_euler("xyz",[mate.rx,mate.ry,mate.rz],degrees=True).as_matrix()
+            relative=_xyz_matrix(mate.rx,mate.ry,mate.rz)
             parent_pos=np.array([parent.transform.x,parent.transform.y,parent.transform.z])
             frame=frames.get(mate.id)
             if frame:
@@ -107,7 +189,7 @@ def solve_assembly(design,solve_loops=True):
             else:
                 rotation=parent_rotation@relative
                 translation=parent_pos+parent_rotation@(np.array(pa[mate.parent_anchor])+np.array([mate.x,mate.y,mate.z]))-rotation@np.array(ca[mate.child_anchor])
-            angles=Rotation.from_matrix(rotation).as_euler("xyz",degrees=True)
+            angles=_xyz_angles(rotation)
             values=dict(zip(["x","y","z","rx","ry","rz"],map(float,[*translation,*angles])))
             child.transform=type(child.transform).model_validate(values)
         visiting.remove(identifier);completed.add(identifier)
