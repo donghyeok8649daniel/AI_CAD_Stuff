@@ -1,3 +1,5 @@
+**2.24.2 · Windows 파일 열기 수정:** 기본 앱을 EXE로 직접 지정했을 때 전달되는 파일 경로도 받아 프로젝트를 엽니다. 기존 `--open` 방식과 한글·공백 경로를 유지하며 Windows의 기존 기본 앱 선택을 보존합니다. [한국어 안내](docs/RELEASE_2_24_2_KO.md) · [English](docs/RELEASE_2_24_2_EN.md).
+
 **BOM 설계 · 전용 프로젝트 파일:** 메인 AI 패널의 **BOM 보고 설계…**에서 CSV/TSV/XLSX·붙여넣기 부품표를 검토하고, 실제 CAD 수량·치수를 미리보기에서 대조합니다. 새 프로젝트는 `.pcad`로 저장합니다. `Install.ps1`은 바로가기와 `.pcad` 열기 연결을 등록하며 기존 기본 앱 선택과 일반 JSON 연결은 보존합니다. 이전 `.cad.json`도 계속 읽습니다. [BOM 안내](docs/BOM_DESIGN_KO.md) · [파일 연결 안내](docs/FILE_ASSOCIATIONS_KO.md)
 
 **2.24.1 · 전용 파일 연결 보정:** 새 저장은 `.pcad`입니다. 기본 앱이 없는 일반 `.json`에도 CAD가 자동 선택될 수 있던 Windows 연결을 수정했습니다. 기존 `.cad.json` 읽기와 이름 변경 후 경로 복구를 유지합니다. [한국어 안내](docs/RELEASE_2_24_1_KO.md) · [English](docs/RELEASE_2_24_1_EN.md).

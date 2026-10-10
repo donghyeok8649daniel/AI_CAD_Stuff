@@ -16,14 +16,13 @@ class Registry:
         return self.values.get((key, name))
 
     def key_exists(self, key):
-        return key in self.keys
+        return key in self.keys or any(path == key for path, _ in self.values)
 
     def merged_default(self, extension):
         return self.get(F.CLASSES + '\\' + extension, '') or self.machine_defaults.get(extension)
 
     def choice_present(self, extension):
-        prefix = 'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\' + extension + r'\UserChoice'
-        return self.key_exists(prefix) or any(key == prefix for key, _ in self.values)
+        return F._WindowsRegistry.choice_present(self, extension)
 
     def set(self, key, name, value):
         if self.fail == (key, name):
@@ -189,19 +188,34 @@ def test_new_uninstaller_can_remove_schema2_without_reclaiming_user_edits(execut
     assert backend.values == {address: ('later user edit', F.REG_SZ)}
 
 
-@pytest.mark.parametrize('source', ['per_user', 'machine', 'userchoice'])
+@pytest.mark.parametrize('choice_names', [(), ('UserChoice',), ('UserChoiceLatest',),
+                                         ('UserChoice', 'UserChoiceLatest')])
+def test_windows_registry_detects_protected_choices_without_writing(monkeypatch, choice_names):
+    backend = F._WindowsRegistry.__new__(F._WindowsRegistry)
+    prefix = r'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pcad'
+    existing = {prefix + '\\' + name for name in choice_names}
+    monkeypatch.setattr(backend, 'key_exists', lambda key: key in existing)
+    assert backend.choice_present('.pcad') is bool(choice_names)
+    assert not backend.choice_present('.json')
+
+
+@pytest.mark.parametrize('source', ['per_user', 'machine', 'userchoice', 'userchoice_latest'])
 def test_existing_pcad_default_is_preserved(executable, source):
     backend = Registry()
-    choice = (r'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pcad\UserChoice', 'ProgId')
+    choice_name = 'UserChoiceLatest' if source == 'userchoice_latest' else 'UserChoice'
+    choice_key = r'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pcad' + '\\' + choice_name
+    choice = (choice_key, 'ProgId')
     if source == 'per_user':
         backend.values[F.PCAD, ''] = ('ExistingPCAD', F.REG_SZ)
     elif source == 'machine':
         backend.machine_defaults['.pcad'] = ('MachinePCAD', F.REG_SZ)
     else:
         backend.values[choice] = ('ChosenPCAD', F.REG_SZ)
+        backend.values[choice_key, 'Hash'] = ('opaque-pcad-choice', F.REG_SZ)
     before = dict(backend.values)
     result = F.register(executable, _backend=backend)
     assert result['existing_pcad_default_preserved'] and not result['pcad_default_assigned']
+    assert result['protected_pcad_userchoice_preserved'] is source.startswith('userchoice')
     assert result['userchoice_written'] is False
     assert all(backend.values[address] == value for address, value in before.items())
     if source != 'per_user':
@@ -224,16 +238,19 @@ def test_later_pcad_default_change_is_not_reclaimed_on_update(executable):
     assert backend.values == {(F.PCAD, ''): ('LaterUserChoice', F.REG_SZ)}
 
 
-def test_later_protected_choice_is_preserved_and_reported_on_update(executable):
+@pytest.mark.parametrize('choice_name', ['UserChoice', 'UserChoiceLatest'])
+def test_later_protected_choice_is_preserved_and_reported_on_update(executable, choice_name):
     backend = Registry()
     F.register(executable, _backend=backend)
-    choice = (r'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pcad\UserChoice', 'ProgId')
-    backend.values[choice] = ('LaterChosenPCAD', F.REG_SZ)
+    choice_key = r'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pcad' + '\\' + choice_name
+    preserved = {(choice_key, 'ProgId'): ('LaterChosenPCAD', F.REG_SZ),
+                 (choice_key, 'Hash'): ('opaque-later-pcad-choice', F.REG_SZ)}
+    backend.values.update(preserved)
     result = F.register(executable, _backend=backend)
     assert result['existing_pcad_default_preserved'] and result['protected_pcad_userchoice_preserved']
-    assert backend.values[choice] == ('LaterChosenPCAD', F.REG_SZ)
+    assert all(backend.values[address] == value for address, value in preserved.items())
     F.unregister(executable, _backend=backend)
-    assert backend.values == {choice: ('LaterChosenPCAD', F.REG_SZ)}
+    assert backend.values == preserved
 
 
 def test_unregister_preserves_user_changes_and_other_openwith_entries(executable):

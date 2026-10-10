@@ -134,7 +134,9 @@ class _WindowsRegistry:
             return None
 
     def choice_present(self, extension):
-        return self.key_exists('Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\' + extension + r'\UserChoice')
+        file_ext = 'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\' + extension
+        return any(self.key_exists(file_ext + '\\' + name)
+                   for name in ('UserChoice', 'UserChoiceLatest'))
 
     def set(self, key, name, value):
         registry = self.registry
