@@ -20,12 +20,13 @@ from typing import Literal
 import unicodedata
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_serializer, model_validator
 
 MAX_FILE_BYTES = 256 * 1024
-MAX_BUNDLE_BYTES = 2 * 1024 * 1024
+MAX_BUNDLE_BYTES = 8 * 1024 * 1024
 MAX_FILES = 32
 MANIFEST_NAME = 'firmware-bundle.json'
+DEPENDENCIES_NAME = 'firmware-dependencies.json'
 FirmwareTarget = Literal['raspberry_python', 'arduino', 'stm32_hal']
 SOURCE_SUFFIXES = {'.py', '.c', '.cpp', '.h', '.hpp', '.ino'}
 _FORBIDDEN_DIRECTORIES = {'.git', '.hg', '.svn', '.vscode', '.idea'}
@@ -91,7 +92,7 @@ def validate_relative_path(value: str) -> str:
         if (part[-1] in '. ' or part[0] in '-@' or part.casefold() in _FORBIDDEN_DIRECTORIES or
                 re.fullmatch(r'(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])', stem)):
             raise ValueError('Reserved or ambiguous firmware filenames are not allowed.')
-    if value.casefold() == MANIFEST_NAME:
+    if value.casefold() in {MANIFEST_NAME, DEPENDENCIES_NAME}:
         raise ValueError('The firmware manifest filename is reserved.')
     return value
 
@@ -119,7 +120,9 @@ class FirmwareFile(_Model):
         suffix = PurePosixPath(self.path).suffix.lower()
         allowed = (SOURCE_SUFFIXES if self.role == 'source' else
                    {'.md', '.txt'} if self.role == 'documentation' else {'.json'})
-        if suffix not in allowed:
+        doc_name = PurePosixPath(self.path).name.casefold()
+        if suffix not in allowed and not (self.role == 'documentation' and doc_name in
+                {'license', 'license-mit', 'license-apache', 'copying', 'notice', 'readme', 'library.properties'}):
             raise ValueError('Firmware files may contain sources, Markdown/text documentation or JSON data only.')
         raw = self.content.encode('utf-8')
         if len(raw) > MAX_FILE_BYTES or '\x00' in self.content:
@@ -138,6 +141,89 @@ class FirmwarePinBinding(_Model):
     pin: str = Field(min_length=1, max_length=48, pattern=r'^[A-Za-z0-9_-]+$')
     node: str = Field(min_length=1, max_length=40, pattern=r'^[A-Za-z0-9_-]+$')
     function: str = Field(default='', max_length=160)
+
+
+class FirmwareLibrary(_Model):
+    """Pinned source data or an external requirement; never an install recipe."""
+    id: str = Field(min_length=1, max_length=64, pattern=r'^[a-z][a-z0-9_-]*$')
+    name: str = Field(min_length=1, max_length=160)
+    version: str = Field(min_length=1, max_length=80)
+    ecosystem: Literal['python', 'arduino', 'c_cpp']
+    origin: Literal['directory', 'zip', 'external']
+    files: list[FirmwareFile] = Field(default_factory=list, max_length=128)
+    include_paths: list[str] = Field(default_factory=list, max_length=16)
+    module_names: list[str] = Field(default_factory=list, max_length=32)
+    source_sha256: str = Field(default='', max_length=64)
+    omitted_files: list[str] = Field(default_factory=list, max_length=256)
+
+    @model_validator(mode='after')
+    def bounded_snapshot(self):
+        validate_relative_path('libraries/' + self.id)
+        if (not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+-]{0,79}', self.version) or
+                self.version.casefold() in {'latest', 'main', 'master', 'head', 'unknown'}):
+            raise ValueError('Enter an exact library release/version or immutable revision; ranges and moving labels are not pins.')
+        if any(not re.fullmatch(r'[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*', item) for item in self.module_names):
+            raise ValueError('Python import names must be dotted module identifiers.')
+        paths = {file.path.casefold() for file in self.files}
+        if len(paths) != len(self.files) or any('/'.join(path.split('/')[:i]) in paths
+                for path in paths for i in range(1, len(path.split('/')))):
+            raise ValueError('Library paths must be unique and cannot alias directories.')
+        for path in self.include_paths:
+            if path:
+                validate_relative_path(path)
+                if not any(file.path.startswith(path + '/') for file in self.files):
+                    raise ValueError('A library include/module path must contain bundled source files.')
+        if len(set(self.include_paths)) != len(self.include_paths):
+            raise ValueError('Library search paths must be unique.')
+        if any(len(path) > 240 or '\x00' in path for path in self.omitted_files):
+            raise ValueError('Omitted library filenames must be bounded text.')
+        if self.origin == 'external':
+            if self.files or self.include_paths or self.source_sha256:
+                raise ValueError('External dependencies are metadata only; installation is unverified.')
+        else:
+            if not self.files or sum(len(file.content.encode('utf-8')) for file in self.files) > 2 * 1024 * 1024:
+                raise ValueError('A library snapshot requires 1–128 text files within 2 MiB.')
+            actual = _digest([(file.path, file.sha256) for file in sorted(self.files, key=lambda item: item.path)])
+            if self.source_sha256 != actual:
+                raise ValueError('Library snapshot identity does not match its SHA-256.')
+            for file in self.files:
+                metadata_version = None
+                if PurePosixPath(file.path).name == 'library.properties':
+                    match = re.search(r'^\s*version\s*=\s*(\S+)\s*$', file.content, re.M)
+                    metadata_version = match.group(1) if match else None
+                elif PurePosixPath(file.path).name == 'library.json':
+                    data = json.loads(file.content)
+                    metadata_version = data.get('version') if isinstance(data, dict) else None
+                if metadata_version is not None and str(metadata_version) != self.version:
+                    raise ValueError('Pinned version differs from the bundled library metadata: ' + str(metadata_version))
+        return self
+
+    @property
+    def prefix(self):
+        return 'libraries/' + self.id
+
+
+def bundle_source_files(bundle):
+    """Materialized names for export/checks, derived from immutable snapshots."""
+    result = list(bundle.files)
+    for library in bundle.libraries:
+        result += [file.model_copy(update={'path': library.prefix + '/' + file.path}) for file in library.files]
+    return result
+
+
+def library_search_paths(bundle):
+    return [library.prefix + ('/' + path if path else '') for library in bundle.libraries
+            for path in library.include_paths if library.origin != 'external']
+
+
+def dependency_manifest(bundle):
+    return dict(schema_version=1, installation_performed=False, target_link_verified=False,
+        search_paths=library_search_paths(bundle), libraries=[dict(
+            id=item.id, name=item.name, version=item.version, ecosystem=item.ecosystem,
+            origin=item.origin, source_sha256=item.source_sha256, module_names=item.module_names,
+            included_files=[dict(path=item.prefix + '/' + file.path, sha256=file.sha256) for file in item.files],
+            omitted_files=item.omitted_files) for item in bundle.libraries],
+        instructions='Add the listed source search paths to the exact target project. Configure pinned external requirements separately. No package installation, target linking, code execution or flashing was performed.')
 
 
 class FirmwareGenerationProvenance(_Model):
@@ -175,14 +261,29 @@ class FirmwareBundle(_Model):
     missing_parameters: list[str] = Field(default_factory=list, max_length=64)
     pin_bindings: list[FirmwarePinBinding] = Field(default_factory=list, max_length=144)
     generation: FirmwareGenerationProvenance | None = None
+    libraries: list[FirmwareLibrary] = Field(default_factory=list, max_length=8)
+
+    @model_serializer(mode='wrap')
+    def portable_legacy_shape(self, handler):
+        data = handler(self)
+        if not self.libraries:
+            data.pop('libraries', None)
+        return data
 
     @model_validator(mode='after')
     def bounded_portable_candidate(self):
         validate_relative_path(self.entrypoint)
         if len(self.model_dump_json().encode('utf-8')) > MAX_BUNDLE_BYTES:
-            raise ValueError('A portable firmware candidate must remain within 2 MiB.')
-        paths = {file.path.casefold(): file for file in self.files}
-        if len(paths) != len(self.files):
+            raise ValueError('A portable firmware candidate with library snapshots must remain within 8 MiB.')
+        if len({library.id for library in self.libraries}) != len(self.libraries):
+            raise ValueError('Library identifiers must be unique.')
+        if sum(len(file.content.encode('utf-8')) for file in self.files) > 2 * 1024 * 1024:
+            raise ValueError('Application source files must remain within 2 MiB.')
+        materialized = bundle_source_files(self)
+        for file in materialized:
+            validate_relative_path(file.path)
+        paths = {file.path.casefold(): file for file in materialized}
+        if len(paths) != len(materialized):
             raise ValueError('Firmware paths must be unique, including case-insensitive aliases.')
         for path in paths:
             if any('/'.join(path.split('/')[:i]) in paths for i in range(1, len(path.split('/')))):
@@ -296,7 +397,7 @@ def verify_bundle_binding(bundle: FirmwareBundle | dict, workspace) -> FirmwareB
 
 
 def create_bundle(name, target, workspace, board_id, files, entrypoint, *, notes='',
-                  missing_parameters=(), pin_bindings=(), generation=None) -> FirmwareBundle:
+                  missing_parameters=(), pin_bindings=(), generation=None, libraries=()) -> FirmwareBundle:
     sources = []
     for file in files:
         if isinstance(file, FirmwareFile):
@@ -310,7 +411,7 @@ def create_bundle(name, target, workspace, board_id, files, entrypoint, *, notes
     candidate = FirmwareBundle(id='fw_'+uuid4().hex[:24], name=name, target=target,
         binding=create_binding(workspace, board_id), files=sources, entrypoint=entrypoint,
         notes=notes, missing_parameters=list(missing_parameters), pin_bindings=list(pin_bindings),
-        generation=generation)
+        generation=generation, libraries=list(libraries))
     report = verify_bundle_binding(candidate, workspace)
     if report.status != 'current':
         raise ValueError('\n'.join(issue.message for issue in report.issues))
@@ -397,7 +498,7 @@ def export_bundle_atomic(bundle: FirmwareBundle | dict, destination: str | Path,
     target = parent / target.name
     stage = Path(tempfile.mkdtemp(prefix='.cad-firmware-', dir=parent))
     try:
-        for file in bundle.files:
+        for file in bundle_source_files(bundle):
             _check_cancelled(cancelled)
             path = stage.joinpath(*PurePosixPath(file.path).parts)
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -406,6 +507,10 @@ def export_bundle_atomic(bundle: FirmwareBundle | dict, destination: str | Path,
         manifest = bundle.model_dump_json(indent=2).encode('utf-8')
         with (stage / MANIFEST_NAME).open('xb') as stream:
             stream.write(manifest); stream.flush(); os.fsync(stream.fileno())
+        if bundle.libraries:
+            with (stage / DEPENDENCIES_NAME).open('xb') as stream:
+                stream.write(json.dumps(dependency_manifest(bundle), ensure_ascii=False, indent=2).encode('utf-8'))
+                stream.flush(); os.fsync(stream.fileno())
         _check_cancelled(cancelled)
         _reject_reparse(target)
         _rename_new_directory(stage, target)

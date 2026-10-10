@@ -31,7 +31,13 @@ def response_schema(source):
                 description='Dimension changes as key/value_json entries. value_json is the JSON encoding of the value, e.g. 20 or true or a JSON array. Only existing geometry fields.')
         if not node:
             return {'type':'string'}  # Only used by an empty actions array.
-        result = {k:convert(v) for k,v in node.items() if k not in ('default','title','discriminator','minLength','maxLength')}
+        # These are maps of arbitrary user-defined names to schemas, not
+        # schema nodes themselves. A property/definition literally called
+        # ``title`` or ``default`` must survive metadata cleanup.
+        schema_maps = {'properties', '$defs', 'definitions', 'patternProperties', 'dependentSchemas'}
+        result = {k: ({name: convert(child) for name, child in v.items()}
+                      if k in schema_maps and isinstance(v, dict) else convert(v))
+                  for k,v in node.items() if k not in ('default','title','discriminator','minLength','maxLength')}
         if 'const' in result:
             value=result.pop('const');result['enum']=[value]
             result['type']='boolean' if isinstance(value,bool) else 'number' if isinstance(value,(int,float)) else 'string'

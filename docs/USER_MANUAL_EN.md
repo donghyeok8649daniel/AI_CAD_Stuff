@@ -1,3 +1,5 @@
+**3.0.0:** [AI settings, reconnect, external libraries and electrical photo diagnosis](RELEASE_3_0_0_EN.md). Open AI from the toolbar or Ctrl+Shift+A.
+
 # 2.19.0 update
 
 - Select a CAD part and open **Product specifications / official references / purchase links** in Properties or the context menu. Save its manufacturer, SKU, specifications with units/conditions, official page, datasheet, purchase and source URLs. Electrical/mechanical catalogs retain source provenance without inventing a purchase link. Public URL import is reviewed text, and never changes geometry or circuit operating values. References participate in project history and are supplied to AI as inert reference data.

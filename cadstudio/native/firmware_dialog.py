@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFileDialog,
-    QFormLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QPlainTextEdit,
+    QFormLayout, QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QPlainTextEdit,
     QSplitter, QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget)
 
 from ..electrical import ElectricalWorkspace
@@ -43,6 +43,8 @@ class FirmwareDialog(QDialog):
         self._last_choice = {}
         self._deleted_bundle_ids = set()
         self._request_replace_id = None
+        self._libraries = []
+        self._new_libraries = {}
         self.codex_config = dict(codex_config or {})
         self.generation_transport = generation_transport
         from ..firmware_generation import firmware_targets
@@ -57,19 +59,21 @@ class FirmwareDialog(QDialog):
         split = QSplitter(Qt.Orientation.Horizontal); root.addWidget(split, 1)
         settings = QWidget(); controls = QVBoxLayout(settings); form = QFormLayout(); controls.addLayout(form)
         self.board = QComboBox(); self.board.setObjectName("firmwareBoard")
-        self.board.setMinimumContentsLength(18)
+        self.board.setMinimumContentsLength(12)
         self.board.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         for item in self.targets:
             self.board.addItem(f"{item['name']} · {item['board_model']} [{item['component_id']}]", item["component_id"])
             self.board.setItemData(self.board.count() - 1, self.board.itemText(self.board.count() - 1), Qt.ItemDataRole.ToolTipRole)
         form.addRow(self.word("등록한 보드", "Registered board"), self.board)
         self.saved_bundles = QComboBox(); self.saved_bundles.setObjectName("firmwareSavedBundles")
-        self.saved_bundles.setMinimumContentsLength(18)
+        self.saved_bundles.setMinimumContentsLength(12)
         self.saved_bundles.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         form.addRow(self.word("저장 코드 / 초안", "Saved code / drafts"), self.saved_bundles)
         self.delete_bundle_button = button(self.word("선택 코드 연결 해제", "Detach selected code"), self.delete_bundle)
         self.delete_bundle_button.setObjectName("firmwareDeleteBundle"); controls.addWidget(self.delete_bundle_button)
         self.target = QComboBox(); self.target.setObjectName("firmwareTarget")
+        self.target.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.target.setMinimumContentsLength(12)
         form.addRow(self.word("코드 형식", "Code target"), self.target)
         self.models = CodexModelPicker(self); self.models.setObjectName("firmwareModel")
         self.models.set_catalog(self.codex_config.get("catalog", []), self.codex_config.get("model", ""))
@@ -100,13 +104,15 @@ class FirmwareDialog(QDialog):
         self.tabs = QTabWidget(); content.addWidget(self.tabs, 1)
         source_panel = QWidget(); source_layout = QVBoxLayout(source_panel)
         self.files = QTabWidget(); self.files.setObjectName("firmwareFiles"); source_layout.addWidget(self.files, 1)
-        source_actions = QHBoxLayout()
+        source_actions = QGridLayout()
         self.add_file_button = button(self.word("파일 추가…", "Add file…"), self.add_file)
         self.remove_file_button = button(self.word("현재 파일 삭제", "Remove current file"), self.remove_file)
-        source_actions.addWidget(self.add_file_button); source_actions.addWidget(self.remove_file_button)
-        source_actions.addWidget(label(self.word("진입 파일", "Entrypoint")))
-        self.entrypoint = QComboBox(); self.entrypoint.setObjectName("firmwareEntrypoint"); source_actions.addWidget(self.entrypoint, 1)
-        source_layout.addLayout(source_actions); self.tabs.addTab(source_panel, self.word("코드 미리보기 / 편집", "Code preview / edit"))
+        source_actions.addWidget(self.add_file_button, 0, 0); source_actions.addWidget(self.remove_file_button, 0, 1)
+        source_actions.addWidget(label(self.word("진입 파일", "Entrypoint")), 1, 0)
+        self.entrypoint = QComboBox(); self.entrypoint.setObjectName("firmwareEntrypoint"); source_actions.addWidget(self.entrypoint, 1, 1)
+        self.entrypoint.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.entrypoint.setMinimumContentsLength(10)
+        source_layout.addLayout(source_actions); self.tabs.addTab(source_panel, self.word("코드 편집", "Source"))
         self.mapping = QTableWidget(0, 6); self.mapping.setObjectName("firmwarePinMapping")
         self.mapping.setHorizontalHeaderLabels([self.word("핀", "Pin"), self.word("기능", "Function"),
             self.word("노드", "Node"), self.word("연결 부품 / 단자", "Connected part / terminal"),
@@ -114,8 +120,34 @@ class FirmwareDialog(QDialog):
         self.mapping.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.mapping.horizontalHeader().setStretchLastSection(True)
         self.tabs.addTab(self.mapping, self.word("핀 / 배선", "Pins / wiring"))
+        libraries_panel = QWidget(); libraries_layout = QVBoxLayout(libraries_panel)
+        libraries_layout.addWidget(label(self.word(
+            "라이브러리 버전은 사용자가 확인한 고정 버전입니다. 폴더·ZIP의 텍스트 소스만 복사하며 설치·링크는 별도 확인이 필요합니다.",
+            "Use an exact library version you have checked. Folder/ZIP text sources are copied; installation and target linking require separate verification."), muted=True))
+        self.libraries_table = QTableWidget(0, 5); self.libraries_table.setObjectName("firmwareLibraries")
+        self.libraries_table.setHorizontalHeaderLabels([self.word("이름", "Name"), self.word("고정 버전", "Pinned version"),
+            self.word("원본", "Origin"), self.word("포함 / 제외 파일", "Included / omitted"), "SHA-256"])
+        self.libraries_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.libraries_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.libraries_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.libraries_table.itemSelectionChanged.connect(self._library_selected)
+        libraries_layout.addWidget(self.libraries_table)
+        library_actions = QGridLayout()
+        self.library_folder_button = button(self.word("폴더 가져오기…", "Import folder…"), lambda: self.import_library("directory"))
+        self.library_zip_button = button(self.word("ZIP 가져오기…", "Import ZIP…"), lambda: self.import_library("zip"))
+        self.library_dependency_button = button(self.word("의존성 추가…", "External dependency…"), self.add_dependency)
+        self.library_remove_button = button(self.word("제거", "Remove"), self.remove_library)
+        for index, item in enumerate((self.library_folder_button, self.library_zip_button, self.library_dependency_button, self.library_remove_button)):
+            library_actions.addWidget(item, index // 2, index % 2)
+        libraries_layout.addLayout(library_actions)
+        self.library_files = QComboBox(); self.library_files.setObjectName("firmwareLibraryFiles")
+        self.library_files.currentIndexChanged.connect(self._library_file_selected)
+        libraries_layout.addWidget(self.library_files)
+        self.library_source = QPlainTextEdit(); self.library_source.setReadOnly(True)
+        self.library_source.setObjectName("firmwareLibrarySource"); libraries_layout.addWidget(self.library_source, 1)
+        self.tabs.addTab(libraries_panel, self.word("라이브러리", "Libraries"))
         self.details = QPlainTextEdit(); self.details.setReadOnly(True); self.details.setObjectName("firmwareReview")
-        self.tabs.addTab(self.details, self.word("미정 값 / 검토 / 빌드 결과", "Unknowns / review / build result"))
+        self.tabs.addTab(self.details, self.word("검토 / 소스 검사", "Review / source check"))
         compiler_form = QFormLayout(); self.compiler = QLineEdit(); self.compiler.setObjectName("firmwareCompiler")
         self.compiler.setPlaceholderText(self.word("선택 사항 · 설치된 C/C++ 컴파일러 경로", "Optional · installed C/C++ compiler path"))
         compiler_form.addRow(self.word("소스 검사 도구", "Source-check tool"), self.compiler); content.addLayout(compiler_form)
@@ -148,15 +180,13 @@ class FirmwareDialog(QDialog):
         self._update_effort()
 
     def _update_effort(self):
+        from .codex_models import effort_label
         preferred = self.codex_config.get("effort") or "medium"
         model = next((item for item in self.models.catalog if item["model"] == self.codex_config.get("model")), None)
         available = model.get("efforts") if model else None
-        names = {"none": ("추론 없음", "No reasoning"), "minimal": ("최소", "Minimal"),
-            "low": ("빠르게", "Fast"), "medium": ("균형", "Balanced"), "high": ("깊게", "Deep"),
-            "xhigh": ("매우 깊게", "Very deep"), "max": ("최대", "Maximum"), "ultra": ("최고", "Ultra")}
         self.effort.blockSignals(True); self.effort.clear()
         for value in available if available is not None else [preferred]:
-            title = self.word(*names[value]) if value in names else str(value)
+            title = effort_label(value)
             if available is None: title += self.word(" · 연결 확인 전", " · connection not verified")
             self.effort.addItem(title, value)
         index = self.effort.findData(preferred)
@@ -211,11 +241,14 @@ class FirmwareDialog(QDialog):
             "Register an exact programmable board linked to a CAD part in the electrical workbench."))
 
     def _cache_active(self):
-        if not self.bundle or not self._active_board_id: return
+        if not self._active_board_id: return
+        if not self.bundle:
+            self._new_libraries[self._active_board_id] = deepcopy(self._libraries)
+            return
         key = (self._active_board_id, self.bundle.id)
         self._draft_cache[key] = dict(bundle=self.bundle.model_copy(deep=True),
             files=[(path, editor.toPlainText(), role) for path, editor, role in self._editors],
-            entrypoint=self.entrypoint.currentData(), target=self._active_target)
+            entrypoint=self.entrypoint.currentData(), target=self._active_target, libraries=deepcopy(self._libraries))
         self._last_choice[self._active_board_id] = self.bundle.id
 
     def _cached_bundle(self, cache):
@@ -225,11 +258,13 @@ class FirmwareDialog(QDialog):
         raw["files"] = [dict(path=path, content=source, role=role,
             sha256=sha256(source.encode("utf-8")).hexdigest()) for path, source, role in cache["files"]]
         raw["entrypoint"] = cache["entrypoint"] or ""
+        raw["libraries"] = cache.get("libraries", [])
         return FirmwareBundle.model_validate(raw)
 
     def _cache_changed(self, cache):
         original = [(item.path, item.content, item.role) for item in cache["bundle"].files]
-        return cache["files"] != original or cache["entrypoint"] != cache["bundle"].entrypoint
+        return (cache["files"] != original or cache["entrypoint"] != cache["bundle"].entrypoint or
+                cache.get("libraries", []) != cache["bundle"].libraries)
 
     def _available_bundles(self):
         rows = {item.id: item for item in getattr(self.workspace, "firmware_bundles", [])
@@ -323,6 +358,10 @@ class FirmwareDialog(QDialog):
     def _show_bundle(self):
         for _, editor, _ in self._editors: editor.deleteLater()
         self._editors = []; self.files.clear(); self.entrypoint.clear()
+        self._libraries = deepcopy(self.bundle.libraries if self.bundle else self._new_libraries.get(self._active_board_id, []))
+        cache = self._draft_cache.get((self._active_board_id, self.bundle.id)) if self.bundle else None
+        if cache: self._libraries = deepcopy(cache.get("libraries", self._libraries))
+        self._show_libraries()
         if not self.bundle: return
         for item in self.bundle.files: self._insert_file(item.path, item.content, item.role)
         index = self.entrypoint.findData(self.bundle.entrypoint)
@@ -335,6 +374,99 @@ class FirmwareDialog(QDialog):
         editor.textChanged.connect(self._source_edited)
         self._editors.append((path, editor, role)); self.files.addTab(editor, path)
         if role == "source": self.entrypoint.addItem(path, path)
+
+    def _show_libraries(self):
+        self.libraries_table.setRowCount(0)
+        for library in self._libraries:
+            row = self.libraries_table.rowCount(); self.libraries_table.insertRow(row)
+            values = (library.name, library.version, library.origin,
+                f"{len(library.files)} / {len(library.omitted_files)}", library.source_sha256 or
+                self.word("미설치 · 미검증", "Not installed / unverified"))
+            for col, value in enumerate(values):
+                item = QTableWidgetItem(value); item.setToolTip(value)
+                self.libraries_table.setItem(row, col, item)
+        self.libraries_table.resizeColumnsToContents()
+        if self._libraries: self.libraries_table.selectRow(len(self._libraries) - 1)
+        else: self._library_selected()
+
+    def _library_selected(self):
+        self.library_files.clear(); self.library_source.clear()
+        row = self.libraries_table.currentRow()
+        if row < 0 or row >= len(self._libraries): return
+        library = self._libraries[row]
+        for file in library.files: self.library_files.addItem(library.prefix + '/' + file.path, file.path)
+        self.library_files.setToolTip(self.word("제외 파일: ", "Omitted files: ") + ', '.join(library.omitted_files))
+        self._library_file_selected()
+
+    def _library_file_selected(self):
+        row = self.libraries_table.currentRow()
+        library = self._libraries[row] if 0 <= row < len(self._libraries) else None
+        file = next((item for item in library.files if item.path == self.library_files.currentData()), None) if library else None
+        self.library_source.setPlainText(file.content if file else self.word(
+            "외부 의존성은 고정 버전 메타데이터만 기록합니다. 대상 환경에서 설치·링크 여부를 확인하세요.",
+            "External dependencies record pinned metadata only. Verify installation and linkage in the target environment.") if library else "")
+
+    def _library_ecosystem(self):
+        return {'raspberry_python': 'python', 'arduino': 'arduino', 'stm32_hal': 'c_cpp'}.get(self.target.currentData(), 'c_cpp')
+
+    def add_library(self, library):
+        from ..firmware_bundle import FirmwareLibrary
+        library = FirmwareLibrary.model_validate(library.model_dump() if isinstance(library, FirmwareLibrary) else library)
+        if len(self._libraries) >= 8 or any(item.id == library.id for item in self._libraries):
+            raise ValueError(self.word("최대 8개이며 라이브러리 이름은 중복할 수 없습니다. 기존 항목을 제거한 뒤 다시 가져오세요.",
+                "Select at most 8 unique library names. Remove an existing item before replacing it."))
+        self._libraries.append(library); self._show_libraries(); self._source_edited()
+
+    def import_library(self, origin, path=None, *, name=None, version=None):
+        if self.task: return
+        if path is None:
+            path = (QFileDialog.getExistingDirectory(self, self.word("라이브러리 소스 폴더", "Library source folder"))
+                    if origin == 'directory' else QFileDialog.getOpenFileName(self,
+                    self.word("라이브러리 ZIP", "Library ZIP"), '', 'ZIP (*.zip)')[0])
+            if not path: return
+        if name is None:
+            name, ok = QInputDialog.getText(self, self.word("라이브러리 이름", "Library name"),
+                self.word("패키지 / 라이브러리 이름", "Package / library name"), text=Path(path).stem)
+            if not ok: return
+        if version is None:
+            version, ok = QInputDialog.getText(self, self.word("고정 버전", "Pinned version"),
+                self.word("확인한 정확한 버전 또는 불변 리비전 (예: 1.2.3)", "Checked exact version or immutable revision (e.g. 1.2.3)"))
+            if not ok: return
+        from ..firmware_libraries import import_library_directory, import_library_zip, pinned_dependency
+        try:
+            metadata = pinned_dependency(name, version, self._library_ecosystem())
+            if len(self._libraries) >= 8: raise ValueError('Select at most 8 libraries.')
+            if any(item.id == metadata.id for item in self._libraries):
+                raise ValueError('Remove the existing library before importing its replacement.')
+            function = import_library_directory if origin == 'directory' else import_library_zip
+            ecosystem = self._library_ecosystem()
+            self._start('library', lambda control, progress: function(path, name=name, version=version,
+                ecosystem=ecosystem, cancelled=control.cancelled.is_set))
+        except Exception as exc: self._set_status(str(exc), True)
+
+    def add_dependency(self):
+        if self.task: return
+        name, ok = QInputDialog.getText(self, self.word("외부 의존성", "External dependency"), self.word("패키지 이름", "Package name"))
+        if not ok: return
+        version, ok = QInputDialog.getText(self, self.word("고정 버전", "Pinned version"), self.word("정확한 버전", "Exact version"))
+        if not ok: return
+        modules = []
+        if self._library_ecosystem() == 'python':
+            value, ok = QInputDialog.getText(self, self.word("Python 가져오기 이름", "Python import names"),
+                self.word("쉼표로 구분한 모듈명 (예: RPi.GPIO)", "Comma-separated module names (e.g. RPi.GPIO)"), text=name.replace('-', '_'))
+            if not ok: return
+            modules = [item.strip() for item in value.split(',') if item.strip()]
+        from ..firmware_libraries import pinned_dependency
+        try:
+            self.add_library(pinned_dependency(name, version, self._library_ecosystem(), module_names=modules))
+            self._set_status(self.word("고정 의존성을 기록했습니다. 실제 설치·링크는 미검증입니다.", "Pinned dependency recorded. Installation and linking are unverified."))
+        except Exception as exc: self._set_status(str(exc), True)
+
+    def remove_library(self):
+        if self.task: return
+        row = self.libraries_table.currentRow()
+        if 0 <= row < len(self._libraries):
+            self._libraries.pop(row); self._show_libraries(); self._source_edited()
 
     def add_file(self):
         if not self.bundle or self.task: return
@@ -369,6 +501,7 @@ class FirmwareDialog(QDialog):
             raw["files"] = [dict(path=path, content=editor.toPlainText(), role=role,
                 sha256=sha256(editor.toPlainText().encode("utf-8")).hexdigest()) for path, editor, role in self._editors]
             raw["entrypoint"] = self.entrypoint.currentData() or ""
+            raw["libraries"] = [item.model_dump(mode="json") for item in self._libraries]
             # Keep the old fingerprint explicitly stale: regeneration may read
             # old sources as context but must bind its new result independently.
             return FirmwareBundle.model_validate(raw)
@@ -381,7 +514,8 @@ class FirmwareDialog(QDialog):
             self.board.currentData(), [dict(path=path, content=editor.toPlainText(), role=role)
             for path, editor, role in self._editors], self.entrypoint.currentData() or "",
             notes=self.bundle.notes, missing_parameters=self.bundle.missing_parameters,
-            pin_bindings=[item.model_dump(mode="json") for item in self.bundle.pin_bindings], generation=self.bundle.generation)
+            pin_bindings=[item.model_dump(mode="json") for item in self.bundle.pin_bindings], generation=self.bundle.generation,
+            libraries=self._libraries)
         return updated.model_copy(update={"id": self.bundle.id})
 
     def _controls(self, running):
@@ -396,6 +530,9 @@ class FirmwareDialog(QDialog):
             for (_, identifier), cache in self._draft_cache.items() if identifier not in self._deleted_bundle_ids))
         self.save_button.setEnabled(not running and bool(self.bundle or queued))
         self.cancel_button.setVisible(running)
+        for item in (self.library_folder_button, self.library_zip_button, self.library_dependency_button,
+                     self.library_remove_button, self.libraries_table, self.library_files):
+            item.setEnabled(not running and bool(self.board.currentData()))
 
     def _start(self, action, fn):
         if self.task or self._closing: return
@@ -425,7 +562,7 @@ class FirmwareDialog(QDialog):
         self._start("generate", lambda control, progress: generate(workspace, board, operation, model,
             target=target, executable=config.get("executable", ""), effort=config.get("effort", "medium"),
             control=control, progress=progress, deadline=config.get("deadline", 600), existing_bundle=existing,
-            references=deepcopy(config.get("references") or ())))
+            references=deepcopy(config.get("references") or ()), libraries=deepcopy(self._libraries)))
 
     def check_build(self):
         if self.task: return
@@ -484,6 +621,9 @@ class FirmwareDialog(QDialog):
                 self.build_report = None; self._show_bundle()
             self._set_status(result.message or self.word("코드 초안 준비 완료 · 검토 후 저장하세요.", "Code draft ready · review it before saving."))
             self._review("\n".join(result.pending_checks))
+        elif action == "library":
+            self.add_library(result)
+            self._set_status(self.word("라이브러리 소스를 가져왔습니다. 포함·제외 파일을 확인하세요.", "Library source imported. Review included and omitted files."))
         elif action == "build":
             self.build_report = result
             titles = {"syntax_ok": self.word("문법 확인 완료 · 실물 검증 필요", "Syntax checked · hardware validation required"),

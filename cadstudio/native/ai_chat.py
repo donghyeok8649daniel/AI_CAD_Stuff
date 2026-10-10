@@ -8,7 +8,7 @@ from .local_ai import DraftControl,_chat_body,_chat_content
 ANSWER_SCHEMA=dict(type='object',properties={'answer':dict(type='string')},required=['answer'],additionalProperties=False)
 
 
-def answer(request,provider,model,*,api_key='',executable='',effort='medium',history=(),control=None,progress=None,deadline=600,transport=None,session_factory=None):
+def answer(request,provider,model,*,api_key='',executable='',effort='medium',history=(),control=None,progress=None,deadline=600,transport=None,session_factory=None,runtime_config=None):
     control=control or DraftControl();progress=progress or (lambda text:None)
     if deadline is not None and (not isinstance(deadline,(int,float)) or not math.isfinite(deadline) or deadline<=0):raise ValueError('대기 시간은 양수 또는 무제한이어야 합니다.')
     from .cad_tools import context
@@ -28,10 +28,12 @@ def answer(request,provider,model,*,api_key='',executable='',effort='medium',his
         elif provider=='codex':
             from .codex_connection import CodexSession
             from .codex_reconnect import RecoveringSession
+            from .codex_models import validate_selection
             async with RecoveringSession(session_factory or CodexSession,executable,control,progress) as session:
-                await session.account();available={x['model']:x for x in await session.models()}
-                if model not in available or effort not in available[model]['efforts']:raise ValueError('Codex 연결에서 모델과 추론 강도를 다시 선택하세요.')
-                content=await session.content(model,messages,ANSWER_SCHEMA,effort,progress)
+                await session.account();available=await session.models()
+                chosen,chosen_effort=runtime_config.snapshot() if runtime_config else (model,effort)
+                validate_selection(available,chosen,chosen_effort)
+                content=await session.content(chosen,messages,ANSWER_SCHEMA,chosen_effort,progress)
         elif provider=='openai':
             from openai import APIError
             from .cloud_connection import credentials,make_client,api_error_message

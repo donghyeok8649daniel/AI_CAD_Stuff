@@ -1,0 +1,174 @@
+{
+  "version": "3.0.0",
+  "total_source_passed": 1430,
+  "source_tests": "1430 passed, 1 skipped, 41 warnings in 418.41s (0:06:58) ===========",
+  "source_skipped": 1,
+  "source_log_sha256": "643853b0832506a1939c95af8f90ebd342aa24ded734732445948353f528c8b9",
+  "lazy_scipy_included": true,
+  "timeline_source_checks": 12,
+  "timeline_frozen_checks_separately_counted": false,
+  "source_modules_verified": 217,
+  "native_entry_verified": true,
+  "file_associations_verified": true,
+  "updater_entry_verified": true,
+  "updater_file_associations_verified": true,
+  "frozen_checks": 433,
+  "flows": [
+    {
+      "name": "v3-auto",
+      "checks": 25,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "263fccdcf1e4f547ad39a6564b22f4f700aa123d5a0275312feeefd32f94b893",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    },
+    {
+      "name": "v3-software",
+      "checks": 25,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "903239fd76506e713050602b04a1963fd6dd431de768595ea52c7ce5dcd8388b",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    },
+    {
+      "name": "codex-auto",
+      "checks": 17,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "3f3150eceb1d4aea491d0556612ab31363d6ec2d2c329a588fdb243f472b5ec0",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    },
+    {
+      "name": "codex-software",
+      "checks": 17,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "3f3150eceb1d4aea491d0556612ab31363d6ec2d2c329a588fdb243f472b5ec0",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    },
+    {
+      "name": "firmware-auto",
+      "checks": 43,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "ea9e1b7cec359910cff1afb871af72f6d0d0d117bfef2acb083290511b7b6e15",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    },
+    {
+      "name": "firmware-software",
+      "checks": 44,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "83fa3539b1f2614851dad2cfe1125e86d95433dc7b2f5ff2eaecf832f1002ddb",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    },
+    {
+      "name": "electrical-code-auto",
+      "checks": 44,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "788b13c8e1772edbe713617f0acfda2306b18fdd590c66615a7991d54da40ec1",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    },
+    {
+      "name": "electrical-code-software",
+      "checks": 45,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "ccbf48ac17f9f9957b99e3f42b3a3fcf7490ebfaa88bd53837f394e12e199176",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    },
+    {
+      "name": "ai-wiring-auto",
+      "checks": 32,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "8ad71029a27241a8f2ee501dcbddfd7897aeb000f788042a4a6ae0cfcf319e4f",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    },
+    {
+      "name": "ai-wiring-software",
+      "checks": 32,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "8ad71029a27241a8f2ee501dcbddfd7897aeb000f788042a4a6ae0cfcf319e4f",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    },
+    {
+      "name": "bom-auto",
+      "checks": 54,
+      "renderer": "hardware",
+      "requested_renderer": "auto",
+      "report_sha256": "9bc6e6cfdba4193ffbe9ea1d012bfa9d2fc280d1cba3466692095eca6c488c74",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    },
+    {
+      "name": "bom-software",
+      "checks": 55,
+      "renderer": "software",
+      "requested_renderer": "software",
+      "report_sha256": "c451b738ae4bbe1320993cae071a7d3a1861e1f225fcab07a43bc9031baca80c",
+      "executed_frozen_exe_sha256": "0e31b5f3f4c8819b221bac9be65b5aa617efa3fc991aaa6185bc009c58eab8ff"
+    }
+  ],
+  "software_driver_unmodified": true,
+  "uses_private_fixture": false,
+  "contains_user_project_data": false,
+  "live_subscription_evidence": {
+    "firmware": {
+      "success": true,
+      "model": "gpt-6.1-sol",
+      "generation_requests": 1,
+      "attempts": 1,
+      "status": "candidate",
+      "files": 3,
+      "passed_source_checks": 5,
+      "pending_checks": 11,
+      "save_reopen_exact": true,
+      "syntax_status": "pending",
+      "full_target_build": false,
+      "generated_code_executed": false,
+      "paid_api_calls": 0,
+      "hardware_calls": 0
+    },
+    "diagnostics": {
+      "status": "passed",
+      "model": "gpt-6.1-sol",
+      "hardware_operated": false,
+      "hardware_measured": false,
+      "design_unchanged": true,
+      "ai_hypotheses": 2,
+      "subscription_call_count": 1,
+      "attempt": 2,
+      "api_key_fallback": false,
+      "deterministic_open_hypothesis": true,
+      "photo_sha256": "e70043874e5f8ab796251a27d614a682634ae388dd9f8bd78eaf599de208447f",
+      "actual_subscription_requests": 2,
+      "successful_subscription_requests": 1,
+      "initial_request_result": "response schema validation failed: missing hypothesis title",
+      "corrected_retry_result": "passed after preserving properties.title in the response schema"
+    },
+    "codex_effort": {
+      "account_type": "chatgpt",
+      "plan": "pro",
+      "model": "gpt-6.1-sol",
+      "effort": "ultra",
+      "verdict": "ok",
+      "paid_api_calls": 0
+    }
+  },
+  "live_evidence_hashes": {
+    "firmware": "8bb071490ed860d93311ef1037ee3deeb3121f80e81743ea5fcd61ecbb3d29de",
+    "diagnostics": "f905753e147b52fad0fd187427b556ba638e99ca251482301f25d4695849c550",
+    "diagnostics_attempt_1": "9ecdf81c40268fcf60d2ee6818a2046dd257d98c39700d0f84063a52ba358865",
+    "diagnostics_attempt_2": "f905753e147b52fad0fd187427b556ba638e99ca251482301f25d4695849c550",
+    "codex_effort": "527bddb219e2029e3f44c92ff73b0a1d320faac9712f96063b855fa2e14912b7"
+  },
+  "limitations": [
+    "Full target SDK/link builds and board/Linux/FOC execution remain unverified.",
+    "Generated code was not executed or flashed; physical hardware was not operated.",
+    "Photo diagnosis used synthetic data and does not establish hardware diagnosis accuracy.",
+    "A real symlink test was skipped for account permissions; mocked reparse rejection passed.",
+    "Raw Qt captures can omit the VTK WGL area; such captures are not geometry visibility proof."
+  ]
+}

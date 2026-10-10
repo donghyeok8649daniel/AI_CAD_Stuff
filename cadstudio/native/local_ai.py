@@ -1,7 +1,6 @@
 """Optional native providers. The local endpoint is fixed to this PC."""
 import json
 import asyncio
-import threading
 import time
 import math
 from copy import deepcopy
@@ -10,14 +9,11 @@ from pydantic import ValidationError
 from ..planner import AIReply,ai_design_context,parse_ai_reply
 from ..kernel import preview,KERNEL_LOCK
 from ..power_paths import PowerInputRequired
+from .draft_control import DraftControl, DraftCancelled
 
 def cloud_draft(request,model,**kwargs):
     from .cloud_ai import generate
     return generate(request,model,**kwargs)
-
-class DraftCancelled(Exception):
-    pass
-
 
 def validation_feedback(error):
     """Tell the model which dimensions failed without echoing whole input objects."""
@@ -25,46 +21,6 @@ def validation_feedback(error):
         details=error.errors(include_url=False,include_input=False,include_context=False)
         return '\n'.join('.'.join(map(str,row['loc']))+': '+row['msg'] for row in details[:6])[:1800]
     return str(error)[:1800]
-
-
-class DraftControl:
-    """Cancel blocked async network reads, including before the first token."""
-    def __init__(self):
-        self.cancelled=threading.Event();self.lock=threading.Lock();self.loop=None;self.task=None;self.retained=None;self.timer=None;self.network_paused=False;self.remaining=None
-    def keep_draft(self,response,verified):
-        """One complete, renderable checkpoint; never publish partial execution."""
-        checkpoint=dict(response=deepcopy(response),preview=verified)
-        with self.lock:
-            if not self.cancelled.is_set():self.retained=checkpoint
-    def checkpoint(self):
-        with self.lock:return self.retained
-    def cancel(self):
-        self.cancelled.set()
-        with self.lock:
-            if self.loop and not self.loop.is_closed():self.loop.call_soon_threadsafe(self.task.cancel)
-    def check(self):
-        if self.cancelled.is_set():raise DraftCancelled('설계 초안 생성을 취소했습니다.')
-    def network_wait(self,waiting):
-        """Only the worker's event loop calls this; offline waiting does not eat active time."""
-        if waiting==self.network_paused:return
-        self.network_paused=waiting
-        if not self.timer:return
-        loop=asyncio.get_running_loop()
-        if waiting:
-            when=self.timer.when();self.remaining=None if when is None else max(.001,when-loop.time());self.timer.reschedule(None)
-        elif self.remaining is not None:self.timer.reschedule(loop.time()+self.remaining);self.remaining=None
-    async def execute(self,fn,deadline,timeout_message=None):
-        self.check()
-        with self.lock:self.loop=asyncio.get_running_loop();self.task=asyncio.current_task()
-        try:
-            self.check()
-            async with asyncio.timeout(deadline) as timer:
-                self.timer=timer
-                return await fn()
-        except asyncio.CancelledError:raise DraftCancelled('설계 초안 생성을 취소했습니다.') from None
-        except asyncio.TimeoutError:raise ValueError(timeout_message or '로컬 AI가 제한 시간 안에 완료하지 못했습니다. 부품 하나와 치수부터 요청하거나 더 작은 모델을 선택하세요.') from None
-        finally:
-            with self.lock:self.loop=None;self.task=None;self.timer=None;self.network_paused=False;self.remaining=None
 
 
 def ollama_context(design):

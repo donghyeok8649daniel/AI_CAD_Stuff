@@ -1,3 +1,5 @@
+**3.0.0 · AI·전장 개발 개편:** AI 탭 열기, 실제 `gpt-6.1-sol`·추론 단계 선택, 연결 복구와 생성 중 설정 변경 시 초안 보존을 개선했습니다. 펌웨어 외부 라이브러리 폴더/ZIP과 고정 의존성, 사진·증상·계측값의 전장 진단을 추가했습니다. 실제 장비 실행은 자동으로 하지 않습니다. [한국어 안내](docs/RELEASE_3_0_0_KO.md) · [English](docs/RELEASE_3_0_0_EN.md).
+
 **2.24.2 · Windows 파일 열기 수정:** 기본 앱을 EXE로 직접 지정했을 때 전달되는 파일 경로도 받아 프로젝트를 엽니다. 기존 `--open` 방식과 한글·공백 경로를 유지하며 Windows의 기존 기본 앱 선택을 보존합니다. [한국어 안내](docs/RELEASE_2_24_2_KO.md) · [English](docs/RELEASE_2_24_2_EN.md).
 
 **BOM 설계 · 전용 프로젝트 파일:** 메인 AI 패널의 **BOM 보고 설계…**에서 CSV/TSV/XLSX·붙여넣기 부품표를 검토하고, 실제 CAD 수량·치수를 미리보기에서 대조합니다. 새 프로젝트는 `.pcad`로 저장합니다. `Install.ps1`은 바로가기와 `.pcad` 열기 연결을 등록하며 기존 기본 앱 선택과 일반 JSON 연결은 보존합니다. 이전 `.cad.json`도 계속 읽습니다. [BOM 안내](docs/BOM_DESIGN_KO.md) · [파일 연결 안내](docs/FILE_ASSOCIATIONS_KO.md)

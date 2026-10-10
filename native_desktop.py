@@ -10,6 +10,7 @@ from cadstudio import __version__
 
 def parse_startup_args(argv=None):
     parser=argparse.ArgumentParser();parser.add_argument('--open',type=Path);parser.add_argument('--no-restore',action='store_true');parser.add_argument('--smoke-test',type=Path);parser.add_argument('--self-test',type=Path);parser.add_argument('--setup-ai',action='store_true');parser.add_argument('--setup-codex',action='store_true');parser.add_argument('--codex-smoke',type=Path);parser.add_argument('--mechanical-smoke',type=Path);parser.add_argument('--usability-smoke',type=Path);parser.add_argument('--print-ai-smoke',type=Path);parser.add_argument('--advanced-smoke',type=Path);parser.add_argument('--reliability-smoke',type=Path);parser.add_argument('--direct-smoke',type=Path);parser.add_argument('--thread-smoke',type=Path);parser.add_argument('--sketch-guide-smoke',type=Path);parser.add_argument('--extended-smoke',type=Path);parser.add_argument('--ai-smoke','--wheel-smoke',dest='ai_smoke',type=Path);parser.add_argument('--selection-smoke',type=Path);parser.add_argument('--graphics-probe',nargs=2,metavar=('MODE','REPORT'));parser.add_argument('--renderer',choices=('auto','hardware','software'),default='auto');parser.add_argument('--startup-smoke',type=Path);parser.add_argument('--draft-repair-smoke',type=Path);parser.add_argument('--mechanism-print-smoke',type=Path);parser.add_argument('--reference-smoke',type=Path);parser.add_argument('--electrical-joint-smoke',type=Path);parser.add_argument('--electrical-2150-smoke',type=Path);parser.add_argument('--electrical-2160-smoke',type=Path);parser.add_argument('--mcu-pin-2170-smoke',type=Path);parser.add_argument('--electrical-registration-2180-smoke',type=Path);parser.add_argument('--project-history-smoke',type=Path);parser.add_argument('--circuit-canvas-2190-smoke',type=Path);parser.add_argument('--occlusion-smoke',type=Path);parser.add_argument('--engineering-smoke',type=Path);parser.add_argument('--electrical-workbench-smoke',type=Path);parser.add_argument('--electrical-ai-wiring-smoke',type=Path);parser.add_argument('--program-simulation-smoke',type=Path);parser.add_argument('--electrical-code-smoke',type=Path);parser.add_argument('--firmware-smoke',type=Path);parser.add_argument('--register-cad-files',action='store_true');parser.add_argument('--unregister-cad-files',action='store_true');parser.add_argument('--default-apps',action='store_true');parser.add_argument('--registration-report',type=Path);parser.add_argument('--bom-smoke',type=Path)
+    parser.add_argument('--v3-smoke',type=Path)
     parser.add_argument("project", nargs="?", type=Path, help="CAD project opened by Windows")
     args=parser.parse_args(argv)
     if args.project is not None:
@@ -20,6 +21,8 @@ def parse_startup_args(argv=None):
 
 def main():
     args=parse_startup_args()
+    if args.v3_smoke and not os.getenv('CADSTUDIO_DATA_DIR'):
+        os.environ['CADSTUDIO_DATA_DIR']=str(args.v3_smoke.resolve().parent/'test-profile-v3')
     if args.register_cad_files or args.unregister_cad_files or args.default_apps:
         from cadstudio.file_associations import register,unregister,open_default_apps
         result={}
@@ -77,6 +80,8 @@ def main():
     install_language(data/'ui-settings.json')
     def report_exception(kind,value,tb):
         text=''.join(traceback.format_exception(kind,value,tb));log.write(text);log.flush()
+        if args.v3_smoke:
+            args.v3_smoke.with_suffix('.error.txt').write_text(text,encoding='utf-8');app.exit(1);return
         if args.bom_smoke or args.firmware_smoke or args.electrical_code_smoke or args.program_simulation_smoke or args.electrical_ai_wiring_smoke or args.electrical_workbench_smoke or args.engineering_smoke or args.occlusion_smoke or args.circuit_canvas_2190_smoke or args.project_history_smoke or args.electrical_registration_2180_smoke or args.mcu_pin_2170_smoke or args.electrical_2160_smoke or args.electrical_2150_smoke or args.electrical_joint_smoke or args.reference_smoke or args.draft_repair_smoke or args.mechanism_print_smoke or args.startup_smoke or args.smoke_test or args.advanced_smoke or args.reliability_smoke or args.direct_smoke or args.thread_smoke or args.sketch_guide_smoke or args.extended_smoke or args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke or args.print_ai_smoke:(args.bom_smoke or args.firmware_smoke or args.electrical_code_smoke or args.program_simulation_smoke or args.electrical_ai_wiring_smoke or args.electrical_workbench_smoke or args.engineering_smoke or args.occlusion_smoke or args.circuit_canvas_2190_smoke or args.project_history_smoke or args.electrical_registration_2180_smoke or args.mcu_pin_2170_smoke or args.electrical_2160_smoke or args.electrical_2150_smoke or args.electrical_joint_smoke or args.reference_smoke or args.draft_repair_smoke or args.mechanism_print_smoke or args.startup_smoke or args.smoke_test or args.advanced_smoke or args.reliability_smoke or args.direct_smoke or args.thread_smoke or args.sketch_guide_smoke or args.extended_smoke or args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke or args.print_ai_smoke).with_suffix('.error.txt').write_text(text,encoding='utf-8');app.exit(1)
         else:QMessageBox.warning(None,'작업 오류',str(value)[:1500])
     sys.excepthook=report_exception
@@ -92,11 +97,15 @@ def main():
     if args.program_simulation_smoke:
         from cadstudio.native.program_smoke2230 import run
         run(args.program_simulation_smoke);return 0
-    if args.bom_smoke or args.firmware_smoke or args.electrical_code_smoke:
+    if args.v3_smoke or args.bom_smoke or args.firmware_smoke or args.electrical_code_smoke:
         from cadstudio.native.model_picker import LocalModelPicker
         LocalModelPicker.refresh = lambda self: None  # Owned smoke never discovers network models.
     from cadstudio.native.window import MainWindow
     window=MainWindow();window.show();log.write('WINDOW_SHOWN\n')
+    if args.v3_smoke:
+        from cadstudio.native.v3_smoke import run
+        QTimer.singleShot(300,lambda:run(app,window,args.v3_smoke))
+        return app.exec()
     if any(value for key,value in vars(args).items() if key.endswith('smoke') or key=='smoke_test'):
         window.completion_notifier.enabled=False  # Owned test profiles never show desktop notifications.
     if args.firmware_smoke:

@@ -30,11 +30,18 @@ for line in sys.stdin:
  elif method=='turn/start':result={'turn':{'id':'turn-test','status':'inProgress'}}
  elif method=='account/login/start':result={'type':'chatgpt','loginId':'login-test','authUrl':'https://auth.openai.com/authorize?example=true'}
  send({'id':q['id'],'result':result})
- if method=='turn/start' and mode=='ok':
+ if method=='turn/start' and mode in ('ok','final_eof','invalid_final_eof','partial_eof','final_fail'):
   send({'method':'item/completed','params':{'threadId':'unrelated','turnId':'turn-test','item':{'type':'agentMessage','text':'bad'}}})
   send({'method':'item/completed','params':{'threadId':'thread-test','turnId':'old','item':{'type':'agentMessage','text':'bad'}}})
   send({'method':'item/completed','params':{'threadId':'thread-test','turnId':'turn-test','item':{'type':'agentMessage','phase':'commentary','text':'Planning...'}}})
-  send({'method':'item/completed','params':{'threadId':'thread-test','turnId':'turn-test','item':{'type':'agentMessage','phase':'final_answer','text':'{"answer":42}'}}})
+  if mode=='partial_eof':
+   send({'method':'item/agentMessage/delta','params':{'threadId':'thread-test','turnId':'turn-test','delta':'{"answer":'}})
+   sys.exit(0)
+  send({'method':'item/completed','params':{'threadId':'thread-test','turnId':'turn-test','item':{'type':'agentMessage','phase':'final_answer','text':'{"answer":' if mode=='invalid_final_eof' else '{"answer":42}'}}})
+  if mode in ('final_eof','invalid_final_eof'):sys.exit(0)
+  if mode=='final_fail':
+   send({'method':'turn/completed','params':{'threadId':'thread-test','turn':{'id':'turn-test','status':'failed','error':{'codexErrorInfo':'usageLimitExceeded'}}}})
+   continue
   send({'method':'turn/completed','params':{'threadId':'thread-test','turn':{'id':'turn-test','status':'completed','error':None}}})
  if method=='turn/start' and mode=='fail':
   send({'method':'turn/completed','params':{'threadId':'thread-test','turn':{'id':'turn-test','status':'failed','error':{'message':'usage_limit secret-fake-key'}}}})

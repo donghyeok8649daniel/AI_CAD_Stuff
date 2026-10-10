@@ -26,7 +26,8 @@ def test_python_compile_checks_all_files_without_execution_or_import(tmp_path):
     source=f'from pathlib import Path\nPath({str(marker)!r}).write_text("executed")\nimport non_existing_hardware\n'
     candidate=bundle(source,files=[{'path':'main.py','content':source},{'path':'helpers.py','content':'def read():\n    return 0\n'}])
     report=check_firmware_bundle(candidate,workspace=work())
-    assert report.status=='syntax_ok' and not marker.exists()
+    assert report.status=='pending' and not marker.exists()
+    assert any(item.code=='python_dependency_unverified' for item in report.diagnostics)
     assert len(report.checks)==3
     assert not report.executed_generated_code and not report.flashed_hardware and not report.full_target_build
     assert report.source_sha256['main.py']==sha256(source.encode()).hexdigest()

@@ -11,26 +11,36 @@ from .cloud_ai import response_schema, decode_plan
 from .codex_connection import CodexSession
 from .local_ai import DraftControl, restore_sketch_display, validation_feedback
 from .draft_repair import DraftRepair
+from .codex_models import validate_selection, CodexRuntimeSettings
 
 
 def generate(request, model, *, executable='', control=None, progress=None, deadline=600,
-             effort='medium', session_factory=CodexSession, repair=None):
+             effort='medium', session_factory=CodexSession, repair=None, runtime_config=None):
     control = control or DraftControl(); progress = progress or (lambda message: None)
     repairs = DraftRepair(request, repair)
+    runtime_config = runtime_config or CodexRuntimeSettings(model, effort)
+    provenance = dict(model=model, effort=effort)
+    def keep_candidate(response, verified):
+        response.update(provenance)
+        if repairs.best: repairs.best['result'].update(provenance)
+        control.keep_draft(response, verified)
     if deadline is not None and (not isinstance(deadline, (int, float)) or not math.isfinite(deadline) or deadline <= 0):
         raise ValueError('대기 시간은 양수 또는 무제한이어야 합니다.')
     async def run():
         from .codex_reconnect import RecoveringSession
         async with RecoveringSession(session_factory,executable,control,progress) as session:
             await session.account()
-            available = {item['model']: item for item in await session.models()}
-            if model not in available:
-                raise ValueError('선택한 모델을 현재 Codex 계정에서 찾을 수 없습니다. Codex 연결에서 모델 목록을 새로 찾으세요.')
-            if effort not in available[model]['efforts']:
-                raise ValueError('선택한 모델은 이 추론 강도를 지원하지 않습니다. Codex 연결에서 모델과 추론 강도를 다시 선택하세요.')
+            available = await session.models()
+            validate_selection(available, *runtime_config.snapshot())
             async def content(messages, schema):
                 control.check()
-                return await session.content(model, messages, response_schema(schema), effort, progress)
+                selected_model, selected_effort = runtime_config.snapshot()
+                validate_selection(available, selected_model, selected_effort)
+                # RecoveringSession retries these captured settings and messages;
+                # the next phase may capture a newer GUI selection.
+                value = await session.content(selected_model, messages, response_schema(schema), selected_effort, progress)
+                provenance.update(model=selected_model, effort=selected_effort)
+                return value
             scope = repairs.initial_scope()
             if scope is None:
                 progress('Codex · 요청의 부품과 CAD 도구 선택 중…')
@@ -57,8 +67,8 @@ def generate(request, model, *, executable='', control=None, progress=None, dead
                     control.check()
                     restore_sketch_display(result.design, request.current)
                     reviewed = repairs.check(result, verified, raw, scope, control.check,
-                        checkpoint=control.keep_draft, provider='codex', attempts=attempt+1)
-                    return {**reviewed, 'provider': 'codex', 'attempts': attempt + 1,
+                        checkpoint=keep_candidate, provider='codex', attempts=attempt+1)
+                    return {**reviewed, 'provider': 'codex', **provenance, 'attempts': attempt + 1,
                         'changes': [f"{s['step']}. {TOOL_LABELS[s['tool']]} · {s['target']}" for s in result.tool_actions],
                         'planning': dict(intent=scope.intent, tools=scope.tools, shapes=scope.shapes,
                                          connections=scope.connections, new_parts=scope.new_parts)}
@@ -67,7 +77,7 @@ def generate(request, model, *, executable='', control=None, progress=None, dead
                     reason = validation_feedback(exc)
                     if deadline is not None and (attempt == 5 or (attempt >= 2 and not repairs.best)):
                         pending = repairs.pending('codex', attempt+1)
-                        if pending: return pending
+                        if pending: return {**provenance, **pending}
                         raise ValueError('Codex 설계가 3차례의 치수·형상 검증을 통과하지 못했습니다. 현재 설계는 변경되지 않았습니다.\n\n검증 원인:\n' + reason) from None
                     scope, messages = repairs.next(scope, raw, exc)
                     attempt += 1
@@ -77,5 +87,5 @@ def generate(request, model, *, executable='', control=None, progress=None, dead
     except ValueError as exc:
         control.check()
         pending=repairs.interrupted('codex',str(exc))
-        if pending:return pending
+        if pending:return {**provenance, **pending}
         raise

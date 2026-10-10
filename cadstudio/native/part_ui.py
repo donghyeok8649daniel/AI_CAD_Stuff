@@ -113,6 +113,7 @@ class PartSelectionUI(PartInspectionUI):
 
     def select_parts(self,ids,mode='replace',sync=True):
         if self.busy:return
+        keep_ai=getattr(self,'_ai_panel_active',False)
         ids=[i for i in dict.fromkeys(ids) if any(p['id']==i for p in (self.document.design or {}).get('parts',[]))]
         if self.role_view is not None:ids=[i for i in ids if i not in self.viewport.hidden]
         current=list(self.selected_parts)
@@ -122,7 +123,9 @@ class PartSelectionUI(PartInspectionUI):
         self.viewport.clear_face();self.viewport.select_many(ids)
         if sync:self.sync_tree_selection()
         self.show_properties()
-        if ids and not self.sketching:self.property_dock.show();self.property_dock.raise_()
+        if ids and not self.sketching:
+            if keep_ai:self.ai_dock.show();self.ai_dock.raise_()
+            else:self.property_dock.show();self.property_dock.raise_()
         self.message(f'{len(ids)}개 부품 선택 · Shift+클릭: 추가/해제 · Shift+드래그: 범위 추가 · Ctrl+G: 그룹')
 
     def select_clicked_parts(self,ids,mode='replace'):

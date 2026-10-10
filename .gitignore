@@ -7,6 +7,7 @@ pytest-of-*/
 .env.*
 !.env.example
 data/
+work/
 *.log
 
 build/

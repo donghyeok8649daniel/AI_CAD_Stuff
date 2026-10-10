@@ -14,7 +14,9 @@ class CodexSetupDialog(QDialog):
         self.setWindowTitle('Codex 연결 · ChatGPT 구독'); self.resize(530, 610)
         self.task = None; self.catalog = []; self.model_name = ''; self.executable_path = ''; self.auth_url = ''
         self.usage = None
-        saved = settings(); self.preferred = saved['model']
+        self.explicit_path = False
+        saved = settings(include_source=True); self.preferred = saved['model']
+        self.explicit_path = saved['executable_source'] == 'explicit'
         root = QVBoxLayout(self); scroll = QScrollArea(); scroll.setWidgetResizable(True)
         body = QWidget(); layout = QVBoxLayout(body); scroll.setWidget(body); root.addWidget(scroll, 1)
         layout.addWidget(label('Pro 계정으로 CAD 설계하기', True))
@@ -45,12 +47,16 @@ class CodexSetupDialog(QDialog):
         self.cancel_button = box.addButton('취소', QDialogButtonBox.ButtonRole.ActionRole); self.cancel_button.clicked.connect(self.cancel)
         box.addButton('닫기', QDialogButtonBox.ButtonRole.RejectRole); box.accepted.connect(self.accept); box.rejected.connect(self.reject); root.addWidget(box)
         self.use_button.setEnabled(False); self.cancel_button.hide()
-        self.path.textEdited.connect(self.invalidate)
+        self.path.textEdited.connect(self.path_changed)
         for item in (self.login_button, self.check_button, self.browse_button, self.install_button, self.browser_button): item.setAutoDefault(False)
 
     def browse(self):
         path, _ = QFileDialog.getOpenFileName(self, 'Codex 실행 파일 선택', '', 'Codex (codex.exe);;모든 파일 (*)')
-        if path: self.path.setText(path); self.invalidate()
+        if path: self.path.setText(path); self.path_changed()
+
+    def path_changed(self):
+        self.explicit_path = True
+        self.invalidate()
 
     def show_diagnostics(self):
         import json
@@ -130,7 +136,7 @@ class CodexSetupDialog(QDialog):
     def accept(self):
         if self.task or not self.catalog: return
         self.model_name = self.models.currentData()
-        save_settings(self.executable_path, self.model_name)
+        save_settings(self.executable_path, self.model_name, executable_source='explicit' if self.explicit_path else 'auto')
         super().accept()
 
     def done(self, result):

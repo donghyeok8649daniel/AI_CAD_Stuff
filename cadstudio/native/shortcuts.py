@@ -11,6 +11,9 @@ class ShortcutRouter(QObject):
     def eventFilter(self,obj,event):
         w=self.window
         if event.type() not in (QEvent.Type.KeyPress,QEvent.Type.ShortcutOverride) or QApplication.activeWindow()!=w:return False
+        if event.key()==Qt.Key.Key_A and event.modifiers()==(Qt.KeyboardModifier.ControlModifier|Qt.KeyboardModifier.ShiftModifier):
+            if event.type()==QEvent.Type.KeyPress:w.show_ai_panel()
+            event.accept();return True
         focus=QApplication.focusWidget()
         if isinstance(focus,(QLineEdit,QPlainTextEdit,QTextEdit,QAbstractSpinBox,QComboBox)):
             if event.type()==QEvent.Type.ShortcutOverride and event.modifiers()&Qt.KeyboardModifier.ControlModifier and event.key() in (Qt.Key.Key_A,Qt.Key.Key_C,Qt.Key.Key_V,Qt.Key.Key_X,Qt.Key.Key_Z,Qt.Key.Key_Y):event.accept();return True
@@ -20,7 +23,7 @@ class ShortcutRouter(QObject):
             if event.type()!=QEvent.Type.KeyPress:return False
             if mods==Qt.KeyboardModifier.NoModifier and key==Qt.Key.Key_F:w.fit();return True
             if mods==Qt.KeyboardModifier.NoModifier and key==Qt.Key.Key_Escape:w.circuit_panel.scene.clearSelection();return True
-            if mods==Qt.KeyboardModifier.NoModifier and key==Qt.Key.Key_A:w.ai_dock.show();w.ai_dock.raise_();w.prompt.setFocus();return True
+            if mods==Qt.KeyboardModifier.NoModifier and key==Qt.Key.Key_A:w.show_ai_panel();return True
             # Circuit inspection must never delete/move/copy the last-selected
             # CAD body through an unrelated 3D keyboard command.
             if mods==Qt.KeyboardModifier.NoModifier:return False
@@ -46,7 +49,7 @@ class ShortcutRouter(QObject):
         if key==Qt.Key.Key_T:w.thread_dialog();return True
         if key==Qt.Key.Key_M:w.move_parts();return True
         if Qt.Key.Key_1<=key<=Qt.Key.Key_4:w.viewport.set_view(('iso','top','front','right')[key-Qt.Key.Key_1]);return True
-        commands={Qt.Key.Key_S:lambda:w.start_face_sketch() if w.viewport.face and w.viewport.face[1] and w.viewport.face[1]['planar'] else w.start_sketch(w.plane.currentData()),Qt.Key.Key_E:w.extrude_dialog,Qt.Key.Key_H:w.hole_dialog,Qt.Key.Key_I:w.measure_dialog,Qt.Key.Key_F:w.fit,Qt.Key.Key_U:w.parameter_dialog,Qt.Key.Key_A:lambda:(w.ai_dock.show(),w.ai_dock.raise_(),w.prompt.setFocus()),Qt.Key.Key_Delete:w.delete_part,Qt.Key.Key_Escape:w.viewport.clear_face}
+        commands={Qt.Key.Key_S:lambda:w.start_face_sketch() if w.viewport.face and w.viewport.face[1] and w.viewport.face[1]['planar'] else w.start_sketch(w.plane.currentData()),Qt.Key.Key_E:w.extrude_dialog,Qt.Key.Key_H:w.hole_dialog,Qt.Key.Key_I:w.measure_dialog,Qt.Key.Key_F:w.fit,Qt.Key.Key_U:w.parameter_dialog,Qt.Key.Key_A:w.show_ai_panel,Qt.Key.Key_Delete:w.delete_part,Qt.Key.Key_Escape:w.viewport.clear_face}
         if key in commands:commands[key]();return True
         return False
 

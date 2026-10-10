@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 import re
 import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -21,7 +22,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .firmware_bundle import FirmwareBundle, verify_bundle_binding, validate_relative_path
+from .firmware_bundle import (FirmwareBundle, verify_bundle_binding, validate_relative_path,
+    bundle_source_files, library_search_paths)
 
 MAX_DIAGNOSTIC_BYTES = 32 * 1024
 _COMPILERS = {'gcc', 'g++', 'clang', 'clang++', 'arm-none-eabi-gcc', 'arm-none-eabi-g++'}
@@ -83,8 +85,9 @@ def _compiler(path):
 def _preflight_c(bundle):
     """Keep preprocessing within the bundle or ordinary compiler headers."""
     issues = []
-    paths = {file.path for file in bundle.files}
-    for file in bundle.files:
+    paths = {file.path for file in bundle_source_files(bundle)}
+    search_paths = library_search_paths(bundle)
+    for file in bundle_source_files(bundle):
         if file.role != 'source' or PurePosixPath(file.path).suffix.lower() == '.py':
             continue
         # Replace comments with spaces while retaining diagnostic line numbers.
@@ -118,9 +121,45 @@ def _preflight_c(bundle):
                     path=file.path, line=line_number, message='A source include cannot read an absolute or traversing filesystem path.'))
                 continue
             local = str(PurePosixPath(file.path).parent / header)
-            if header not in _STANDARD_HEADERS and header not in paths and local not in paths:
+            if (header not in _STANDARD_HEADERS and header not in paths and local not in paths and
+                    not any(str(PurePosixPath(root) / header) in paths for root in search_paths)):
                 issues.append(FirmwareBuildDiagnostic(severity='pending', code='sdk_header_missing',
                     path=file.path, line=line_number, message=f'Required target SDK/core header is not bundled or configured: {header}. No SDK or driver interface is guessed.'))
+    return issues
+
+
+def _python_import_diagnostics(file, tree, bundle):
+    """Static availability only: never find_spec/import a user package."""
+    paths = {item.path for item in bundle_source_files(bundle) if item.path.endswith('.py')}
+    roots = ['', str(PurePosixPath(bundle.entrypoint).parent), str(PurePosixPath(file.path).parent), *library_search_paths(bundle)]
+    declared = {module for library in bundle.libraries for module in library.module_names}
+    stdlib = getattr(sys, 'stdlib_module_names', set())
+    issues = []
+    for node in ast.walk(tree):
+        names = ([item.name for item in node.names] if isinstance(node, ast.Import) else
+                 [node.module] if isinstance(node, ast.ImportFrom) and node.module and not node.level else [])
+        for name in names:
+            first = name.split('.')[0]
+            module_path = name.replace('.', '/')
+            available = any((str(PurePosixPath(root) / (module_path + '.py')) in paths or
+                             str(PurePosixPath(root) / module_path / '__init__.py') in paths or
+                             any(path.startswith(str(PurePosixPath(root) / module_path) + '/') for path in paths))
+                            for root in roots)
+            if first in stdlib or available:
+                continue
+            issues.append(FirmwareBuildDiagnostic(severity='pending', code='python_dependency_unverified',
+                path=file.path, line=node.lineno, message=f'Import {name}: ' +
+                ('an exact external dependency is recorded; installation and target compatibility are unverified.'
+                 if any(name == module or name.startswith(module + '.') for module in declared)
+                 else 'no bundled module or declared exact dependency was found. Configure its target package separately.')))
+        if isinstance(node, ast.ImportFrom) and node.level and node.module:
+            base = PurePosixPath(file.path).parent
+            for _ in range(node.level - 1): base = base.parent
+            module_path = str(base / node.module.replace('.', '/'))
+            if not (module_path + '.py' in paths or module_path + '/__init__.py' in paths or
+                    any(path.startswith(module_path + '/') for path in paths)):
+                issues.append(FirmwareBuildDiagnostic(severity='pending', code='python_dependency_unverified',
+                    path=file.path, line=node.lineno, message=f'Relative import {node.module}: no bundled module was found. Runtime package resolution is unverified.'))
     return issues
 
 
@@ -317,7 +356,7 @@ def check_firmware_bundle(bundle: FirmwareBundle | dict, *, workspace=None, comp
     if not isinstance(timeout_s, (int, float)) or not math.isfinite(timeout_s) or not 0 < timeout_s <= 120:
         raise ValueError('The explicit syntax check requires a timeout between 0 and 120 seconds.')
     report = FirmwareBuildReport(status='pending', bundle_id=bundle.id,
-        source_sha256={file.path: file.sha256 for file in bundle.files})
+        source_sha256={file.path: file.sha256 for file in bundle_source_files(bundle)})
     def finish(status):
         report.status = status; report.elapsed_s = time.monotonic() - started
         return report
@@ -331,12 +370,24 @@ def check_firmware_bundle(bundle: FirmwareBundle | dict, *, workspace=None, comp
         report.checks.append(FirmwareBuildCheck(name='board_wiring_binding', status='passed', message='The exact board and saved wiring match the candidate snapshot.'))
     else:
         report.diagnostics.append(FirmwareBuildDiagnostic(severity='pending', code='binding_not_checked', message='No current CAD workspace was provided; source identity is checked but current wiring is unverified.'))
-    python_files = [file for file in bundle.files if file.role == 'source' and PurePosixPath(file.path).suffix.lower() == '.py']
+    for library in bundle.libraries:
+        report.checks.append(FirmwareBuildCheck(name='library:' + library.id,
+            status='pending' if library.origin == 'external' else 'passed',
+            message=f'{library.name}@{library.version}: ' + ('external requirement recorded; not installed or linked.'
+                if library.origin == 'external' else f'{len(library.files)} source/data files match snapshot SHA-256 {library.source_sha256}. Version is user declared; target linkage is unverified.')))
+        if library.origin == 'external':
+            report.diagnostics.append(FirmwareBuildDiagnostic(severity='pending', code='external_dependency_unverified',
+                message=f'{library.name}@{library.version}: installation, API and target linkage are unverified.'))
+        if library.omitted_files:
+            report.diagnostics.append(FirmwareBuildDiagnostic(severity='pending', code='library_files_omitted',
+                message=f'{library.name}: {len(library.omitted_files)} unsupported/binary files were omitted. Review the dependency manifest before target integration.'))
+    python_files = [file for file in bundle_source_files(bundle) if file.role == 'source' and PurePosixPath(file.path).suffix.lower() == '.py']
     for file in python_files:
         if cancelled():
             return finish('cancelled')
         try:
-            tree = ast.parse(file.content, filename=file.path)
+            source = file.content[1:] if file.content.startswith('\ufeff') else file.content
+            tree = ast.parse(source, filename=file.path)
             compile(tree, file.path, 'exec', dont_inherit=True)
         except (SyntaxError, ValueError, RecursionError, MemoryError) as exc:
             report.diagnostics.append(FirmwareBuildDiagnostic(severity='error', code='python_syntax',
@@ -344,7 +395,8 @@ def check_firmware_bundle(bundle: FirmwareBundle | dict, *, workspace=None, comp
                 line=getattr(exc, 'lineno', None), column=getattr(exc, 'offset', None)))
             return finish('failed')
         report.checks.append(FirmwareBuildCheck(name=file.path, status='passed', message='Python AST and compile check passed without importing or executing the source.'))
-    c_files = [file for file in bundle.files if file.role == 'source' and PurePosixPath(file.path).suffix.lower() in {'.c', '.cpp', '.ino'}]
+        report.diagnostics.extend(_python_import_diagnostics(file, tree, bundle))
+    c_files = [file for file in bundle_source_files(bundle) if file.role == 'source' and PurePosixPath(file.path).suffix.lower() in {'.c', '.cpp', '.ino'}]
     if c_files:
         preflight = _preflight_c(bundle)
         report.diagnostics.extend(preflight)
@@ -364,7 +416,7 @@ def check_firmware_bundle(bundle: FirmwareBundle | dict, *, workspace=None, comp
         try:
             with tempfile.TemporaryDirectory(prefix='cad-firmware-check-') as folder:
                 directory = Path(folder)
-                for file in bundle.files:
+                for file in bundle_source_files(bundle):
                     if cancelled():
                         return finish('cancelled')
                     path = directory.joinpath(*PurePosixPath(file.path).parts)
@@ -376,7 +428,10 @@ def check_firmware_bundle(bundle: FirmwareBundle | dict, *, workspace=None, comp
                     language = 'c' if PurePosixPath(file.path).suffix.lower() == '.c' else 'c++'
                     standard = '-std=c11' if language == 'c' else '-std=c++17'
                     argv = [str(compiler), '-fsyntax-only', '-fdiagnostics-color=never', '-x', language,
-                            standard, '-I', str(directory), str(directory.joinpath(*PurePosixPath(file.path).parts))]
+                            standard, '-I', str(directory)]
+                    for path in library_search_paths(bundle):
+                        argv += ['-I', str(directory.joinpath(*PurePosixPath(path).parts))]
+                    argv.append(str(directory.joinpath(*PurePosixPath(file.path).parts)))
                     outcome, returncode, output = _run_compiler(argv, directory, compiler, cancelled,
                         max(.01, timeout_s - (time.monotonic() - started)))
                     output = output.replace(str(directory), '<bundle>')
