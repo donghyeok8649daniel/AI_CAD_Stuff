@@ -321,3 +321,53 @@ def test_bom_worker_cancel_guard_never_publishes_input_error(app):
     task.cancel(); task._run(); app.processEvents()
     assert not packets and not invoked
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete); app.processEvents()
+
+
+def test_239_row_review_edits_last_row_and_preserves_all_rows_until_save(app):
+    document = parse_bom_text("Name\tQuantity\tLength mm\n" + "".join(
+        f"Unique {index}\t\t20\n" for index in range(239)))
+    before = document.model_dump(mode="json")
+    dialog = BomDesignDialog(document, language="en")
+    dialog.table.selectRow(238); app.processEvents()
+    assert dialog._row == 238 and dialog.fields["name"].text() == "Unique 238"
+    dialog.fields["name"].setText("Reviewed last distinct item")
+    assert dialog.apply_row()
+    assert dialog.table.rowCount() == 239 and dialog.document.items[-1].name == "Reviewed last distinct item"
+    assert document.model_dump(mode="json") == before and dialog.accepted_bom is None
+    dialog.save_button.click()
+    assert len(dialog.accepted_bom.items) == 239
+    assert dialog.accepted_bom.items[-1].name == "Reviewed last distinct item"
+    assert all(row.quantity is None for row in dialog.accepted_bom.items)
+    assert dialog.accepted_bom.items[0].model_dump(mode="json") == before["items"][0]
+    assert document.model_dump(mode="json") == before
+    dialog.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete); app.processEvents()
+
+
+def test_512_row_review_blocks_extra_row_and_cancel_is_atomic(app):
+    document = parse_bom_text("Name,Quantity,Length mm\n" + "".join(f"Unique {index},1,20\n" for index in range(512)))
+    before = document.model_dump(mode="json")
+    dialog = BomDesignDialog(document, language="en")
+    dialog.table.selectRow(511); app.processEvents()
+    dialog.add_button.click()
+    assert dialog.table.rowCount() == 512 and len(dialog.document.items) == 512
+    assert dialog.status.text() and dialog.accepted_bom is None
+    assert document.model_dump(mode="json") == before
+    dispose(app, dialog)
+
+
+@pytest.mark.parametrize("language", ["ko", "en"])
+def test_reopened_bom_review_refreshes_stale_issues_before_save_without_mutating_authoritative_values(app, language):
+    from cadstudio.bom_design import refresh_bom_issues
+    document = parse_bom_text("Name,Quantity\nActual dimensions unknown,1\n")
+    document.items[0].issues = []
+    before = document.model_dump(mode="json")
+    dialog = BomDesignDialog(document, language=language)
+    expected = refresh_bom_issues(document).model_dump(mode="json")
+    assert dialog.document.model_dump(mode="json") == expected
+    assert dialog.document.items[0].issues and "1" in dialog.summary.text()
+    assert dialog.document.items[0].name == before["items"][0]["name"]
+    assert dialog.document.items[0].quantity == before["items"][0]["quantity"]
+    assert dialog.document.items[0].dimensions_mm == {}
+    assert document.model_dump(mode="json") == before and dialog.accepted_bom is None
+    dispose(app, dialog)

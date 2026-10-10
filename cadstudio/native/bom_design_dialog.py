@@ -35,7 +35,7 @@ class BomDesignDialog(QDialog):
         super().__init__(parent)
         self.language = language
         self.word = lambda ko, en: en if language == "en" else ko
-        self.document = self._copy_document(bom) if bom is not None else None
+        self.document = self._copy_document(refresh_bom_issues(bom)) if bom is not None else None
         self.accepted_bom = None
         self._row = -1
         self._loading = False

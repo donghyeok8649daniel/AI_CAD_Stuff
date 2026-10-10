@@ -1,0 +1,54 @@
+{
+  "version": "3.1.1",
+  "build_id": "public-3.1.1-bom512-20261011-final3",
+  "scope": "BOM capacity, complete bounded context, initial review issues and typed storage",
+  "affected_source_tests": {
+    "tests": 117,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "unique_test_components": {
+    "BOM_core_storage_export": 66,
+    "current_native_dialog": 33,
+    "startup": 18
+  },
+  "prior_GUI31_superseded_not_counted": true,
+  "native_checks": {
+    "source-bom": 79,
+    "frozen-bom": 79
+  },
+  "publication_requires_fresh_protected_installed_flow": true,
+  "native_modules_exact": 224,
+  "native_entry_exact": true,
+  "software_driver_unmodified": true,
+  "max_bom_rows": 512,
+  "max_context_chars": 300000,
+  "raw_source_chars_limit": 100000,
+  "input_file_bytes_limit": 2000000,
+  "CAD_physical_part_limit": 256,
+  "single_AI_job_new_part_limit": 32,
+  "bounded_reference": {
+    "rows": 239,
+    "all_authoritative_fields_preserved": true,
+    "full_context_chars": 160103,
+    "fixture_physical_bodies": 2,
+    "final_239_body_project_GUI_verified": false
+  },
+  "coverage": [
+    "239/512 CSV/TSV/XLSX row and full-field context preservation",
+    "513-row, raw-source, file-size and context limits remain atomic",
+    "Unknown dimensions are visible before Save, without mutating caller data",
+    "Derived review issues refresh independently of authoritative values",
+    "Native import, editing, Cancel, explicit Save, Undo/Redo and normal typed reopen",
+    "Separate 239-physical-body typed storage and CSV-export source tests"
+  ],
+  "limitations": [
+    "BOM rows do not increase the CAD physical body limit",
+    "The two-body native fixture does not validate a final 239-body project",
+    "Unselected products and dimensions remain unknown",
+    "No live AI, generated-code execution, SDK build, device or hardware operation",
+    "Historical printing177 and full2442 are not repeated or recounted here"
+  ],
+  "public_evidence_excludes_private_paths_projects_images_code_credentials": true
+}

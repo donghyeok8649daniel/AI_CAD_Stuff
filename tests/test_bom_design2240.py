@@ -123,7 +123,7 @@ def test_malformed_or_ambiguous_tables_fail_atomically(content):
 
 def test_limits_and_exact_model_validation():
     with pytest.raises(ValueError):
-        parse_bom_text("Name,Quantity\n" + "Body,1\n" * 201)
+        parse_bom_text("Name,Quantity\n" + "Body,1\n" * 513)
     with pytest.raises(ValueError):
         parse_bom_text("Name,Notes\nBody," + "x" * 4001)
     item = frame_bom().items[0]

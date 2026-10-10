@@ -2,6 +2,7 @@
 from copy import deepcopy
 from datetime import datetime, timezone
 import json
+import hashlib
 import os
 from pathlib import Path
 import sys
@@ -9,7 +10,7 @@ import time
 import traceback
 from uuid import uuid4
 
-from PySide6.QtCore import QCoreApplication, QEvent, QPoint, QRect, QRectF, QTimer
+from PySide6.QtCore import QCoreApplication, QEvent, QPoint, QRect, QRectF, QTimer, QThreadPool
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QInputDialog, QMenu
@@ -28,7 +29,8 @@ def run(app, window, output):
     projects and screenshots are written only beneath the report directory.
     Every dialog is driven through its actual modal entry and disposed.
     """
-    from ..bom_design import BomDocument, reconcile_bom
+    from .. import __version__
+    from ..bom_design import BomDocument, reconcile_bom, bom_context, refresh_bom_issues
     from ..kernel import KERNEL_LOCK, preview
     from ..models import Design, DraftRequest
     from .bom_design_dialog import BomDesignDialog
@@ -47,6 +49,9 @@ def run(app, window, output):
                   network_calls=0, hardware_calls=0, renderer=os.getenv("CADSTUDIO_RENDERER", "unknown"),
                   frozen=bool(getattr(sys, "frozen", False)), owned_directory=str(owned),
                   profile=os.getenv("CADSTUDIO_DATA_DIR", ""), started_utc=datetime.now(timezone.utc).isoformat())
+    report.update(version=__version__, runtime_executable=sys.executable, pid=os.getpid(),
+                  parent_pid=os.getppid(), synthetic_only=True, generated_code_executed=False,
+                  sdk_calls=0, phase="running", fixture_physical_parts=2, capacity_bom_rows=239)
     dialogs, errors = [], []
     original_error, original_item = window.show_error, QInputDialog.getItem
     idle_ticks = [0]
@@ -299,14 +304,129 @@ def run(app, window, output):
         check(window.result["stats"]["parts"] == 2 and len(window.viewport.actors) == 2 and reconcile_bom(window.document.design).all_matched,
               "reopened native viewport renders both measured BOM instances")
         screenshot(window, "bom-main2240")
+        # Capacity is a BOM-row budget, not a claim of 239 rendered bodies.
+        # Keep the two actual solids and every old binding; unresolved rows
+        # and source changes must remain visibly unresolved after import.
+        capacity_fixture = owned / "owned-239-rows311.tsv"
+        capacity_fixture.write_text(TABLE + "".join(
+            f"Distinct nominal row {i}\t\t\t\t20\t\t\tstructure\t\tActual product and rating unknown\n"
+            for i in range(1, 239)), encoding="utf-8-sig")
+        before_capacity = deepcopy(window.document.project().model_dump(mode="json"))
+        def capacity_cancel(child):
+            check(child.import_file(capacity_fixture) and child.table.rowCount() == 239,
+                  "Actual BOM dialog imports all 239 distinct rows")
+            child.table.selectRow(238); app.processEvents()
+            check(child._row == 238 and child.fields["name"].text() == "Distinct nominal row 238",
+                  "Actual 239-row review exposes the final row")
+            child.fields["name"].setText("Unsaved capacity row"); child.apply_button.click()
+            child.close_button.click()
+        child = modal(window.actions["bom"].trigger, BomDesignDialog, capacity_cancel)
+        check(not isValid(child) and window.document.project().model_dump(mode="json") == before_capacity,
+              "Cancel of the 239-row import preserves all existing CAD and history")
+        def capacity_save(child):
+            check(child.import_file(capacity_fixture), "239-row source imports after Cancel without truncation")
+            child.table.selectRow(238); app.processEvents()
+            child.fields["name"].setText("Explicitly reviewed distinct row 238"); child.apply_button.click()
+            screenshot(child, "bom-last-row239-311")
+            child.save_button.click()
+        child = modal(window.actions["bom"].trigger, BomDesignDialog, capacity_save)
+        wait(lambda: not window.busy)
+        capacity_design = deepcopy(window.document.design)
+        check(len(capacity_design["bom"]["items"]) == 239 and capacity_design["parts"] == before_capacity["design"]["parts"],
+              "Explicit 239-row Save preserves both actual solids and every old part binding")
+        capacity_bom = BomDocument.model_validate(capacity_design["bom"])
+        payload = bom_context(capacity_bom)
+        context_json = json.loads(payload.split("\n", 2)[2].rsplit("\n", 1)[0])
+        check(len(context_json["items"]) == 239 and context_json["items"][-1]["name"] == "Explicitly reviewed distinct row 238",
+              "239-row AI context retains the final reviewed row and all row IDs")
+        check(context_json["items"][1]["quantity"] is None and context_json["items"][1]["issues"],
+              "Unknown quantity and product evidence are not fabricated by increased capacity")
+        check(not reconcile_bom(capacity_design).all_matched and window.ai_task is None,
+              "Expanded BOM remains unresolved rather than starting AI or declaring matching products")
+        report["context_chars"] = len(payload)
+        window.undo(); wait(lambda: not window.busy)
+        check(window.document.design == before_capacity["design"], "Undo restores the complete original BOM and design")
+        window.redo(); wait(lambda: not window.busy)
+        check(window.document.design == capacity_design, "Redo restores all 239 distinct BOM rows exactly")
+        capacity_project = owned / "owned239-311.pcad"
+        expected_project = window.document.project().model_dump(mode="json")
+        window.document.write(capacity_project)
+        check(read_project(capacity_project).model_dump(mode="json") == expected_project,
+              "Normal PCAD Save preserves every 239-row source and complete typed history")
+        window.open_project(capacity_project); wait(lambda: not window.busy)
+        check(window.document.project().model_dump(mode="json") == expected_project and not window.document.dirty,
+              "Normal native Open restores exact 239-row project and full history")
+        check(window.result["stats"]["parts"] == 2 and len(window.viewport.actors) == 2,
+              "239-row reopen renders the two genuine fixture solids without duplicated bodies")
+        screenshot(window, "bom239-main311")
+        report["capacity_project"] = str(capacity_project)
+        reference = os.getenv("CADSTUDIO_BOM_SMOKE_REFERENCE", "")
+        if reference:
+            reference_path = Path(reference)
+            with reference_path.open("rb") as stream:
+                raw_reference = stream.read(2_000_001)
+            check(len(raw_reference) <= 2_000_000, "Actual external BOM DTO respects the existing 2 MB file budget")
+            reference_bom = BomDocument.model_validate_json(raw_reference)
+            check(len(reference_bom.items) == 239, "Exact external BOM reference has all 239 distinct rows")
+            reference_copy = owned / "actual-reference239.json"
+            reference_copy.write_bytes(raw_reference)
+            report["actual_reference"] = dict(path=str(reference_path), sha256=hashlib.sha256(raw_reference).hexdigest(),
+                owned_copy=str(reference_copy), rows=239, physical_fixture_parts=2, final_parent_cad_ui=False)
+            actual_design = deepcopy(window.document.design)
+            actual_design["bom"] = reference_bom.model_dump()
+            window.apply_design(actual_design, "Owned exact external239 BOM reference"); wait(lambda: not window.busy)
+            actual_design = deepcopy(window.document.design)
+            def actual_cancel(child):
+                check(child.table.rowCount() == 239 and child.document.model_dump() == refresh_bom_issues(reference_bom).model_dump(),
+                      "Actual native external239 review retains every source row and product field")
+                check(child.document.items[-1].issues and "239" in child.summary.text(),
+                      "Actual external239 review shows unknown final dimensions before Save")
+                child.table.selectRow(238); app.processEvents()
+                check(child._row == 238 and child.fields["name"].text() == reference_bom.items[-1].name,
+                      "Actual native external239 final row is selectable and readable")
+                screenshot(child, "bom-actual-reference239-311")
+                child.fields["name"].setText("Unsaved private reference edit"); child.apply_button.click()
+                child.close_button.click()
+            child = modal(window.actions["bom"].trigger, BomDesignDialog, actual_cancel)
+            check(not isValid(child) and window.document.design == actual_design,
+                  "Cancel of an actual external239 review preserves all authoritative reference fields")
+            def actual_save(child):
+                child.table.selectRow(238); app.processEvents(); child.save_button.click()
+            child = modal(window.actions["bom"].trigger, BomDesignDialog, actual_save)
+            wait(lambda: not window.busy)
+            actual_saved = deepcopy(actual_design)
+            actual_saved["bom"] = refresh_bom_issues(reference_bom).model_dump()
+            check(not isValid(child) and window.document.design == actual_saved,
+                  "Explicit actual external239 Save retains exact authoritative values and refreshed review issues")
+            actual_payload = bom_context(window.document.design["bom"])
+            actual_context = json.loads(actual_payload.split("\n", 2)[2].rsplit("\n", 1)[0])
+            check([row["id"] for row in actual_context["items"]] == [row.id for row in reference_bom.items],
+                  "Actual external239 AI context contains all distinct reference IDs in order")
+            report["actual_reference"]["context_chars"] = len(actual_payload)
+            actual_project = owned / "actual-reference239.pcad"
+            actual_expected = window.document.project().model_dump(mode="json")
+            window.document.write(actual_project)
+            check(read_project(actual_project).model_dump(mode="json") == actual_expected,
+                  "Actual external239 reference normal Save retains exact typed history and data")
+            window.open_project(actual_project); wait(lambda: not window.busy)
+            check(window.document.project().model_dump(mode="json") == actual_expected and not window.document.dirty,
+                  "Actual external239 reference normal native Open retains every row and full typed history")
+            check(reference_path.read_bytes() == raw_reference,
+                  "Actual external239 original file remains byte-identical after native review and roundtrip")
+            report["actual_reference"]["project"] = str(actual_project)
+            screenshot(window, "bom-actual-reference239-main311")
         check(not errors and window.ai_task is None, "owned native BOM workflow finishes without application errors or AI calls")
-        report["project"] = str(project); report["success"] = True
+        report["project"] = str(project); report.update(success=True, phase="complete")
     except Exception:
         report.update(success=False, error=traceback.format_exc())
     finally:
         watchdog.stop(); QInputDialog.getItem = original_item; window.show_error = original_error
         for child in reversed(dialogs):
             if isValid(child): child.reject(); child.deleteLater()
-        flush(); window.document.dirty = False; window.close(); flush()
+        flush(); report["owned_workers_drained"] = bool(QThreadPool.globalInstance().waitForDone(10000))
+        window.document.dirty = False; window.close(); flush()
+        report["owned_window_closed"] = not window.isVisible()
+        if not report["owned_workers_drained"] or not report["owned_window_closed"]:
+            report.update(success=False, phase="cleanup-failed")
         report["finished_utc"] = datetime.now(timezone.utc).isoformat(); write()
         app.exit(0 if report["success"] else 1)
