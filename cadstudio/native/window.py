@@ -863,7 +863,9 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if self.busy or self.sketching:return
         if not self.document.design or not self.document.design['parts']:self.message('출력할 부품을 먼저 만드세요.');return
         from .print_dialog import PrintDialog
-        PrintDialog(self,self.document.design,self.selected_parts).exec()
+        dialog=PrintDialog(self,self.document.design,self.selected_ids())
+        try:dialog.exec()
+        finally:dialog.deleteLater()
     def research_package_dialog(self):
         if self.busy or self.sketching or not self.document.design:return
         from .research_dialog import ResearchDialog

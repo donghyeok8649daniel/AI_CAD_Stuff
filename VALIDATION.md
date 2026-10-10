@@ -1,3 +1,21 @@
+# 3.1.0 selected-part printing, multiple plates and bolt/nut exclusion
+
+Affected source regression: **69 passed**, with no failures, errors or skipped tests: startup18, printing core42 and native dialog state9. Unchanged tests were consumed once with exact dependency and log/XML bindings. Actual source and frozen Windows print flows each completed **140 checks**; the separate frozen motion flow completed **65 checks**. All **224** bundled native modules and the native entry match the tested source; the software driver is unchanged. Native check counts are not additional unique source tests. The historical full2442 run belongs to v3.0.1.
+
+Checks cover actual part selection, bolt/nut exclusion with washer/pin retention, multiple plates, switching and manual XYZ placement/rotation, actual VTK ray picking and Qt dragging, current-plate STL and all-plate ZIP, relative index/selected IDs/mesh bounds/bottom Z=0, warnings for oversized bodies and overlap, stale-preview blocking, save-picker and mid-export cancellation, original project/history preservation. Five genuine VTK framebuffers and separate composited controls are retained per print run. Manual placement, oversized warning and frozen exclusion controls were directly inspected. Raw Qt WGL captures are not geometry evidence.
+
+The initial source QA failure after43 checks is preserved: its checkbox click missed the indicator/text hit region; the corrected fixture verifies the checkbox state before testing unchanged invalidation logic. A separate product correction displays the chosen ZIP path instead of an index dictionary. Final dialog9 checks and fresh source/frozen140 checks passed. After binary checks, only the README version, English workspace instruction and empty-selection fallback documentation were corrected; executable, tests and runtime data remained unchanged.
+
+No live AI call, generated-code execution, SDK build, physical printing, device command, load rating, strength, firmware target or printer tolerance qualification is claimed. Oversized individual bodies remain whole; splitting is across output plates. See the [Korean release guide](docs/RELEASE_3_1_0_KO.md), [English guide](docs/RELEASE_3_1_0_EN.md) and [aggregate evidence](docs/native310-validation.json). Public evidence excludes private projects, paths, pictures, code and credentials.
+
+# 3.0.2 exact motion-link editing and stale-preview prevention
+
+Affected source regression: **90 passed**, with no failures, errors or skipped tests. Actual source and frozen Windows UI flows each completed **65 checks** using a private three-body synthetic fixture. All **223** bundled native modules and the native entry match the tested source; the software driver is unchanged. These check counts are separate from unique source test counts. The historical full 2442-test run belongs to3.0.1.
+
+Checks cover full float round trips, scientific input, selection and editing of existing links, unchanged Apply and Cancel preservation, immediate invalidation of incomplete enabled limits, exact Undo/Redo, Save As and reopen with complete typed design and history. A5/360 ratio remains exact; rounded .01389 still fails the actual end-limit check. Numeric controls, button states and the reopened timeline were visually inspected. Raw Qt screenshots omit VTK pixels and are not geometry visibility evidence.
+
+No live AI request, generated-code execution, SDK build, hardware command, bearing load rating, coupling torque or physical research design approval is claimed. See the [Korean release guide](docs/RELEASE_3_0_2_KO.md), [English guide](docs/RELEASE_3_0_2_EN.md) and [aggregate evidence](docs/native3002-validation.json). Public evidence excludes private projects, paths, pictures, code and credentials.
+
 # 3.0.1 electrical capacity, G474 pins, purpose and native validation
 
 Full current source regression: **2442 passed**. Frozen Windows EXE: **216 checks** for the synthetic G474/purpose flow and **232 checks** for the separate full-project flow. These native checks and the separate scalar arithmetic proof are not additional unique pytest tests. All **222** native modules and the native entry match the frozen source; the software driver is unchanged.

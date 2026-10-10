@@ -1,0 +1,61 @@
+{
+  "version": "3.1.0",
+  "scope": "Selected-part printing and precise motion-link editing",
+  "affected_source_tests": {
+    "tests": 69,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "component_source_tests": {
+    "startup": 18,
+    "printing_core": 42,
+    "printing_native_state": 9
+  },
+  "unchanged_tests_consumed_with_exact_dependency_hashes_without_repeat": true,
+  "native_checks": {
+    "source-print": 140,
+    "frozen-print": 140,
+    "frozen-motion": 65
+  },
+  "native_modules": 224,
+  "modules_exact": true,
+  "native_entry_exact": true,
+  "software_driver_unmodified": true,
+  "tested_behaviors": [
+    "Actual part checklist, current selection and clear selection",
+    "Bolt and nut exclusion preserves washers and pins; reasons remain visible",
+    "Multiple print plates, switching, manual movement and XYZ rotation",
+    "Actual VTK ray picking and Qt drag placement",
+    "Current-plate STL and all-plate ZIP with relative index and exact selected identities",
+    "STL bounds, dimensions and bottom Z=0",
+    "Oversized whole body and overlap warnings block affected output",
+    "Stale settings and changed save-picker state do not export an obsolete preview",
+    "Save-picker and mid-export cancellation preserve source history and prior output bytes",
+    "Exact motion-link editing, enabled invalid-limit blocking, Undo/Redo and Save As/reopen"
+  ],
+  "visual_evidence": {
+    "printing": "Five actual VTK framebuffers per print run; separately composited Qt control captures",
+    "root_direct_inspection": [
+      "Source manual placement and oversized warning",
+      "Frozen bolt/nut exclusion"
+    ],
+    "motion": "Raw Qt controls and reopened timeline; WGL black area is not geometry proof"
+  },
+  "preserved_initial_failure": "First source QA clicked outside the checkbox indicator/text; 43 checks completed before failure. The fixture click was corrected without weakening stale-preview guards.",
+  "corrected_product_issue": "ZIP completion shows the selected output path rather than the returned index dictionary.",
+  "documentation_only_refresh_after_binary_tests": true,
+  "live_ai_calls": 0,
+  "network_calls": 0,
+  "sdk_builds": 0,
+  "generated_code_executed": false,
+  "device_operations": 0,
+  "limitations": [
+    "Eight synthetic printing parts including a real imported BREP, plus a separate three-body motion fixture",
+    "No physical printer output, hardware strength, firmware target, load rating or tolerance qualification",
+    "Large individual bodies remain whole; splitting is across print plates",
+    "Support, infill, layers and G-code are configured in an external slicer",
+    "Name hints are unverified selection aids; unknown fastener identity stays user-controlled",
+    "Historical full2442 source tests belong to v3.0.1, not a fresh v3.1.0 full run"
+  ]
+}

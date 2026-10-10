@@ -14,6 +14,8 @@ def parse_startup_args(argv=None):
     parser.add_argument('--g474-pin-smoke',type=Path)
     parser.add_argument('--project-review-smoke',type=Path)
     parser.add_argument('--review-project',type=Path)
+    parser.add_argument('--motion-precision-smoke',type=Path)
+    parser.add_argument('--print-batch-smoke',type=Path)
     parser.add_argument("project", nargs="?", type=Path, help="CAD project opened by Windows")
     args=parser.parse_args(argv)
     if args.project is not None:
@@ -28,10 +30,22 @@ def parse_startup_args(argv=None):
     if args.project_review_smoke and any(value for key,value in vars(args).items()
             if key not in ('project_review_smoke','review_project','renderer','no_restore')):
         parser.error('--project-review-smoke uses only its owned review copy; other startup actions are not supported.')
+    if args.motion_precision_smoke and any(value for key,value in vars(args).items()
+            if key not in ('motion_precision_smoke','renderer','no_restore')):
+        parser.error('--motion-precision-smoke uses only its owned synthetic project; other startup actions are not supported.')
+    if args.print_batch_smoke and any(value for key,value in vars(args).items()
+            if key not in ('print_batch_smoke','renderer','no_restore')):
+        parser.error('--print-batch-smoke uses only its owned synthetic project; other startup actions are not supported.')
     return args
 
 def main():
     args=parse_startup_args()
+    if args.print_batch_smoke:
+        report=args.print_batch_smoke.resolve()
+        os.environ['CADSTUDIO_DATA_DIR']=str(report.parent/(report.stem+'-profile'))
+    if args.motion_precision_smoke:
+        report=args.motion_precision_smoke.resolve()
+        os.environ['CADSTUDIO_DATA_DIR']=str(report.parent/(report.stem+'-profile'))
     if args.project_review_smoke:
         report=args.project_review_smoke.resolve()
         os.environ['CADSTUDIO_DATA_DIR']=str(report.parent/(report.stem+'-profile'))
@@ -96,8 +110,8 @@ def main():
     install_language(data/'ui-settings.json')
     def report_exception(kind,value,tb):
         text=''.join(traceback.format_exception(kind,value,tb));log.write(text);log.flush()
-        if args.v3_smoke or args.g474_pin_smoke or args.project_review_smoke:
-            (args.project_review_smoke or args.g474_pin_smoke or args.v3_smoke).with_suffix('.error.txt').write_text(text,encoding='utf-8');app.exit(1);return
+        if args.print_batch_smoke or args.motion_precision_smoke or args.v3_smoke or args.g474_pin_smoke or args.project_review_smoke:
+            (args.print_batch_smoke or args.motion_precision_smoke or args.project_review_smoke or args.g474_pin_smoke or args.v3_smoke).with_suffix('.error.txt').write_text(text,encoding='utf-8');app.exit(1);return
         if args.bom_smoke or args.firmware_smoke or args.electrical_code_smoke or args.program_simulation_smoke or args.electrical_ai_wiring_smoke or args.electrical_workbench_smoke or args.engineering_smoke or args.occlusion_smoke or args.circuit_canvas_2190_smoke or args.project_history_smoke or args.electrical_registration_2180_smoke or args.mcu_pin_2170_smoke or args.electrical_2160_smoke or args.electrical_2150_smoke or args.electrical_joint_smoke or args.reference_smoke or args.draft_repair_smoke or args.mechanism_print_smoke or args.startup_smoke or args.smoke_test or args.advanced_smoke or args.reliability_smoke or args.direct_smoke or args.thread_smoke or args.sketch_guide_smoke or args.extended_smoke or args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke or args.print_ai_smoke:(args.bom_smoke or args.firmware_smoke or args.electrical_code_smoke or args.program_simulation_smoke or args.electrical_ai_wiring_smoke or args.electrical_workbench_smoke or args.engineering_smoke or args.occlusion_smoke or args.circuit_canvas_2190_smoke or args.project_history_smoke or args.electrical_registration_2180_smoke or args.mcu_pin_2170_smoke or args.electrical_2160_smoke or args.electrical_2150_smoke or args.electrical_joint_smoke or args.reference_smoke or args.draft_repair_smoke or args.mechanism_print_smoke or args.startup_smoke or args.smoke_test or args.advanced_smoke or args.reliability_smoke or args.direct_smoke or args.thread_smoke or args.sketch_guide_smoke or args.extended_smoke or args.ai_smoke or args.selection_smoke or args.codex_smoke or args.mechanical_smoke or args.usability_smoke or args.print_ai_smoke).with_suffix('.error.txt').write_text(text,encoding='utf-8');app.exit(1)
         else:QMessageBox.warning(None,'작업 오류',str(value)[:1500])
     sys.excepthook=report_exception
@@ -113,11 +127,21 @@ def main():
     if args.program_simulation_smoke:
         from cadstudio.native.program_smoke2230 import run
         run(args.program_simulation_smoke);return 0
-    if args.project_review_smoke or args.g474_pin_smoke or args.v3_smoke or args.bom_smoke or args.firmware_smoke or args.electrical_code_smoke:
+    if args.print_batch_smoke or args.motion_precision_smoke or args.project_review_smoke or args.g474_pin_smoke or args.v3_smoke or args.bom_smoke or args.firmware_smoke or args.electrical_code_smoke:
         from cadstudio.native.model_picker import LocalModelPicker
         LocalModelPicker.refresh = lambda self: None  # Owned smoke never discovers network models.
     from cadstudio.native.window import MainWindow
     window=MainWindow();window.show();log.write('WINDOW_SHOWN\n')
+    if args.print_batch_smoke:
+        from cadstudio.native.print_batch_smoke import run
+        window.completion_notifier.enabled=False
+        QTimer.singleShot(300,lambda:run(app,window,args.print_batch_smoke))
+        return app.exec()
+    if args.motion_precision_smoke:
+        from cadstudio.native.motion_precision_smoke import run
+        window.completion_notifier.enabled=False
+        QTimer.singleShot(300,lambda:run(app,window,args.motion_precision_smoke))
+        return app.exec()
     if args.project_review_smoke:
         from cadstudio.native.project_review_smoke3001 import run
         window.completion_notifier.enabled=False

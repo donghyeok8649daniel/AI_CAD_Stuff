@@ -24,6 +24,17 @@ def test_empty_startup_has_no_project_to_open():
     assert parse_startup_args([]).open is None
 
 
+def test_motion_precision_smoke_has_an_isolated_synthetic_startup():
+    args=parse_startup_args(['--motion-precision-smoke','owned.json','--no-restore','--renderer','software'])
+    assert args.motion_precision_smoke==Path('owned.json') and args.open is None
+
+
+@pytest.mark.parametrize('extra',[['user.pcad'],['--open','user.pcad'],['--setup-codex'],['--g474-pin-smoke','other.json']])
+def test_motion_precision_smoke_cannot_open_or_modify_a_user_project(extra):
+    with pytest.raises(SystemExit) as exc:parse_startup_args(['--motion-precision-smoke','owned.json',*extra])
+    assert exc.value.code==2
+
+
 @pytest.mark.parametrize("argv", [
     ["one.pcad", "two.pcad"],
     ["--open", "one.pcad", "two.pcad"],

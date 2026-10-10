@@ -9,6 +9,10 @@ from shiboken6 import isValid
 
 
 PAIRS = '''전장 작업…|Electrical workspace…
+선택한 연결 수정|Update selected motion link
+운동 값은 허용 범위의 유한한 숫자여야 합니다.|Motion values must be finite numbers within the allowed range.
+운동 값에 숫자를 입력하세요.|Enter a number for the motion value.
+비율 / 오프셋을 반영하려면 연결 추가 또는 선택한 연결 수정을 누르세요.|To apply the ratio / offset, add a link or update the selected link.
 설계 명령 / AI|Design commands / AI
 실물 사진 / 증상 · 전장 진단…|Electrical photo / symptom diagnosis…
 Codex 펌웨어 생성 / 검토…|Codex firmware · generate / review…
@@ -680,9 +684,38 @@ EN.update({
     '동력 전달 부품':'Mechanical transmission',
 })
 
+EN.update({
+    '출력할 부품을 선택하세요. 부품이 많으면 여러 출력판에 나누며 원본 설계·관절은 변경하지 않습니다.':'Select parts to print. Large selections are arranged on multiple plates; the source design and joints stay unchanged.',
+    '미리볼 출력판':'Preview plate', '출력판 1':'Plate 1',
+    '선택한 부품을 출력판에 배치합니다.':'Arrange selected parts on print plates.',
+    '이 부품의 출력판':"This part's plate", '볼트·너트 제외':'Exclude bolts and nuts',
+    '볼트·너트 판별 근거를 표시합니다. 이름에 따른 추정은 제품 확인이 아니며 와셔·핀과 미분류 부품은 남깁니다.':'Classification reasons are shown. Name hints do not verify products; washers, pins and unclassified parts are retained.',
+    '현재 선택':'Current selection', '전체 선택':'Select all', '선택 해제':'Clear selection',
+    '새 출력판':'New plate', '전체 출력판 STL · ZIP 저장':'Save all plate STLs as ZIP',
+    '현재 출력판 STL 저장':'Save current plate STL', '출력판 STL 묶음 저장':'Save plate STL bundle',
+    '한 부품이 출력 영역보다 크면 경고합니다. 부품 자체를 자르지 않습니다. 여러 출력판은 판별 STL과 목록을 ZIP으로 저장합니다.':'Oversized parts produce warnings and are never sliced. Multiple plates are saved as separate STLs and an index in a ZIP.',
+    '출력할 부품을 하나 이상 선택하세요.':'Select at least one part to print.',
+    '3D 출력 작업이 취소되었습니다.':'3D print preparation was cancelled.',
+    '명시된 제품 종류 또는 카탈로그 분류입니다.':'Explicit product subtype or catalog classification.',
+    '제품 종류 지정이 서로 다릅니다.':'Product subtype declarations conflict.',
+    '이름에 핀·와셔·나사 단서가 있어 볼트·너트로 자동 제외하지 않습니다.':'Pin, washer or screw name hints prevent automatic bolt/nut exclusion.',
+    '이름의 독립 단어 단서입니다. 실제 제품 식별은 미검증이며 선택을 직접 바꿀 수 있습니다.':'Separate-word name hint. Product identity is unverified; edit the selection as needed.',
+    '이름에 볼트·너트 단서가 함께 있어 자동 제외하지 않습니다.':'Both bolt and nut name hints are present; automatic exclusion is disabled.',
+    '체결 부품 또는 미지정 기능만으로 볼트·너트 종류를 알 수 없습니다.':'A generic fastener or unspecified function does not identify a bolt or nut.',
+    '저장된 기계 기능은 볼트·너트 지정이 아닙니다.':'The saved mechanical function does not declare a bolt or nut.',
+})
+
 def translate(text,language):
     if language!='en' or not isinstance(text,str):return text
     if text in EN:return EN[text]
+    plate=re.fullmatch(r'출력판 (\d+)(?: · (\d+)개 부품)?',text)
+    if plate:return 'Plate '+plate[1]+(' · '+plate[2]+' parts' if plate[2] else '')
+    count=re.fullmatch(r'선택 (\d+)개 · 출력 (\d+)개 · 출력판 (\d+)개(?: · 볼트·너트 제외 (\d+)개)?',text)
+    if count:return f'Selected {count[1]} · Printing {count[2]} · {count[3]} plates'+(f' · {count[4]} bolts/nuts excluded' if count[4] else '')
+    excluded=re.fullmatch(r'볼트·너트 제외 (\d+)개',text)
+    if excluded:return excluded[1]+' bolts/nuts excluded'
+    status=re.fullmatch(r'출력판 (\d+)/(\d+) · (.*)',text)
+    if status:return f'Plate {status[1]}/{status[2]} · '+translate(status[3],language)
     model_status=re.fullmatch(r'([A-Za-z0-9._:/+\-]+) · (목록에 없음|연결 확인 전)',text)
     if model_status:return model_status[1]+' · '+('not in catalog' if model_status[2]=='목록에 없음' else 'connection not checked')
     if text.startswith('전장 피처 · '):return 'Electrical feature · '+text[len('전장 피처 · '):]
