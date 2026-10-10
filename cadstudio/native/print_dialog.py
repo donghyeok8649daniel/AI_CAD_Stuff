@@ -2,7 +2,7 @@
 from copy import deepcopy
 from PySide6.QtCore import QSignalBlocker, QThreadPool
 from PySide6.QtWidgets import QCheckBox, QFormLayout, QFileDialog, QWidget, QVBoxLayout, QToolButton, QHBoxLayout
-from ..printing import prepare_print_plates, export_print_stl, export_print_stls, print_part_classification
+from ..printing import prepare_print_plates, recommend_print_orientations, export_print_stl, export_print_stls, print_part_classification
 from .workflows import PreviewDialog, choice
 from .widgets import label, number, button, Worker
 
@@ -14,6 +14,7 @@ class PrintDialog(PreviewDialog):
         self.initial_selection = set(selected) & {p['id'] for p in raw['parts']}
         self.part_boxes = {}; self.warnings = []; self.bed_actor = None
         self.placements = {}; self.plate_assignments = {}; self.checked_batch = None
+        self.auto_requested = False; self.orientation_reports = {}; self.orientation_context = None
         self.plate_view_initialized = False; self.preferred_part = None
         self.apply_button.setText('이 미리보기로 STL 저장')
 
@@ -25,6 +26,7 @@ class PrintDialog(PreviewDialog):
             def changed(value):
                 panel.setVisible(value); toggle.setText(('▾ ' if value else '▸ ') + title)
             toggle.toggled.connect(changed)
+            box.toggle = toggle
             return box
 
         form = QFormLayout(); self.controls.addLayout(form)
@@ -41,6 +43,22 @@ class PrintDialog(PreviewDialog):
         self.drag_enabled = QCheckBox('부품을 드래그해서 바닥에 배치'); self.drag_enabled.setChecked(True); self.controls.addWidget(self.drag_enabled)
         self.controls.addWidget(button('상면에서 배치', self.top_plate))
         self.controls.addWidget(button('전체 자동 배치 / 방향 초기화', self.auto_pack))
+        self.auto_orientation_button = button('자동 자세·배치 (서포트 최소)', self.auto_orient)
+        self.auto_orientation_button.setToolTip('형상 기반 추정입니다. 실제 서포트 체적·슬라이싱·출력 성공을 보장하지 않습니다.')
+        self.controls.addWidget(self.auto_orientation_button)
+        self.orientation_state = label('자동 버튼을 눌러 자세 후보를 비교하세요.', True)
+        self.controls.addWidget(self.orientation_state)
+        self.orientation_validation = label('미리보기 다시 확인 중…', True)
+        self.controls.addWidget(self.orientation_validation)
+        details = section('자동 자세 검토값'); self.orientation_details_button = details.toggle
+        recommendation = QFormLayout(); details.addLayout(recommendation)
+        self.orientation_metrics = {}
+        for key, title in [('angles', '추천 회전 X / Y / Z'), ('support', '서포트 추정 지표 · 전 / 추천'),
+                           ('overhang', '돌출 면적 · 전 / 추천'), ('contact', '바닥 접촉 면적 · 전 / 추천'),
+                           ('stability', '안정성 · 추천 기준'), ('fit', '출력 영역 적합 · 추천 기준')]:
+            value = label('—', True); value.setProperty('cadUserText', key not in ('stability', 'fit'))
+            self.orientation_metrics[key] = value; recommendation.addRow(title, value)
+        details.addWidget(label('형상 기반 추정입니다. 실제 서포트 체적·슬라이싱·출력 성공을 보장하지 않습니다.', True))
         self.current_stl_button = button('현재 출력판 STL 저장', lambda: self.export_checked(current_only=True))
         self.current_stl_button.setEnabled(False); self.controls.addWidget(self.current_stl_button)
         self.exclude_fasteners = QCheckBox('볼트·너트 제외'); self.controls.addWidget(self.exclude_fasteners)
@@ -80,7 +98,11 @@ class PrintDialog(PreviewDialog):
             with QSignalBlocker(box): box.setChecked(identifier in selected)
         self.schedule()
 
-    def schedule(self, *args):
+    def schedule(self, *args, auto_request=False):
+        # Only an explicit button request may replace the selected rotations.
+        # Every subsequent control edit cancels that revision, including an
+        # in-flight recommendation, before accepting its poses.
+        self.auto_requested = auto_request
         self.checked_batch = None
         if hasattr(self, 'current_stl_button'): self.current_stl_button.setEnabled(False)
         if hasattr(self, 'excluded_summary'):
@@ -95,11 +117,14 @@ class PrintDialog(PreviewDialog):
             self.excluded_summary.setText(f'볼트·너트 제외 {len(details)}개\n' + '\n'.join(details[:3]))
             self.excluded_summary.setToolTip('\n'.join(details))
         super().schedule(*args)
+        if hasattr(self, 'orientation_state'): self.present_orientation()
 
     def failed(self, message):
+        self.auto_requested = False
         self.checked_batch = None
         self.current_stl_button.setEnabled(False)
         super().failed(message)
+        self.present_orientation()
 
     def candidate(self):
         identifiers = [key for key, box in self.part_boxes.items() if box.isChecked()]; selected = set(identifiers)
@@ -108,10 +133,21 @@ class PrintDialog(PreviewDialog):
                        placements=deepcopy({key: value for key, value in self.placements.items() if key in selected}),
                        plate_assignments={key: value for key, value in self.plate_assignments.items() if key in selected},
                        exclude_fasteners=self.exclude_fasteners.isChecked())
-        return dict(options=options, plate=self.plate_choice.currentData() or 0, preferred_part=self.preferred_part)
+        return dict(options=options, plate=self.plate_choice.currentData() or 0, preferred_part=self.preferred_part,
+                    auto_orientation=self.auto_requested)
+
+    def auto_orient(self, *_):
+        self.preferred_part = self.active_part.currentData(); self.fit_next = True
+        self.schedule(auto_request=True)
+
+    def calculate(self):
+        requested = self.auto_requested
+        super().calculate()
+        if requested and self.running: self.status.setText('자동 자세 후보를 비교하는 중…')
 
     def auto_pack(self, *_):
         self.placements = {}; self.plate_assignments = {}; self.preferred_part = None
+        self.orientation_reports = {}; self.orientation_context = None
         self.fit_next = True; self.schedule()
 
     def top_plate(self):
@@ -127,6 +163,37 @@ class PrintDialog(PreviewDialog):
             self.target_plate.setEnabled(pose is not None and self.checked_batch is not None)
             self.target_plate.setCurrentIndex(self.target_plate.findData(self.plate_assignments.get(identifier, self.plate_choice.currentData() or 0)))
         self.viewport.select(identifier if identifier in self.viewport.actors else None)
+        self.present_orientation()
+
+    def present_orientation(self):
+        if not hasattr(self, 'orientation_metrics'): return
+        identifier = self.active_part.currentData(); report = self.orientation_reports.get(identifier)
+        self.orientation_validation.setVisible(self.checked_batch is None)
+        for value in self.orientation_metrics.values(): value.setText('—')
+        self.orientation_state.setToolTip('')
+        if self.auto_requested:
+            self.orientation_state.setText('자동 자세 후보를 비교하는 중…'); return
+        if not report:
+            self.orientation_state.setText('자동 버튼을 눌러 자세 후보를 비교하세요.'); return
+        baseline, recommended = report['baseline'], report['recommended']
+        chosen = report['chosen']; pose = self.placements.get(identifier, {})
+        angles_match = all(abs(pose.get(k, 0) - chosen[k]) < 1e-6 for k in ('rx', 'ry', 'rz'))
+        bed_match = self.orientation_context == tuple(w.value() for w in self.bed)
+        if not bed_match: state = '이전 출력 영역 추천 · 다시 비교하세요.'
+        elif not angles_match: state = '수동 자세 · 자동 추천 이후 변경됨'
+        else: state = '추천 자세 적용'
+        self.orientation_state.setText(state)
+        self.orientation_metrics['angles'].setText(' / '.join(f'{chosen[k]:g}°' for k in ('rx', 'ry', 'rz')))
+        for key, metric, units in [('support', 'support_proxy_mm3', 'mm³'), ('overhang', 'overhang_area_mm2', 'mm²'), ('contact', 'contact_area_mm2', 'mm²')]:
+            self.orientation_metrics[key].setText(f'{baseline[metric]:.2f} → {recommended[metric]:.2f} {units}')
+        # Static translatable status labels are separate from numeric metrics.
+        self.orientation_metrics['stability'].setProperty('cadUserText', False)
+        self.orientation_metrics['stability'].setText('접촉·무게중심 기준 통과' if recommended['stable_contact'] else '접촉·무게중심 확인 필요')
+        self.orientation_metrics['fit'].setProperty('cadUserText', False)
+        self.orientation_metrics['fit'].setText('영역 안에 맞음' if recommended['fits_bed'] else '영역 초과 · 부품을 자르지 않음')
+        margin = recommended['com_footprint_margin_mm']
+        explanation = f"risk={recommended['stability_risk']:.3f}; COM margin={margin}; candidates={report['candidates_evaluated']}; triangles={report['mesh_triangles']}"
+        self.orientation_state.setToolTip(explanation)
 
     def change_pose(self, *_):
         identifier = self.active_part.currentData()
@@ -144,11 +211,18 @@ class PrintDialog(PreviewDialog):
 
     def compute(self, payload):
         revision = payload.get('revision', self.revision); cancelled = lambda: not self.alive or revision != self.revision
-        plates, results, warnings = prepare_print_plates(**payload['options'], cancelled=cancelled)
+        options = deepcopy(payload['options']); recommendation = None
+        if payload.get('auto_orientation'):
+            recommendation = recommend_print_orientations(**{k: v for k, v in options.items() if k != 'plate_assignments'}, cancelled=cancelled)
+            options['placements'] = {key: {axis: value for axis, value in pose.items() if axis in ('rx', 'ry', 'rz')}
+                                     for key, pose in recommendation['placements'].items()}
+            options['plate_assignments'] = {}
+        plates, results, warnings = prepare_print_plates(**options, cancelled=cancelled)
         if not plates or len(plates) != len(results): raise ValueError('출력할 부품을 하나 이상 선택하세요.')
         index = min(max(0, payload['plate']), len(plates) - 1); preferred = payload.get('preferred_part')
         if preferred: index = next((i for i, plate in enumerate(plates) if any(p.id == preferred for p in plate.parts)), index)
-        batch = dict(plates=plates, results=results, warnings=list(warnings), reports=[], selected=index)
+        batch = dict(plates=plates, results=results, warnings=list(warnings), reports=[], selected=index,
+                     orientation_recommendation=recommendation, orientation_bed=tuple(options['bed']))
         result = dict(results[index]); result['_print_batch'] = batch
         return plates[index], result
 
@@ -180,6 +254,11 @@ class PrintDialog(PreviewDialog):
 
     def present(self):
         super().present(); batch = self.result['_print_batch']; self.checked_batch = batch
+        recommendation = batch.get('orientation_recommendation')
+        if recommendation is not None:
+            self.auto_requested = False
+            self.orientation_reports = deepcopy(recommendation['diagnostics'])
+            self.orientation_context = batch['orientation_bed']
         self.warnings = list(dict.fromkeys(batch['warnings'])); index = batch['selected']; count = len(batch['plates'])
         old_part = self.preferred_part or self.active_part.currentData()
         for result in batch['results']:

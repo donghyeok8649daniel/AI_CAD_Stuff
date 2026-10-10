@@ -5,6 +5,8 @@ import hashlib
 import json
 import math
 import re
+import time
+import numpy as np
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
@@ -347,6 +349,222 @@ def prepare_print_plates(raw, identifiers, *, rotation=(0, 0, 0), bed=(220, 220,
         for result in results:
             result['print_plate_assignments'] = dict(returned_assignments)
         return plates, results, warnings
+
+
+def _print_rotation(angles):
+    """The same Rx, then Ry, then Rz convention as manual print placement."""
+    x, y, z = map(math.radians, angles)
+    cx, sx, cy, sy, cz, sz = math.cos(x), math.sin(x), math.cos(y), math.sin(y), math.cos(z), math.sin(z)
+    return np.array(((cz*cy, cz*sy*sx-sz*cx, cz*sy*cx+sz*sx),
+                     (sz*cy, sz*sy*sx+cz*cx, sz*sy*cx-cz*sx),
+                     (-sy, cy*sx, cy*cx)))
+
+
+def _print_angles(matrix):
+    y = math.asin(max(-1., min(1., -float(matrix[2, 0]))))
+    if abs(math.cos(y)) > 1e-10:
+        x, z = math.atan2(matrix[2, 1], matrix[2, 2]), math.atan2(matrix[1, 0], matrix[0, 0])
+    else:
+        x, z = math.atan2(-matrix[1, 2], matrix[1, 1]), 0.
+    return tuple(0. if abs(v) < 1e-9 else round(v, 10) for v in map(math.degrees, (x, y, z)))
+
+
+def _contact_hull(points):
+    """Convex support footprint; this is a tipping estimate, not adhesion."""
+    points = sorted(set(map(tuple, np.round(points, 8))))
+    def cross(o, a, b):
+        return (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0])
+    def half(values):
+        result = []
+        for p in values:
+            while len(result) >= 2 and cross(result[-2], result[-1], p) <= 0:
+                result.pop()
+            result.append(p)
+        return result
+    return half(points)[:-1] + half(reversed(points))[:-1] if len(points) > 2 else points
+
+
+def _orientation_metrics(mesh, angles, bounds, bed, overhang_angle, contact_tolerance):
+    rotation = _print_rotation(angles)
+    vertices = mesh['vertices'] @ rotation.T
+    triangles = vertices[mesh['triangles']]
+    normals = mesh['normals'] @ rotation.T
+    heights = triangles[:, :, 2] - bounds.zmin
+    contact = (heights.max(axis=1) <= contact_tolerance + 1e-6) & (normals[:, 2] < -.5)
+    downward = (normals[:, 2] < -math.cos(math.radians(overhang_angle))) & ~contact
+    projected = mesh['areas'] * np.maximum(0., -normals[:, 2])
+    overhang_area = float(projected[downward].sum())
+    demand = float((projected[downward] * np.maximum(0., heights[downward].mean(axis=1))).sum())
+    contact_area = float(projected[contact].sum())
+    contact_points = triangles[contact, :, :2].reshape(-1, 2)
+    hull = _contact_hull(contact_points)
+    center = mesh['center'] @ rotation.T
+    margin = None
+    if len(hull) >= 3:
+        distances = []
+        for a, b in zip(hull, hull[1:] + hull[:1]):
+            dx, dy = b[0]-a[0], b[1]-a[1]
+            length = math.hypot(dx, dy)
+            if length:
+                distances.append((dx*(center[1]-a[1])-dy*(center[0]-a[0])) / length)
+        margin = float(min(distances)) if distances else None
+    spans = np.ptp(contact_points, axis=0).tolist() if len(contact_points) else [0., 0.]
+    size = [bounds.xlen, bounds.ylen, bounds.zlen]
+    ratio = min(1., contact_area / max(size[0]*size[1], 1e-9))
+    stable = contact_area > 1e-6 and margin is not None and margin >= -1e-6
+    narrow = min(spans)
+    risk = 1. if not stable else min(1., .15*(1.-ratio) + .2*size[2]/max(narrow, .1))
+    score = demand / mesh['volume'] + 2.*risk + .05*size[2]/max(max(size[:2]), .1)
+    return dict(support_proxy_mm3=demand, overhang_area_mm2=overhang_area,
+                contact_area_mm2=contact_area, contact_span_mm=spans,
+                com_footprint_margin_mm=margin, stability_risk=risk, stable_contact=stable,
+                fits_bed=all(v <= limit+1e-6 for v, limit in zip(size, bed)), size_mm=size, score=score)
+
+
+def _orientation_candidates(mesh):
+    candidates, seen = [], set()
+    def add(angles):
+        key = tuple(np.round(_print_rotation(angles).ravel(), 8))
+        if key not in seen:
+            seen.add(key); candidates.append(tuple(angles))
+    for x in (0, 90, 180, 270):
+        for y in (0, 90, 180, 270):
+            for z in (0, 90, 180, 270):
+                add((x, y, z))
+    # Align substantial mesh surface directions with the bed, including
+    # oblique planar faces. Curved face samples remain bounded candidates.
+    groups = {}
+    for normal, area in zip(np.round(mesh['normals'], 3), mesh['areas']):
+        key = tuple(normal)
+        groups[key] = groups.get(key, 0.) + float(area)
+    for normal, _ in sorted(groups.items(), key=lambda item: (-item[1], item[0]))[:12]:
+        up = -np.array(normal)
+        up /= np.linalg.norm(up)
+        axis = np.eye(3)[int(np.argmin(np.abs(up)))]
+        right = np.cross(axis, up); right /= np.linalg.norm(right)
+        matrix = np.array((right, np.cross(up, right), up))
+        add(_print_angles(matrix))
+        add(_print_angles(_print_rotation((0, 0, 90)) @ matrix))
+    return candidates  # at most 24 axial + 24 surface candidates
+
+
+def recommend_print_orientations(raw, identifiers, *, rotation=(0, 0, 0), bed=(220, 220, 250),
+                                 gap=5, placements=None, copies=None, exclude_fasteners=False,
+                                 cancelled=None, overhang_angle=45., max_seconds=30.):
+    """Recommend output-only poses from bounded real surface geometry.
+
+    Explicit invocation may replace selected rotations; XY and excluded poses
+    are retained. Subsequent manual poses are honored by prepare_print_plates.
+    The area-height proxy includes downward surfaces above the bed without
+    ray tracing, layers, material, adhesion or actual support generation.
+    Native build/tessellation cannot be interrupted mid-call; cancellation and
+    the wall-time limit are checked before/after each native operation.
+    """
+    _print_options(bed, rotation, gap)
+    if (not isinstance(overhang_angle, (int, float)) or isinstance(overhang_angle, bool) or
+            not math.isfinite(overhang_angle) or not 20 <= overhang_angle <= 70 or
+            not isinstance(max_seconds, (int, float)) or isinstance(max_seconds, bool) or
+            not math.isfinite(max_seconds) or not .1 <= max_seconds <= 120):
+        raise ValueError('자동 자세 각도·계산 시간 한도를 확인하세요.')
+    deadline = time.monotonic() + max_seconds
+    def check():
+        _check_cancel(cancelled)
+        if time.monotonic() >= deadline:
+            raise ValueError('자동 자세 계산 시간 한도를 넘었습니다. 선택 부품 수를 줄이세요.')
+    check()
+    design = Design.model_validate(deepcopy(raw)).model_copy(deep=True)
+    selected = set(identifiers)
+    if not selected or not selected <= {p.id for p in design.parts}:
+        raise ValueError('출력할 부품을 선택하세요.')
+    if not isinstance(exclude_fasteners, bool):
+        raise ValueError('체결 부품 제외 옵션을 확인하세요.')
+    instances = _copy_ids(design.parts, selected, copies)
+    allowed = {i for _, i, _ in instances} | {p.id for p in design.parts}
+    poses = deepcopy(placements or {})
+    if set(poses) - allowed:
+        raise ValueError('없는 복사본의 출력 배치입니다.')
+    for pose in poses.values():
+        if not isinstance(pose, dict) or set(pose)-{'x','y','rx','ry','rz'} or any(
+                not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v) or abs(v)>10000 for v in pose.values()):
+            raise ValueError('출력 배치는 유한한 위치·각도여야 합니다.')
+    excluded = sorted(p.id for p in design.parts if p.id in selected and exclude_fasteners and classify_print_part(p) in ('bolt','nut'))
+    details = [dict(id=p.id, name=p.name, **print_part_classification(p)) for p in design.parts if p.id in excluded]
+    instances = [(p, i, n) for p, i, n in instances if p.id not in excluded]
+    if not instances:
+        raise ValueError('체결 부품 제외 후 출력할 부품이 없습니다. 선택을 확인하세요.')
+    acquired = False
+    try:
+        while not acquired:
+            check(); acquired = KERNEL_LOCK.acquire(timeout=.05)
+        shapes = dict(zip((p.id for p in design.parts), build(design)))
+        check()
+        meshes, local, candidates, evaluated = {}, {}, {}, {}
+        total_triangles = 0
+        diagnostics, warnings = {}, []
+        for part, identifier, _ in instances:
+            check()
+            if part.id not in meshes:
+                shape = shapes[part.id]
+                if not shape.isValid() or not shape.Solids() or shape.Volume() <= 0:
+                    raise ValueError('닫힌 솔리드만 출력할 수 있습니다: '+part.name)
+                t = part.transform
+                shape = shape.translate((-t.x, -t.y, -t.z))
+                for angle, axis in ((t.rz,(0,0,1)),(t.ry,(0,1,0)),(t.rx,(1,0,0))):
+                    if angle: shape = shape.rotate((0,0,0), axis, -angle)
+                check()
+                vertices, triangles = shape.tessellate(.1, .15)
+                check()
+                if not triangles or len(triangles)>50000 or total_triangles+len(triangles)>250000:
+                    raise ValueError('자동 자세 표면 계산 한도를 넘었습니다. 선택 부품 수를 줄이세요.')
+                total_triangles += len(triangles)
+                vertices = np.array([v.toTuple() for v in vertices])
+                triangles = np.array(triangles, dtype=int)
+                faces = vertices[triangles]
+                cross = np.cross(faces[:,1]-faces[:,0], faces[:,2]-faces[:,0])
+                lengths = np.linalg.norm(cross, axis=1)
+                valid = lengths > 1e-12
+                if not valid.any(): raise ValueError('자동 자세에 유효한 표면이 필요합니다: '+part.name)
+                mesh = dict(vertices=vertices, triangles=triangles[valid], normals=cross[valid]/lengths[valid,None],
+                            areas=lengths[valid]/2, center=np.array(shape.Center().toTuple()), volume=shape.Volume())
+                meshes[part.id], local[part.id] = mesh, shape
+                candidates[part.id] = _orientation_candidates(mesh)
+                evaluated[part.id] = {}
+            current = tuple(poses.get(identifier, {}).get(k,v) for k,v in zip(('rx','ry','rz'),rotation))
+            def evaluate(angles):
+                check()
+                key = tuple(angles)
+                cache = evaluated[part.id]
+                if key not in cache:
+                    oriented = local[part.id]
+                    for angle, axis in zip(angles, ((1,0,0),(0,1,0),(0,0,1))):
+                        if angle: oriented = oriented.rotate((0,0,0), axis, angle)
+                    bounds = exact_bounds(oriented)
+                    check()
+                    cache[key] = _orientation_metrics(meshes[part.id], angles, bounds, bed, overhang_angle, .1)
+                return cache[key]
+            baseline = evaluate(current)
+            choices = [(current, baseline)] + [(angles, evaluate(angles)) for angles in candidates[part.id]]
+            # Hard fit priority and real contact precede the numeric heuristic;
+            # exact ties retain the current/manual rotation.
+            chosen, recommended = min(choices, key=lambda item: (not item[1]['fits_bed'], not item[1]['stable_contact'], round(item[1]['score'], 10)))
+            poses.setdefault(identifier, {}).update(zip(('rx','ry','rz'), chosen))
+            diagnostics[identifier] = dict(baseline=deepcopy(baseline), recommended=deepcopy(recommended),
+                                           chosen=dict(zip(('rx','ry','rz'),chosen)), candidates_evaluated=len(choices),
+                                           mesh_triangles=len(meshes[part.id]['triangles']))
+            if not recommended['fits_bed']:
+                warnings.append(part.name+' · 후보 자세가 출력 영역에 맞지 않습니다. 부품을 임의로 자르지 않았습니다.')
+            if not recommended['stable_contact']:
+                warnings.append(part.name+' · 바닥 접촉·무게중심 안정성을 확인하세요.')
+        check()
+        return dict(placements=poses, diagnostics=diagnostics, excluded_ids=excluded, excluded_details=details, warnings=warnings,
+                    method=dict(overhang_angle_deg=overhang_angle, contact_tolerance_mm=.1, mesh_tolerance_mm=.1,
+                                angular_tolerance_rad=.15, max_candidates_per_instance=49, max_triangles_per_part=50000,
+                                max_total_triangles=250000, max_seconds=max_seconds, estimated_only=True,
+                                center_basis='uniform_density_geometric_volume',
+                                stability_basis='convex_hull_of_near_bed_surface; no adhesion or dynamic-load model',
+                                qualification='표면 면적×바닥 높이와 접촉·무게중심 추정입니다. 실제 서포트 체적·슬라이싱·출력 성공을 보장하지 않습니다.'))
+    finally:
+        if acquired: KERNEL_LOCK.release()
 
 
 def export_print_stls(plates, results, destination, *, tolerance=.025, cancelled=None):

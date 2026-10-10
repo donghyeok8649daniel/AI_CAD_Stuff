@@ -1,21 +1,21 @@
 {
   "version": "3.1.0",
-  "scope": "Selected-part printing and precise motion-link editing",
+  "scope": "Selected-part printing, geometric automatic orientation, multiple plates, manual XYZ and precise motion-link editing",
   "affected_source_tests": {
-    "tests": 69,
+    "tests": 95,
     "errors": 0,
     "failures": 0,
     "skipped": 0
   },
   "component_source_tests": {
     "startup": 18,
-    "printing_core": 42,
-    "printing_native_state": 9
+    "printing_core": 64,
+    "printing_native_state": 13
   },
   "unchanged_tests_consumed_with_exact_dependency_hashes_without_repeat": true,
   "native_checks": {
-    "source-print": 140,
-    "frozen-print": 140,
+    "source-print": 177,
+    "frozen-print": 177,
     "frozen-motion": 65
   },
   "native_modules": 224,
@@ -32,13 +32,18 @@
     "Oversized whole body and overlap warnings block affected output",
     "Stale settings and changed save-picker state do not export an obsolete preview",
     "Save-picker and mid-export cancellation preserve source history and prior output bytes",
-    "Exact motion-link editing, enabled invalid-limit blocking, Undo/Redo and Save As/reopen"
+    "Exact motion-link editing, enabled invalid-limit blocking, Undo/Redo and Save As/reopen",
+    "Bounded real surface normals, areas and heights compare axial and oblique face orientation candidates",
+    "Estimated support-demand reduction on an actual asymmetric shape, geometric contact/center-of-mass stability and exact bed fit",
+    "Explicit automatic operation updates selected poses and repacks plates; ordinary refresh preserves subsequent manual edits",
+    "Recommendation metrics retain provenance after manual overrides or changed bed settings",
+    "Changed controls, cancellation and recommendation failure preserve source and manual poses without stale export"
   ],
   "visual_evidence": {
-    "printing": "Five actual VTK framebuffers per print run; separately composited Qt control captures",
+    "printing": "Six genuine VTK framebuffers and six separately composited Qt-control captures per completed print run",
     "root_direct_inspection": [
-      "Source manual placement and oversized warning",
-      "Frozen bolt/nut exclusion"
+      "Source automatic recommendation and estimated metrics",
+      "Frozen recommendation and manual placement"
     ],
     "motion": "Raw Qt controls and reopened timeline; WGL black area is not geometry proof"
   },
@@ -56,6 +61,50 @@
     "Large individual bodies remain whole; splitting is across print plates",
     "Support, infill, layers and G-code are configured in an external slicer",
     "Name hints are unverified selection aids; unknown fastener identity stays user-controlled",
-    "Historical full2442 source tests belong to v3.0.1, not a fresh v3.1.0 full run"
-  ]
+    "Historical full2442 source tests belong to v3.0.1, not a fresh v3.1.0 full run",
+    "Support area-height proxy is not ray-traced or actual slicer support volume",
+    "Uniform-density geometric center of mass and convex near-bed footprint do not model adhesion, real material, layer strength or actual printer success",
+    "Native build and tessellation cannot cancel mid-call; bounded work and cancellation are checked before and after each native operation"
+  ],
+  "unchanged_cli_tests_consumed_with_exact_dependency_hashes_without_repeat": true,
+  "current_core_and_ui_tests_executed_once": true,
+  "orientation_method": {
+    "overhang_angle_deg": 45.0,
+    "contact_tolerance_mm": 0.1,
+    "mesh_tolerance_mm": 0.1,
+    "angular_tolerance_rad": 0.15,
+    "max_candidates_per_instance": 49,
+    "max_triangles_per_part": 50000,
+    "max_total_triangles": 250000,
+    "max_seconds": 30.0,
+    "estimated_only": true,
+    "center_basis": "uniform_density_geometric_volume",
+    "stability_basis": "convex_hull_of_near_bed_surface; no adhesion or dynamic-load model",
+    "qualification": "표면 면적×바닥 높이와 접촉·무게중심 추정입니다. 실제 서포트 체적·슬라이싱·출력 성공을 보장하지 않습니다."
+  },
+  "orientation_estimated_only": true,
+  "preserved_orientation_fixture_failure": "The first cylinder test expected a physically incorrect tenfold contact-area ratio for a finite 0.1 mm contact band. The metric was unchanged; finite-band and flat-end support/stability assertions were corrected and all 64 current core cases passed.",
+  "build_id": "public-3.1.0-oriented-print-20261011-final2",
+  "unique_source_tests_reexecuted_in_final2": 0,
+  "affected95_checks_reconsumed_with_exact_original_producer_bindings": true,
+  "qa_smoke_source_is_separate_from_unchanged_production_core_ui_cli_tests": true,
+  "core_and_ui_receipts_reconsumed_without_repeat_in_final2": true,
+  "preserved_final1_installed_failure": {
+    "success": false,
+    "checks": 56,
+    "failed_check": "Actual keyboard edit reaches the numeric control",
+    "original_observed_cause": "unknown",
+    "counted_as_pass": false,
+    "focused_Qt_followup_is_distinct_from_original_failure_cause": true
+  },
+  "focused_Qt_number_diagnostic": {
+    "cases": 10,
+    "active_Tab_commits_90": true,
+    "inactive_setFocus_is_not_actual_focus": true,
+    "inactive_Tab_leaves_text90_value0_without_signals": true,
+    "Return_Enter_default_button_risk_observed": true,
+    "original_installed_failure_cause_observed": false,
+    "original_installed_failure_cause": "unknown",
+    "separate_from95_unique_source_tests": true
+  }
 }

@@ -703,11 +703,42 @@ EN.update({
     '이름에 볼트·너트 단서가 함께 있어 자동 제외하지 않습니다.':'Both bolt and nut name hints are present; automatic exclusion is disabled.',
     '체결 부품 또는 미지정 기능만으로 볼트·너트 종류를 알 수 없습니다.':'A generic fastener or unspecified function does not identify a bolt or nut.',
     '저장된 기계 기능은 볼트·너트 지정이 아닙니다.':'The saved mechanical function does not declare a bolt or nut.',
+    '자동 자세·배치 (서포트 최소)':'Auto orient / arrange (less support)',
+    '자동 자세 후보를 비교하는 중…':'Comparing print orientation candidates…',
+    '형상 기반 추정입니다. 실제 서포트 체적·슬라이싱·출력 성공을 보장하지 않습니다.':'Geometry-based estimates. Actual support volume, slicing and successful printing are not guaranteed.',
+    '추천 자세 적용':'Recommended orientation applied',
+    '수동 자세 · 자동 추천 이후 변경됨':'Manual orientation · changed after recommendation',
+    '예상 서포트 면적':'Estimated support area',
+    '바닥 접촉 면적':'Bed contact area',
+    '안정성':'Stability',
+    '출력 영역 적합':'Build-volume fit',
+    '추천 회전 X / Y / Z':'Recommended X / Y / Z rotation',
+    '서포트 추정 지표 · 전 / 추천':'Estimated support demand · before / recommended',
+    '돌출 면적 · 전 / 추천':'Overhang area · before / recommended',
+    '바닥 접촉 면적 · 전 / 추천':'Bed contact area · before / recommended',
+    '안정성 · 추천 기준':'Stability · recommendation',
+    '출력 영역 적합 · 추천 기준':'Build-volume fit · recommendation',
+    '자동 버튼을 눌러 자세 후보를 비교하세요.':'Click auto orientation to compare candidate poses.',
+    '이전 출력 영역 추천 · 다시 비교하세요.':'Recommendation for the previous build volume · compare again.',
+    '미리보기 다시 확인 중…':'Checking the updated preview…',
+    '접촉·무게중심 기준 통과':'Contact / center-of-mass check passed',
+    '접촉·무게중심 확인 필요':'Contact / center-of-mass needs review',
+    '영역 안에 맞음':'Fits inside the build volume',
+    '영역 초과 · 부품을 자르지 않음':'Exceeds the build volume · part kept whole',
+    '자동 자세 검토값':'Automatic orientation details',
+    '▸ 자동 자세 검토값':'▸ Automatic orientation details',
+    '▾ 자동 자세 검토값':'▾ Automatic orientation details',
+    '자동 자세 계산 시간 한도를 넘었습니다. 선택 부품 수를 줄이세요.':'Automatic orientation time limit exceeded. Select fewer parts.',
+    '자동 자세 표면 계산 한도를 넘었습니다. 선택 부품 수를 줄이세요.':'Automatic orientation mesh limit exceeded. Select fewer parts.',
+    '체결 부품 제외 후 출력할 부품이 없습니다. 선택을 확인하세요.':'No print parts remain after fastener exclusion. Check the selection.',
+    '출력할 부품을 선택하세요.':'Select parts to print.',
+    '자동 자세 각도·계산 시간 한도를 확인하세요.':'Check the automatic orientation angle and time limits.',
 })
 
 def translate(text,language):
     if language!='en' or not isinstance(text,str):return text
     if text in EN:return EN[text]
+    if text.startswith('자동 자세에 유효한 표면이 필요합니다: '):return 'Automatic orientation needs a valid surface: '+text[len('자동 자세에 유효한 표면이 필요합니다: '):]
     plate=re.fullmatch(r'출력판 (\d+)(?: · (\d+)개 부품)?',text)
     if plate:return 'Plate '+plate[1]+(' · '+plate[2]+' parts' if plate[2] else '')
     count=re.fullmatch(r'선택 (\d+)개 · 출력 (\d+)개 · 출력판 (\d+)개(?: · 볼트·너트 제외 (\d+)개)?',text)

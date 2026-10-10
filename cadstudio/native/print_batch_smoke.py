@@ -36,6 +36,9 @@ def fixture():
     parts = []
     for index, (identifier, name, size) in enumerate(rows):
         geometry = dict(kind='imported', asset_id='synthetic-brep') if identifier == 'big-b' else dict(kind='plate', length=size, width=size, thickness=4, hole_count=0)
+        if identifier == 'small-a':
+            geometry = dict(kind='extrusion', thickness=12,
+                points=[dict(x=x,y=y) for x,y in [(0,0),(8,0),(8,16),(30,16),(30,20),(0,20)]])
         parts.append(Part(id=identifier, name=name, color='#64C4AA' if index < 4 else '#E6C977',
                           mechanical_function='fastener' if index >= 4 else 'unspecified',
                           geometry=geometry, transform=dict(x=index * 100, y=40, z=10, rz=90)))
@@ -59,6 +62,7 @@ def run(app, window, output):
         generated_code_executed=False, model_refresh_disabled=True,
         scope='Actual MainWindow print action, native controls, VTK picking and drag, real STL and ZIP output. '
               'Eight synthetic bodies include one imported BREP. File-picker results use only owned paths. '
+              'An asymmetric native extrusion tests estimated support reduction and bed-contact recommendations. '
               'Name hints are selection aids; no real bolt identity, printer fit, strength, slicing, or hardware qualification.')
     with output.open('x', encoding='utf-8') as stream: json.dump(report, stream, ensure_ascii=False, indent=2)
     dialogs = []; timers = []; errors = []; release_export = threading.Event()
@@ -104,9 +108,31 @@ def run(app, window, output):
         QTest.mouseClick(target, Qt.MouseButton.LeftButton)
 
     def number(dialog, widget, value):
-        ensure(dialog, widget); widget.setFocus()
-        QTest.keyClick(widget, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier); QTest.keyClicks(widget, str(value)); QTest.keyClick(widget, Qt.Key.Key_Tab)
-        check(widget.value() == value, 'Actual keyboard edit reaches the numeric control', value=value)
+        ensure(dialog, widget)
+        def state():
+            return dict(value=widget.value(), text=widget.text(), enabled=widget.isEnabled(), visible=widget.isVisible(),
+                focused=widget.hasFocus(), active_window=dialog.isActiveWindow(),
+                active_part=dialog.active_part.currentData(), plate=dialog.plate_choice.currentData(),
+                revision=dialog.revision, running=dialog.running, timer_active=dialog.timer.isActive())
+        trace = dict(requested=value, before=state(), signals=[])
+        report.setdefault('numeric_inputs', []).append(trace)
+        changed = lambda observed: trace['signals'].append(dict(event='valueChanged', value=observed, text=widget.text()))
+        finished = lambda: trace['signals'].append(dict(event='editingFinished', value=widget.value(), text=widget.text()))
+        widget.valueChanged.connect(changed); widget.editingFinished.connect(finished)
+        try:
+            # setFocus on an inactive Windows dialog does not deliver FocusIn.
+            # Tab then leaves an uncommitted spin-box edit. Prove focus first;
+            # Return is deliberately avoided because it may activate a default button.
+            dialog.raise_(); dialog.activateWindow(); widget.setFocus()
+            wait(lambda: dialog.isActiveWindow() and widget.hasFocus(), 'Owned numeric control receives actual focus', seconds=3)
+            trace['focused'] = state()
+            check(widget.isEnabled() and widget.isVisible() and widget.hasFocus(),
+                  'Actual numeric control is visible, enabled and focused', value=value, observed=trace['focused'])
+            QTest.keyClick(widget, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier); QTest.keyClicks(widget, str(value))
+            trace['typed'] = state(); QTest.keyClick(widget, Qt.Key.Key_Tab); trace['committed'] = state()
+            check(widget.value() == value, 'Actual keyboard edit reaches the numeric control', value=value, observed=trace['committed'])
+        finally:
+            trace['final'] = state(); widget.valueChanged.disconnect(changed); widget.editingFinished.disconnect(finished); write()
 
     def choose(dialog, combo, value):
         ensure(dialog, combo); index = combo.findData(value)
@@ -263,6 +289,44 @@ def run(app, window, output):
             check('bolt' in dialog.excluded_summary.toolTip() and 'nut' in dialog.excluded_summary.toolTip() and '미검증' in dialog.excluded_summary.text(),
                   'Excluded bodies show IDs and unverified name-hint reasons')
             shot(dialog,'excluded',dialog.exclude_fasteners)
+            # Bad print baseline is entered through the actual controls. The
+            # assembly transform is intentionally removed by print preparation.
+            choose(dialog,dialog.plate_choice,dialog.plate_assignments['small-a'])
+            choose(dialog,dialog.active_part,'small-a'); number(dialog,dialog.pose_inputs['rx'],90)
+            ready(dialog,'Asymmetric upright print baseline')
+            check(dialog.placements['small-a']['rx']==90 and not dialog.orientation_reports,
+                  'Automatic orientation starts from an explicit manual overhang baseline')
+            click(dialog,'자동 자세·배치 (서포트 최소)')
+            check(dialog.auto_requested and dialog.checked_batch is None and not dialog.apply_button.isEnabled() and not dialog.current_stl_button.isEnabled(),
+                  'Automatic orientation immediately invalidates both native export controls')
+            ready(dialog,'Automatic support-minimizing orientation preview')
+            diagnostic=deepcopy(dialog.orientation_reports['small-a']); recommended=diagnostic['recommended']; baseline_metric=diagnostic['baseline']
+            report['orientation_method']=deepcopy(dialog.checked_batch['orientation_recommendation']['method'])
+            check(baseline_metric['support_proxy_mm3']>recommended['support_proxy_mm3']+1,
+                  'Automatic orientation reduces the asymmetric part support estimate', baseline=baseline_metric, recommended=recommended)
+            check(recommended['stable_contact'] and recommended['contact_area_mm2']>0 and recommended['fits_bed'],
+                  'Recommended asymmetric orientation has stable bed contact and fits the bed', recommended=recommended)
+            check(all(abs(dialog.placements['small-a'][key]-diagnostic['chosen'][key])<1e-6 for key in ('rx','ry','rz')) and not dialog.warnings,
+                  'Checked output uses the explicitly recommended rotations and repacked plates')
+            check(members(dialog)=={'big-a','big-b','small-a','small-b','washer','pin'} and not {'bolt','nut'}&set(dialog.orientation_reports),
+                  'Orientation recommendation honors selection and bolt-nut exclusion')
+            details=dialog.orientation_details_button; ensure(dialog,details)
+            if not details.isChecked(): QTest.mouseClick(details,Qt.MouseButton.LeftButton)
+            check(details.isChecked() and dialog.orientation_metrics['support'].isVisible() and '→' in dialog.orientation_metrics['support'].text()
+                  and dialog.orientation_state.text()=='추천 자세 적용',
+                  'Native recommendation details expose estimated metrics and recommendation provenance')
+            shot(dialog,'automatic-orientation',dialog.orientation_metrics['support'])
+            chosen_rz=diagnostic['chosen']['rz']; manual_rz=chosen_rz-180 if chosen_rz>=0 else chosen_rz+180
+            number(dialog,dialog.pose_inputs['rz'],manual_rz); ready(dialog,'Manual override after automatic orientation')
+            check(dialog.placements['small-a']['rz']==manual_rz and dialog.orientation_reports['small-a']==diagnostic
+                  and dialog.orientation_state.text()=='수동 자세 · 자동 추천 이후 변경됨',
+                  'Manual rotation overrides automatic recommendation without relabeling previous metrics')
+            pose_after_auto=dict(dialog.placements['small-a']); dialog.schedule(); ready(dialog,'Ordinary refresh after manual orientation')
+            check(dialog.placements['small-a']==pose_after_auto and dialog.orientation_reports['small-a']==diagnostic,
+                  'Ordinary layout refresh preserves the manual orientation without rescanning candidates')
+            report['orientation_diagnostics']=deepcopy(dialog.orientation_reports)
+            report['orientation_estimated_only']=True
+            if details.isChecked(): QTest.mouseClick(details,Qt.MouseButton.LeftButton)
             choose(dialog,dialog.plate_choice,dialog.plate_assignments['big-b'])
             check(set(dialog.viewport.actors)=={p.id for p in dialog.checked.parts}, 'Plate selector renders exactly its checked members')
             choose(dialog,dialog.active_part,'big-b'); number(dialog,dialog.pose_inputs['x'],0)

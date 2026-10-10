@@ -231,3 +231,94 @@ def test_cancel_during_export_preserves_existing_zip(app, dialogs, monkeypatch, 
         assert path.read_bytes() == b'prior-user-output' and raw == before and not dialog.alive
         assert not list(tmp_path.glob('*.tmp'))
     finally: release.set()
+
+
+def overhang_design():
+    # Native asymmetric L outline: at explicit print Rx=90 the raised roof
+    # needs support; its native flat orientation has a broad bed footprint.
+    points = [dict(x=x, y=y) for x, y in [(0, 0), (8, 0), (8, 16), (30, 16), (30, 20), (0, 20)]]
+    part = Part(id='overhang', name='Asymmetric overhang',
+                geometry=dict(kind='extrusion', points=points, thickness=12),
+                transform=dict(x=120, y=50, rz=90))
+    return Design(name='Orientation ownership fixture', parts=[part])
+
+
+def test_explicit_auto_orientation_reduces_real_support_estimate_and_preserves_manual_override(app, dialogs, monkeypatch):
+    document = Document(); document.commit(overhang_design(), 'Original overhang')
+    before = document.project().model_dump(); raw = deepcopy(document.design)
+    dialog = dialogs(raw); ready(app, dialog)
+    dialog.pose_inputs['rx'].setValue(90); ready(app, dialog)
+    dialog.pose_inputs['x'].setValue(999); ready(app, dialog)
+    assert dialog.warnings
+    calls = []; original = print_dialog.recommend_print_orientations
+    def counted(*args, **kwargs):
+        calls.append(1); return original(*args, **kwargs)
+    monkeypatch.setattr(print_dialog, 'recommend_print_orientations', counted)
+    dialog.auto_orientation_button.click()
+    assert dialog.checked_batch is None and not dialog.apply_button.isEnabled() and not dialog.current_stl_button.isEnabled()
+    ready(app, dialog)
+    report = dialog.orientation_reports['overhang']; chosen = report['chosen']
+    assert report['baseline']['support_proxy_mm3'] > report['recommended']['support_proxy_mm3'] + 1
+    assert report['recommended']['contact_area_mm2'] > 0 and report['recommended']['stable_contact']
+    assert report['recommended']['fits_bed'] and not dialog.warnings and len(calls) == 1
+    assert dialog.placements['overhang']['x'] != 999
+    assert dialog.orientation_state.text() == '추천 자세 적용'
+    assert '→' in dialog.orientation_metrics['support'].text()
+    assert '통과' in dialog.orientation_metrics['stability'].text()
+    dialog.pose_inputs['rz'].setValue(chosen['rz'] + 37); ready(app, dialog)
+    manual = deepcopy(dialog.placements['overhang'])
+    assert dialog.orientation_state.text() == '수동 자세 · 자동 추천 이후 변경됨'
+    assert dialog.orientation_reports['overhang'] == report and len(calls) == 1
+    dialog.schedule(); ready(app, dialog)
+    assert dialog.placements['overhang'] == manual and len(calls) == 1
+    dialog.bed[0].setValue(210); ready(app, dialog)
+    assert dialog.orientation_state.text() == '이전 출력 영역 추천 · 다시 비교하세요.'
+    assert dialog.placements['overhang'] == manual and len(calls) == 1
+    dialog.reject()
+    assert raw == document.design and document.project().model_dump() == before
+
+
+def test_manual_change_during_auto_worker_discards_recommendation(app, dialogs, monkeypatch):
+    dialog = dialogs(overhang_design().model_dump()); ready(app, dialog)
+    dialog.pose_inputs['rx'].setValue(90); ready(app, dialog)
+    entered = threading.Event(); release = threading.Event(); original = print_dialog.recommend_print_orientations
+    def blocked(*args, **kwargs):
+        entered.set(); assert release.wait(10); return original(*args, **kwargs)
+    monkeypatch.setattr(print_dialog, 'recommend_print_orientations', blocked)
+    try:
+        dialog.auto_orientation_button.click(); dialog.timer.stop(); dialog.calculate(); until(app, entered.is_set)
+        revision = dialog.revision
+        dialog.pose_inputs['rx'].setValue(180)
+        assert dialog.revision > revision and not dialog.auto_requested
+        assert not dialog.apply_button.isEnabled() and not dialog.current_stl_button.isEnabled()
+        release.set(); ready(app, dialog)
+        assert dialog.placements['overhang']['rx'] == 180 and not dialog.orientation_reports
+    finally: release.set()
+
+
+def test_cancel_during_auto_worker_preserves_source_and_saved_poses(app, dialogs, monkeypatch):
+    raw = overhang_design().model_dump(); before = deepcopy(raw)
+    dialog = dialogs(raw); ready(app, dialog)
+    dialog.pose_inputs['rx'].setValue(90); ready(app, dialog); poses = deepcopy(dialog.placements)
+    entered = threading.Event(); release = threading.Event(); original = print_dialog.recommend_print_orientations
+    def blocked(*args, **kwargs):
+        entered.set(); assert release.wait(10); return original(*args, **kwargs)
+    monkeypatch.setattr(print_dialog, 'recommend_print_orientations', blocked)
+    try:
+        dialog.auto_orientation_button.click(); dialog.timer.stop(); dialog.calculate(); until(app, entered.is_set)
+        dialog.reject(); release.set(); until(app, lambda: not dialog.running)
+        assert not dialog.alive and raw == before and dialog.source == before
+        assert dialog.placements == poses and not dialog.orientation_reports
+    finally: release.set()
+
+
+def test_failed_auto_request_keeps_manual_poses_without_exporting_old_preview(app, dialogs, monkeypatch):
+    dialog = dialogs(overhang_design().model_dump()); ready(app, dialog)
+    dialog.pose_inputs['rx'].setValue(90); ready(app, dialog); before = deepcopy(dialog.placements)
+    def failed(*args, **kwargs): raise ValueError('자동 자세 계산 시간 한도를 넘었습니다.')
+    monkeypatch.setattr(print_dialog, 'recommend_print_orientations', failed)
+    dialog.auto_orientation_button.click(); until(app, lambda: not dialog.running and not dialog.timer.isActive())
+    assert dialog.placements == before and not dialog.orientation_reports and not dialog.auto_requested
+    assert dialog.checked is None and dialog.checked_batch is None
+    assert not dialog.apply_button.isEnabled() and not dialog.current_stl_button.isEnabled()
+    assert '시간 한도' in dialog.status.text()
