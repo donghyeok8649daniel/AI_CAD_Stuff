@@ -167,32 +167,36 @@ def solve_assembly(design,solve_loops=True):
         driving[mate.child]=mate
     completed=set();visiting=set()
     def resolve(identifier):
-        if identifier in completed:return
-        if identifier in visiting:raise ValueError("조립 구속에 순환 참조가 있습니다. 트리 형태로 연결하세요.")
-        visiting.add(identifier)
-        if identifier in driving:
-            mate=driving[identifier];resolve(mate.parent)
-            parent,child=parts[mate.parent],parts[mate.child]
-            pa,ca=anchors(parent.geometry),anchors(child.geometry)
-            if mate.parent_anchor not in pa or mate.child_anchor not in ca:
-                raise ValueError("조립 구속의 기준점이 현재 형상에 없습니다.")
-            parent_rotation=transform_matrix(parent.transform)
-            relative=_xyz_matrix(mate.rx,mate.ry,mate.rz)
-            parent_pos=np.array([parent.transform.x,parent.transform.y,parent.transform.z])
-            frame=frames.get(mate.id)
-            if frame:
-                def basis(f):return np.column_stack([f.x_direction,np.cross(f.normal,f.x_direction),f.normal])
-                parent_frame=parent_rotation@basis(frame.parent)
-                align=np.diag([1,-1,-1]) if frame.flipped else np.eye(3)
-                rotation=parent_frame@relative@align@basis(frame.child).T
-                translation=parent_pos+parent_rotation@np.array(frame.parent.origin)+parent_frame@np.array([mate.x,mate.y,mate.z])-rotation@np.array(frame.child.origin)
-            else:
-                rotation=parent_rotation@relative
-                translation=parent_pos+parent_rotation@(np.array(pa[mate.parent_anchor])+np.array([mate.x,mate.y,mate.z]))-rotation@np.array(ca[mate.child_anchor])
-            angles=_xyz_angles(rotation)
-            values=dict(zip(["x","y","z","rx","ry","rz"],map(float,[*translation,*angles])))
-            child.transform=type(child.transform).model_validate(values)
-        visiting.remove(identifier);completed.add(identifier)
+        trail=[]
+        while identifier not in completed:
+            if identifier in visiting:raise ValueError("조립 구속에 순환 참조가 있습니다. 트리 형태로 연결하세요.")
+            visiting.add(identifier);trail.append(identifier)
+            if identifier not in driving:break
+            identifier=driving[identifier].parent
+        for identifier in reversed(trail):
+            if identifier in driving:
+                mate=driving[identifier]
+                parent,child=parts[mate.parent],parts[mate.child]
+                pa,ca=anchors(parent.geometry),anchors(child.geometry)
+                if mate.parent_anchor not in pa or mate.child_anchor not in ca:
+                    raise ValueError("조립 구속의 기준점이 현재 형상에 없습니다.")
+                parent_rotation=transform_matrix(parent.transform)
+                relative=_xyz_matrix(mate.rx,mate.ry,mate.rz)
+                parent_pos=np.array([parent.transform.x,parent.transform.y,parent.transform.z])
+                frame=frames.get(mate.id)
+                if frame:
+                    def basis(f):return np.column_stack([f.x_direction,np.cross(f.normal,f.x_direction),f.normal])
+                    parent_frame=parent_rotation@basis(frame.parent)
+                    align=np.diag([1,-1,-1]) if frame.flipped else np.eye(3)
+                    rotation=parent_frame@relative@align@basis(frame.child).T
+                    translation=parent_pos+parent_rotation@np.array(frame.parent.origin)+parent_frame@np.array([mate.x,mate.y,mate.z])-rotation@np.array(frame.child.origin)
+                else:
+                    rotation=parent_rotation@relative
+                    translation=parent_pos+parent_rotation@(np.array(pa[mate.parent_anchor])+np.array([mate.x,mate.y,mate.z]))-rotation@np.array(ca[mate.child_anchor])
+                angles=_xyz_angles(rotation)
+                values=dict(zip(["x","y","z","rx","ry","rz"],map(float,[*translation,*angles])))
+                child.transform=type(child.transform).model_validate(values)
+            visiting.remove(identifier);completed.add(identifier)
     for identifier in parts:resolve(identifier)
     report={"mates":len(driving),"grounded":sum(p.fixed for p in parts.values()),"dof":max(0,sum((0 if p.fixed else 6) if p.id not in driving else len(JOINT_AXES[driving[p.id].kind]) for p in parts.values())-linked)}
     if solve_loops and design.loops:

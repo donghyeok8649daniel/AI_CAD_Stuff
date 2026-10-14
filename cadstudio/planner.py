@@ -59,14 +59,14 @@ def local_draft(request: DraftRequest):
     if kind == "robot_arm":
         if matches:
             raise ValueError("로컬 조립 예제는 기본 치수로 생성합니다. 생성 후 부품을 선택해 치수를 수정하세요.")
-        design = preset(kind)
+        design = preset(kind,palette=request.role_colors)
         return {"design": design.model_dump(), "summary": "회전 구속 2개와 강체 구속 2개가 연결된 2링크 조립 초안을 만들었습니다.", "assumptions": warnings+["베이스가 고정됩니다. 관절 각도를 편집하면 자식 부품도 이동합니다. 동역학 해석은 포함하지 않습니다."], "changes": [], "provider": "local"}
     current = request.current
     if current and not current.parts:
         if not kind:
             raise ValueError("아직 입체 부품이 없습니다. 형상 이름과 치수를 입력하거나 저장한 스케치를 돌출하세요.")
         design_data = current.model_dump()
-        design_data['parts'] = preset(kind).model_dump()['parts']
+        design_data['parts'] = preset(kind,palette=request.role_colors).model_dump()['parts']
         index, fresh = 0, True
     elif current:
         design_data = current.model_dump()
@@ -75,7 +75,7 @@ def local_draft(request: DraftRequest):
             raise ValueError("선택한 부품이 현재 설계에 없습니다.")
         selected = design_data["parts"][index]
         if kind and re.search(r"추가|\badd\b", request.prompt, re.I):
-            part = preset(kind).parts[0].model_dump()
+            part = preset(kind,palette=request.role_colors).parts[0].model_dump()
             n = 1
             while any(p["id"] == f"part-{n}" for p in design_data["parts"]):
                 n += 1
@@ -83,12 +83,12 @@ def local_draft(request: DraftRequest):
             design_data["parts"].append(part)
             index, fresh = len(design_data["parts"])-1, True
         elif kind and (kind != selected["geometry"]["kind"] or re.search(r"새로|새\s|new\s", request.prompt, re.I)):
-            design_data = preset(kind).model_dump()
+            design_data = preset(kind,palette=request.role_colors).model_dump()
             index, fresh = 0, True
     else:
         if not kind:
             raise ValueError("로컬 명령에서는 형상 이름과 치수를 지정하세요. 예: 원통형 시편 목 직경 6 mm")
-        design_data = preset(kind).model_dump()
+        design_data = preset(kind,palette=request.role_colors).model_dump()
         index, fresh = 0, True
     part = design_data["parts"][index]
     geometry = part["geometry"]

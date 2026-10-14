@@ -1,0 +1,80 @@
+flash: Memory.MappedMemory @ sysbus 0x08000000
+    size: 0x80000
+sram1: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x14000
+sram2: Memory.MappedMemory @ sysbus 0x20014000
+    size: 0x4000
+ccm: Memory.MappedMemory @ sysbus 0x10000000
+    size: 0x8000
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 16000000
+    IRQ -> cpu@0
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m4f"
+    nvic: nvic
+gpioa: GPIOPort.STM32_GPIOPort @ sysbus <0x48000000, +0x400>
+    modeResetValue: 0xABFFFFFF
+    outputSpeedResetValue: 0x0C000000
+    pullUpPullDownResetValue: 0x64000000
+gpiob: GPIOPort.STM32_GPIOPort @ sysbus <0x48000400, +0x400>
+    modeResetValue: 0xFFFFFEBF
+    pullUpPullDownResetValue: 0x00000100
+gpioc: GPIOPort.STM32_GPIOPort @ sysbus <0x48000800, +0x400>
+    modeResetValue: 0xFFFFFFFF
+timer2: Timers.STM32_Timer @ sysbus 0x40000000
+    frequency: 16000000
+    initialLimit: 0xFFFFFFFF
+    -> nvic@28
+timer1: Timers.STM32_Timer @ sysbus 0x40012C00
+    frequency: 16000000
+    initialLimit: 0xFFFF
+    [BreakInterrupt, UpdateInterrupt, TriggerInterrupt, CommutationInterrupt] -> nvic@[24, 25, 26, 26]
+    CaptureCompareInterrupt -> nvic@27
+dwt: Miscellaneous.DWT @ sysbus 0xE0001000
+    frequency: 16000000
+spi1: SPI.STM32SPI @ sysbus 0x40013000
+    series: STM32Series.L5
+    IRQ -> nvic@35
+    DMAReceive -> dma1@1
+    DMASend -> dma1@2
+dma1: DMA.STM32G0DMA @ sysbus 0x40020000
+    numberOfChannels: 8
+    [0-7] -> nvic@[11-17,47]
+dmamux: Memory.ArrayMemory @ sysbus 0x40020800
+    size: 0x400
+syscfg: Memory.ArrayMemory @ sysbus 0x40010000
+    size: 0x400
+pwr: Memory.ArrayMemory @ sysbus 0x40007000
+    size: 0x400
+exti: IRQControllers.STM32F4_EXTI @ sysbus 0x40010400
+    numberOfOutputLines: 42
+    [5-9] -> extiCombined@[0-4]
+extiCombined: Miscellaneous.CombinedInput @ none
+    numberOfInputs: 5
+    -> nvic@23
+gpioc:
+    7 -> exti@7
+flashControl: Memory.ArrayMemory @ sysbus 0x40022000
+    size: 0x400
+rcc: Python.PythonPeripheral @ sysbus 0x40021000
+    size: 0x400
+    initable: true
+    script: '''
+if request.IsInit:
+    regs = {0:0x00000500, 4:0x40000000}
+if request.IsWrite:
+    regs[request.Offset] = request.Value
+    if request.Offset == 0:
+        value = request.Value
+        value = (value & ~(1 << 10)) | (((value >> 8) & 1) << 10)
+        value = (value & ~(1 << 17)) | (((value >> 16) & 1) << 17)
+        value = (value & ~(1 << 25)) | (((value >> 24) & 1) << 25)
+        regs[0] = value
+    if request.Offset == 8:
+        regs[8] = (request.Value & ~(3 << 2)) | ((request.Value & 3) << 2)
+    if (request.Offset == 0 and request.Value & ((1 << 16) | (1 << 24))) or (request.Offset == 8 and ((request.Value & 3) not in (0, 1))):
+        self.ErrorLog("Unsupported clock configuration outside G474 HSI16 profile")
+if request.IsRead:
+    request.Value = regs.get(request.Offset, 0)
+'''

@@ -2,13 +2,13 @@
 from copy import deepcopy
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog,QVBoxLayout,QHBoxLayout,QFormLayout,QListWidget,QCheckBox
+from PySide6.QtWidgets import QDialog,QVBoxLayout,QHBoxLayout,QFormLayout,QListWidget,QCheckBox,QComboBox
 from .widgets import label,button,number
 from .workflows import PreviewDialog,choice
 from .viewport import CADViewport
 from .geometry import uid
 from ..models import Design,Extrusion
-from ..kernel import build,preview,KERNEL_LOCK,local_shape,face_frame
+from ..kernel import build,preview,KERNEL_LOCK,local_shape,face_frame,exact_bounds
 from ..constraints import transform_matrix
 from ..advanced_geometry import edge_records
 
@@ -19,12 +19,15 @@ def interference_data(design):
         for pair in result['stats']['collisions']:
             shape=shapes[pair['a']].intersect(shapes[pair['b']]);vertices,triangles=shape.tessellate(.08)
             overlaps.append(dict(pair,vertices=[v.toTuple() for v in vertices],triangles=triangles))
+        result=dict(result,interference_bounds={})
+        for identifier,shape in shapes.items():
+            box=exact_bounds(shape);result['interference_bounds'][identifier]={'min':[getattr(box,k+'min') for k in 'xyz'],'max':[getattr(box,k+'max') for k in 'xyz']}
         return result,overlaps
 
 
 class InterferenceDialog(QDialog):
     def __init__(self,parent,result,overlaps):
-        super().__init__(parent);self.setWindowTitle('부품 간섭 검사');self.resize(1050,740);self.overlaps=overlaps;root=QVBoxLayout(self)
+        super().__init__(parent);self.setWindowTitle('간섭 검사 / 조정');self.resize(1050,740);self.overlaps=overlaps;self.adjust_request=None;self.inspection_result=result;self.names={m['id']:m['name'] for m in result['meshes']};root=QVBoxLayout(self)
         root.addWidget(label(f'체적 간섭 {len(overlaps)}곳 · 항목을 선택하면 겹친 영역이 빨갛게 나타납니다. 단순 접촉과 쉘 곡면은 체적 간섭에 포함하지 않습니다.',True));row=QHBoxLayout();root.addLayout(row,1);self.viewport=CADViewport();row.addWidget(self.viewport,1);self.list=QListWidget();self.list.setMaximumWidth(330);row.addWidget(self.list);self.viewport.load(result)
         names={m['id']:m['name'] for m in result['meshes']};self.highlights=[]
         from vtkmodules.vtkRenderingCore import vtkActor,vtkPolyDataMapper
@@ -34,9 +37,29 @@ class InterferenceDialog(QDialog):
         for pair in overlaps:
             self.list.addItem(f"{names[pair['a']]} ↔ {names[pair['b']]}\n{pair['volume']:.4f} mm³")
             mapper=vtkPolyDataMapper();mapper.SetInputData(polydata(pair['vertices'],pair['triangles']));actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(1,.22,.18);actor.PickableOff();self.viewport.renderer.AddActor(actor);self.highlights.append(actor)
+        controls=QHBoxLayout();root.addLayout(controls)
+        controls.addWidget(label('조정할 부품'));self.adjust_part=QComboBox();controls.addWidget(self.adjust_part,1)
+        self.auto_button=button('자동 조정…',lambda:self.request_adjustment('automatic'));self.auto_button.setObjectName('interferenceAutomatic');controls.addWidget(self.auto_button)
+        self.move_button=button('이동 / 회전으로 조정…',lambda:self.request_adjustment('move'));controls.addWidget(self.move_button)
+        self.size_button=button('치수로 조정…',lambda:self.request_adjustment('dimensions'));controls.addWidget(self.size_button)
+        self.joint_button=button('관절 구동…',lambda:self.request_adjustment('joint'));controls.addWidget(self.joint_button)
+        root.addWidget(label('적용 전 전체 형상·구속·새 간섭을 확인합니다. 그룹/숨김으로 간섭을 제외하지 않습니다. 경계 기준 분리 제안은 조립·공차·강도 승인이 아닙니다.',True))
         self.list.currentRowChanged.connect(self.highlight);root.addWidget(button('닫기',self.accept));self.setMinimumSize(820,560);self.viewport.setMinimumSize(400,280);self.list.setMinimumWidth(200);self.resize(1050,740)
         if overlaps:self.list.setCurrentRow(0)
+        else:self.highlight(-1)
+    def request_adjustment(self,mode):
+        index=self.list.currentRow();identifier=self.adjust_part.currentData()
+        if not 0<=index<len(self.overlaps) or not identifier:return
+        pair=self.overlaps[index]
+        self.adjust_request={'mode':mode,'part_id':identifier,'pair':[pair['a'],pair['b']],
+                             'bounds':self.inspection_result.get('interference_bounds',{})}
+        self.accept()
     def highlight(self,index):
+        self.adjust_part.clear();valid=0<=index<len(self.overlaps)
+        if valid:
+            pair=self.overlaps[index]
+            for identifier in (pair['a'],pair['b']):self.adjust_part.addItem(self.names.get(identifier,identifier)+' ['+identifier+']',identifier)
+        for widget in (self.adjust_part,self.auto_button,self.move_button,self.size_button,self.joint_button):widget.setEnabled(valid)
         for i,actor in enumerate(self.highlights):actor.SetVisibility(i==index)
         self.viewport.render()
     def done(self,result):self.viewport.shutdown();super().done(result)

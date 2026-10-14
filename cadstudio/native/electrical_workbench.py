@@ -87,6 +87,10 @@ class ElectricalWorkbenchDialog(QDialog):
         self.overview = label('', True)
         self.overview.setObjectName('electricalWorkbenchOverview')
         layout.addWidget(self.overview)
+        self.manual_pin_notice=label('',True)
+        self.manual_pin_notice.setObjectName('manualTerminalLimitNotice')
+        self.manual_pin_notice.setStyleSheet('color:#e8bc6c;')
+        layout.addWidget(self.manual_pin_notice)
 
         self.tabs = QTabWidget()
         self.tabs.setObjectName('electricalWorkbenchTabs')
@@ -229,12 +233,13 @@ class ElectricalWorkbenchDialog(QDialog):
         layout.addLayout(circuit_actions)
         simulation_actions = QHBoxLayout()
         self.program_button = button(word('코드 업로드 · 배선 자동 시뮬레이션…', 'Upload code · automatic wiring simulation…'), self.edit_programs)
+        self.elf_button = button(word('G474 전체 펌웨어 실행…', 'G474 full firmware execution…'), self.edit_firmware_images)
         self.firmware_button = button(word('Codex 펌웨어 생성 / 검토…', 'Codex firmware · generate / review…'), self.edit_firmware)
         self.firmware_button.setObjectName('electricalWorkbenchFirmware')
         self.program_button.setObjectName('electricalWorkbenchPrograms')
         self.safety_button = button(word('쇼트 / 정격 / 발열 점검…', 'Short / ratings / heat check…'), self.edit_safety)
         self.safety_button.setObjectName('electricalWorkbenchSafety')
-        simulation_actions.addWidget(self.firmware_button);simulation_actions.addWidget(self.program_button);simulation_actions.addWidget(self.safety_button);simulation_actions.addStretch(1)
+        simulation_actions.addWidget(self.firmware_button);simulation_actions.addWidget(self.program_button);simulation_actions.addWidget(self.elf_button);simulation_actions.addWidget(self.safety_button);simulation_actions.addStretch(1)
         layout.addLayout(simulation_actions)
         self.tabs.addTab(page, word('현재 설계의 전장', 'Electronics in this design'))
         self.query.textChanged.connect(self.filter_rows)
@@ -336,6 +341,10 @@ class ElectricalWorkbenchDialog(QDialog):
             'Electrical CAD {electrical_parts}   ·   Registered {registered_parts}   ·   Unregistered {unregistered_parts}   ·   Pending {pending_components}   ·   Connection issues {blocked_components}').format(**counts))
         self.overview.setText(word('회로 항목 {components}개 · 전선 {wires}개 · 기존 CAD 연결 {legacy_components}개 · 사용자 정의 {custom_components}개 · 확인된 모식도 없음 {missing_diagrams}개. 저장 전 변경은 이 창의 초안에만 반영됩니다.',
             'Circuit items {components} · Wires {wires} · Legacy CAD links {legacy_components} · Custom {custom_components} · No verified diagram {missing_diagrams}. Changes stay in this draft until saved.').format(**counts))
+        manual=any(not c.catalog_id and (c.signal_pins or c.terminal_pins) for c in self._components.values())
+        self.manual_pin_notice.setVisible(manual)
+        self.manual_pin_notice.setText(word('수동 핀·단자는 신호 참조 라벨입니다. POWER/GND 이름만으로 전원·접지 타입이 확인되지 않으며, 내부 변환기·접지 통로를 자동 연결하지 않습니다. 분석 제외 배선은 전원 통과 검증이 아닙니다.',
+            'Manual pins/terminals are signal-reference labels. POWER/GND names do not verify power/ground types; internal converter/ground paths are not inferred. Analysis-disabled wires do not establish power continuity.') if manual else '')
         self.apply_button.setEnabled(self._changed or bool(self.ai_request))
         self.filter_rows()
 
@@ -556,6 +565,24 @@ class ElectricalWorkbenchDialog(QDialog):
         try:
             if dialog.exec()==QDialog.DialogCode.Accepted and dialog.accepted_workspace is not None:
                 self.adopt_workspace(dialog.accepted_workspace)
+        finally:dialog.deleteLater()
+
+    def edit_firmware_images(self):
+        from .firmware_emulation_dialog import FirmwareEmulationDialog
+        from ..program_drive_adapter import fingerprint
+        original_draft=self.draft;original_digest=fingerprint(self.draft.model_dump(mode='json'))
+        workspace=self.draft.electrical or ElectricalWorkspace()
+        row=self.selected_row()
+        selected=row.component_id if row and row.kind=='mcu' else ''
+        provider=lambda:dict(draft_identity=id(self.draft),design=self.draft.model_dump(mode='json'))
+        dialog=FirmwareEmulationDialog(workspace,self,'en' if english() else 'ko',selected,design=self.draft.model_dump(mode='json'),document_provider=provider)
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted:
+                if self.draft is not original_draft or fingerprint(self.draft.model_dump(mode='json'))!=original_digest:
+                    self.notice.setText(word('설계가 바뀌어 이전 ELF 첨부를 적용하지 않았습니다. 새 설계에서 다시 여세요.','Design changed; the old ELF attachment was not applied. Reopen in the new design.'));return
+                raw=self.draft.model_dump(mode='json');circuit=workspace.model_dump(mode='json')
+                circuit['firmware_images']=[image.model_dump(mode='json') for image in dialog.images]
+                raw['electrical']=circuit;self.adopt_design(Design.model_validate(raw))
         finally:dialog.deleteLater()
 
     def edit_programs(self):

@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 import traceback
 import faulthandler
-from cadstudio import __version__
+from cadstudio import __version__, __build_id__
 
 def parse_startup_args(argv=None):
     parser=argparse.ArgumentParser();parser.add_argument('--open',type=Path);parser.add_argument('--no-restore',action='store_true');parser.add_argument('--smoke-test',type=Path);parser.add_argument('--self-test',type=Path);parser.add_argument('--setup-ai',action='store_true');parser.add_argument('--setup-codex',action='store_true');parser.add_argument('--codex-smoke',type=Path);parser.add_argument('--mechanical-smoke',type=Path);parser.add_argument('--usability-smoke',type=Path);parser.add_argument('--print-ai-smoke',type=Path);parser.add_argument('--advanced-smoke',type=Path);parser.add_argument('--reliability-smoke',type=Path);parser.add_argument('--direct-smoke',type=Path);parser.add_argument('--thread-smoke',type=Path);parser.add_argument('--sketch-guide-smoke',type=Path);parser.add_argument('--extended-smoke',type=Path);parser.add_argument('--ai-smoke','--wheel-smoke',dest='ai_smoke',type=Path);parser.add_argument('--selection-smoke',type=Path);parser.add_argument('--graphics-probe',nargs=2,metavar=('MODE','REPORT'));parser.add_argument('--renderer',choices=('auto','hardware','software'),default='auto');parser.add_argument('--startup-smoke',type=Path);parser.add_argument('--draft-repair-smoke',type=Path);parser.add_argument('--mechanism-print-smoke',type=Path);parser.add_argument('--reference-smoke',type=Path);parser.add_argument('--electrical-joint-smoke',type=Path);parser.add_argument('--electrical-2150-smoke',type=Path);parser.add_argument('--electrical-2160-smoke',type=Path);parser.add_argument('--mcu-pin-2170-smoke',type=Path);parser.add_argument('--electrical-registration-2180-smoke',type=Path);parser.add_argument('--project-history-smoke',type=Path);parser.add_argument('--circuit-canvas-2190-smoke',type=Path);parser.add_argument('--occlusion-smoke',type=Path);parser.add_argument('--engineering-smoke',type=Path);parser.add_argument('--electrical-workbench-smoke',type=Path);parser.add_argument('--electrical-ai-wiring-smoke',type=Path);parser.add_argument('--program-simulation-smoke',type=Path);parser.add_argument('--electrical-code-smoke',type=Path);parser.add_argument('--firmware-smoke',type=Path);parser.add_argument('--register-cad-files',action='store_true');parser.add_argument('--unregister-cad-files',action='store_true');parser.add_argument('--default-apps',action='store_true');parser.add_argument('--registration-report',type=Path);parser.add_argument('--bom-smoke',type=Path)
@@ -16,8 +16,72 @@ def parse_startup_args(argv=None):
     parser.add_argument('--review-project',type=Path)
     parser.add_argument('--motion-precision-smoke',type=Path)
     parser.add_argument('--print-batch-smoke',type=Path)
+    parser.add_argument('--target-integration-check',type=Path)
+    parser.add_argument('--target-project-check',type=Path)
+    parser.add_argument('--target-check-input',type=Path)
+    parser.add_argument('--performance-check',type=Path)
+    parser.add_argument('--role-performance-check',type=Path)
+    parser.add_argument('--automatic-interference-check',type=Path)
+    parser.add_argument('--common-app-check',type=Path)
+    parser.add_argument('--motion-click-check',type=Path)
+    parser.add_argument('--project-capacity-check',type=Path)
+    parser.add_argument('--capacity-check-input',type=Path)
+    parser.add_argument('--program-drive-package-check',type=Path)
+    parser.add_argument('--interference-adjustment-check',type=Path)
+    parser.add_argument('--render-controls-check',type=Path)
+    parser.add_argument('--electrical-ui-check',type=Path)
+    parser.add_argument('--g474-project',type=Path)
+    parser.add_argument('--g474-elf',type=Path)
+    parser.add_argument('--g474-board',default='')
+    parser.add_argument('--g474-save',type=Path)
+    parser.add_argument('--g474-run-dir',type=Path)
+    parser.add_argument('--g474-backend',type=Path)
+    parser.add_argument('--g474-duration',type=float)
+    parser.add_argument('--g474-scenario',choices=['boot','drdy','timer_rollover','motor_drive','motor_stop','motor_guard','motor_limit'])
+    parser.add_argument('--g474-observe-symbol',action='append',default=[])
     parser.add_argument("project", nargs="?", type=Path, help="CAD project opened by Windows")
     args=parser.parse_args(argv)
+    g474_fields={'g474_project','g474_elf','g474_board','g474_save','g474_run_dir','g474_backend','g474_duration','g474_scenario','g474_observe_symbol','renderer','no_restore'}
+    if args.g474_project:
+        if any(value for key,value in vars(args).items() if key not in g474_fields):
+            parser.error('G474 headless 실행과 창 열기/다른 시작 작업은 함께 요청할 수 없습니다.')
+        if not args.g474_save and not args.g474_run_dir:
+            parser.error('G474 headless 실행에는 --g474-save 또는 --g474-run-dir가 필요합니다.')
+    elif args.g474_elf or args.g474_board or args.g474_save or args.g474_run_dir or args.g474_backend or args.g474_duration is not None or args.g474_scenario or args.g474_observe_symbol:
+        parser.error('G474 옵션에는 --g474-project가 필요합니다.')
+    if bool(args.project_capacity_check) != bool(args.capacity_check_input):
+        parser.error('--project-capacity-check requires --capacity-check-input.')
+    if args.project_capacity_check and any(value for key,value in vars(args).items() if key not in ('project_capacity_check','capacity_check_input','renderer','no_restore')):
+        parser.error('--project-capacity-check uses only owned project copies.')
+    if args.motion_click_check and any(value for key,value in vars(args).items() if key not in ('motion_click_check','renderer','no_restore')):
+        parser.error('--motion-click-check uses only owned Qt signals and an inert offscreen viewport.')
+    if args.common_app_check and any(value for key,value in vars(args).items() if key not in ('common_app_check','renderer','no_restore')):
+        parser.error('--common-app-check uses only owned package/offscreen fixtures.')
+    if args.automatic_interference_check and any(value for key,value in vars(args).items() if key not in ('automatic_interference_check','renderer','no_restore')):
+        parser.error('--automatic-interference-check uses only owned small/offscreen fixtures.')
+    if args.program_drive_package_check and any(value for key,value in vars(args).items() if key not in ('program_drive_package_check','renderer','no_restore')):
+        parser.error('--program-drive-package-check uses only owned package/small/offscreen fixtures.')
+    if args.interference_adjustment_check and any(value for key,value in vars(args).items() if key not in ('interference_adjustment_check','renderer','no_restore')):
+        parser.error('--interference-adjustment-check uses only owned small/offscreen fixtures.')
+    if args.render_controls_check and any(value for key,value in vars(args).items() if key not in ('render_controls_check','renderer','no_restore')):
+        parser.error('--render-controls-check uses only its owned small/offscreen fixtures.')
+    if args.electrical_ui_check and any(value for key,value in vars(args).items()
+            if key not in ('electrical_ui_check','renderer','no_restore')):
+        parser.error('--electrical-ui-check uses only owned small/offscreen fixtures.')
+    if args.role_performance_check and any(value for key,value in vars(args).items()
+            if key not in ('role_performance_check','renderer','no_restore')):
+        parser.error('--role-performance-check uses only owned synthetic/offscreen fixtures.')
+    if args.performance_check and any(value for key,value in vars(args).items()
+            if key not in ('performance_check','renderer','no_restore')):
+        parser.error('--performance-check uses only bounded synthetic/offscreen fixtures.')
+    if args.target_integration_check and any(value for key,value in vars(args).items()
+            if key not in ('target_integration_check','renderer','no_restore')):
+        parser.error('--target-integration-check uses only owned small/offscreen fixtures.')
+    if bool(args.target_project_check) != bool(args.target_check_input):
+        parser.error('--target-project-check requires --target-check-input and vice versa.')
+    if args.target_project_check and any(value for key,value in vars(args).items()
+            if key not in ('target_project_check','target_check_input','renderer','no_restore')):
+        parser.error('--target-project-check uses only its owned immutable input; other startup actions are prohibited.')
     if args.project is not None:
         if args.open is not None:
             parser.error("Specify the project once: use either a file path or --open.")
@@ -40,6 +104,85 @@ def parse_startup_args(argv=None):
 
 def main():
     args=parse_startup_args()
+    if args.g474_project:
+        from cadstudio.firmware_emulation_cli import main as run_g474
+        command=['--project',str(args.g474_project),'--duration',str(args.g474_duration if args.g474_duration is not None else 0.01)]
+        for flag,value in [('--elf',args.g474_elf),('--board',args.g474_board),('--save-project',args.g474_save),('--run-dir',args.g474_run_dir),('--backend-dir',args.g474_backend),('--scenario',args.g474_scenario)]:
+            if value:command += [flag,str(value)]
+        for value in args.g474_observe_symbol:command += ['--observe-symbol',value]
+        return run_g474(command)
+    if args.project_capacity_check:
+        try:
+            from cadstudio.native.capacity_check import run
+            return run(args.project_capacity_check,args.capacity_check_input)
+        except Exception:
+            import json
+            args.project_capacity_check.write_text(json.dumps({'success':False,'exception':traceback.format_exc(),'native_inputs':0},ensure_ascii=False,indent=2),encoding='utf-8')
+            return 1
+    if args.motion_click_check:
+        try:
+            from cadstudio.native.motion_click_check import run
+            return run(args.motion_click_check)
+        except Exception:
+            import json
+            args.motion_click_check.write_text(json.dumps({'success':False,'exception':traceback.format_exc(),'native_inputs':0},ensure_ascii=False,indent=2),encoding='utf-8')
+            return 1
+    if args.common_app_check:
+        try:
+            from cadstudio.native.common_app_package_check import run
+            return run(args.common_app_check)
+        except Exception:
+            import json
+            args.common_app_check.write_text(json.dumps({'success':False,'exception':traceback.format_exc(),'native_inputs':0},ensure_ascii=False,indent=2),encoding='utf-8')
+            return 1
+    if args.automatic_interference_check:
+        try:
+            from cadstudio.native.automatic_interference_check import run
+            run(args.automatic_interference_check)
+            return 0
+        except Exception:
+            import json
+            args.automatic_interference_check.write_text(json.dumps({'success':False,'exception':traceback.format_exc(),'native_inputs':0},ensure_ascii=False,indent=2),encoding='utf-8')
+            return 1
+    if args.program_drive_package_check:
+        try:
+            from cadstudio.native.program_drive_package_check import run
+            return run(args.program_drive_package_check)
+        except Exception:
+            import json
+            args.program_drive_package_check.write_text(json.dumps({'success':False,'exception':traceback.format_exc(),'native_inputs':0},ensure_ascii=False,indent=2),encoding='utf-8')
+            return 1
+    if args.interference_adjustment_check:
+        try:
+            from cadstudio.native.interference_adjustment_check import run
+            return run(args.interference_adjustment_check)
+        except Exception:
+            import json
+            args.interference_adjustment_check.write_text(json.dumps({'success':False,'exception':traceback.format_exc(),'native_inputs':0},ensure_ascii=False,indent=2),encoding='utf-8')
+            return 1
+    if args.render_controls_check:
+        from cadstudio.native.render_controls_check import run
+        return run(args.render_controls_check)
+    if args.electrical_ui_check:
+        from cadstudio.native.electrical_ui_check import run
+        return run(args.electrical_ui_check)
+    if args.role_performance_check:
+        from cadstudio.native.role_performance_check import run
+        return run(args.role_performance_check)
+    if args.performance_check:
+        from cadstudio.native.performance_check import run
+        return run(args.performance_check)
+    if args.target_integration_check:
+        from cadstudio.native.target_integration_check import run
+        return run(args.target_integration_check)
+    if args.target_project_check:
+        from cadstudio.native.target_project_check import run
+        return run(args.target_project_check,args.target_check_input)
+    # This local candidate has its own portable profile and never restores the
+    # installed application's user session or modifies its file association.
+    if not os.getenv('CADSTUDIO_DATA_DIR'):
+        base = Path(sys.executable).parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parent
+        os.environ['CADSTUDIO_DATA_DIR'] = str(base / ('profile-' + __build_id__))
     if args.print_batch_smoke:
         report=args.print_batch_smoke.resolve()
         os.environ['CADSTUDIO_DATA_DIR']=str(report.parent/(report.stem+'-profile'))

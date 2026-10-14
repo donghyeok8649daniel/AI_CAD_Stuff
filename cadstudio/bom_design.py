@@ -110,7 +110,7 @@ class BomDocument(_Strict):
     source_sha256: str = Field(pattern=_SHA)
     format: Literal["csv", "tsv", "text", "xlsx"] = "text"
     sheet_name: str = Field(default="", max_length=200)
-    items: list[BomItem] = Field(default_factory=list, max_length=MAX_ITEMS)
+    items: list[BomItem] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list, max_length=64)
 
     @model_validator(mode="after")
@@ -214,12 +214,9 @@ def preflight_bom_design(request) -> dict | None:
     remaining = sum(count for _, count in deficits)
     required = sum(item.quantity or 1 for item in document.items)
     existing = len(request.current.parts) if request.current else 0
-    if required > 256 or existing + remaining > 256:
-        raise BomInputRequired(f"BOM 설계는 프로젝트의 256개 CAD 부품 한도를 초과합니다 (기존 {existing}개, 추가 최소 {remaining}개). "
-                               "BOM을 별도 프로젝트로 나누거나 이미 있는 부품을 정확한 BOM 행에 연결한 뒤 다시 생성하세요.")
     if remaining > 32:
         raise BomInputRequired(f"BOM에 추가할 CAD 부품이 최소 {remaining}개입니다. 한 초안은 최대 32개 새 부품 / 64개 작업을 지원합니다. "
-                               "BOM을 32개 이하의 부품 묶음으로 나누어 별도 프로젝트에서 설계하거나, 기존 부품을 BOM 행에 연결한 뒤 다시 생성하세요. "
+                               "같은 프로젝트에서 32개 이하의 부품 묶음으로 나누어 설계하거나, 기존 부품을 BOM 행에 연결한 뒤 다시 생성하세요. "
                                "원본 수량을 줄여 완료로 표시하지 않습니다.")
     rows = {item.id: item for item in document.items}
     if request.current:

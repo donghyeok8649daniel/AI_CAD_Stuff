@@ -295,6 +295,10 @@ class CADViewport(QWidget,SelectionTools):
         else:self.render()
 
     def load(self,result,fit=True):
+        from .display_overrides import surviving_opacities
+        self.part_opacities=surviving_opacities(getattr(self,'part_opacities',{}),
+            [m['id'] for m in result['meshes']] if result else [])
+        self._selection_styles={}
         for actor in self.edge_candidates:self.renderer.RemoveActor(actor)
         self.edge_candidates={}
         for data in self.actors.values():
@@ -312,6 +316,8 @@ class CADViewport(QWidget,SelectionTools):
                 edge_mapper=vtkPolyDataMapper();edge_mapper.SetInputConnection(edges.GetOutputPort());edge_mapper.ScalarVisibilityOff();edge_actor=vtkActor();edge_actor.SetMapper(edge_mapper);edge_actor.GetProperty().SetColor(.19,.29,.34);edge_actor.GetProperty().SetLineWidth(1);edge_actor.PickableOff();edge_actor.SetVisibility(self.show_edges)
                 for a in [actor,edge_actor]:self.renderer.AddActor(a)
                 self.actors[mesh['id']]=(actor,edge_actor);self.actor_ids[actor]=mesh['id']
+                opacity=self.part_opacities.get(mesh['id'],1.)
+                actor.GetProperty().SetOpacity(opacity);edge_actor.GetProperty().SetOpacity(opacity)
             for sketch in result.get('sketches',[]):
                 pts=vtkPoints();lines=vtkCellArray()
                 for row in sketch['lines']:
@@ -410,10 +416,17 @@ class CADViewport(QWidget,SelectionTools):
 
     def select_many(self,identifiers,render=True):
         self.selected_ids=list(identifiers);self.selected=identifiers[-1] if identifiers else None
+        chosen=set(identifiers);styles=getattr(self,'_selection_styles',{})
+        updated={}
         for key,(actor,edge) in self.actors.items():
-            selected=key in identifiers;edge.GetProperty().SetColor(*((1,.67,.22) if selected else (.22,.35,.40)));edge.GetProperty().SetLineWidth(2.5 if selected else 1)
+            selected=key in chosen
+            state=(id(actor),id(edge),selected,key in self.hidden,self.show_edges)
+            updated[key]=state
+            if styles.get(key)==state:continue
+            edge.GetProperty().SetColor(*((1,.67,.22) if selected else (.22,.35,.40)));edge.GetProperty().SetLineWidth(2.5 if selected else 1)
             edge.SetVisibility(key not in self.hidden and (self.show_edges or selected))
             actor.GetProperty().SetAmbient(.4 if selected else .24)
+        self._selection_styles=updated
         if render:self.render()
 
     def set_box_mode(self,enabled):
@@ -433,6 +446,7 @@ class CADViewport(QWidget,SelectionTools):
         self.parts_selected.emit(ids,'add' if additive else 'replace');return ids
 
     def visibility(self,identifier,visible,render=True):
+        getattr(self,'_selection_styles',{}).pop(identifier,None)
         if visible:self.hidden.discard(identifier)
         else:self.hidden.add(identifier)
         if identifier in self.actors:
@@ -440,8 +454,28 @@ class CADViewport(QWidget,SelectionTools):
         self.rebuild_pick_objects()
         if render:self.render()
 
+    def set_part_opacity(self,identifiers,value,render=True):
+        from .display_overrides import checked_opacity
+        value=checked_opacity(value);ids=set(identifiers)
+        if self.closed:return
+        if not ids or not ids<=set(self.actors):raise ValueError('표시를 바꿀 부품을 선택하세요.')
+        if not hasattr(self,'part_opacities'):self.part_opacities={}
+        for identifier in ids:
+            if value==1.:self.part_opacities.pop(identifier,None)
+            else:self.part_opacities[identifier]=value
+            for actor in self.actors[identifier]:actor.GetProperty().SetOpacity(value)
+        if render:self.render()
+
+    def reset_part_opacity(self,render=True):
+        if self.closed:return
+        for identifier in getattr(self,'part_opacities',{}):
+            for actor in self.actors.get(identifier,()):actor.GetProperty().SetOpacity(1.)
+        self.part_opacities={}
+        if render:self.render()
+
     def set_hidden_parts(self,identifiers,render=True):
         """Batch visibility changes so a role view rebuilds picking just once."""
+        self._selection_styles={}
         self.hidden=set(identifiers)
         for identifier,(actor,edge) in self.actors.items():
             visible=identifier not in self.hidden
@@ -451,14 +485,35 @@ class CADViewport(QWidget,SelectionTools):
         if render:self.render()
 
     def edges(self,enabled):
+        self._selection_styles={}
         self.show_edges=enabled
         for key,(_,edge) in self.actors.items():edge.SetVisibility(enabled and key not in self.hidden)
         self.render()
 
+    def visible_fit_bounds(self):
+        """Fit primary visible bodies, excluding grid/axes/pick overlays.
+
+        During part isolation/role filtering, construction sketches do not pull
+        the camera back to the original whole-assembly extent. Sketch-only and
+        complete views still include visible saved sketches.
+        """
+        bodies=[actor for identifier,(actor,_) in self.actors.items()
+                if identifier not in self.hidden and actor.GetVisibility()]
+        actors=list(bodies)
+        if not self.actors or len(bodies)==len(self.actors):
+            actors.extend(actor for actor in self.sketch_actors if actor.GetVisibility())
+        boxes=[]
+        for actor in actors:
+            box=actor.GetBounds()
+            if box is not None and len(box)==6 and all(math.isfinite(v) for v in box) and all(box[i]<=box[i+1] for i in (0,2,4)):
+                boxes.append(box)
+        if not boxes:return [-25,25,-25,25,0,0]
+        bounds=[value for axis in (0,2,4) for value in
+                (min(box[axis] for box in boxes),max(box[axis+1] for box in boxes))]
+        return bounds if max(bounds[i+1]-bounds[i] for i in (0,2,4))>1e-6 else [-25,25,-25,25,0,0]
+
     def fit(self):
-        if self.result:
-            a=self.result['stats']['min'];b=self.result['stats']['max'];bounds=[v for pair in zip(a,b) for v in pair];self.renderer.ResetCamera(bounds if max(self.result['stats']['bounds'])>1e-6 else [-25,25,-25,25,0,0])
-        else:self.renderer.ResetCamera(-50,50,-50,50,0,0)
+        self.renderer.ResetCamera(self.visible_fit_bounds() if self.result else [-50,50,-50,50,0,0])
         self.renderer.ResetCameraClippingRange();self.render()
 
     def zoom_at_cursor(self,position,factor):

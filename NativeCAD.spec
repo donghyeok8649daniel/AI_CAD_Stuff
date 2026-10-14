@@ -4,6 +4,16 @@ from PyInstaller.utils.hooks import collect_dynamic_libs,collect_submodules,copy
 root=Path(SPECPATH)
 site=Path(get_package_paths('OCP')[0])
 datas=[(str(root/'static/app.ico'),'assets'),(str(root/'integrations'),'integrations'),(str(root/'examples'),'examples')]
+datas.append((str(root/'cadstudio/emulation'),'cadstudio/emulation'))
+# Frozen Python modules have no readable .py file. Bind drawing provenance
+# to the exact source at build time; the independent PYZ check verifies it.
+from PyInstaller.config import CONF
+import hashlib,json
+provenance=Path(CONF['workpath'])/'build-source-provenance.json'
+provenance.write_text(json.dumps(dict(schema='cadstudio-build-source-1',
+    drawing_source_sha256=hashlib.sha256((root/'cadstudio/drawings.py').read_bytes()).hexdigest(),
+    g474_sources={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in [root/'cadstudio/firmware_emulation.py',root/'cadstudio/firmware_emulation_cli.py',root/'cadstudio/firmware_drive.py',root/'cadstudio/firmware_motion.py',root/'cadstudio/native/firmware_emulation_dialog.py',root/'cadstudio/native/firmware_motion_dialog.py',root/'cadstudio/emulation/stm32g474_hsi16.repl']}),indent=2),encoding='utf-8')
+datas.append((str(provenance),'.'))
 datas+=copy_metadata('cadquery')+copy_metadata('cadquery-ocp')
 binaries=collect_dynamic_libs('OCP')+[(str(p),'cadquery_ocp.libs') for p in (site/'cadquery_ocp.libs').glob('*') if p.is_file()]
 hidden=collect_submodules('OCP')+['anyio._backends._asyncio','vtkmodules.qt.QVTKRenderWindowInteractor','vtkmodules.vtkRenderingOpenGL2','vtkmodules.vtkRenderingFreeType','vtkmodules.vtkInteractionStyle','vtkmodules.vtkInteractionWidgets','vtkmodules.vtkIOImage']

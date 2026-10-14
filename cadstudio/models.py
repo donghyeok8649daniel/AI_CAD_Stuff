@@ -6,6 +6,7 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator, model_serializer, field_validator
 from .electrical import ElectricalWorkspace
+from .pcb import PCBProject
 from .part_product import ProductMetadata
 from .mechanical_functions import MechanicalFunction
 
@@ -817,7 +818,7 @@ class PartGroup(StrictModel):
     """Selection folders, independent of geometric and assembly constraints."""
     id: str = Field(min_length=1,max_length=40,pattern=r'^[a-zA-Z0-9_-]+$')
     name: str = Field(min_length=1,max_length=80)
-    part_ids: list[str] = Field(min_length=1,max_length=256)
+    part_ids: list[str] = Field(min_length=1)
 
 
 class PrintProfile(StrictModel):
@@ -835,20 +836,21 @@ class Design(StrictModel):
     name: str = Field(default="새 설계", min_length=1, max_length=100)
     mode: Literal["specimen", "robot"] = "specimen"
     units: Literal["mm"] = "mm"
-    parts: list[Part] = Field(default_factory=list, max_length=256)
-    mates: list[AssemblyMate] = Field(default_factory=list, max_length=255)
-    sketches: list[SavedSketch] = Field(default_factory=list, max_length=64)
-    joint_frames: list[JointFrames] = Field(default_factory=list, max_length=255)
+    parts: list[Part] = Field(default_factory=list)
+    mates: list[AssemblyMate] = Field(default_factory=list)
+    sketches: list[SavedSketch] = Field(default_factory=list)
+    joint_frames: list[JointFrames] = Field(default_factory=list)
     loops: list[LoopClosure] = Field(default_factory=list,max_length=4)
     studies: list[DesignStudy] = Field(default_factory=list,max_length=32)
     parameters: dict[str,str] = Field(default_factory=dict,max_length=64)
-    dimension_bindings: list[DimensionBinding] = Field(default_factory=list,max_length=256)
-    assets: dict[str,ShapeAsset] = Field(default_factory=dict,max_length=256)
-    motion_links: list[MotionLink] = Field(default_factory=list,max_length=128)
+    dimension_bindings: list[DimensionBinding] = Field(default_factory=list)
+    assets: dict[str,ShapeAsset] = Field(default_factory=dict)
+    motion_links: list[MotionLink] = Field(default_factory=list)
     configurations: dict[str,dict[str,str]] = Field(default_factory=dict,max_length=64)
-    part_groups: list[PartGroup] = Field(default_factory=list,max_length=256)
+    part_groups: list[PartGroup] = Field(default_factory=list)
     print_profile: PrintProfile | None = None
     electrical: ElectricalWorkspace | None = None
+    pcb: PCBProject | None = None
     bom: BomDocument | None = None
 
     @model_validator(mode='before')
@@ -856,12 +858,12 @@ class Design(StrictModel):
     def evaluate_dimensions(cls,data):
         from .parameters import evaluate_design
         from .associativity import resolve_profiles
-        return resolve_profiles(evaluate_design(data))
+        return resolve_profiles(evaluate_design(data), _owned=True)
 
     @model_serializer(mode='wrap')
     def compatible_parameters(self,handler):
         data=handler(self)
-        for key in ('parameters','dimension_bindings','assets','motion_links','configurations','part_groups','print_profile','electrical','bom'):
+        for key in ('parameters','dimension_bindings','assets','motion_links','configurations','part_groups','print_profile','electrical','pcb','bom'):
             if not data.get(key):data.pop(key,None)
         return data
 
@@ -969,6 +971,14 @@ class DraftRequest(StrictModel):
     selected_joint: str | None = Field(default=None, max_length=40)
     references: list[ReferenceMaterial] = Field(default_factory=list, max_length=8)
     bom: BomDocument | None = None
+    role_colors: dict[str,str] | None = None
+
+    @field_validator('role_colors')
+    @classmethod
+    def valid_role_colors(cls,value):
+        if value is None:return value
+        from .role_colors import normalize_colors,request_colors
+        return request_colors(normalize_colors(value))
 
     @field_validator('current', mode='before')
     @classmethod
@@ -988,6 +998,7 @@ class DraftRequest(StrictModel):
     def compatible_bom_request(self,handler):
         data=handler(self)
         if self.bom is None:data.pop('bom',None)
+        if self.role_colors is None:data.pop('role_colors',None)
         return data
 
 

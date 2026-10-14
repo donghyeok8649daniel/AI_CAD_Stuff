@@ -45,6 +45,7 @@ class FirmwareDialog(QDialog):
         self._request_replace_id = None
         self._libraries = []
         self._new_libraries = {}
+        self._external_target = None
         self.codex_config = dict(codex_config or {})
         self.generation_transport = generation_transport
         from ..firmware_generation import firmware_targets
@@ -146,6 +147,27 @@ class FirmwareDialog(QDialog):
         self.library_source = QPlainTextEdit(); self.library_source.setReadOnly(True)
         self.library_source.setObjectName("firmwareLibrarySource"); libraries_layout.addWidget(self.library_source, 1)
         self.tabs.addTab(libraries_panel, self.word("라이브러리", "Libraries"))
+        target_panel = QWidget(); target_layout = QVBoxLayout(target_panel)
+        target_layout.addWidget(label(self.word(
+            "프로젝트 안에 있는 헤더 폴더를 한 줄에 하나씩 입력하세요. 외부 SDK 목록은 파일 해시를 기록한 참고자료이며, 소스를 내장하거나 컴파일 경로를 자동 연결하지 않습니다.",
+            "Enter one bundled project header directory per line. An external SDK inventory records file identities only; SDK sources and compiler paths are not installed or resolved automatically."), muted=True))
+        self.include_paths = QPlainTextEdit(); self.include_paths.setObjectName("firmwareProjectIncludes")
+        self.include_paths.setPlaceholderText("include\ntarget\ntarget/include")
+        self.include_paths.setMaximumHeight(100); self.include_paths.textChanged.connect(self._source_edited)
+        target_layout.addWidget(self.include_paths)
+        self.sdk_summary = label(""); self.sdk_summary.setObjectName("firmwareSdkSummary")
+        target_layout.addWidget(self.sdk_summary)
+        self.sdk_files = QTableWidget(0, 3); self.sdk_files.setObjectName("firmwareSdkFiles")
+        self.sdk_files.setHorizontalHeaderLabels([self.word("외부 파일 경로", "External file path"), self.word("바이트", "Bytes"), "SHA-256"])
+        self.sdk_files.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.sdk_files.horizontalHeader().setStretchLastSection(True); target_layout.addWidget(self.sdk_files, 1)
+        sdk_actions = QHBoxLayout()
+        self.sdk_import = button(self.word("SDK 목록 JSON 가져오기…", "Import SDK inventory JSON…"), self.import_target_inventory)
+        self.sdk_import.setObjectName("firmwareSdkImport")
+        self.sdk_remove = button(self.word("SDK 목록 연결 해제", "Detach SDK inventory"), self.detach_target_inventory)
+        self.sdk_remove.setObjectName("firmwareSdkDetach")
+        sdk_actions.addWidget(self.sdk_import); sdk_actions.addWidget(self.sdk_remove); target_layout.addLayout(sdk_actions)
+        self.tabs.addTab(target_panel, self.word("헤더 / 대상 SDK", "Headers / target SDK"))
         self.details = QPlainTextEdit(); self.details.setReadOnly(True); self.details.setObjectName("firmwareReview")
         self.tabs.addTab(self.details, self.word("검토 / 소스 검사", "Review / source check"))
         compiler_form = QFormLayout(); self.compiler = QLineEdit(); self.compiler.setObjectName("firmwareCompiler")
@@ -247,8 +269,9 @@ class FirmwareDialog(QDialog):
             return
         key = (self._active_board_id, self.bundle.id)
         self._draft_cache[key] = dict(bundle=self.bundle.model_copy(deep=True),
-            files=[(path, editor.toPlainText(), role) for path, editor, role in self._editors],
-            entrypoint=self.entrypoint.currentData(), target=self._active_target, libraries=deepcopy(self._libraries))
+            files=[(path, self._editor_source(editor), role) for path, editor, role in self._editors],
+            entrypoint=self.entrypoint.currentData(), target=self._active_target, libraries=deepcopy(self._libraries),
+            include_paths=self._project_include_paths(), external_target=deepcopy(self._external_target))
         self._last_choice[self._active_board_id] = self.bundle.id
 
     def _cached_bundle(self, cache):
@@ -259,12 +282,16 @@ class FirmwareDialog(QDialog):
             sha256=sha256(source.encode("utf-8")).hexdigest()) for path, source, role in cache["files"]]
         raw["entrypoint"] = cache["entrypoint"] or ""
         raw["libraries"] = cache.get("libraries", [])
+        raw["include_paths"] = cache.get("include_paths", cache["bundle"].include_paths)
+        raw["external_target"] = cache.get("external_target", cache["bundle"].external_target)
         return FirmwareBundle.model_validate(raw)
 
     def _cache_changed(self, cache):
         original = [(item.path, item.content, item.role) for item in cache["bundle"].files]
         return (cache["files"] != original or cache["entrypoint"] != cache["bundle"].entrypoint or
-                cache.get("libraries", []) != cache["bundle"].libraries)
+                cache.get("libraries", []) != cache["bundle"].libraries or
+                cache.get("include_paths", []) != cache["bundle"].include_paths or
+                cache.get("external_target") != cache["bundle"].external_target)
 
     def _available_bundles(self):
         rows = {item.id: item for item in getattr(self.workspace, "firmware_bundles", [])
@@ -362,6 +389,13 @@ class FirmwareDialog(QDialog):
         cache = self._draft_cache.get((self._active_board_id, self.bundle.id)) if self.bundle else None
         if cache: self._libraries = deepcopy(cache.get("libraries", self._libraries))
         self._show_libraries()
+        self.include_paths.blockSignals(True)
+        self.include_paths.setPlainText("\n".join(cache.get("include_paths", self.bundle.include_paths) if cache else
+            self.bundle.include_paths if self.bundle else []))
+        self.include_paths.blockSignals(False)
+        self._external_target = deepcopy(cache.get("external_target", self.bundle.external_target) if cache else
+            self.bundle.external_target if self.bundle else None)
+        self._show_target_inventory()
         if not self.bundle: return
         for item in self.bundle.files: self._insert_file(item.path, item.content, item.role)
         index = self.entrypoint.findData(self.bundle.entrypoint)
@@ -369,11 +403,72 @@ class FirmwareDialog(QDialog):
 
     def _insert_file(self, path, content, role="source"):
         editor = QPlainTextEdit(); editor.setPlainText(content)
+        editor._firmware_text_baseline = (content, editor.document().toRawText())
         editor.setObjectName("firmwareSource_" + str(len(self._editors)))
         editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         editor.textChanged.connect(self._source_edited)
         self._editors.append((path, editor, role)); self.files.addTab(editor, path)
         if role == "source": self.entrypoint.addItem(path, path)
+
+    @staticmethod
+    def _editor_source(editor):
+        # Qt normalizes CRLF/mixed line endings for display. Keep the original
+        # text when the document is unchanged (also after Undo), so merely
+        # reviewing or switching files cannot alter source bytes or hashes.
+        raw_text = editor.document().toRawText()
+        original = getattr(editor, "_firmware_text_baseline", None)
+        if original is not None and raw_text == original[1]: return original[0]
+        # Raw text retains nonbreaking spaces and Unicode line separators;
+        # only Qt paragraph boundaries become LF for intentionally edited text.
+        return raw_text.replace("\u2029", "\n")
+
+    def _project_include_paths(self):
+        text = self.include_paths.toPlainText()
+        # Keep an invalid edited draft while switching tabs/boards; the bounded
+        # model rejects it on explicit save/export/generation, never in a slot.
+        return [line.strip() for line in text.splitlines() if line.strip()]
+
+    def _show_target_inventory(self):
+        value = self._external_target; self.sdk_files.setRowCount(0)
+        if value is None:
+            self.sdk_summary.setText(self.word("외부 SDK 목록 없음 · 대상 빌드 미검증", "No external SDK inventory · target build unverified"))
+            return
+        self.sdk_summary.setText(f"{value.name} · {value.device}\n{len(value.files)} " +
+            self.word("외부 파일 · 목록만 보존 · 대상 빌드 미검증", "external files · metadata only · target build unverified") +
+            "\nSHA-256: " + value.manifest_sha256)
+        for file in value.files:
+            row = self.sdk_files.rowCount(); self.sdk_files.insertRow(row)
+            for column, text in enumerate((file.path, str(file.bytes), file.sha256)):
+                item = QTableWidgetItem(text); item.setToolTip(text); self.sdk_files.setItem(row, column, item)
+        self.sdk_files.resizeColumnsToContents()
+
+    def import_target_inventory(self, path=None):
+        if self.task or not self.bundle: return
+        if isinstance(path, bool): path = None
+        if path is None:
+            path, _ = QFileDialog.getOpenFileName(self, self.word("외부 SDK 목록", "External SDK inventory"), "", "JSON (*.json)")
+            if not path: return
+        try:
+            import json
+            from ..firmware_bundle import FirmwareExternalTarget, FirmwareBundle, _reject_reparse
+            source = Path(path); _reject_reparse(source)
+            with source.open("rb") as stream: raw = stream.read(256 * 1024 + 1)
+            if len(raw) > 256 * 1024: raise ValueError('SDK identity metadata must remain within 256 KiB.')
+            data = json.loads(raw)
+            # Accept either the standalone inventory or the exported dependency
+            # sidecar. Never load the referenced SDK paths or execute hooks.
+            value = FirmwareExternalTarget.model_validate(data.get("external_target", data) if isinstance(data, dict) else data)
+            candidate = self._current_bundle(allow_stale=True).model_dump()
+            candidate["external_target"] = value.model_dump()
+            FirmwareBundle.model_validate(candidate)
+        except Exception as exc:
+            self._set_status(str(exc), True); return
+        self._external_target = value; self._show_target_inventory(); self._source_edited()
+        self._set_status(self.word("SDK 목록 연결됨 · 소스·빌드·실장 검증은 별도입니다.", "SDK inventory attached · source resolution, target build and hardware validation remain separate."))
+
+    def detach_target_inventory(self):
+        if self.task: return
+        self._external_target = None; self._show_target_inventory(); self._source_edited()
 
     def _show_libraries(self):
         self.libraries_table.setRowCount(0)
@@ -474,7 +569,8 @@ class FirmwareDialog(QDialog):
         if not ok or not path: return
         if any(item[0].casefold() == path.casefold() for item in self._editors): self._set_status(self.word("같은 파일명이 있습니다.", "This filename already exists."), True); return
         suffix = Path(path).suffix.casefold()
-        role = "documentation" if suffix in (".md", ".txt") else "configuration" if suffix == ".json" else "source"
+        role = ("assembly" if suffix == ".s" else "linker" if suffix == ".ld" else
+                "documentation" if suffix in (".md", ".txt") else "configuration" if suffix == ".json" else "source")
         self._insert_file(path, "{}\n" if role == "configuration" else "", role)
         self.files.setCurrentIndex(self.files.count() - 1)
 
@@ -498,10 +594,12 @@ class FirmwareDialog(QDialog):
         if allow_stale:
             from hashlib import sha256
             raw = self.bundle.model_dump(mode="json")
-            raw["files"] = [dict(path=path, content=editor.toPlainText(), role=role,
-                sha256=sha256(editor.toPlainText().encode("utf-8")).hexdigest()) for path, editor, role in self._editors]
+            raw["files"] = [dict(path=path, content=self._editor_source(editor), role=role,
+                sha256=sha256(self._editor_source(editor).encode("utf-8")).hexdigest()) for path, editor, role in self._editors]
             raw["entrypoint"] = self.entrypoint.currentData() or ""
             raw["libraries"] = [item.model_dump(mode="json") for item in self._libraries]
+            raw["include_paths"] = self._project_include_paths()
+            raw["external_target"] = self._external_target.model_dump(mode="json") if self._external_target else None
             # Keep the old fingerprint explicitly stale: regeneration may read
             # old sources as context but must bind its new result independently.
             return FirmwareBundle.model_validate(raw)
@@ -511,11 +609,12 @@ class FirmwareDialog(QDialog):
         if self.bundle.target != self.target.currentData():
             raise ValueError(self.word("코드 형식이 바뀌었습니다. 다시 생성하세요.", "The code target changed. Regenerate the code."))
         updated = create_bundle(self.bundle.name, self.bundle.target, self.workspace,
-            self.board.currentData(), [dict(path=path, content=editor.toPlainText(), role=role)
+            self.board.currentData(), [dict(path=path, content=self._editor_source(editor), role=role)
             for path, editor, role in self._editors], self.entrypoint.currentData() or "",
             notes=self.bundle.notes, missing_parameters=self.bundle.missing_parameters,
             pin_bindings=[item.model_dump(mode="json") for item in self.bundle.pin_bindings], generation=self.bundle.generation,
-            libraries=self._libraries)
+            libraries=self._libraries, include_paths=self._project_include_paths(),
+            external_target=self._external_target)
         return updated.model_copy(update={"id": self.bundle.id})
 
     def _controls(self, running):
@@ -533,6 +632,8 @@ class FirmwareDialog(QDialog):
         for item in (self.library_folder_button, self.library_zip_button, self.library_dependency_button,
                      self.library_remove_button, self.libraries_table, self.library_files):
             item.setEnabled(not running and bool(self.board.currentData()))
+        for item in (self.include_paths, self.sdk_import, self.sdk_remove):
+            item.setEnabled(not running and bool(self.bundle))
 
     def _start(self, action, fn):
         if self.task or self._closing: return

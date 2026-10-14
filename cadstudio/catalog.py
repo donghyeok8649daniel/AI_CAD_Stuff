@@ -37,12 +37,12 @@ EXAMPLES = {
 }
 
 
-def part_default(kind, identifier="part-1", name=None):
+def part_default(kind, identifier="part-1", name=None, *, palette=None):
     from .part_roles import new_part_style
-    return Part(id=identifier, name=name or TITLES[kind], geometry=GEOMETRY_TYPES[kind](), **new_part_style(kind))
+    return Part(id=identifier, name=name or TITLES[kind], geometry=GEOMETRY_TYPES[kind](), **new_part_style(kind,palette=palette))
 
 
-def preset(kind):
+def preset(kind, *, palette=None):
     if kind == "robot_arm":
         a, b = math.radians(25), math.radians(-30)
         end = (94 * math.cos(a), 94 * math.sin(a))
@@ -63,7 +63,7 @@ def preset(kind):
             dict(id="shoulder-pin", kind="rigid", parent="base", child="pin-1"),
             dict(id="elbow-pin", kind="rigid", parent="link-1", child="pin-2", parent_anchor="hole_2_bottom", z=-1),
         ])
-    return Design(name=TITLES[kind], mode="specimen" if kind in {"round_specimen", "flat_specimen", "wafer"} else "robot", parts=[part_default(kind)])
+    return Design(name=TITLES[kind], mode="specimen" if kind in {"round_specimen", "flat_specimen", "wafer"} else "robot", parts=[part_default(kind,palette=palette)])
 
 
 def catalog():

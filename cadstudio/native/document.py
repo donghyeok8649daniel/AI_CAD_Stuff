@@ -30,9 +30,9 @@ def differences(before,after,path=()):
 
 
 class Journal:
-    def __init__(self,design=None,label='설계 시작',data=None,context=None):
+    def __init__(self,design=None,label='설계 시작',data=None,context=None,*,_owned_data=False):
         context=context or {}
-        if data:self.data=deepcopy(data)
+        if data:self.data=data if _owned_data else deepcopy(data)
         else:
             entry=self.entry(None,label,[],context)
             self.data=dict(version=1,base=deepcopy(design),entries=[entry],cursor=entry['id'],head=entry['id'])
@@ -112,7 +112,10 @@ class Document:
     def load(self,project,path=None):
         project=project if isinstance(project,Project) else Project.model_validate(project)
         self.design=project.design.model_dump();self.prompt=project.prompt
-        self.journal=Journal(data=project.history.model_dump()) if project.history else Journal(self.design,'프로젝트 가져오기',context={'source':'import'})
+        # model_dump owns fresh JSON containers. A second complete copy of the
+        # large embedded history adds no isolation; standalone Journal callers
+        # still get an independent copy by default.
+        self.journal=Journal(data=project.history.model_dump(),_owned_data=True) if project.history else Journal(self.design,'프로젝트 가져오기',context={'source':'import'})
         self.path=Path(path) if path else None;self.dirty=False
 
     def write(self,path,*,autosave=False):

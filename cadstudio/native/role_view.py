@@ -1,8 +1,26 @@
 """Temporary role views; never alter parts, groups, colors or circuit state."""
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt,QSignalBlocker
 from PySide6.QtGui import QActionGroup, QColor
-from PySide6.QtWidgets import QToolBar, QWidget, QHBoxLayout, QSizePolicy
+from PySide6.QtWidgets import QToolBar, QWidget, QHBoxLayout, QSizePolicy,QLabel
 from ..part_roles import COLORS, LABELS
+from ..role_memberships import role_memberships,role_membership_data
+from ..role_colors import ROLE_TITLES,normalize_colors,request_colors,load_settings,save_colors
+
+NEUTRAL_COLOR='#8D98A4'
+
+
+def confirmed_display_roles(design):
+    """Use declared roles / actual saved circuit links, never guess from color/name."""
+    linked={c.get('part_id') for c in (design.get('electrical') or {}).get('components',[])}
+    membership_data=role_membership_data(design)
+    result={}
+    for part in design.get('parts',[]):
+        role=part.get('role','unspecified')
+        if part['id'] in linked:
+            role=('electrical' if role in ('unspecified','electrical') else role
+                  if role=='transmission' and membership_data.get(part['id'],{}).get('electric_motor') else 'unspecified')
+        result[part['id']]=role if role in COLORS else 'unspecified'
+    return result
 
 
 def part_display_roles(design):
@@ -19,6 +37,38 @@ def part_display_roles(design):
 
 
 class RoleViewUI:
+    def load_role_color_settings(self):
+        self.role_color_error=''
+        try:self.role_colors,self.role_colors_enabled=load_settings(self.data_dir/'role-colors.json')
+        except (OSError,ValueError,TypeError):
+            self.role_colors=normalize_colors();self.role_colors_enabled=False;self.role_color_error='Invalid saved settings'
+
+    def role_color_settings_dialog(self):
+        from .role_color_settings import RoleColorSettings
+        dialog=RoleColorSettings(self,self.role_colors,self.role_color_error,self.role_colors_enabled)
+        if not dialog.exec():return
+        try:colors=save_colors(self.data_dir/'role-colors.json',dialog.selected_colors(),view_enabled=dialog.role_view.isChecked())
+        except (OSError,ValueError) as exc:self.show_error(str(exc));return
+        self.role_colors=colors;self.role_color_error='';self.role_colors_enabled=dialog.role_view.isChecked()
+        with QSignalBlocker(self.actions['role_colors_view']):self.actions['role_colors_view'].setChecked(self.role_colors_enabled)
+        self.update_role_legend();self._restore_role_colors();self.refresh_role_view()
+        if not self.role_colors_enabled:self.viewport.render()
+        self.message('역할 기본색 설정을 저장했습니다. 부품별 색상과 프로젝트 기록은 유지됩니다.')
+
+    def toggle_role_colors_view(self,enabled):
+        self.role_colors_enabled=enabled
+        if not self.role_color_error:
+            try:save_colors(self.data_dir/'role-colors.json',request_colors(self.role_colors),view_enabled=enabled)
+            except OSError as exc:self.message('색상 보기 설정 저장 실패: '+str(exc))
+        self._restore_role_colors();self.update_role_legend();self.refresh_role_view()
+        if not enabled:self.viewport.render()
+
+    def update_role_legend(self):
+        pieces=[f'<span style="color:{self.role_colors[r]}">■</span> {ROLE_TITLES[r]} {self.role_colors[r]}' for r in ROLE_TITLES]
+        pieces += [f'■ 시편 {COLORS["specimen"]}',f'■ 미지정 / 역할 충돌 {NEUTRAL_COLOR}']
+        self.role_legend.setText(' · '.join(pieces));self.role_legend.setVisible(self.role_colors_enabled)
+        for role in ROLE_TITLES:self.actions['role_'+role].setToolTip(ROLE_TITLES[role]+'만 보기 / 선택 · '+self.role_colors[role])
+
     def make_role_view_tools(self, menu):
         self.role_view = None
         self.role_view_hidden = None
@@ -43,6 +93,8 @@ class RoleViewUI:
             self.role_action_group.addAction(action)
             bar.addAction(action)
             menu.addAction(action)
+        colors=self.action('role_colors_view','역할 색상으로 보기',lambda:None);colors.setCheckable(True);colors.setChecked(self.role_colors_enabled)
+        colors.toggled.connect(self.toggle_role_colors_view);menu.addAction(colors);bar.addAction(colors)
         # Share one row with inspection tools. A fourth full toolbar row took
         # 32 px away from the model on 820 x 560 screens. Keep all role buttons
         # visible; Qt's native overflow menu holds less frequent inspection tools.
@@ -58,6 +110,8 @@ class RoleViewUI:
         horizontal.addWidget(bar)
         horizontal.addWidget(inspection, 1)
         layout.insertWidget(3, row)
+        self.role_legend=QLabel(self.viewport);self.role_legend.setObjectName('roleColorLegend');self.role_legend.setWordWrap(True)
+        layout.insertWidget(4,self.role_legend);self.update_role_legend()
 
     def _restore_role_colors(self):
         for identifier, (actor, _) in self.viewport.actors.items():
@@ -75,14 +129,24 @@ class RoleViewUI:
         self.role_view_hidden = None
         self.role_view_isolation = None
         self.actions['role_all'].setChecked(True)
+        self.refresh_role_view()
 
     def refresh_role_view(self):
         """Reapply after a real geometry edit, including newly created or deleted parts."""
         if self.role_view is None:
+            if getattr(self,'role_colors_enabled',False):
+                roles=confirmed_display_roles(self.document.design or {})
+                for identifier,(actor,_) in self.viewport.actors.items():
+                    color=QColor(self.role_colors.get(roles.get(identifier),NEUTRAL_COLOR))
+                    actor.GetProperty().SetColor(color.redF(),color.greenF(),color.blueF())
+                self.viewport.render()
             return
-        roles = part_display_roles(self.document.design or {})
-        ids = [identifier for identifier in self.viewport.actors if roles.get(identifier) == self.role_view]
-        color = QColor(COLORS[self.role_view])
+        design=self.document.design or {}
+        roles = part_display_roles(design)
+        memberships=role_memberships(design)
+        ids = [identifier for identifier in self.viewport.actors
+               if self.role_view in memberships.get(identifier,set()) or roles.get(identifier) == self.role_view]
+        color = QColor(self.role_colors[self.role_view])
         self.viewport.set_hidden_parts(set(self.viewport.actors) - set(ids), False)
         for identifier, (actor, _) in self.viewport.actors.items():
             if identifier in ids:
@@ -100,7 +164,7 @@ class RoleViewUI:
         if role is None:
             self.reset_role_view()
             self.select_parts([i for i in self.selected_parts if i not in self.viewport.hidden])
-            self.rebuild_tree()
+            self.sync_tree_visibility()
             self.sync_tree_selection()
             self.viewport.render()
             self.message('역할 보기 해제 · 원래 표시 상태와 부품 색상을 복원했습니다.')
@@ -119,9 +183,9 @@ class RoleViewUI:
         self.refresh_role_view()
         ids = [i for i in self.viewport.actors if i not in self.viewport.hidden]
         self.select_parts(ids)  # Deliberately do not expand mixed-role groups.
-        self.rebuild_tree()
+        self.sync_tree_visibility()
         self.sync_tree_selection()
-        message = LABELS[role] + f' · {len(ids)}개 부품 표시 / 선택'
+        message = ROLE_TITLES[role] + f' · {len(ids)}개 부품 표시 / 선택'
         if not ids:
             message += ' · 부품 역할 / 기본색에서 역할을 지정하세요.'
         self.message(message)

@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QDialog,QVBoxLayout,QHBoxLayout,QFormLayout,QCombo
 from .viewport import CADViewport
 from .widgets import label,button,number
 from .role_view import RoleViewUI
+from .part_display_controls import PartDisplayControls
 
 
 def exploded_preview(result,distance,axis='z'):
@@ -44,7 +45,7 @@ class ExplodedViewDialog(QDialog):
     def done(self,result):self.viewport.shutdown();super().done(result)
 
 
-class PartInspectionUI(RoleViewUI):
+class PartInspectionUI(RoleViewUI,PartDisplayControls):
     def make_inspection_tools(self,edit,assembly):
         self.isolation_hidden=None
         bar=QToolBar('부품 보기 / 내보내기',self.viewport);bar.setObjectName('partInspectionToolbar');bar.setMovable(False)
@@ -53,6 +54,13 @@ class PartInspectionUI(RoleViewUI):
         self.actions['isolate'].setCheckable(True);self.actions['isolate'].setToolTip('선택 부품만 표시 · 다시 누르면 이전 표시 상태로 복귀')
         self.viewport.layout().insertWidget(3,bar);self.inspection_toolbar=bar
         self.make_role_view_tools(assembly)
+        view_menu=assembly.addMenu('부품 표시')
+        for key,title,fn in [('hide_selected_temp','선택 부품 일시 숨김',self.hide_selected_temporarily),
+                             ('show_selected_temp','선택 부품 다시 표시',self.show_selected_temporarily),
+                             ('part_opacity','선택 부품 반투명…',self.selected_opacity_dialog),
+                             ('restore_part_display','임시 표시 변경 복원',self.restore_temporary_part_display)]:
+            action=self.action(key,title,fn);view_menu.addAction(action)
+        self.make_display_strip()
 
     def isolate_parts(self):
         self.reset_role_view()
@@ -63,13 +71,13 @@ class PartInspectionUI(RoleViewUI):
             if not ids:self.actions['isolate'].setChecked(False);self.message('따로 볼 부품을 먼저 선택하세요. 그룹 선택을 끄면 한 부품만 고를 수 있습니다.');return
             self.isolation_hidden=set(self.viewport.hidden);hidden=set(self.viewport.actors)-set(ids);self.actions['isolate'].setChecked(True)
         self.viewport.set_hidden_parts(hidden,False)
-        self.viewport.render();self.rebuild_tree();self.sync_tree_selection()
+        self.viewport.render();self.rebuild_tree();self.sync_tree_selection();self.update_display_strip()
 
     def show_all_parts(self):
         self.reset_role_view()
         self.isolation_hidden=None;self.actions['isolate'].setChecked(False)
         self.viewport.set_hidden_parts(set(),False)
-        self.viewport.render();self.rebuild_tree();self.sync_tree_selection()
+        self.viewport.render();self.rebuild_tree();self.sync_tree_selection();self.update_display_strip()
 
     def explode_parts(self):
         if self.busy or not self.result or not self.result['meshes']:self.message('먼저 입체 부품을 만드세요.');return

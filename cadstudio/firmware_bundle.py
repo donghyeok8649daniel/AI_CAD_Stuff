@@ -112,18 +112,19 @@ class FirmwareFile(_Model):
     path: str = Field(min_length=1, max_length=240)
     content: str = Field(max_length=MAX_FILE_BYTES)
     sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
-    role: Literal['source', 'documentation', 'configuration'] = 'source'
+    role: Literal['source', 'documentation', 'configuration', 'assembly', 'linker'] = 'source'
 
     @model_validator(mode='after')
     def safe_source_data(self):
         validate_relative_path(self.path)
         suffix = PurePosixPath(self.path).suffix.lower()
-        allowed = (SOURCE_SUFFIXES if self.role == 'source' else
+        allowed = ({'.s'} if self.role == 'assembly' else {'.ld'} if self.role == 'linker' else
+                   SOURCE_SUFFIXES if self.role == 'source' else
                    {'.md', '.txt'} if self.role == 'documentation' else {'.json'})
         doc_name = PurePosixPath(self.path).name.casefold()
         if suffix not in allowed and not (self.role == 'documentation' and doc_name in
                 {'license', 'license-mit', 'license-apache', 'copying', 'notice', 'readme', 'library.properties'}):
-            raise ValueError('Firmware files may contain sources, Markdown/text documentation or JSON data only.')
+            raise ValueError('Firmware files require a matching source, assembly, linker, text or JSON data role.')
         raw = self.content.encode('utf-8')
         if len(raw) > MAX_FILE_BYTES or '\x00' in self.content:
             raise ValueError('Each firmware file must be NUL-free UTF-8 text within 256 KiB.')
@@ -216,9 +217,16 @@ def library_search_paths(bundle):
             for path in library.include_paths if library.origin != 'external']
 
 
+def source_search_paths(bundle):
+    """Only materialized project/library paths, never external SDK metadata."""
+    return [*bundle.include_paths, *library_search_paths(bundle)]
+
+
 def dependency_manifest(bundle):
     return dict(schema_version=1, installation_performed=False, target_link_verified=False,
-        search_paths=library_search_paths(bundle), libraries=[dict(
+        search_paths=source_search_paths(bundle),
+        external_target=bundle.external_target.model_dump(mode='json') if bundle.external_target else None,
+        external_target_materialized=False, libraries=[dict(
             id=item.id, name=item.name, version=item.version, ecosystem=item.ecosystem,
             origin=item.origin, source_sha256=item.source_sha256, module_names=item.module_names,
             included_files=[dict(path=item.prefix + '/' + file.path, sha256=file.sha256) for file in item.files],
@@ -249,6 +257,51 @@ class FirmwareGenerationProvenance(_Model):
         return self
 
 
+class FirmwareExternalFile(_Model):
+    """Identity metadata only; contains neither a source payload nor a command."""
+    path: str = Field(min_length=1, max_length=240)
+    bytes: int = Field(strict=True, ge=0, le=32 * 1024 * 1024)
+    sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
+
+    @model_validator(mode='after')
+    def safe_identity(self):
+        validate_relative_path(self.path)
+        return self
+
+
+class FirmwareExternalTarget(_Model):
+    """Hash-bound target SDK inventory. Not an embedded dependency closure/build."""
+    catalog_id: str = Field(min_length=1, max_length=100)
+    device: str = Field(min_length=1, max_length=80, pattern=r'^[A-Za-z0-9_+-]+$')
+    name: str = Field(min_length=1, max_length=160)
+    revision: str = Field(pattern=r'^[0-9a-f]{40,64}$')
+    files: list[FirmwareExternalFile] = Field(min_length=1, max_length=256)
+    include_paths: list[str] = Field(default_factory=list, max_length=16)
+    manifest_sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
+    scope: Literal['external_sdk_inventory_not_resolved_closure'] = 'external_sdk_inventory_not_resolved_closure'
+
+    @model_validator(mode='after')
+    def bounded_manifest(self):
+        paths = {file.path.casefold() for file in self.files}
+        if len(paths) != len(self.files) or any('/'.join(path.split('/')[:i]) in paths
+                for path in paths for i in range(1, len(path.split('/')))):
+            raise ValueError('External SDK identities cannot alias files or directories.')
+        if sum(file.bytes for file in self.files) > 64 * 1024 * 1024:
+            raise ValueError('External SDK metadata exceeds the bounded 64 MiB inventory scope.')
+        if len({path.casefold() for path in self.include_paths}) != len(self.include_paths):
+            raise ValueError('External SDK include metadata must be unique.')
+        for path in self.include_paths:
+            validate_relative_path(path)
+            if path.casefold() in paths or not any(file.path.startswith(path + '/') for file in self.files):
+                raise ValueError('External SDK include metadata must refer to an inventoried directory.')
+        actual = _digest(dict(catalog_id=self.catalog_id, device=self.device, name=self.name,
+            revision=self.revision, scope=self.scope, include_paths=self.include_paths,
+            files=[file.model_dump() for file in sorted(self.files, key=lambda item:item.path)]))
+        if actual != self.manifest_sha256:
+            raise ValueError('External target inventory identity does not match SHA-256.')
+        return self
+
+
 class FirmwareBundle(_Model):
     schema_version: Literal[1] = 1
     id: str = Field(min_length=1, max_length=40, pattern=r'^[A-Za-z0-9_-]+$')
@@ -262,12 +315,18 @@ class FirmwareBundle(_Model):
     pin_bindings: list[FirmwarePinBinding] = Field(default_factory=list, max_length=144)
     generation: FirmwareGenerationProvenance | None = None
     libraries: list[FirmwareLibrary] = Field(default_factory=list, max_length=8)
+    include_paths: list[str] = Field(default_factory=list, max_length=16)
+    external_target: FirmwareExternalTarget | None = None
 
     @model_serializer(mode='wrap')
     def portable_legacy_shape(self, handler):
         data = handler(self)
         if not self.libraries:
             data.pop('libraries', None)
+        if not self.include_paths:
+            data.pop('include_paths', None)
+        if self.external_target is None:
+            data.pop('external_target', None)
         return data
 
     @model_validator(mode='after')
@@ -288,6 +347,15 @@ class FirmwareBundle(_Model):
         for path in paths:
             if any('/'.join(path.split('/')[:i]) in paths for i in range(1, len(path.split('/')))):
                 raise ValueError('A firmware file cannot also be a directory.')
+        if len({path.casefold() for path in self.include_paths}) != len(self.include_paths):
+            raise ValueError('Project include paths must be unique.')
+        for path in self.include_paths:
+            validate_relative_path(path)
+            if path.casefold() in paths or not any(file.path.startswith(path + '/') for file in self.files):
+                raise ValueError('A project include path must contain bundled project files.')
+        if self.external_target is not None and (self.target != 'stm32_hal' or
+                self.external_target.catalog_id != self.binding.catalog_id):
+            raise ValueError('The external target inventory must match the exact bound STM32 board.')
         entry = next((file for file in self.files if file.path == self.entrypoint), None)
         expected = {'.py'} if self.target == 'raspberry_python' else {'.ino', '.cpp', '.c'} if self.target == 'arduino' else {'.c', '.cpp'}
         if entry is None or entry.role != 'source' or PurePosixPath(entry.path).suffix.lower() not in expected:
@@ -397,7 +465,8 @@ def verify_bundle_binding(bundle: FirmwareBundle | dict, workspace) -> FirmwareB
 
 
 def create_bundle(name, target, workspace, board_id, files, entrypoint, *, notes='',
-                  missing_parameters=(), pin_bindings=(), generation=None, libraries=()) -> FirmwareBundle:
+                  missing_parameters=(), pin_bindings=(), generation=None, libraries=(),
+                  include_paths=(), external_target=None) -> FirmwareBundle:
     sources = []
     for file in files:
         if isinstance(file, FirmwareFile):
@@ -411,7 +480,8 @@ def create_bundle(name, target, workspace, board_id, files, entrypoint, *, notes
     candidate = FirmwareBundle(id='fw_'+uuid4().hex[:24], name=name, target=target,
         binding=create_binding(workspace, board_id), files=sources, entrypoint=entrypoint,
         notes=notes, missing_parameters=list(missing_parameters), pin_bindings=list(pin_bindings),
-        generation=generation, libraries=list(libraries))
+        generation=generation, libraries=list(libraries), include_paths=list(include_paths),
+        external_target=external_target)
     report = verify_bundle_binding(candidate, workspace)
     if report.status != 'current':
         raise ValueError('\n'.join(issue.message for issue in report.issues))
@@ -507,7 +577,7 @@ def export_bundle_atomic(bundle: FirmwareBundle | dict, destination: str | Path,
         manifest = bundle.model_dump_json(indent=2).encode('utf-8')
         with (stage / MANIFEST_NAME).open('xb') as stream:
             stream.write(manifest); stream.flush(); os.fsync(stream.fileno())
-        if bundle.libraries:
+        if bundle.libraries or bundle.include_paths or bundle.external_target:
             with (stage / DEPENDENCIES_NAME).open('xb') as stream:
                 stream.write(json.dumps(dependency_manifest(bundle), ensure_ascii=False, indent=2).encode('utf-8'))
                 stream.flush(); os.fsync(stream.fileno())

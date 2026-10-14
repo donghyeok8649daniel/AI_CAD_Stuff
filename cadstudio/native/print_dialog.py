@@ -2,7 +2,7 @@
 from copy import deepcopy
 from PySide6.QtCore import QSignalBlocker, QThreadPool
 from PySide6.QtWidgets import QCheckBox, QFormLayout, QFileDialog, QWidget, QVBoxLayout, QToolButton, QHBoxLayout
-from ..printing import prepare_print_plates, recommend_print_orientations, export_print_stl, export_print_stls, print_part_classification
+from ..printing import prepare_print_plates, recommend_print_orientations, export_print_stl, export_print_stls, print_part_classification, print_exclusions
 from .workflows import PreviewDialog, choice
 from .widgets import label, number, button, Worker
 
@@ -33,6 +33,12 @@ class PrintDialog(PreviewDialog):
         self.plate_choice = choice([(0, '출력판 1')]); form.addRow('미리볼 출력판', self.plate_choice)
         self.plate_choice.currentIndexChanged.connect(self.switch_plate)
         self.batch_summary = label('선택한 부품을 출력판에 배치합니다.', True); self.controls.addWidget(self.batch_summary)
+        exclusions=QHBoxLayout();self.controls.addLayout(exclusions)
+        self.exclude_electrical=QCheckBox('전장 제외');exclusions.addWidget(self.exclude_electrical)
+        self.exclude_electrical.setToolTip('전장 역할·회로 연결·명시된 모터 분류로 제외합니다. 전장·동력 역할을 함께 가진 모터도 제외합니다. 색상만으로 판별하지 않습니다.')
+        self.exclude_fasteners=QCheckBox('볼트·너트 제외');exclusions.addWidget(self.exclude_fasteners)
+        self.exclude_fasteners.setToolTip('볼트·너트 판별 근거를 표시합니다. 이름 단서는 제품 확인이 아니며 와셔·핀과 미분류 부품은 남깁니다.')
+        self.exclude_electrical.toggled.connect(self.schedule);self.exclude_fasteners.toggled.connect(self.schedule)
         self.active_part = choice([]); self.active_part.setProperty('cadUserText', True); form.addRow('배치할 부품', self.active_part)
         self.target_plate = choice([]); form.addRow('이 부품의 출력판', self.target_plate); self.target_plate.currentIndexChanged.connect(self.move_to_plate)
         self.pose_inputs = {}
@@ -61,9 +67,6 @@ class PrintDialog(PreviewDialog):
         details.addWidget(label('형상 기반 추정입니다. 실제 서포트 체적·슬라이싱·출력 성공을 보장하지 않습니다.', True))
         self.current_stl_button = button('현재 출력판 STL 저장', lambda: self.export_checked(current_only=True))
         self.current_stl_button.setEnabled(False); self.controls.addWidget(self.current_stl_button)
-        self.exclude_fasteners = QCheckBox('볼트·너트 제외'); self.controls.addWidget(self.exclude_fasteners)
-        self.exclude_fasteners.setToolTip('볼트·너트 판별 근거를 표시합니다. 이름에 따른 추정은 제품 확인이 아니며 와셔·핀과 미분류 부품은 남깁니다.')
-        self.exclude_fasteners.toggled.connect(self.schedule)
         self.excluded_summary = label('', True); self.excluded_summary.hide(); self.controls.addWidget(self.excluded_summary)
         row = QHBoxLayout(); self.controls.addLayout(row)
         self.select_current_button = button('현재 선택', lambda: self.select_parts(self.initial_selection))
@@ -107,14 +110,11 @@ class PrintDialog(PreviewDialog):
         if hasattr(self, 'current_stl_button'): self.current_stl_button.setEnabled(False)
         if hasattr(self, 'excluded_summary'):
             details = []
-            for part in self.source['parts']:
-                box = self.part_boxes.get(part['id'])
-                if not self.exclude_fasteners.isChecked() or box is None or not box.isChecked(): continue
-                classification = print_part_classification(part)
-                if classification['kind'] in ('bolt', 'nut'):
-                    details.append(f"{part['name']} [{part['id']}] · {classification['reason']}")
+            selected={pid for pid,box in self.part_boxes.items() if box.isChecked()}
+            for item in print_exclusions(self.source,selected,exclude_fasteners=self.exclude_fasteners.isChecked(),exclude_electrical=self.exclude_electrical.isChecked()):
+                details.append(f"{item['name']} [{item['id']}] · {item['reason']}")
             self.excluded_summary.setVisible(bool(details))
-            self.excluded_summary.setText(f'볼트·너트 제외 {len(details)}개\n' + '\n'.join(details[:3]))
+            self.excluded_summary.setText(f'출력 제외 {len(details)}개\n' + '\n'.join(details[:3]))
             self.excluded_summary.setToolTip('\n'.join(details))
         super().schedule(*args)
         if hasattr(self, 'orientation_state'): self.present_orientation()
@@ -132,7 +132,7 @@ class PrintDialog(PreviewDialog):
                        rotation=[w.currentData() for w in self.orientation], bed=[w.value() for w in self.bed], gap=self.gap.value(),
                        placements=deepcopy({key: value for key, value in self.placements.items() if key in selected}),
                        plate_assignments={key: value for key, value in self.plate_assignments.items() if key in selected},
-                       exclude_fasteners=self.exclude_fasteners.isChecked())
+                       exclude_fasteners=self.exclude_fasteners.isChecked(),exclude_electrical=self.exclude_electrical.isChecked())
         return dict(options=options, plate=self.plate_choice.currentData() or 0, preferred_part=self.preferred_part,
                     auto_orientation=self.auto_requested)
 
@@ -281,7 +281,7 @@ class PrintDialog(PreviewDialog):
         excluded = self.result.get('print_excluded_details', [])
         if excluded:
             details = '\n'.join(f"{item.get('id', '')} · {item.get('reason', '')}" for item in excluded)
-            self.batch_summary.setText(self.batch_summary.text() + f' · 볼트·너트 제외 {len(excluded)}개')
+            self.batch_summary.setText(self.batch_summary.text() + f' · 출력 제외 {len(excluded)}개')
             self.batch_summary.setToolTip(details)
         else: self.batch_summary.setToolTip('')
         self.apply_button.setText('전체 출력판 STL · ZIP 저장' if count > 1 else '이 미리보기로 STL 저장')

@@ -4,13 +4,13 @@ LABELS={'unspecified':'미지정 · 기존 색상','structure':'구조 / 보호 
         'transmission':'구동 / 하중 전달 · 초록색','specimen':'시편 · 회색'}
 
 
-def new_part_style(kind,role=None,color=None):
+def new_part_style(kind,role=None,color=None,*,palette=None):
     role=role or ('specimen' if kind in ('round_specimen','flat_specimen','wafer') else 'transmission' if kind in ('spur_gear','link') else 'structure')
     if role not in LABELS:raise ValueError('알 수 없는 부품 역할입니다.')
-    return dict(role=role,color=color or COLORS.get(role,'#70aebf'))
+    return dict(role=role,color=color or (palette or COLORS).get(role,COLORS.get(role,'#70aebf')))
 
 
-def assign_role(part,role,use_color=True):
+def assign_role(part,role,use_color=True,*,palette=None):
     if role not in LABELS:raise ValueError('알 수 없는 부품 역할입니다.')
     part['role']=role
-    if use_color and role in COLORS:part['color']=COLORS[role]
+    if use_color and role in COLORS:part['color']=(palette or COLORS).get(role,COLORS[role])

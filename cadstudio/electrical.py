@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_valid
 from .measurement_specs import MeasurementSpec, ForceChainSpec
 from .program_attachment import ProgramAttachment
 from .firmware_bundle import FirmwareBundle
+from .firmware_emulation import FirmwareImage
 
 
 class ElectricalModel(BaseModel):
@@ -236,6 +237,7 @@ class ElectricalWorkspace(ElectricalModel):
     # Generated firmware is portable review data, separate from the bounded
     # GPIO trace attachments. Preserve absent legacy fields in exact journals.
     firmware_bundles: list[FirmwareBundle] = Field(default_factory=list, max_length=16)
+    firmware_images: list[FirmwareImage] = Field(default_factory=list, max_length=16)
 
     @model_serializer(mode="wrap")
     def compatible_schematic_positions(self, handler):
@@ -249,6 +251,8 @@ class ElectricalWorkspace(ElectricalModel):
         if 'programs' not in self.model_fields_set and not self.programs:data.pop('programs',None)
         if 'firmware_bundles' not in self.model_fields_set and not self.firmware_bundles:
             data.pop('firmware_bundles',None)
+        if 'firmware_images' not in self.model_fields_set and not self.firmware_images:
+            data.pop('firmware_images',None)
         return data
 
     @model_validator(mode="after")
@@ -263,6 +267,12 @@ class ElectricalWorkspace(ElectricalModel):
         boards = {component.id for component in self.components if component.kind == 'mcu'}
         if any(program.board_component_id and program.board_component_id not in boards for program in self.programs):
             raise ValueError('프로그램은 등록된 MCU / MPU 회로 부품에 연결해야 합니다.')
+        if any(image.board_component_id not in boards for image in self.firmware_images):
+            raise ValueError('ELF는 등록된 MCU 회로 부품에 연결해야 합니다.')
+        if len({image.id for image in self.firmware_images}) != len(self.firmware_images):
+            raise ValueError('ELF 첨부 ID는 중복될 수 없습니다.')
+        if len({(image.sha256,image.board_component_id) for image in self.firmware_images}) != len(self.firmware_images):
+            raise ValueError('동일한 보드에 같은 ELF를 중복 첨부할 수 없습니다.')
         if len({(program.sha256, program.board_component_id) for program in self.programs}) != len(self.programs):
             raise ValueError('동일한 보드에 같은 프로그램을 중복 첨부할 수 없습니다.')
         if len({bundle.id for bundle in self.firmware_bundles}) != len(self.firmware_bundles):

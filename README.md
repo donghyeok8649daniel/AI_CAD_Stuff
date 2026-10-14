@@ -321,3 +321,12 @@ python native_desktop.py --no-restore --smoke-test native-smoke.json
 ```
 
 [검증 기록](VALIDATION.md) · [외부 라이브러리와 라이선스](THIRD_PARTY.md)
+
+
+## Local 3.1.3 role settings and measured CPU work
+
+Edit → Basic settings / part role colors sets electrical, structure and transmission defaults. View → Role colors displays declared roles and saved circuit links on the current model; unspecified or conflicting roles use neutral gray. Turning it off restores the stored per-part colors. Settings are saved in the app profile as role-colors.json and survive restart. Reset is applied only on Save. This view does not edit project colors, history, material properties or circuit readiness.
+
+Configured defaults apply to basic new parts, sketch extrusion, explicit role-color assignment, and new CAD plan create actions; explicit requested colors win. Existing projects and fixed example colors are preserved. A live repair request keeps its captured palette.
+
+Selection now uses indexed tree rows and changed actor style updates. Design normalization and native document load avoid a redundant owned-data copy, while every schema/history check remains. Same-process current-design normalization and sparse-selection benchmarks use the 248-part fatigue and 250-part drone copies; outputs match. Full file-read samples had variable/regressed wall times, so this candidate makes no claim about total first-open speed, memory RSS or GPU FPS.

@@ -1,10 +1,26 @@
 """Three orthographic views, OCCT hidden lines, mm paper geometry."""
 from html import escape
+import hashlib,json
 from pathlib import Path
 import numpy as np
 from pydantic import Field
 from .models import StrictModel,Coordinate
 from typing import Literal
+
+
+def drawing_source_sha256():
+    """Read source in development; use build-bound metadata in the frozen app."""
+    import sys
+    if getattr(sys, 'frozen', False):
+        manifest=Path(sys._MEIPASS)/'build-source-provenance.json'
+        data=json.loads(manifest.read_text(encoding='utf-8'))
+        if data.get('schema')!='cadstudio-build-source-1':
+            raise ValueError('Drawing build provenance is missing or invalid.')
+        value=data.get('drawing_source_sha256')
+        if not isinstance(value,str) or len(value)!=64 or any(c not in '0123456789abcdef' for c in value):
+            raise ValueError('Drawing build provenance is missing or invalid.')
+        return value
+    return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
 
 class DrawingSettings(StrictModel):
@@ -39,8 +55,8 @@ def projected_lines(shape,normal,x_direction):
             if raw.IsNull():continue
             BRepLib.BuildCurves3d_s(raw,1e-7)
             for edge in cq.Shape(raw).Edges():
-                # HLR projection is exact; display/export curves use a bounded
-                # chord approximation, documented as a polyline drawing.
+                # Visibility uses OCCT HLR. Curves are polylines; the fixed-count
+                # fallback below does not establish a global .01-mm error bound.
                 points=edge.tessellate(.01)[0]
                 if len(points)<2:points=edge.sample(2 if edge.geomType()=='LINE' else 96)[0]
                 if edge.IsClosed() and points:points.append(points[0])
@@ -50,44 +66,93 @@ def projected_lines(shape,normal,x_direction):
 
 def sheet(design,settings):
     import cadquery as cq
-    from .kernel import build,local_shape
+    from .kernel import build,local_shape,exact_bounds
     if settings.part_id:
         part=next((p for p in design.parts if p.id==settings.part_id),None)
         if part is None:raise ValueError('도면의 부품이 삭제되었습니다.')
         shape=local_shape(design,part)
+        frame='part_local';part_ids=[part.id]
     else:
         shapes=build(design)
         if not shapes:raise ValueError('도면으로 만들 부품이 없습니다.')
         shape=cq.Compound.makeCompound(shapes)
+        frame='solved_assembly_world';part_ids=[p.id for p in design.parts]
+    # Only the three fixed cardinal projections use this model AABB. Their
+    # spans coincide with the model's axis extrema; arbitrary views do not.
+    bounds=exact_bounds(shape)
+    model_low=np.array([bounds.xmin,bounds.ymin,bounds.zmin])
+    model_high=np.array([bounds.xmax,bounds.ymax,bounds.zmax])
     width,height=(297,210) if settings.page=='A4' else (420,297)
     cellw=(width-52)/2;cellh=(height-65)/2
     views=[]
-    for name,normal,xd,col,row in [('TOP · XY',(0,0,1),(1,0,0),0,0),('FRONT · XZ',(0,-1,0),(1,0,0),0,1),('RIGHT · YZ',(1,0,0),(0,1,0),1,1)]:
-        lines=projected_lines(shape,normal,xd);points=np.array([p for line in lines for p in line['points']]);low=points.min(axis=0);high=points.max(axis=0)
-        views.append(dict(name=name,lines=lines,low=low,high=high,factor=1,center=np.array([20+col*(cellw+18)+cellw/2,17+row*(cellh+12)+cellh/2])))
+    specs=[('TOP · XY',(0,0,1),(1,0,0),0,0,(0,1)),
+           ('FRONT · XZ',(0,-1,0),(1,0,0),0,1,(0,2)),
+           ('RIGHT · YZ',(1,0,0),(0,1,0),1,1,(1,2))]
+    for name,normal,xd,col,row,axes in specs:
+        lines=projected_lines(shape,normal,xd)
+        points=np.array([p for line in lines for p in line['points']])
+        if not len(points):raise ValueError('투영할 형상 선이 없습니다.')
+        display_low=points.min(axis=0);display_high=points.max(axis=0)
+        metric_low=model_low[list(axes)];metric_high=model_high[list(axes)]
+        views.append(dict(name=name,lines=lines,display_low=display_low,display_high=display_high,
+            metric_low=metric_low,metric_high=metric_high,
+            layout_low=np.minimum(display_low,metric_low),layout_high=np.maximum(display_high,metric_high),
+            factor=1,axes=['XYZ'[a] for a in axes],basis='model_brep_axis_envelope',approximate=False,
+            center=np.array([20+col*(cellw+18)+cellw/2,17+row*(cellh+12)+cellh/2])))
     if settings.extra_view!='none':
-        lines,name,factor=extra_view(shape,settings);points=np.array([p for line in lines for p in line['points']])
+        lines,name,factor=extra_view(shape,settings)
+        points=np.array([p for line in lines for p in line['points']])
         if not len(points):raise ValueError('상세 / 단면 범위에 형상이 없습니다.')
-        views.append(dict(name=name,lines=lines,low=points.min(axis=0),high=points.max(axis=0),factor=factor,center=np.array([20+(cellw+18)+cellw/2,17+cellh/2])))
-    fit=min(min((cellw-22)/max(v['high'][0]-v['low'][0],.001),(cellh-22)/max(v['high'][1]-v['low'][1],.001))/v['factor'] for v in views)
+        low=points.min(axis=0);high=points.max(axis=0)
+        basis='sampled_section_display_extent' if settings.extra_view=='section' else 'sampled_detail_ROI_display_extent'
+        if settings.extra_view=='detail':name+=f' · ROI Ø{2*settings.detail_radius:g}'
+        name+=' · approx.'
+        views.append(dict(name=name,lines=lines,display_low=low,display_high=high,metric_low=low,metric_high=high,
+            layout_low=low,layout_high=high,factor=factor,axes=None,basis=basis,approximate=True,
+            center=np.array([20+(cellw+18)+cellw/2,17+cellh/2])))
+    fit=min(min((cellw-22)/max(v['layout_high'][0]-v['layout_low'][0],.001),
+                (cellh-22)/max(v['layout_high'][1]-v['layout_low'][1],.001))/v['factor'] for v in views)
     scale=settings.scale or min(1,fit)
     if scale>fit+1e-9:raise ValueError(f'축척이 용지보다 큽니다. {fit:.3g} 이하 또는 자동 맞춤을 사용하세요.')
-    paths=[];texts=[]
-    def line(points,hidden=False):paths.append(dict(points=points,hidden=hidden))
-    def text(x,y,value,size=3):texts.append(dict(x=x,y=y,text=value,size=size))
+    paths=[];texts=[];view_records=[]
+    def line(points,hidden=False,role='curve'):
+        paths.append(dict(points=points,hidden=hidden,role=role));return len(paths)-1
+    def text(x,y,value,size=3):
+        texts.append(dict(x=x,y=y,text=value,size=size));return len(texts)-1
     for view in views:
-        middle=(view['low']+view['high'])/2
-        def project(p):return (view['center']+(np.array(p)-middle)*[scale*view['factor'],-scale*view['factor']]).tolist()
+        # One origin and scale for curves, model extrema and dimension endpoints.
+        middle=(view['layout_low']+view['layout_high'])/2
+        effective_scale=scale*view['factor']
+        def project(p):return (view['center']+(np.array(p)-middle)*[effective_scale,-effective_scale]).tolist()
         for item in view['lines']:
             if not item['hidden'] or settings.hidden:line([project(p) for p in item['points']],item['hidden'])
-        low,high=view['low'],view['high'];left,top=project([low[0],high[1]]);right,bottom=project([high[0],low[1]])
-        text(view['center'][0],top-5,view['name'])
+        low,high=view['metric_low'],view['metric_high']
+        left,top=project([low[0],high[1]]);right,bottom=project([high[0],low[1]])
+        text(view['center'][0],project([view['layout_low'][0],view['layout_high'][1]])[1]-5,view['name'])
+        dimensions=[]
         if settings.dimensions:
-            line([[left,bottom+2],[left,bottom+10]]);line([[right,bottom+2],[right,bottom+10]]);line([[left,bottom+8],[right,bottom+8]])
-            for x in (left,right):line([[x-1.3,bottom+9.3],[x+1.3,bottom+6.7]])
-            text((left+right)/2,bottom+6,f'{high[0]-low[0]:.3f}')
-            line([[right+2,top],[right+11,top]]);line([[right+2,bottom],[right+11,bottom]]);line([[right+9,top],[right+9,bottom]])
-            text(right+14,(top+bottom)/2,f'{high[1]-low[1]:.3f}',2.6)
+            prefix='≈ ' if view['approximate'] else ''
+            # Extension and span lines use the same metric endpoints as labels.
+            line([[left,bottom+2],[left,bottom+10]],role='dimension_extension')
+            line([[right,bottom+2],[right,bottom+10]],role='dimension_extension')
+            hp=[[left,bottom+8],[right,bottom+8]]
+            hidx=line(hp,role='dimension_span')
+            for x in (left,right):line([[x-1.3,bottom+9.3],[x+1.3,bottom+6.7]],role='dimension_tick')
+            hv=float(high[0]-low[0]);ht=text((left+right)/2,bottom+6,prefix+f'{hv:.3f}')
+            line([[right+2,top],[right+11,top]],role='dimension_extension')
+            line([[right+2,bottom],[right+11,bottom]],role='dimension_extension')
+            vp=[[right+9,top],[right+9,bottom]]
+            vidx=line(vp,role='dimension_span')
+            vv=float(high[1]-low[1]);vt=text(right+14,(top+bottom)/2,prefix+f'{vv:.3f}',2.6)
+            for i,value,points,pidx,tidx in [(0,hv,hp,hidx,ht),(1,vv,vp,vidx,vt)]:
+                dimensions.append(dict(axis=view['axes'][i] if view['axes'] else None,value_mm=value,
+                    approximate=view['approximate'],basis=view['basis'],paper_endpoints_mm=points,
+                    path_index=pidx,text_index=tidx,effective_scale=effective_scale))
+        view_records.append(dict(name=view['name'],axes=view['axes'],basis=view['basis'],approximate=view['approximate'],
+            display_bounds=[view['display_low'].tolist(),view['display_high'].tolist()],
+            metric_bounds=[low.tolist(),high.tolist()],layout_bounds=[view['layout_low'].tolist(),view['layout_high'].tolist()],
+            projection_center_paper_mm=view['center'].tolist(),projection_origin=middle.tolist(),effective_scale=effective_scale,
+            dimensions=dimensions))
     from .fits import FitSettings,calculate_fit
     fits=[]
     for study in design.studies:
@@ -105,12 +170,22 @@ def sheet(design,settings):
         if len(fits)>4:text(x,87,f'+ {len(fits)-4} fits: see project / fit CSV',2.5)
     line([[7,7],[width-7,7],[width-7,height-7],[7,height-7],[7,7]])
     line([[7,height-28],[width-7,height-28]]);line([[width-100,height-28],[width-100,height-7]])
-    text(13,height-19,settings.title,4);text(13,height-11,'mm · Third angle · Overall dimensions',2.5)
+    text(13,height-19,settings.title,4);text(13,height-11,'mm · Third angle · Model BRep envelopes',2.5)
     text(width-52,height-19,f'{settings.number} / Rev {settings.revision}',3)
     text(width-52,height-11,f'Scale {scale:.4g}:1 · {settings.page}',2.7)
     if settings.notes:
         for i,row in enumerate(settings.notes.splitlines()[:4]):text(13,height-36-i*3.3,row[:110],2.4)
-    return dict(width=width,height=height,scale=scale,paths=paths,texts=texts)
+    text(13,height-32,'Curves sampled; label precision 0.001 mm is not manufacturing tolerance.',2.1)
+    provenance=dict(schema='cadstudio-drawing-envelopes-1',frame=frame,part_ids=part_ids,
+        design_definition_sha256=hashlib.sha256(design.model_dump_json().encode()).hexdigest(),
+        source_sha256=drawing_source_sha256(),
+        model_bounds_xyz_mm=[model_low.tolist(),model_high.tolist()],views=view_records,
+        label_decimals=3,paper_units='mm',model_units='mm',manufacturing_dimension_accuracy_verified=False,
+        physical_measurement=False,curve_sampling=dict(algorithm='OCCT HLR then projected-edge polylines',
+            tessellation_requested_mm=.01,fallback_non_linear_point_count=96,validated_global_error_mm=None),
+        other_part_occlusion='not evaluated' if frame=='part_local' else 'HLR on built compound',
+        extra_view_scope='sampled section display or clipped detail ROI; not whole-part model dimensions')
+    return dict(width=width,height=height,scale=scale,paths=paths,texts=texts,provenance=provenance)
 
 
 def extra_view(shape,settings):
@@ -175,6 +250,8 @@ def export_bom(design,path):
 
 def svg(sheet):
     w,h=sheet['width'],sheet['height'];out=[f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}mm" height="{h}mm" viewBox="0 0 {w} {h}">',f'<rect width="{w}" height="{h}" fill="white"/>']
+    if 'provenance' in sheet:
+        out.append('<metadata>'+escape(json.dumps(sheet['provenance'],ensure_ascii=False))+'</metadata>')
     for path in sheet['paths']:
         points=' '.join(f'{x:.5f},{y:.5f}' for x,y in path['points']);dash=' stroke-dasharray="1.8 1"' if path['hidden'] else '';color='#7b8691' if path['hidden'] else '#202832'
         out.append(f'<polyline points="{points}" fill="none" stroke="{color}" stroke-width="0.22"{dash}/>')

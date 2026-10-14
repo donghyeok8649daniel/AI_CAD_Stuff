@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from hashlib import sha256
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
@@ -16,6 +17,8 @@ from .constraints import anchors, solve_sketch, solve_assembly
 from .sketch_engine import extrude_regions, sketch_status, projected_face
 
 KERNEL_LOCK = RLock()
+from .preview_cache import MeshCache
+_preview_mesh_cache = MeshCache()
 _local_shape_session = ContextVar('local_shape_session', default=None)
 
 
@@ -261,7 +264,7 @@ def local_shape(design,part,_stack=()):
     return shape
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=2)
 def _build_cached(canonical_json):
     design = Design.model_validate_json(canonical_json)
     shapes = []
@@ -275,7 +278,7 @@ def _build_cached(canonical_json):
     return shapes
 
 
-def build(design: Design):
+def _resolve_assembly_pose(design):
     with KERNEL_LOCK:
         # Re-evaluate the selected local face before propagating a joint. This
         # makes a parent dimension edit move attached parts with the actual face.
@@ -299,19 +302,63 @@ def build(design: Design):
                     raise ValueError('면 조인트의 기준 방향이 변경되었습니다. 기준 면을 다시 선택하세요.')
                 frame.origin=list(plane.origin.toTuple());frame.x_direction=list(plane.xDir.toTuple())
         solve_assembly(design)
+
+
+
+def build(design: Design):
+    with KERNEL_LOCK:
+        _resolve_assembly_pose(design)
         return _build_cached(design.model_dump_json())
+
+
+def _rigid_pose_shapes(base, base_shapes, current):
+    """Reuse static world BReps only inside a checked identical local family."""
+    with KERNEL_LOCK:
+        if len(base_shapes)!=len(base.parts) or [p.id for p in base.parts]!=[p.id for p in current.parts]:
+            raise ValueError('강체 재생의 부품 목록이 바뀌었습니다.')
+        family=('assets','sketches','parameters','dimension_bindings','configurations')
+        def unchanged_family():
+            return (all(getattr(base,k)==getattr(current,k) for k in family)
+                    and all(a.geometry==p.geometry and a.features==p.features and a.source_part_id==p.source_part_id
+                            for a,p in zip(base.parts,current.parts)))
+        if not unchanged_family():raise ValueError('강체 재생의 지역 형상 입력이 바뀌었습니다.')
+        if any(getattr(f,'tool_part_id',None) and not f.suppressed for p in current.parts for f in p.features):
+            raise ValueError('몸체 연산이 연결된 형상은 강체 재생에서 지원하지 않습니다.')
+        _resolve_assembly_pose(current)
+        if not unchanged_family():raise ValueError('구속 계산 중 지역 형상이 바뀌었습니다.')
+        shapes=[]
+        for old,part,original in zip(base.parts,current.parts,base_shapes):
+            if part.transform==old.transform:shapes.append(original);continue
+            shape=local_shape(current,part);t=part.transform
+            for angle,axis in ((t.rx,(1,0,0)),(t.ry,(0,1,0)),(t.rz,(0,0,1))):
+                if angle:shape=shape.rotate((0,0,0),axis,angle)
+            shapes.append(shape.translate((t.x,t.y,t.z)))
+        return shapes
 
 
 def preview(design: Design):
     with KERNEL_LOCK, local_shape_session():
         shapes = build(design)
+        # build still resolves current face references and assembly constraints.
+        # Only display payload is reused; interference/readiness below stay live.
+        mesh_key = sha256(design.model_dump_json().encode('utf-8')).digest()
+        meshes = _preview_mesh_cache.get(mesh_key)
+        if meshes is None:
+            meshes = _preview_meshes(design, shapes)
+            _preview_mesh_cache.put(mesh_key, meshes)
+        return _preview_result(design, shapes, meshes)
+
+
+def _preview_meshes(design, shapes, check=lambda:None):
         meshes = []
         for part, shape in zip(design.parts, shapes):
+            check()
             vertices,triangles,triangle_faces,face_info=[],[],[],[]
             local=local_shape(design,part)
             local_faces=local.Faces()
             local_bounds=exact_bounds(local)
             for i,face in enumerate(shape.Faces()):
+                check()
                 vs,ts=face.tessellate(.04,.12)
                 start=len(vertices);vertices.extend(vs)
                 triangles.extend(tuple(idx+start for idx in tri) for tri in ts);triangle_faces.extend([i]*len(ts))
@@ -348,6 +395,10 @@ def preview(design: Design):
                 "solid":bool(shape.Solids()),
                 "bounds": [bb.xlen, bb.ylen, bb.zlen],
             })
+        return meshes
+
+
+def _preview_result(design, shapes, meshes, *, checked_collisions=None, check=lambda:None):
         from .native.saved_sketches import preview_sketches
         saved_sketches = preview_sketches(design)
         points = [p for sketch in saved_sketches for row in sketch['lines'] for p in row]
@@ -359,7 +410,9 @@ def preview(design: Design):
         minimum = [min(p[i] for p in points) for i in range(3)]
         maximum = [max(p[i] for p in points) for i in range(3)]
         from .interference import exact_collisions
-        collisions = exact_collisions(design, shapes)
+        check()
+        collisions = exact_collisions(design, shapes, check=check) if checked_collisions is None else checked_collisions
+        check()
         from .joint_readiness import joint_readiness
         from .preview_metadata import geometry_key
         return {"_geometry_key":geometry_key(design),"meshes": meshes, "sketches": saved_sketches, "stats": {
@@ -387,3 +440,17 @@ def export(design: Design, destination: Path, fmt: str):
             assembly.export(str(destination), "STEP")
         else:
             cq.exporters.export(cq.Compound.makeCompound(shapes), str(destination), exportType="STL", tolerance=0.025, angularTolerance=0.1)
+
+
+def _preview_same_checked_pose(design, shapes, checked_raw, collisions, check):
+    if design.model_dump()!=checked_raw:raise ValueError('이미 검사한 미리보기 자세가 바뀌었습니다.')
+    check()
+    mesh_key=sha256(design.model_dump_json().encode('utf-8')).digest()
+    meshes=_preview_mesh_cache.get(mesh_key)
+    if meshes is None:
+        meshes=_preview_meshes(design,shapes,check=check)
+        check();_preview_mesh_cache.put(mesh_key,meshes)
+    check()
+    result=_preview_result(design,shapes,meshes,checked_collisions=collisions,check=check)
+    if design.model_dump()!=checked_raw:raise ValueError('미리보기 구속 재계산이 이미 검사한 자세를 바꿨습니다.')
+    check();return result

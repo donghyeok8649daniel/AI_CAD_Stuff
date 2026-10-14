@@ -23,7 +23,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from .firmware_bundle import (FirmwareBundle, verify_bundle_binding, validate_relative_path,
-    bundle_source_files, library_search_paths)
+    bundle_source_files, library_search_paths, source_search_paths)
 
 MAX_DIAGNOSTIC_BYTES = 32 * 1024
 _COMPILERS = {'gcc', 'g++', 'clang', 'clang++', 'arm-none-eabi-gcc', 'arm-none-eabi-g++'}
@@ -86,7 +86,7 @@ def _preflight_c(bundle):
     """Keep preprocessing within the bundle or ordinary compiler headers."""
     issues = []
     paths = {file.path for file in bundle_source_files(bundle)}
-    search_paths = library_search_paths(bundle)
+    search_paths = source_search_paths(bundle)
     for file in bundle_source_files(bundle):
         if file.role != 'source' or PurePosixPath(file.path).suffix.lower() == '.py':
             continue
@@ -108,12 +108,12 @@ def _preflight_c(bundle):
                     path=file.path, line=line_number, message='This preprocessor directive is not permitted by the safe syntax checker.'))
             if command != 'include':
                 continue
-            match = re.fullmatch(r'[<"]([^>"]+)[>"]', argument)
+            match = re.fullmatch(r'(?:<([^>"]+)>|"([^>"]+)")', argument)
             if not match:
                 issues.append(FirmwareBuildDiagnostic(severity='error', code='computed_include',
                     path=file.path, line=line_number, message='Include filenames must be explicit safe literals, not macros or compiler options.'))
                 continue
-            header = match.group(1)
+            header = match.group(1) or match.group(2)
             try:
                 validate_relative_path(header)
             except ValueError:
@@ -370,6 +370,13 @@ def check_firmware_bundle(bundle: FirmwareBundle | dict, *, workspace=None, comp
         report.checks.append(FirmwareBuildCheck(name='board_wiring_binding', status='passed', message='The exact board and saved wiring match the candidate snapshot.'))
     else:
         report.diagnostics.append(FirmwareBuildDiagnostic(severity='pending', code='binding_not_checked', message='No current CAD workspace was provided; source identity is checked but current wiring is unverified.'))
+    for file in bundle_source_files(bundle):
+        if file.role in ('assembly', 'linker'):
+            report.diagnostics.append(FirmwareBuildDiagnostic(severity='pending', code='target_data_not_built',
+                path=file.path, message=f'{file.role} text is preserved with its SHA-256; it was not assembled, parsed, linked or executed by CAD.'))
+    if bundle.external_target:
+        report.diagnostics.append(FirmwareBuildDiagnostic(severity='pending', code='external_target_not_materialized',
+            message='Exact target SDK inventory metadata is recorded. External files were not embedded, resolved, installed or included in this CAD syntax check; external ELF evidence is separate.'))
     for library in bundle.libraries:
         report.checks.append(FirmwareBuildCheck(name='library:' + library.id,
             status='pending' if library.origin == 'external' else 'passed',
@@ -429,7 +436,7 @@ def check_firmware_bundle(bundle: FirmwareBundle | dict, *, workspace=None, comp
                     standard = '-std=c11' if language == 'c' else '-std=c++17'
                     argv = [str(compiler), '-fsyntax-only', '-fdiagnostics-color=never', '-x', language,
                             standard, '-I', str(directory)]
-                    for path in library_search_paths(bundle):
+                    for path in source_search_paths(bundle):
                         argv += ['-I', str(directory.joinpath(*PurePosixPath(path).parts))]
                     argv.append(str(directory.joinpath(*PurePosixPath(file.path).parts)))
                     outcome, returncode, output = _run_compiler(argv, directory, compiler, cancelled,

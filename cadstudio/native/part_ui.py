@@ -1,7 +1,7 @@
 """Visible selection tools and focus-aware native clipboard operations."""
 import json
 from copy import deepcopy
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt,QSignalBlocker
 from PySide6.QtGui import QColor,QAction
 from PySide6.QtWidgets import QApplication,QAbstractItemView,QToolBar,QMenu,QTreeWidgetItemIterator,QLineEdit,QColorDialog,QInputDialog
 from ..part_operations import group_parts,ungroup_parts,part_clipboard,paste_parts,delete_parts
@@ -69,11 +69,12 @@ class PartSelectionUI(PartInspectionUI):
 
     def selection_menu(self,pos,widget=None):
         menu=QMenu(self)
-        for key in ('orbit','isolate','show_all','explode','export_parts','rename_part','part_product','move_parts','copy','cut','paste','group','ungroup','group_select','electrical_register','color','delete'):menu.addAction(self.actions[key])
+        for key in ('orbit','isolate','hide_selected_temp','show_selected_temp','part_opacity','restore_part_display','show_all','explode','export_parts','rename_part','part_product','move_parts','copy','cut','paste','group','ungroup','group_select','electrical_register','color','delete'):menu.addAction(self.actions[key])
         menu.exec((widget or self.tree).mapToGlobal(pos))
 
     def selected_ids(self):
-        return [p['id'] for p in (self.document.design or {}).get('parts',[]) if p['id'] in self.selected_parts]
+        chosen=set(self.selected_parts)
+        return [p['id'] for p in (self.document.design or {}).get('parts',[]) if p['id'] in chosen]
 
     def rename_part(self):
         if self.busy or self.sketching:return
@@ -114,13 +115,15 @@ class PartSelectionUI(PartInspectionUI):
     def select_parts(self,ids,mode='replace',sync=True):
         if self.busy:return
         keep_ai=getattr(self,'_ai_panel_active',False)
-        ids=[i for i in dict.fromkeys(ids) if any(p['id']==i for p in (self.document.design or {}).get('parts',[]))]
+        valid={p['id'] for p in (self.document.design or {}).get('parts',[])}
+        ids=[i for i in dict.fromkeys(ids) if i in valid]
         if self.role_view is not None:ids=[i for i in ids if i not in self.viewport.hidden]
         current=list(self.selected_parts)
         if mode=='toggle':ids=[i for i in current if i not in ids] if ids and set(ids)<=set(current) else list(dict.fromkeys([*current,*ids]))
         elif mode=='add':ids=list(dict.fromkeys([*current,*ids]))
         self.selected_parts=ids;self.selected=ids[-1] if ids else None;self.selected_sketch=None;self.selected_profile=None
         self.viewport.clear_face();self.viewport.select_many(ids)
+        self.update_display_strip()
         if sync:self.sync_tree_selection()
         self.show_properties()
         if ids and not self.sketching:
@@ -136,11 +139,23 @@ class PartSelectionUI(PartInspectionUI):
         self.select_parts([p['id'] for p in (self.document.design or {}).get('parts',[]) if p['id'] not in self.viewport.hidden])
 
     def sync_tree_selection(self):
-        self.tree.blockSignals(True);it=QTreeWidgetItemIterator(self.tree)
-        while it.value():
-            item=it.value();data=item.data(0,Qt.ItemDataRole.UserRole)
-            item.setSelected(bool(data and data[0]=='part' and data[1] in self.selected_parts));it+=1
-        self.tree.blockSignals(False)
+        wanted=set(self.selected_parts)
+        with QSignalBlocker(self.tree):
+            index=getattr(self,'_part_tree_items',None)
+            if index is None:
+                it=QTreeWidgetItemIterator(self.tree)
+                while it.value():
+                    item=it.value();data=item.data(0,Qt.ItemDataRole.UserRole)
+                    value=bool(data and data[0]=='part' and data[1] in wanted)
+                    if item.isSelected()!=value:item.setSelected(value)
+                    it+=1
+                return
+            for item in self.tree.selectedItems():
+                data=item.data(0,Qt.ItemDataRole.UserRole)
+                if not (data and data[0]=='part' and data[1] in wanted):item.setSelected(False)
+            for identifier in wanted:
+                item=index.get(identifier)
+                if item is not None and not item.isSelected():item.setSelected(True)
 
     def tree_selection_changed(self):
         ids=[];groups={g['id']:g['part_ids'] for g in (self.document.design or {}).get('part_groups',[])}
@@ -174,6 +189,7 @@ class PartSelectionUI(PartInspectionUI):
         self.property_layout.addWidget(label('\n'.join(p['name'] for p in self.document.design['parts'] if p['id'] in ids),True,user_text=True))
         self.property_layout.addWidget(button('이동 / 회전 · M',self.move_parts,True))
         self.property_layout.addWidget(button('선택만 보기 / 돌아오기',self.isolate_parts))
+        self.add_part_display_buttons(self.property_layout)
         self.property_layout.addWidget(button('선택 부품별 STEP / STL 내보내기',self.export_selected_parts))
         self.property_layout.addWidget(button('● 선택 부품 색상',self.color_selection,True))
         self.property_layout.addWidget(button('부품 역할 / 기본색…',self.role_selection))
@@ -213,7 +229,7 @@ class PartSelectionUI(PartInspectionUI):
             if dialog.exec()!=QDialog.DialogCode.Accepted:return
             data=deepcopy(self.document.design)
             for part in data['parts']:
-                if part['id'] in ids:assign_role(part,dialog.role.currentData(),dialog.use_color.isChecked())
+                if part['id'] in ids:assign_role(part,dialog.role.currentData(),dialog.use_color.isChecked(),palette=self.role_colors)
             self.apply_design(data,'부품 역할 / 기본색 변경',{'part_ids':ids,'role':dialog.role.currentData()},after=lambda:self.select_parts(ids))
         finally:dialog.deleteLater()
 

@@ -1,6 +1,7 @@
 """Local UI catalogue. User-entered text and CAD documents are never translated."""
 import json
 import re
+import weakref
 from pathlib import Path
 from PySide6.QtCore import QObject,QEvent,QTimer
 from PySide6.QtGui import QAction
@@ -9,6 +10,22 @@ from shiboken6 import isValid
 
 
 PAIRS = '''전장 작업…|Electrical workspace…
+G474 전체 펌웨어 실행…|G474 full firmware execution…
+전장 제외|Exclude electrical parts
+선택 부품 일시 숨김|Temporarily hide selected parts
+선택 부품 다시 표시|Show selected parts again
+선택 부품 반투명…|Selected part transparency…
+선택 부품 반투명 · 보기 전용|Selected part transparency · display only
+임시 표시 변경 복원|Restore temporary display changes
+형상·색상·작업 기록은 그대로 유지합니다. 취소하면 이전 불투명도로 돌아갑니다.|Geometry, colors and history are preserved. Cancel restores the previous opacity.
+반투명 35%|Transparent 35%
+불투명 100%|Opaque 100%
+숨김|Hide
+표시|Show
+반투명…|Transparency…
+전체 질량·무게중심 입력 검토…|Whole assembly mass / CG input review…
+전체 질량·무게중심 입력 검토 · 읽기 전용|Whole assembly mass / CG input review · read only
+전체 질량·무게중심 입력 검토 · 미확인|Whole assembly mass / CG input review · unknown
 선택한 연결 수정|Update selected motion link
 운동 값은 허용 범위의 유한한 숫자여야 합니다.|Motion values must be finite numbers within the allowed range.
 운동 값에 숫자를 입력하세요.|Enter a number for the motion value.
@@ -738,6 +755,8 @@ EN.update({
 def translate(text,language):
     if language!='en' or not isinstance(text,str):return text
     if text in EN:return EN[text]
+    display_count=re.fullmatch(r'(선택|숨긴 부품) (\d+)',text)
+    if display_count:return ('Selected ' if display_count[1]=='선택' else 'Hidden parts ')+display_count[2]
     if text.startswith('자동 자세에 유효한 표면이 필요합니다: '):return 'Automatic orientation needs a valid surface: '+text[len('자동 자세에 유효한 표면이 필요합니다: '):]
     plate=re.fullmatch(r'출력판 (\d+)(?: · (\d+)개 부품)?',text)
     if plate:return 'Plate '+plate[1]+(' · '+plate[2]+' parts' if plate[2] else '')
@@ -768,18 +787,20 @@ class UILanguage(QObject):
         try:self.language=json.loads(self.path.read_text(encoding='utf-8')).get('language','ko')
         except (OSError,ValueError,AttributeError):pass
         if self.language not in ('ko','en'):self.language='ko'
+        self.pending={}
         self.refresh=QTimer(self);self.refresh.setSingleShot(True);self.refresh.timeout.connect(self.flush)
         app.installEventFilter(self)
 
     def field(self,obj,key,get,setter):
         current=get();records=getattr(obj,'_cad_translations',{});old=records.get(key)
+        if old and len(old)>2 and current==old[1] and old[2]==self.language:return
         source=old[0] if old and current==old[1] else current
         target=translate(source,self.language)
         if current!=target:
             blocked=obj.blockSignals(True)
             try:setter(target)
             finally:obj.blockSignals(blocked)
-        records[key]=(source,target);obj._cad_translations=records
+        records[key]=(source,target,self.language);obj._cad_translations=records
 
     def apply(self,obj):
         if not isValid(obj):return
@@ -807,21 +828,38 @@ class UILanguage(QObject):
         if self.active:return False
         self.active=True
         try:
-            if event.type() in (QEvent.Type.Show,QEvent.Type.LayoutRequest,QEvent.Type.ActionChanged) and not self.refresh.isActive():self.refresh.start(0)
+            if isinstance(obj,(QWidget,QAction)) and event.type() in (QEvent.Type.Show,QEvent.Type.LayoutRequest,QEvent.Type.ActionChanged,QEvent.Type.ToolTipChange,QEvent.Type.WindowTitleChange):
+                self.pending[id(obj)]=weakref.ref(obj)
+                if not self.refresh.isActive():self.refresh.start(16)
         finally:self.active=False
         return False
 
-    def flush(self):
+    def flush(self,all_widgets=False):
+        self.refresh.stop()
+        pending=self.pending;self.pending={}
         self.active=True
         try:
-            for widget in self.app.allWidgets():self.apply(widget)
+            if all_widgets:
+                for widget in self.app.allWidgets():self.apply(widget)
+            else:
+                objects={key:obj for key,ref in pending.items() if (obj:=ref()) is not None and isValid(obj)}
+                seen=set()
+                for key,obj in objects.items():
+                    parent=obj.parent();covered=False
+                    while parent is not None:
+                        if id(parent) in objects:covered=True;break
+                        parent=parent.parent()
+                    if covered:continue
+                    scope=[obj]+(obj.findChildren(QWidget) if isinstance(obj,QWidget) else [])
+                    for child in scope:
+                        if id(child) not in seen:seen.add(id(child));self.apply(child)
         finally:self.active=False
 
     def set_language(self,language,persist=True):
         if language not in ('ko','en'):raise ValueError('Unsupported UI language')
         if persist:
             self.path.parent.mkdir(parents=True,exist_ok=True);temporary=self.path.with_suffix('.tmp');temporary.write_text(json.dumps({'language':language}),encoding='utf-8');temporary.replace(self.path)
-        self.language=language;self.flush()
+        self.language=language;self.flush(all_widgets=True)
 
 
 def install_language(path):
@@ -860,4 +898,43 @@ EN.update({
     '극성 커패시터 · 첫 단자가 +':'Polarized capacitor · first terminal is +',
     '정격 전압 · 커패시터 0은 미입력':'Rated voltage · 0 means unspecified for a capacitor',
     '커패시터는 DC 정상 상태에서 개방, 코일은 입력한 권선 저항으로 계산합니다. 충방전·역기전력·AC·PWM 구동 해석은 포함하지 않습니다.':'Capacitors are open at steady DC; coils use the entered winding resistance. Charging, flyback, AC and PWM drive behavior are not simulated.',
+})
+EN.update({
+    '간섭 검사 / 조정…':'Inspect / adjust interference…',
+    '간섭 검사 / 조정':'Inspect / adjust interference',
+    '조정할 부품':'Part to adjust',
+    '이동 / 회전으로 조정…':'Adjust by moving / rotating…',
+    '치수로 조정…':'Adjust dimensions…',
+    '관절 구동…':'Drive joints…',
+    '분리 제안 여유':'Suggested separation clearance',
+    '간섭 이동 / 회전 조정':'Adjust interference by moving / rotating',
+    '간섭 치수 조정':'Adjust interference dimensions',
+})
+
+EN.update({'코드 → 모터 RPM 검토…':'Code → motor RPM review…'})
+EN.update({
+    '반투명':'Transparency','복원':'Restore','반투명 60%':'Transparent 60%',
+    '직접 조절…':'Custom opacity…','선택 부품 복원':'Restore selected parts',
+    '임시 변경 전체 복원':'Restore all temporary changes','숨긴 부품…':'Hidden parts…',
+    '숨긴 부품 다시 표시':'Show hidden parts','전체 선택':'Select all','선택 부품 표시':'Show selected parts',
+    '표시할 부품 선택 · Shift/Ctrl로 여러 부품 선택':'Select hidden parts · Shift/Ctrl for multiple parts',
+    '자동 조정…':'Automatic adjustment…','간섭 자동 조정 미리보기':'Automatic interference adjustment preview',
+    '움직일 수 있는 쪽 자동 선택':'Choose a movable side automatically','이동 부품':'Moving part','검색 축':'Search axes',
+    '분리 여유':'Separation allowance','최대 이동':'Maximum movement','자동 조정안 찾기':'Find automatic adjustment',
+    '아직 검색하지 않았습니다.':'No search yet.','설정이 바뀌었습니다. 다시 검색하세요.':'Settings changed. Search again.',
+    'Codex로 조정안 재검토':'Review adjustment with Codex','AI 검토 취소':'Cancel AI review',
+    '3D 관절 회전 재생…':'3D joint rotation playback…','3D 관절 회전 재생 · 보기 전용':'3D joint rotation playback · display only',
+    '모터 방정식 · 상태 행렬…':'Motor equations / state matrices…','모터 방정식 · 상태 행렬':'Motor equations / state matrices',
+    '종료 관절각':'End joint angle','선택 범위의 형상·간섭 검사':'Check selected travel geometry / interference',
+    '검사 취소':'Cancel check','표시용 관절 회전 속도':'Display scenario joint speed','1회':'Once',
+    '1바퀴 반복 · 끝 자세가 같을 때':'Repeat a full turn · same end pose required','검사한 범위 왕복':'Bounce within checked range',
+    '재생':'Play','중지 · 원래 자세':'Stop / restore original pose'
+})
+EN.update({
+    '가장 큰 선택각도 기준 표시 RPM':'Display RPM referenced to the largest selected angular travel',
+    '선택 각도 범위가 짧은 관절은 비례해 느리게 움직입니다. 실제 모터/감속비 RPM으로 환산하지 않습니다.':'Joints with shorter selected travel move proportionally slower. These values are not converted to actual motor or gearbox RPM.',
+    '관절과 종속 부품을 실제 표본 자세로 검사한 뒤 재생합니다. 원본 위치·구속·이력은 바꾸지 않습니다.':'Check actual sampled poses of joints and dependent parts before playback. Original positions, constraints and history are preserved.',
+    'CW/CCW는 해당 관절의 로컬 +Z 기준 수학적 방향입니다. 실제 ESC·프로펠러 방향은 따로 확인합니다.':'CW/CCW are mathematical directions around the joint local +Z axis. Actual ESC and propeller directions require separate verification.',
+    '입력 RPM은 표시 시나리오이며 실제 모터 RPM·전기구동·힘/열/비행 검증이 아닙니다. 최대 2도 표본 검사이며 표본 사이 연속 충돌·공차는 미검증입니다.':'Entered RPM is a display scenario, not verified motor speed, electrical drive, force, heat or flight. Poses are sampled at up to 2 degrees; continuous collision and tolerances between samples remain unverified.',
+    '회전 관절과 종료 각도를 고른 뒤 검사하세요. 아직 계산·재생하지 않았습니다.':'Select rotating joints and end angles, then run the check. Nothing has been calculated or played yet.'
 })

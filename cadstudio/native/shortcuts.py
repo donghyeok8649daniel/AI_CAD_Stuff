@@ -15,8 +15,32 @@ class ShortcutRouter(QObject):
             if event.type()==QEvent.Type.KeyPress:w.show_ai_panel()
             event.accept();return True
         focus=QApplication.focusWidget()
+        # Ctrl+Shift+I is a window-level CAD import QAction, so protect PCB
+        # even when focus is in one of its text editors (before their return).
+        if not w.sketching and w.workspace.currentData()=='pcb' and event.key()==Qt.Key.Key_I and event.modifiers()==(Qt.KeyboardModifier.ControlModifier|Qt.KeyboardModifier.ShiftModifier):
+            event.accept();return True
         if isinstance(focus,(QLineEdit,QPlainTextEdit,QTextEdit,QAbstractSpinBox,QComboBox)):
             if event.type()==QEvent.Type.ShortcutOverride and event.modifiers()&Qt.KeyboardModifier.ControlModifier and event.key() in (Qt.Key.Key_A,Qt.Key.Key_C,Qt.Key.Key_V,Qt.Key.Key_X,Qt.Key.Key_Z,Qt.Key.Key_Y):event.accept();return True
+            return False
+        if not w.sketching and w.workspace.currentData()=='pcb':
+            key=event.key();mods=event.modifiers();ctrl=Qt.KeyboardModifier.ControlModifier;shift=Qt.KeyboardModifier.ShiftModifier
+            # Claim local text/table editing shortcuts before QAction can run
+            # CAD Undo/Redo. KeyPress stays with the focused PCB widget; this
+            # branch never falls through to CAD copy/cut/group dispatch.
+            local_edit=(mods==ctrl and key in (Qt.Key.Key_A,Qt.Key.Key_C,Qt.Key.Key_V,Qt.Key.Key_X,Qt.Key.Key_Z,Qt.Key.Key_Y)) or (mods==(ctrl|shift) and key==Qt.Key.Key_Z)
+            if local_edit:
+                if event.type()==QEvent.Type.ShortcutOverride:event.accept();return True
+                return False
+            if mods==Qt.KeyboardModifier.NoModifier and key in (Qt.Key.Key_F,Qt.Key.Key_A):
+                if event.type()==QEvent.Type.KeyPress and not w.busy:
+                    (w.fit if key==Qt.Key.Key_F else w.show_ai_panel)()
+                event.accept();return True
+            if mods==Qt.KeyboardModifier.NoModifier and key==Qt.Key.Key_Escape:
+                # PCBBoardCanvas owns Escape's manual-route cancellation.
+                if event.type()==QEvent.Type.ShortcutOverride:event.accept();return True
+                return False
+            cad_key=(mods==Qt.KeyboardModifier.NoModifier and key in (Qt.Key.Key_Delete,Qt.Key.Key_F2,Qt.Key.Key_B,Qt.Key.Key_J,Qt.Key.Key_T,Qt.Key.Key_M,Qt.Key.Key_S,Qt.Key.Key_E,Qt.Key.Key_H,Qt.Key.Key_I,Qt.Key.Key_U,Qt.Key.Key_1,Qt.Key.Key_2,Qt.Key.Key_3,Qt.Key.Key_4)) or (mods==ctrl and key in (Qt.Key.Key_D,Qt.Key.Key_G)) or (mods==(ctrl|shift) and key in (Qt.Key.Key_G,Qt.Key.Key_I)) or (mods==shift and (key==Qt.Key.Key_E or Qt.Key.Key_1<=key<=Qt.Key.Key_6))
+            if cad_key:event.accept();return True
             return False
         if not w.sketching and w.workspace.currentData()=='circuit':
             key=event.key();mods=event.modifiers()

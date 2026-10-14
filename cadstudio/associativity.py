@@ -10,9 +10,11 @@ def copy_profile(target,source):
         else:target.pop(key,None)
 
 
-def resolve_profiles(raw):
+def resolve_profiles(raw, *, _owned=False):
     if not isinstance(raw,dict):return raw
-    raw=deepcopy(raw)
+    # Design's parameter evaluator already owns a deep copy. Keep the public
+    # standalone operation independent, without copying the owned state twice.
+    if not _owned:raw=deepcopy(raw)
     for key in ('parts','sketches'):
         if not isinstance(raw.get(key,[]),list):raise ValueError('부품과 스케치는 목록이어야 합니다.')
         raw[key]=[x.model_dump() if hasattr(x,'model_dump') else x for x in raw.get(key,[])]

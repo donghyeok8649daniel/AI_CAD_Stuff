@@ -38,7 +38,8 @@ def _snapshot(entries, *, name, version, ecosystem, origin, cancelled):
         validate_relative_path(path)
         validate_relative_path('libraries/' + library_id(name) + '/' + path)
         suffix = PurePosixPath(path).suffix.casefold()
-        role = ('source' if suffix in SOURCE_SUFFIXES else 'configuration' if suffix == '.json'
+        role = ('assembly' if suffix == '.s' else 'linker' if suffix == '.ld' else
+                'source' if suffix in SOURCE_SUFFIXES else 'configuration' if suffix == '.json'
                 else 'documentation' if suffix in {'.txt', '.md'} or PurePosixPath(path).name.casefold() in
                 {'license', 'license-mit', 'license-apache', 'copying', 'notice', 'readme', 'library.properties'} else None)
         if role is None or any(part.casefold() in _SKIP_DIRECTORIES for part in PurePosixPath(path).parts):

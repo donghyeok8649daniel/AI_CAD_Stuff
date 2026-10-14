@@ -10,6 +10,7 @@ def geometry_inputs(design):
     data = design.model_dump() if isinstance(design, Design) else deepcopy(design)
     data.pop('name', None)
     data.pop('electrical', None)
+    data.pop('pcb', None)
     for part in data.get('parts', []):
         # Material changes affect physical studies, not BREP/mesh/collision data.
         # Those studies read the current Design independently of this cache.

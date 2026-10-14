@@ -134,6 +134,26 @@ def classify_print_part(part):
     return print_part_classification(part)['kind']
 
 
+def print_exclusions(design,selected,*,exclude_fasteners=False,exclude_electrical=False):
+    """One shared output-only exclusion gate for preview and auto orientation."""
+    if not isinstance(exclude_fasteners,bool) or not isinstance(exclude_electrical,bool):
+        raise ValueError('출력 제외 옵션을 확인하세요.')
+    from .role_memberships import role_memberships
+    memberships=role_memberships(design);details=[]
+    parts=design.get('parts',[]) if isinstance(design,dict) else design.parts
+    for part in parts:
+        pid=part['id'] if isinstance(part,dict) else part.id
+        if pid not in selected:continue
+        name=part['name'] if isinstance(part,dict) else part.name
+        if exclude_electrical and 'electrical' in memberships.get(pid,set()):
+            details.append(dict(id=pid,name=name,kind='electrical',source='declared_membership',
+              reason='저장된 전장 역할·회로 연결 또는 명시된 모터 분류입니다. 동력 역할과 겹치는 모터도 제외합니다.'))
+        elif exclude_fasteners:
+            classification=print_part_classification(part)
+            if classification['kind'] in ('bolt','nut'):details.append(dict(id=pid,name=name,**classification))
+    return sorted(details,key=lambda item:item['id'])
+
+
 def _print_options(bed, rotation, gap):
     def finite(value):
         return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
@@ -191,7 +211,7 @@ def _fit_rect(width, length, bed, occupied, gap):
 
 def prepare_print_plates(raw, identifiers, *, rotation=(0, 0, 0), bed=(220, 220, 250),
                          gap=5, placements=None, plate_assignments=None, copies=None,
-                         exclude_fasteners=False, cancelled=None):
+                         exclude_fasteners=False, exclude_electrical=False, cancelled=None):
     """Return (plates, previews, blocking warnings), leaving source data intact.
 
     XY positions are bed-centered; rotations affect only print geometry. Manual
@@ -206,15 +226,13 @@ def prepare_print_plates(raw, identifiers, *, rotation=(0, 0, 0), bed=(220, 220,
     selected = set(identifiers)
     if not selected or not selected <= {p.id for p in design.parts}:
         raise ValueError('출력할 부품을 선택하세요.')
-    if not isinstance(exclude_fasteners, bool):
-        raise ValueError('체결 부품 제외 옵션을 확인하세요.')
+    excluded_details=print_exclusions(design,selected,exclude_fasteners=exclude_fasteners,exclude_electrical=exclude_electrical)
     instances = _copy_ids(design.parts, selected, copies)
     all_instance_ids = {i for _, i, _ in instances}
-    excluded = sorted(p.id for p in design.parts if p.id in selected and exclude_fasteners and classify_print_part(p) in ('bolt', 'nut'))
-    excluded_details = [dict(id=p.id, name=p.name, **print_part_classification(p)) for p in design.parts if p.id in excluded]
+    excluded = [item['id'] for item in excluded_details]
     instances = [(p, i, n) for p, i, n in instances if p.id not in excluded]
     if not instances:
-        raise ValueError('체결 부품 제외 후 출력할 부품이 없습니다. 선택을 확인하세요.')
+        raise ValueError('전장·볼트·너트 제외 후 출력할 부품이 없습니다. 선택 또는 제외 옵션을 확인하세요.')
     # Retain controls for currently unselected source bodies without applying
     # them. Unknown instance keys are rejected (stale removed copies too).
     allowed_ids = all_instance_ids | {p.id for p in design.parts}
@@ -449,7 +467,7 @@ def _orientation_candidates(mesh):
 
 
 def recommend_print_orientations(raw, identifiers, *, rotation=(0, 0, 0), bed=(220, 220, 250),
-                                 gap=5, placements=None, copies=None, exclude_fasteners=False,
+                                 gap=5, placements=None, copies=None, exclude_fasteners=False, exclude_electrical=False,
                                  cancelled=None, overhang_angle=45., max_seconds=30.):
     """Recommend output-only poses from bounded real surface geometry.
 
@@ -476,8 +494,7 @@ def recommend_print_orientations(raw, identifiers, *, rotation=(0, 0, 0), bed=(2
     selected = set(identifiers)
     if not selected or not selected <= {p.id for p in design.parts}:
         raise ValueError('출력할 부품을 선택하세요.')
-    if not isinstance(exclude_fasteners, bool):
-        raise ValueError('체결 부품 제외 옵션을 확인하세요.')
+    details=print_exclusions(design,selected,exclude_fasteners=exclude_fasteners,exclude_electrical=exclude_electrical)
     instances = _copy_ids(design.parts, selected, copies)
     allowed = {i for _, i, _ in instances} | {p.id for p in design.parts}
     poses = deepcopy(placements or {})
@@ -487,11 +504,10 @@ def recommend_print_orientations(raw, identifiers, *, rotation=(0, 0, 0), bed=(2
         if not isinstance(pose, dict) or set(pose)-{'x','y','rx','ry','rz'} or any(
                 not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v) or abs(v)>10000 for v in pose.values()):
             raise ValueError('출력 배치는 유한한 위치·각도여야 합니다.')
-    excluded = sorted(p.id for p in design.parts if p.id in selected and exclude_fasteners and classify_print_part(p) in ('bolt','nut'))
-    details = [dict(id=p.id, name=p.name, **print_part_classification(p)) for p in design.parts if p.id in excluded]
+    excluded = [item['id'] for item in details]
     instances = [(p, i, n) for p, i, n in instances if p.id not in excluded]
     if not instances:
-        raise ValueError('체결 부품 제외 후 출력할 부품이 없습니다. 선택을 확인하세요.')
+        raise ValueError('전장·볼트·너트 제외 후 출력할 부품이 없습니다. 선택 또는 제외 옵션을 확인하세요.')
     acquired = False
     try:
         while not acquired:

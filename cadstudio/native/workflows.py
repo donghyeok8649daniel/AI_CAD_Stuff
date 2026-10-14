@@ -21,6 +21,27 @@ def choice(items):
     return c
 
 
+def joint_pose_note(collisions,report,travel,changed):
+    """Truthful scope and blockers; does not change motion acceptance policy."""
+    from .mcu_pin_dialog import word
+    if travel and travel.get('blocked'):
+        text=word('구동 중 체적 겹침이 발견돼 적용이 차단됐습니다.',
+                  'Motion application is blocked by an overlapping sampled pose.')
+    elif (report or {}).get('blocked'):
+        text=word('새로 생기거나 증가한 체적 겹침 때문에 적용이 차단됐습니다.',
+                  'Application is blocked by new or increased overlap.')
+    elif collisions:
+        text=word(f'현재 자세에 체적 겹침 {len(collisions)}쌍이 남아 있습니다. 구속값 해석은 조립·구동 적격을 의미하지 않습니다.',
+                  f'The current pose retains {len(collisions)} overlap pairs. Solved constraints do not establish assembly or motion qualification.')
+    else:
+        text=word('현재 자세에 체적 겹침이 없습니다. 전체 구동 범위·하중 정격은 별도 확인해야 합니다.',
+                  'No overlap at the current pose. Full travel and load ratings need separate verification.')
+    if not changed:
+        text+=' '+word('관절값 변경 없음 · 적용할 새 동작이 없습니다.',
+                      'Joint values unchanged · no new motion to apply.')
+    return text
+
+
 class PreviewDialog(QDialog):
     """Only the latest successfully checked candidate can be committed."""
     def __init__(self,parent,title,instructions):
@@ -329,9 +350,10 @@ class JointDriveDialog(PreviewDialog):
     def present(self):
         super().present();names={p.id:p.name for p in self.checked.parts};collisions=self.result['stats']['collisions'];self.collisions.setText('체적 간섭 없음' if not collisions else '간섭 부품\n'+'\n'.join(f"{names[c['a']]} ↔ {names[c['b']]}\n{c['volume']:.3f} mm³" for c in collisions));self.collisions.setStyleSheet('color:#f3ac97;' if collisions else 'color:#89d6c0;')
         self.survey_button.setEnabled(bool(self.range_axis.count() and not self.range_running))
+        changed=any(self.inputs[(mid,key)].value()!=next(m for m in self.base['mates'] if m['id']==mid)[key] for mid,key in self.changed_axes)
         if self.range_report.text().startswith('자세가 바뀌었습니다.'):
-            self.range_report.setText('현재 자세가 유효합니다. 선택한 축의 양쪽 한계를 검사할 수 있습니다.')
-        self.apply_button.setEnabled(any(self.inputs[(mid,key)].value()!=next(m for m in self.base['mates'] if m['id']==mid)[key] for mid,key in self.changed_axes))
+            self.range_report.setText(joint_pose_note(collisions,self.interference,self.travel,changed))
+        self.apply_button.setEnabled(changed)
         for mate in self.checked.mates:
             if mate.id in self.passive or any(mate.id==j for j,k in self.linked_axes):
                 for key in ('x','y','z','rx','ry','rz'):
