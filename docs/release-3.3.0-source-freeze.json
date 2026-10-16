@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "version": "3.3.0",
-  "build_id": "public-3.3.0-pcb-flexible-collision-20261016",
-  "created_utc": "2026-10-16T13:16:35.919370+00:00",
-  "application_modules": 283,
+  "build_id": "public-3.3.0-pcb-flexible-collision-20261016-r1",
+  "created_utc": "2026-10-16T13:58:43.641948+00:00",
+  "application_modules": 284,
   "files": [
     {
       "path": ".gitattributes",
@@ -17,8 +17,8 @@
     },
     {
       "path": "cadstudio/__init__.py",
-      "bytes": 82,
-      "sha256": "2c4cbd63d6c65ecde4bd566677fa3554677ebcd089040bddcb71463d93062ede"
+      "bytes": 85,
+      "sha256": "116bcff4e5756a85b8742aa78ecc14cd37f00e03c46e1e571bc93b6c07768272"
     },
     {
       "path": "cadstudio/advanced_geometry.py",
@@ -1357,8 +1357,8 @@
     },
     {
       "path": "cadstudio/program_drive_trust_anchor.py",
-      "bytes": 1231,
-      "sha256": "6ec42614a4d9b7ce66181a26ded051b6396a82cd6267e67c1c89cb8e0578ae5e"
+      "bytes": 1234,
+      "sha256": "11fba4fdf0f764e7064dcb60366117ab6cba3e812ce46b3fea96351aa513f5ea"
     },
     {
       "path": "cadstudio/program_simulation.py",
@@ -1434,6 +1434,11 @@
       "path": "cadstudio/updater.py",
       "bytes": 18671,
       "sha256": "abb2b226546af19ab526b6ab05402dd94f39fa27fde8a6ecfca808c2182f0975"
+    },
+    {
+      "path": "cadstudio/windows_identity.py",
+      "bytes": 1265,
+      "sha256": "f11ee90b8fb1ab4abb6fc873b5c55ab1df4cf79c94b52940b88269fff739aaf1"
     },
     {
       "path": "cadstudio/work_planes.py",
@@ -2652,8 +2657,8 @@
     },
     {
       "path": "docs/RELEASE_3_3_0_KO.md",
-      "bytes": 3007,
-      "sha256": "c70a83083fed491d8b1b3d1d5d727da1c8a56cfef783d20531e6c042b2727ecb"
+      "bytes": 3222,
+      "sha256": "376634dc08d87d85772353e56a070dcc89fe47e021ffc34221e7da299c4d722f"
     },
     {
       "path": "docs/repair2111-applied.png",
@@ -3627,8 +3632,8 @@
     },
     {
       "path": "native_desktop.py",
-      "bytes": 35323,
-      "sha256": "597fa240b023fb5328f5aa6040b696d869fd461754eaf294cb6fc21481cbf0d1"
+      "bytes": 35536,
+      "sha256": "1dd5f00b908120ad6599ca683e32c52703b6b5a24148f726b69140fd4e1e1336"
     },
     {
       "path": "NativeCAD.spec",
@@ -4796,6 +4801,11 @@
       "sha256": "885fba34372ec853217d02d596c9244288bb49cb314635855efd342e702e6914"
     },
     {
+      "path": "tests/test_windows_identity338.py",
+      "bytes": 7181,
+      "sha256": "304777cb338e2bd8e83eec96a672427fd928d62f18e9d784133803434a4ce911"
+    },
+    {
       "path": "tests/test_wire_editing.py",
       "bytes": 6449,
       "sha256": "8b60af7c9bd9aaa02464883af9aded5ff4f90caee9ae0f068fe72b60f97d3d1a"
@@ -4836,29 +4846,19 @@
       "sha256": "6917178b792b3e4c2d5d3013353bf4545f7972343d9dd01dc7adcb6bee6c4fd6"
     }
   ],
-  "base_freeze_sha256": "c78f5f091ad5f0d3a9b48974d9babeb57d9fe6d6b3dab1c4e307b98b90199b49",
+  "base_freeze_sha256": "cb0ae7b9beb8b1c8ac011ce76cb1d85e289b3d19db11a32ed3e2a45ee7aa1e38",
   "changed_files": [
-    "README.md",
     "cadstudio/__init__.py",
-    "cadstudio/interference.py",
-    "cadstudio/kernel.py",
-    "cadstudio/motion_playback.py",
-    "cadstudio/native/part_product_dialog.py",
-    "cadstudio/native/viewport.py",
-    "cadstudio/preview_metadata.py",
     "cadstudio/program_drive_trust_anchor.py",
-    "native_desktop.py",
-    "tests/test_part_product_native.py"
+    "docs/RELEASE_3_3_0_KO.md",
+    "native_desktop.py"
   ],
   "new_files": [
-    "cadstudio/collision_policy.py",
-    "cadstudio/flexible_wire_package_check.py",
-    "cadstudio/profile_paths.py",
-    "docs/RELEASE_3_3_0_KO.md",
-    "tests/test_flexible_wire_collisions337.py",
-    "tests/test_flexible_wire_package337.py",
-    "tests/test_profile_paths337.py"
+    "cadstudio/windows_identity.py",
+    "tests/test_windows_identity338.py"
   ],
   "user_projects_or_profiles_included": false,
-  "scope": "official integration of complete PCB4 source plus explicit flexible-wire policy, classification UI and profile continuity"
+  "source_revision": 1,
+  "reason": "Stable explicit Windows identity before all UI paths; unchanged PCB4/wire/profile mechanisms",
+  "windows_API_source": "https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-setcurrentprocessexplicitappusermodelid"
 }

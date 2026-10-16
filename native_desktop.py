@@ -118,6 +118,8 @@ def parse_startup_args(argv=None):
     return args
 
 def main():
+    from cadstudio.windows_identity import APP_USER_MODEL_ID,set_windows_app_identity
+    app_identity_set=set_windows_app_identity()
     args=parse_startup_args()
     if args.flexible_wire_policy_check:
         try:
@@ -284,6 +286,7 @@ def main():
         return run_probe(args.graphics_probe[0],Path(args.graphics_probe[1]),data)
     faulthandler.enable(file=log,all_threads=True)
     log.write(f'\nSTART {__version__} pid={os.getpid()}\n')
+    if app_identity_set:log.write('APP_USER_MODEL_ID '+APP_USER_MODEL_ID+'\n')
     from cadstudio.native.graphics import prepare,recovery_dialog
     graphics=None if (args.self_test or args.setup_ai or args.setup_codex) else prepare(data,args.renderer)
     log.write('GRAPHICS '+str(graphics)+'\n')
