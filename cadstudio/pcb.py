@@ -1,4 +1,4 @@
-"""Declarative, bounded two/four-layer PCB editing and geometric design aids.
+"""Declarative, bounded 2/4/6/8-layer PCB editing and geometric design aids.
 
 The layout rules are geometric design aids, never manufacturing acceptance.
 No executable plugins, imported scripts, inferred prices, or device models.
@@ -17,12 +17,13 @@ from typing import Annotated, Literal
 from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
 from . import pcb_geometry as geometry
+from .pcb_cost_models import PCBCostInputs
 
 Id = Annotated[str, Field(min_length=1, max_length=24, pattern=r'^[A-Za-z0-9][A-Za-z0-9_-]*$')]
 PinId = Annotated[str, Field(min_length=1, max_length=24, pattern=r'^[A-Za-z0-9][A-Za-z0-9_-]*$')]
 Coord = Annotated[float, Field(ge=-1000, le=1000)]
-Layer = Literal['F.Cu', 'In1.Cu', 'In2.Cu', 'B.Cu']
-COPPER_LAYERS = ('F.Cu', 'In1.Cu', 'In2.Cu', 'B.Cu')
+Layer = Literal['F.Cu', 'In1.Cu', 'In2.Cu', 'In3.Cu', 'In4.Cu', 'In5.Cu', 'In6.Cu', 'B.Cu']
+COPPER_LAYERS = ('F.Cu', 'In1.Cu', 'In2.Cu', 'In3.Cu', 'In4.Cu', 'In5.Cu', 'In6.Cu', 'B.Cu')
 
 
 class PCBModel(BaseModel):
@@ -81,7 +82,7 @@ class PCBPin(PCBModel):
     rotation_deg: float = Field(default=0, ge=-360, le=360)
     roundrect_rratio: float = Field(default=.25, ge=0, le=.5)
     drill_mm: float = Field(default=0, ge=0, le=20, description='Circular hole only; oval/slot drills are unsupported and must be rejected.')
-    layers: list[Layer] = Field(default_factory=lambda: ['F.Cu'], min_length=1, max_length=4)
+    layers: list[Layer] = Field(default_factory=lambda: ['F.Cu'], min_length=1, max_length=8)
 
     @model_serializer(mode='wrap')
     def legacy_circle_snapshot(self, handler):
@@ -127,6 +128,65 @@ class PCBDeviceModel(PCBModel):
         return self
 
 
+class PCBPinSpec(PCBModel):
+    """Explicit operating declarations, never parsed absolute maxima or PSU advice."""
+    number: PinId
+    logical_pin_key: str = Field(default='', max_length=80)
+    function: str = Field(default='', max_length=160)
+    role: Literal['unknown','power_in','power_out','ground','signal_in','signal_out','bidirectional','passive'] = 'unknown'
+    operating_min_v: float | None = Field(default=None, ge=-1000, le=1000)
+    operating_max_v: float | None = Field(default=None, ge=-1000, le=1000)
+    operating_current_a: float | None = Field(default=None, ge=0, le=100000)
+    current_limit_a: float | None = Field(default=None, gt=0, le=100000)
+    ground_reference_net: Id | None = None
+    source_url: str = Field(default='', max_length=500)
+    condition: str = Field(default='', max_length=500)
+
+    @model_validator(mode='after')
+    def operating_declaration(self):
+        source_url(self.source_url)
+        if self.operating_min_v is not None and self.operating_max_v is not None and self.operating_min_v > self.operating_max_v:
+            raise ValueError('Operating voltage minimum exceeds maximum.')
+        return self
+
+
+class PCBLibraryMetadata(PCBModel):
+    manufacturer: str = Field(default='', max_length=160)
+    model: str = Field(default='', max_length=160)
+    catalog_id: str = Field(default='', max_length=100)
+    source_url: str = Field(default='', max_length=500)
+    revision: str = Field(default='', max_length=120)
+    coordinate_units: Literal['mm'] = 'mm'
+    pin1_number: PinId | None = None
+    mounted_side: Literal['F','B'] | None = None
+    orientation_reference: str = Field(default='', max_length=160)
+    body_height_mm: float | None = Field(default=None, gt=0, le=500)
+    service_clearance_mm: float | None = Field(default=None, ge=0, le=500)
+    geometry_complete_declared: bool = False
+    footprint_review_state: Literal['user_declared','source_reviewed'] = 'user_declared'
+    reviewed_by: str = Field(default='', max_length=120)
+    reviewed_date: str = Field(default='', max_length=10)
+    review_note: str = Field(default='', max_length=1000)
+    pin_specs: list[PCBPinSpec] = Field(default_factory=list, max_length=144)
+    bom_role: Literal['purchased','internal_model'] = 'purchased'
+    module_parent_ref: Id | None = None
+
+    @model_validator(mode='after')
+    def declaration(self):
+        source_url(self.source_url)
+        if self.reviewed_date:
+            date.fromisoformat(self.reviewed_date)
+        if len({p.number for p in self.pin_specs}) != len(self.pin_specs):
+            raise ValueError('Duplicate library pin specification number.')
+        if self.bom_role == 'internal_model' and not self.module_parent_ref:
+            raise ValueError('An internal module model needs an explicit purchased parent reference.')
+        if self.bom_role == 'purchased' and self.module_parent_ref:
+            raise ValueError('Only internal module models may have a purchased parent reference.')
+        if self.footprint_review_state == 'source_reviewed' and not all((self.source_url,self.revision,self.reviewed_by,self.reviewed_date,self.review_note,self.geometry_complete_declared,self.pin1_number,self.mounted_side,self.orientation_reference,self.body_height_mm is not None,self.service_clearance_mm is not None)):
+            raise ValueError('Source-reviewed footprint needs complete geometry and an explicit dated reviewer/source/revision record.')
+        return self
+
+
 class PCBComponent(PCBModel):
     ref: Id
     value: str = Field(default='', max_length=120)
@@ -143,6 +203,14 @@ class PCBComponent(PCBModel):
     model: PCBDeviceModel = Field(default_factory=PCBDeviceModel)
     quote: PCBQuote = Field(default_factory=PCBQuote)
     fitted: bool = True
+    library_metadata: PCBLibraryMetadata | None = None
+
+    @model_serializer(mode='wrap')
+    def legacy_library_snapshot(self, handler):
+        data = handler(self)
+        if self.library_metadata is None:
+            data.pop('library_metadata', None)
+        return data
 
     @model_validator(mode='after')
     def pin_map(self):
@@ -154,6 +222,9 @@ class PCBComponent(PCBModel):
             raise ValueError('데이터시트 기반 패드에는 출처가 필요합니다. / Footprint source required.')
         if self.model.kind in ('resistor', 'capacitor', 'voltage_source') and not {self.model.pin_a, self.model.pin_b} <= numbers:
             raise ValueError('회로 모델이 없는 핀을 참조합니다. / Unknown model pin.')
+        if self.library_metadata:
+            if not {p.number for p in self.library_metadata.pin_specs} <= numbers or (self.library_metadata.pin1_number and self.library_metadata.pin1_number not in numbers):
+                raise ValueError('Library metadata references an absent footprint pin.')
         return self
 
 
@@ -179,7 +250,7 @@ class PCBVia(PCBModel):
     y_mm: Coord
     diameter_mm: float = Field(default=.6, ge=.05, le=20)
     drill_mm: float = Field(default=.3, gt=0, le=20)
-    layers: list[Layer] = Field(default_factory=lambda: ['F.Cu', 'B.Cu'], min_length=2, max_length=4)
+    layers: list[Layer] = Field(default_factory=lambda: ['F.Cu', 'B.Cu'], min_length=2, max_length=8)
 
     @model_validator(mode='after')
     def dimensions_and_span(self):
@@ -230,10 +301,13 @@ class PCBBudget(PCBModel):
     board_quantity: int = Field(default=1, ge=1, le=100000)
     currency: str = Field(default='KRW', pattern=r'^[A-Z]{3}$')
     limit: Decimal | None = Field(default=None, ge=0, le=1000000000000, decimal_places=6)
+    cost_inputs: PCBCostInputs | None = None
 
     @model_serializer(mode='wrap')
     def json_safe_money(self,handler):
-        data=handler(self);data['limit']=str(self.limit) if self.limit is not None else None;return data
+        data=handler(self);data['limit']=str(self.limit) if self.limit is not None else None
+        if self.cost_inputs is None:data.pop('cost_inputs',None)
+        return data
 
 
 class PCBProject(PCBModel):
@@ -242,7 +316,7 @@ class PCBProject(PCBModel):
     width_mm: float = Field(default=60, ge=2, le=500)
     height_mm: float = Field(default=40, ge=2, le=500)
     thickness_mm: float = Field(default=1.6, ge=.1, le=10)
-    layer_count: Literal[2, 4] = 2
+    layer_count: Literal[2, 4, 6, 8] = 2
     clearance_mm: float = Field(default=.2, ge=.05, le=5)
     edge_clearance_mm: float = Field(default=.5, ge=0, le=10)
     nets: list[Id] = Field(default_factory=lambda: ['GND'], min_length=1, max_length=192)
@@ -276,6 +350,16 @@ class PCBProject(PCBModel):
             raise ValueError('보드에서 사용하지 않는 구리층입니다. / Inactive copper layer.')
         for via in self.vias:
             via_layers(self, via)
+        components = {c.ref:c for c in self.components}
+        for component in self.components:
+            if component.library_metadata and any(s.ground_reference_net and s.ground_reference_net not in self.nets for s in component.library_metadata.pin_specs):
+                raise ValueError('A declared pin return references an absent net.')
+            seen={component.ref}; parent=component.library_metadata.module_parent_ref if component.library_metadata else None
+            while parent:
+                if parent not in components or parent in seen:
+                    raise ValueError('Module parent is absent or cyclic.')
+                seen.add(parent); entry=components[parent]
+                parent=entry.library_metadata.module_parent_ref if entry.library_metadata else None
         if sum(len(t.points) - 1 for t in self.tracks) > 1024 or sum(len(c.pins) for c in self.components) > 512:
             raise ValueError('편집 한도: 패드 512개, 선분 1024개. / Layout complexity limit exceeded.')
         return self
@@ -284,9 +368,9 @@ class PCBProject(PCBModel):
 def copper_layers(project):
     """Active copper in physical order; does not invent a fabrication stackup."""
     count = project.layer_count if isinstance(project, PCBProject) else project.get('layer_count', 2)
-    if count not in (2, 4):
-        raise ValueError('Only two or four copper layers are supported.')
-    return list(COPPER_LAYERS if count == 4 else ('F.Cu', 'B.Cu'))
+    if count not in (2, 4, 6, 8):
+        raise ValueError('Only 2,4,6 or8 copper layers are supported.')
+    return ['F.Cu', *COPPER_LAYERS[1:count-1], 'B.Cu']
 
 
 def via_layers(project, via):

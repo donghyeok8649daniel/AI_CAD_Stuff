@@ -81,7 +81,11 @@ def merge_references(existing, incoming):
 
 
 def reference_payload(request):
-    return [r.model_dump() for r in request.references]
+    result=[r.model_dump() for r in request.references]
+    if request.work_history is not None:
+        from .ai_work_history import validate_work_history_reference
+        result.append(validate_work_history_reference(request.work_history).model_dump())
+    return result
 
 
 def reference_message(request):

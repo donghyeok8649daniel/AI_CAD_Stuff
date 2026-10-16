@@ -1,0 +1,5087 @@
+{
+  "schema_version": 1,
+  "version": "3.4.0",
+  "build_id": "public-3.4.0-pcb-workflows-history-singleinstall-20261017-r1",
+  "created_utc": "2026-10-16T22:18:31.859602+00:00",
+  "application_modules": 298,
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 309,
+      "sha256": "a9079b19464b6d9469bcdf424678ba38279e805923b7f8facb706c7ac608fdd0"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 124,
+      "sha256": "e457eb57cf84d4e83a5ddab23353b445eaf6ac530a0a27ebde9a7e0146dafa32"
+    },
+    {
+      "path": "cadstudio/__init__.py",
+      "bytes": 96,
+      "sha256": "487bd91d2cc4e0e7859a108c9e027f8a0aab59510711a6f5d145275bc6353c39"
+    },
+    {
+      "path": "cadstudio/_pcb_pin_alignment_core_r1.py",
+      "bytes": 27621,
+      "sha256": "62f36a8230abb7b1cb7699e0589fb29c2a260336b08b34d3d5f74e7eb5353c34"
+    },
+    {
+      "path": "cadstudio/advanced_geometry.py",
+      "bytes": 7939,
+      "sha256": "469a61f4a0661946cfe35498778fb08b12e49e174b00bbadf1601ce3b79b572f"
+    },
+    {
+      "path": "cadstudio/ai_work_history.py",
+      "bytes": 11022,
+      "sha256": "675b98a48b3a6487d79fc101da72aba6670e7d758d3da0effce93b1ac1a825e5"
+    },
+    {
+      "path": "cadstudio/assembly_motion.py",
+      "bytes": 4738,
+      "sha256": "e066827b43020d09eeecd42a7860c5b19d86f11132fbd8c2da706422750db949"
+    },
+    {
+      "path": "cadstudio/associativity.py",
+      "bytes": 3078,
+      "sha256": "2137a945142ad9e0502f587469c71035933ab6ee24cafdf33b5ee6c14d0590d9"
+    },
+    {
+      "path": "cadstudio/automatic_interference.py",
+      "bytes": 8455,
+      "sha256": "64eb9e18dabd65bc76ad9404c80b80ef12e92615a34117f7c3487fb2375e90c5"
+    },
+    {
+      "path": "cadstudio/board_pins.py",
+      "bytes": 26811,
+      "sha256": "c19aa3b192719819723bcaf5ca15567efdca13be49228518bad0fab26c18e008"
+    },
+    {
+      "path": "cadstudio/board_supply.py",
+      "bytes": 5109,
+      "sha256": "388034281ac99b52b0faa2da9c4622dfb54412e7a74ef0aaae00f2ceb334bae2"
+    },
+    {
+      "path": "cadstudio/bom_design.py",
+      "bytes": 46523,
+      "sha256": "00a1a86b2d01e7a4eb6c7cf98069be0274bbc8d06d0a50604680a88b8c28cf74"
+    },
+    {
+      "path": "cadstudio/catalog.py",
+      "bytes": 5646,
+      "sha256": "162fba870f11be2a9058e23d1db2343a80f42459cf85befe67bf2ad83aa24f23"
+    },
+    {
+      "path": "cadstudio/chamber_design.py",
+      "bytes": 39264,
+      "sha256": "2c9e3b4c3de18139d38202082ddfefc880ad68787f92a7b36e3945490ded8026"
+    },
+    {
+      "path": "cadstudio/circuit_connections.py",
+      "bytes": 17361,
+      "sha256": "16ab60c888999a76f72647758a4c8bcb1feb07c33a6564d4fc64c572eb72bd6b"
+    },
+    {
+      "path": "cadstudio/collision_policy.py",
+      "bytes": 1729,
+      "sha256": "f9065b662aa437c6d1a8e5af4d397e99a0cc89572ed61b838673fa4fa5efeaf9"
+    },
+    {
+      "path": "cadstudio/component_specs.py",
+      "bytes": 6282,
+      "sha256": "9fd724452072311ec029e055f09cc9bfe4c590a55adf6d67d587d6302c5dd275"
+    },
+    {
+      "path": "cadstudio/configurations.py",
+      "bytes": 403,
+      "sha256": "027b117ab2900133b20337c24f0f3ce68572fabfa4de11f196c09aee4e648051"
+    },
+    {
+      "path": "cadstudio/constraints.py",
+      "bytes": 10846,
+      "sha256": "a3d4144cb6ff0aa3c689017321526aca8f4695f65d3fd9f2953a92c0ccc6636f"
+    },
+    {
+      "path": "cadstudio/drawings.py",
+      "bytes": 18204,
+      "sha256": "0144478fe468928a64da989f0dd19c30db911dfb6d26f2e57a32507cee8f9444"
+    },
+    {
+      "path": "cadstudio/drive_simulation.py",
+      "bytes": 30936,
+      "sha256": "1be7bf489ad7a998242bdb474deedadf058fa62cc326aa26587f63b3bb281b09"
+    },
+    {
+      "path": "cadstudio/dynamics.py",
+      "bytes": 8977,
+      "sha256": "59c04e159dcd2141695c8586c61e438151ce9e959e23d21391ffbb7ea6690cbd"
+    },
+    {
+      "path": "cadstudio/electrical.py",
+      "bytes": 38842,
+      "sha256": "b2c4ebe85e6acfe245828755c06d4b0750e3f87dd7defe1efc0f3cf3c71f6178"
+    },
+    {
+      "path": "cadstudio/electrical_catalog.py",
+      "bytes": 68454,
+      "sha256": "fca758b7014c40677c4ff21868f34316c7b08f6e36f6f0b0c41b4f847aa4d695"
+    },
+    {
+      "path": "cadstudio/electrical_catalog_data.py",
+      "bytes": 22123,
+      "sha256": "e953a37395f9736f90c5e1248194c3f8a90227b1bfb8a83dec1ab02349ea4290"
+    },
+    {
+      "path": "cadstudio/electrical_diagnostics.py",
+      "bytes": 27653,
+      "sha256": "8516522c2ba840c4d97ea11b2a3ffbad699b799df1cf92ef092a8e2ed36a2633"
+    },
+    {
+      "path": "cadstudio/electrical_diff.py",
+      "bytes": 3273,
+      "sha256": "0fa52831a49d05799a11314cbd259cb50bd029e253123de5f481821a59b2d391"
+    },
+    {
+      "path": "cadstudio/electrical_readiness.py",
+      "bytes": 23429,
+      "sha256": "fda8822fbd1475f39bdd947c084140067018ddcc2f7d15cda56768f6a9899a08"
+    },
+    {
+      "path": "cadstudio/electrical_registration.py",
+      "bytes": 21444,
+      "sha256": "e02fe316ab1f51065195432a47bbf4f654ba93ca6a28f19a5721e2ac4979bc8e"
+    },
+    {
+      "path": "cadstudio/electrical_safety.py",
+      "bytes": 20502,
+      "sha256": "79eaa11573b9135eff437bfa7af0c732ed9fccec94d27d826981556401e52c9c"
+    },
+    {
+      "path": "cadstudio/electronics_mount.py",
+      "bytes": 5314,
+      "sha256": "1cac8e3890f570eeefc73505b6099abf2a54ed5380a3516536e2b7d17875854c"
+    },
+    {
+      "path": "cadstudio/emulation/stm32g474_hsi16.repl",
+      "bytes": 2859,
+      "sha256": "c08df6d0b9cdfc488395242a4427d5948e181aa9cc9dfb81c80b527ae5ff13d0"
+    },
+    {
+      "path": "cadstudio/fastener_checks.py",
+      "bytes": 11020,
+      "sha256": "8d89fa0d6c27ad7dace938bfbb68624ec4b15e000df11348f2498e531ee98340"
+    },
+    {
+      "path": "cadstudio/file_associations.py",
+      "bytes": 15886,
+      "sha256": "b0eabaee761da280c075d4fc0b17854d3862c2b04f8fd48e6d5488cb5bc6e8ea"
+    },
+    {
+      "path": "cadstudio/firmware_build.py",
+      "bytes": 26695,
+      "sha256": "0e9119edbb56d0d4fdff082a326367449ab24e4d01de8404a777dda1a3355960"
+    },
+    {
+      "path": "cadstudio/firmware_bundle.py",
+      "bytes": 32284,
+      "sha256": "fdcc5372ecdc500d7edcf412d98f3cb3b6bc5c7822d0d1d4e2546d7337bffd77"
+    },
+    {
+      "path": "cadstudio/firmware_drive.py",
+      "bytes": 8882,
+      "sha256": "0093c01bd4f529aa1e207a58b3726f1ed46bf9f76af67db78aa18103d3324207"
+    },
+    {
+      "path": "cadstudio/firmware_emulation.py",
+      "bytes": 25962,
+      "sha256": "f45935b802cbab29f4a374fd14895f58f96a5bd7935a86a12afb331bd581bc7d"
+    },
+    {
+      "path": "cadstudio/firmware_emulation_cli.py",
+      "bytes": 4893,
+      "sha256": "5849d579ad855a87959a55dd1701a6fffa857fd2512751f3cd10a7ff3cbd6a3c"
+    },
+    {
+      "path": "cadstudio/firmware_generation.py",
+      "bytes": 42741,
+      "sha256": "780a3d7d4c6ab3449e88aaa54239a1088e7fac4e19ee27ddce0643482dbdaa72"
+    },
+    {
+      "path": "cadstudio/firmware_libraries.py",
+      "bytes": 7551,
+      "sha256": "18a773a90d8f81f00a8e4ba0ea2ff48d122f1f4f759a0e02e1272bf3deaa4ded"
+    },
+    {
+      "path": "cadstudio/firmware_motion.py",
+      "bytes": 3057,
+      "sha256": "6e4c2a9debec40154c2a151f800eede79a997cba64f0e045b8465b81a21627ae"
+    },
+    {
+      "path": "cadstudio/fits.py",
+      "bytes": 3038,
+      "sha256": "628568235881b930c3043c9b3ac779eb17046fdb27b02266414a25306f763bce"
+    },
+    {
+      "path": "cadstudio/flexible_wire_package_check.py",
+      "bytes": 12168,
+      "sha256": "0f5733390370b88f6fcc9be4e46719b13a20fc50deda240d372bc78698ff70eb"
+    },
+    {
+      "path": "cadstudio/force_acquisition.py",
+      "bytes": 35972,
+      "sha256": "0f5d52cbfec9e6f98e6f7101c45804a7b230859ce56cd3d12019d04baec7c9b5"
+    },
+    {
+      "path": "cadstudio/gears.py",
+      "bytes": 5364,
+      "sha256": "f16871ac7a56d56a31b659f6236178139894c700d2ff1d4192ca0954fae051cd"
+    },
+    {
+      "path": "cadstudio/github_reference.py",
+      "bytes": 16965,
+      "sha256": "6d0b5ccf0fb6175f2a015b559dd8bd2ea11fbd09c35f14471a31ce4e95367c77"
+    },
+    {
+      "path": "cadstudio/history.py",
+      "bytes": 3839,
+      "sha256": "372fe268c8186d7386c0f43e3a7abfee1cab8583daf916b281653fddc9186f8d"
+    },
+    {
+      "path": "cadstudio/holes.py",
+      "bytes": 1171,
+      "sha256": "d005bdb4ce0d54a49268283144decd0fd20ccba9969a5a07ca9ac254ccb6fe7b"
+    },
+    {
+      "path": "cadstudio/imported.py",
+      "bytes": 2770,
+      "sha256": "d90f30679e78a1f0bc69d1edfc9a0b2af3c9ccee9795c46c211a1f5ece731459"
+    },
+    {
+      "path": "cadstudio/inspection.py",
+      "bytes": 2451,
+      "sha256": "12a4d2705e7f0137279be9791bc55b96d4836b6b5e0689e62d441022e75dd1eb"
+    },
+    {
+      "path": "cadstudio/interference.py",
+      "bytes": 11837,
+      "sha256": "79c2eb231e644de13a680024502ea21831f3fb0d494d5248366211391c231752"
+    },
+    {
+      "path": "cadstudio/interference_adjustment.py",
+      "bytes": 3407,
+      "sha256": "c74d042c154a543a2f92ef1b3a0ffce316a442021291f6c93e2e28cb19c7e7e6"
+    },
+    {
+      "path": "cadstudio/joint_alignment.py",
+      "bytes": 6019,
+      "sha256": "5dfa509bbf284aa0a46aedbdb6214151fc9223632f478562c94c38e43c22188c"
+    },
+    {
+      "path": "cadstudio/joint_hardware.py",
+      "bytes": 6828,
+      "sha256": "b8618543e4543546245ab257b0a7e8371d9db5ed81ff73d35e16fafc405f0eb2"
+    },
+    {
+      "path": "cadstudio/joint_readiness.py",
+      "bytes": 4488,
+      "sha256": "8f1f0b402992be1f246c86382bbc6f3b492325566396e40df2f0035791adba53"
+    },
+    {
+      "path": "cadstudio/kernel.py",
+      "bytes": 26014,
+      "sha256": "dafd7af9d1e723b99c29cb3075b0eaea928ebbfc2823523543d2476eff209a2f"
+    },
+    {
+      "path": "cadstudio/material_assignments.py",
+      "bytes": 6768,
+      "sha256": "b3e18165fc5dfe58525839ef2fbbb1dffc4c4fe29238950548d8030053d0a0db"
+    },
+    {
+      "path": "cadstudio/material_catalog.py",
+      "bytes": 19995,
+      "sha256": "c0882fba19c267ed75afdc746bc84a9c855200e12b69f9e365b8cc2ac566900e"
+    },
+    {
+      "path": "cadstudio/mcu_connections.py",
+      "bytes": 25732,
+      "sha256": "25d9fa381a24ea03bfa410fda5474a0b25db765a2ed7eb8badb0eb3c457e7dd8"
+    },
+    {
+      "path": "cadstudio/mean_voltage_motor.py",
+      "bytes": 4523,
+      "sha256": "4b7714b77e7bf0f711029db69a2e30800d921a01aca51c220267bbf3e92e30e7"
+    },
+    {
+      "path": "cadstudio/measurement_catalog.py",
+      "bytes": 5874,
+      "sha256": "9c2a2b032da7bfc37387394b6ac3a3ad764e2d211e0aae774fea7db8be078785"
+    },
+    {
+      "path": "cadstudio/measurement_specs.py",
+      "bytes": 10986,
+      "sha256": "6b8a7bcbc13196e541e28f5f4d9a5730e5a2ef9d03a94ccb53f619af9685a78a"
+    },
+    {
+      "path": "cadstudio/mechanical_catalog.py",
+      "bytes": 19196,
+      "sha256": "cde52928e57bb6f9b2cf104b9d15e6f3bc0a393d2045c3d4e3cb8801f8c6160d"
+    },
+    {
+      "path": "cadstudio/mechanical_functions.py",
+      "bytes": 3312,
+      "sha256": "3f63ed219db95484370aa6b6017423e290c6a7aa3b97ff3eed5abff208c0ba70"
+    },
+    {
+      "path": "cadstudio/mechanisms.py",
+      "bytes": 4586,
+      "sha256": "22a7a91bf9cc76b679c51576acfa7aa2c643cc37323b2a17b61b8ee8a22540c5"
+    },
+    {
+      "path": "cadstudio/models.py",
+      "bytes": 44770,
+      "sha256": "ec34aac0224cbe21ff2d743543103f1d31a2d8b23fb8c27461aaa545e24de528"
+    },
+    {
+      "path": "cadstudio/motion_budget.py",
+      "bytes": 5294,
+      "sha256": "199071121295d264ba14b0052b9837ca2db0080cc7964915ab339f0ec93dce98"
+    },
+    {
+      "path": "cadstudio/motion_initial_view.py",
+      "bytes": 3940,
+      "sha256": "c58e2a5400a74a882427cd1a73400c1a87066d1f58079f33b0090743b06a0079"
+    },
+    {
+      "path": "cadstudio/motion_playback.py",
+      "bytes": 12899,
+      "sha256": "436e28d5d9852a51b65ba4fd6da78beaea55d9aae4f524a760af85f3af38ef88"
+    },
+    {
+      "path": "cadstudio/motor_state_space.py",
+      "bytes": 9660,
+      "sha256": "f8117bc99ba5098e00e08530e0eb125bc830fcb2069d40e534b1d990b638a5ac"
+    },
+    {
+      "path": "cadstudio/native/__init__.py",
+      "bytes": 78,
+      "sha256": "4deb6ec01a6aabbe4940751cdbe71e139b3d685745fa9f464dd4e39c00c97bc5"
+    },
+    {
+      "path": "cadstudio/native/advanced_smoke.py",
+      "bytes": 7451,
+      "sha256": "9e8913df325a566954007e6a0597d73c9bb26513f740d595240dca68a443e9b8"
+    },
+    {
+      "path": "cadstudio/native/ai_chat.py",
+      "bytes": 4257,
+      "sha256": "c00735f3ae8e65351c18af37af21e2958a3bddf5cfd40549e1f714c2bb721a00"
+    },
+    {
+      "path": "cadstudio/native/ai_setup.py",
+      "bytes": 2738,
+      "sha256": "512148b9ae9b64f9c311e877ac7ccfb86b824780865694a00b15f875660cb362"
+    },
+    {
+      "path": "cadstudio/native/ai_smoke.py",
+      "bytes": 8091,
+      "sha256": "7da1c88a4fca495b9d4a4f39a9fc80f522aaa240afde63a10c6160b2b555ae9e"
+    },
+    {
+      "path": "cadstudio/native/ai_task.py",
+      "bytes": 1505,
+      "sha256": "aebd4be6220105d309e4b34e237c7dadade1dee36c13f1473e36f9d01df342b0"
+    },
+    {
+      "path": "cadstudio/native/assembly_display.py",
+      "bytes": 5178,
+      "sha256": "90b1f595e03878794c07c642b6e389218d08aba1a900e8ab062ff9193fa05bd3"
+    },
+    {
+      "path": "cadstudio/native/autodesk_export.py",
+      "bytes": 4488,
+      "sha256": "d20e19c57244f86f29b3438d822d5e744c3f9dd5b697445cb8c6d0f6c91aec66"
+    },
+    {
+      "path": "cadstudio/native/automatic_interference_check.py",
+      "bytes": 10940,
+      "sha256": "4a470583b765848821cb43a3bb8017df237c626b0ed1069083316a4dab2e4d0c"
+    },
+    {
+      "path": "cadstudio/native/automatic_interference_dialog.py",
+      "bytes": 8436,
+      "sha256": "7c0772a573fd89db2ac5373a62bf0c43261d392d4fdc2c40265d7b9676355331"
+    },
+    {
+      "path": "cadstudio/native/bom_design_dialog.py",
+      "bytes": 27190,
+      "sha256": "1d33af4b9b8bbb8a8eeb0d9c6280bf55bc34f8a09c69e5298c8e4354ab8999ec"
+    },
+    {
+      "path": "cadstudio/native/bom_smoke2240.py",
+      "bytes": 30825,
+      "sha256": "5c7253a690df964db14f8708bbcec7dcae81d26d7e41f4f4ebace06ba7df8d5b"
+    },
+    {
+      "path": "cadstudio/native/box_selection.py",
+      "bytes": 1531,
+      "sha256": "57e4568d439853db78be2abe8d26639f0b40d3e69cc35d1c1a18e8b1881f7ec9"
+    },
+    {
+      "path": "cadstudio/native/cad_electrical_tools.py",
+      "bytes": 21069,
+      "sha256": "b5f6b35a334ed918e20e7be9fffc908eb62ee0659fc62245985a1686c9acf496"
+    },
+    {
+      "path": "cadstudio/native/cad_feature_edits.py",
+      "bytes": 9714,
+      "sha256": "cd679533106449573481173dc6ee1a522cb820dc4ea219834d59310f0da70605"
+    },
+    {
+      "path": "cadstudio/native/cad_schema.py",
+      "bytes": 15498,
+      "sha256": "e42b8c23d74d7be90aa6281a4dcd3fc6fac84a032ca75e61d93be30bde9d1a54"
+    },
+    {
+      "path": "cadstudio/native/cad_scope.py",
+      "bytes": 22894,
+      "sha256": "1818fe3827c57caafeaede0ea9bbfc3aa97da8dde4f1de97db9ad2d9a591ae72"
+    },
+    {
+      "path": "cadstudio/native/cad_tools.py",
+      "bytes": 62033,
+      "sha256": "491a74c97dcf239eb419d947aa35efcb4fc05ba0d18ed164d7363324e3884040"
+    },
+    {
+      "path": "cadstudio/native/capacity_check.py",
+      "bytes": 7651,
+      "sha256": "b56405537634eb8c8c08f61454393dd0e80f6e920694f766be8e9bfd01820a36"
+    },
+    {
+      "path": "cadstudio/native/chamber_dialog.py",
+      "bytes": 20930,
+      "sha256": "ab6d2e08d98c7baced4bb64016ac0e092ad59272afe2fa6e4984270572880379"
+    },
+    {
+      "path": "cadstudio/native/circuit_canvas_smoke2190.py",
+      "bytes": 34931,
+      "sha256": "2c2a3b701799ab620cf8269d9388fcb2cd22ed4828f4f7970be00522c4c0f14a"
+    },
+    {
+      "path": "cadstudio/native/circuit_routing.py",
+      "bytes": 13675,
+      "sha256": "16be281e6287365dabc75f709e219eacf20cd31fa14ed42cd026d0399108f32b"
+    },
+    {
+      "path": "cadstudio/native/circuit_symbols.py",
+      "bytes": 25426,
+      "sha256": "7376afbff9cf70a7326cb8fb19dca0facec0309d8448e29e0c909b76ccd30c99"
+    },
+    {
+      "path": "cadstudio/native/clipboard.py",
+      "bytes": 836,
+      "sha256": "783ebe9abcb7a7f3a1f9c1e8dfeb304db40a1a72c29f012c8a3521fde67795af"
+    },
+    {
+      "path": "cadstudio/native/cloud_ai.py",
+      "bytes": 10695,
+      "sha256": "9528938ad57da796d1241f46e1109a643699e36efa873e2ea8c97831db847e3a"
+    },
+    {
+      "path": "cadstudio/native/cloud_connection.py",
+      "bytes": 7659,
+      "sha256": "c8afb103ea2505db384b3c07d06d6495f5f5d6b96d223807815d3c75598ac46e"
+    },
+    {
+      "path": "cadstudio/native/codex_ai.py",
+      "bytes": 5937,
+      "sha256": "fb6b074c4aca8c869fd07098016c98606e0c0ce9ea138ed1dcfa95cff3e94156"
+    },
+    {
+      "path": "cadstudio/native/codex_connection.py",
+      "bytes": 29901,
+      "sha256": "9111518b45b50a0a7f752f8834aa0d0d17577117ffa0bccd7051662637eef44d"
+    },
+    {
+      "path": "cadstudio/native/codex_errors.py",
+      "bytes": 6135,
+      "sha256": "05868af53a59f74838c0990a649cda5bf9279099369357edb70ce4a3de0b543d"
+    },
+    {
+      "path": "cadstudio/native/codex_model_picker.py",
+      "bytes": 1994,
+      "sha256": "585e16da21fd3bed5e0225ebc731d103d425b512fd868705c306c53758805f8b"
+    },
+    {
+      "path": "cadstudio/native/codex_models.py",
+      "bytes": 2708,
+      "sha256": "5ba287af5ad2c4af4abd4043633cec6173b85ccaa8f0876df6cf200b39dbe302"
+    },
+    {
+      "path": "cadstudio/native/codex_reconnect.py",
+      "bytes": 2897,
+      "sha256": "49b1c6d4114680af79ef531d1e08823e67f6c506c80707731c2f69e6d2f2a04d"
+    },
+    {
+      "path": "cadstudio/native/codex_setup.py",
+      "bytes": 10107,
+      "sha256": "e0abbd873327e37dff6092d95cd10633693dd3c447fc99e10bff90596a862349"
+    },
+    {
+      "path": "cadstudio/native/codex_smoke.py",
+      "bytes": 6162,
+      "sha256": "e8d0610869c20b7c02219fb4f5b53137475650568fcdf938208db2884594faa0"
+    },
+    {
+      "path": "cadstudio/native/codex_usage.py",
+      "bytes": 2961,
+      "sha256": "ed82741f2a34917a061a9322c23d592bd4ed8f7417041da91174ef9704c514e3"
+    },
+    {
+      "path": "cadstudio/native/common_app_package_check.py",
+      "bytes": 3853,
+      "sha256": "3efa7ad5000fee2e9461142b1fbbf0f3ad95abec5783b98f70bfd7c8e8e1af54"
+    },
+    {
+      "path": "cadstudio/native/component_specs_dialog.py",
+      "bytes": 4119,
+      "sha256": "dbb4bd6507f8ae56f6e83231b317b93a6255fcf96cfa8aa1366bd0adce51e839"
+    },
+    {
+      "path": "cadstudio/native/configuration_dialog.py",
+      "bytes": 3541,
+      "sha256": "73f342ed7ca42eec04155214506e29297f94247613852a5d7c7c9927419d9f79"
+    },
+    {
+      "path": "cadstudio/native/direct_smoke.py",
+      "bytes": 7132,
+      "sha256": "724abe9ec8d1fb1d7be6238840f0d0a032ac25f1f7c5bb8598cbb9b5cb770767"
+    },
+    {
+      "path": "cadstudio/native/display_overrides.py",
+      "bytes": 513,
+      "sha256": "f865ce7a127addee9e280f8e7806a83f0ac9c7dadd1bcbdb67882c4d318549a4"
+    },
+    {
+      "path": "cadstudio/native/display_style.py",
+      "bytes": 4783,
+      "sha256": "2130e3d5189e0ba93c393573c5e4e4fe77531c662ccece7bbf01fb094d93dfda"
+    },
+    {
+      "path": "cadstudio/native/document.py",
+      "bytes": 8893,
+      "sha256": "223f968f44fa3ef162a583c6046a20bc31b35589a268f6f40b3f43ecf6837047"
+    },
+    {
+      "path": "cadstudio/native/draft_control.py",
+      "bytes": 2410,
+      "sha256": "6e77f0cffbe6b04f6ad77bd77b97d581c53a579f34cdfd9dbfcef09d6c6f41e9"
+    },
+    {
+      "path": "cadstudio/native/draft_preview.py",
+      "bytes": 11540,
+      "sha256": "40943eb0dd824e4dea2012ae844b7c8e3f503c195995fe079f5eaaeec2e342e8"
+    },
+    {
+      "path": "cadstudio/native/draft_repair.py",
+      "bytes": 12950,
+      "sha256": "d8655b1f558dc5a5916ad879e9e900af7e8ed0a658d2d44721e4197ca36caf13"
+    },
+    {
+      "path": "cadstudio/native/draft_repair_smoke.py",
+      "bytes": 6549,
+      "sha256": "7cf71e15ac551c5c524527176d1527f20c935b6f1eceae4758eb67c1deb967a5"
+    },
+    {
+      "path": "cadstudio/native/draft_summary.py",
+      "bytes": 1469,
+      "sha256": "9f5043dc728c852d885f03d7d014ef9ece0c56aaafa1bf3be6f30c861582bbbe"
+    },
+    {
+      "path": "cadstudio/native/drive_simulation_dialog.py",
+      "bytes": 32049,
+      "sha256": "7ce9522eb029e985c5f4a08817c4bceb4a8628ba13ce2f9dbd8b1cf2bb2310de"
+    },
+    {
+      "path": "cadstudio/native/electrical_ai_wiring_smoke2220.py",
+      "bytes": 12297,
+      "sha256": "6001cd0b4bf7f103aedb77794121f2e17558fd42c7e969bcab2586a03ff145b7"
+    },
+    {
+      "path": "cadstudio/native/electrical_code_smoke2230.py",
+      "bytes": 15594,
+      "sha256": "552aaf2f3400ebf35154314c3d47e62ed81a12e171e3b6f6c205da89e3ba8a34"
+    },
+    {
+      "path": "cadstudio/native/electrical_diagnostics_ai.py",
+      "bytes": 10105,
+      "sha256": "44054a5a0b3837683a0395add9a585c0d5b9fa4efc761f6b46e647fbd616b19d"
+    },
+    {
+      "path": "cadstudio/native/electrical_diagnostics_dialog.py",
+      "bytes": 24216,
+      "sha256": "54db2c2ca2600ee18a461016c6db637a60c46146b447b37066c95e338b1ab216"
+    },
+    {
+      "path": "cadstudio/native/electrical_dialog.py",
+      "bytes": 45528,
+      "sha256": "51ed202a94c7ebc8cdc18a3bfb85f2d1235c33d627e75155d5a1b7f67959d524"
+    },
+    {
+      "path": "cadstudio/native/electrical_joint_smoke.py",
+      "bytes": 9365,
+      "sha256": "c872b7afdf66d6e143b41d1461afb35156706512ea5214d9e504930c01982fd9"
+    },
+    {
+      "path": "cadstudio/native/electrical_part_dialog.py",
+      "bytes": 29630,
+      "sha256": "0a0fa345f4c72e00fb4f26eea1e6a9232261663a44336eb77f300abf27d0d482"
+    },
+    {
+      "path": "cadstudio/native/electrical_registration_smoke2180.py",
+      "bytes": 20845,
+      "sha256": "a2f1c894dac8221ce35aaad45bf72a9a709af28b3e19116d0443ca7b914d9dfb"
+    },
+    {
+      "path": "cadstudio/native/electrical_safety_dialog.py",
+      "bytes": 10240,
+      "sha256": "30c03ae7f7acd947664b288464682d988860e0baf533b4d44d3fa43cdc817806"
+    },
+    {
+      "path": "cadstudio/native/electrical_schematic.py",
+      "bytes": 52007,
+      "sha256": "71b73a571d251fb90a42e3d4ac2483c8e3718ef82529773b4de6d611875b424e"
+    },
+    {
+      "path": "cadstudio/native/electrical_smoke2150.py",
+      "bytes": 10061,
+      "sha256": "f948839131eaaa6084997d95fe7ee94cbb8e70231be7abedcedf4d78b232ac34"
+    },
+    {
+      "path": "cadstudio/native/electrical_smoke2160.py",
+      "bytes": 12876,
+      "sha256": "e6208b04e862fd3125a03627bcc119904098b395fd8c227fa8379a9c396f138a"
+    },
+    {
+      "path": "cadstudio/native/electrical_ui_check.py",
+      "bytes": 7071,
+      "sha256": "7bac597a4ddb833d5b966a2881637207deb243f86c7dd828f4f8da2f320a18a5"
+    },
+    {
+      "path": "cadstudio/native/electrical_workbench.py",
+      "bytes": 47302,
+      "sha256": "27e9183ac3af5d3bc59403a0930a6f0d6d6bb5f259cfc11c0b319d0a8afbd95d"
+    },
+    {
+      "path": "cadstudio/native/electrical_workbench_smoke2210.py",
+      "bytes": 23091,
+      "sha256": "b7cdc6c432727668c2585957b5c96ff90fedea40aaa22d3efe6122de537e47aa"
+    },
+    {
+      "path": "cadstudio/native/electronics_dialog.py",
+      "bytes": 4080,
+      "sha256": "a2ada21cad02cbb0927e69406294dd63fbd555b06e3c24bc71ef9b24b9466aba"
+    },
+    {
+      "path": "cadstudio/native/engineering_smoke2200.py",
+      "bytes": 16355,
+      "sha256": "7fc470fb4b8e904214b5a3c969a5719ffd909354794cd3db5558800be85e22c8"
+    },
+    {
+      "path": "cadstudio/native/extended_smoke.py",
+      "bytes": 6123,
+      "sha256": "0858303e630885e7599b0171eea939bec306305d2c4dbd777d39a726fcc0f6d7"
+    },
+    {
+      "path": "cadstudio/native/extrude.py",
+      "bytes": 13332,
+      "sha256": "f5506be251040d9c9b4d823fc8871e8d3fd6deec56a371f1f9c78aca83cd83f9"
+    },
+    {
+      "path": "cadstudio/native/fastener_check_dialog.py",
+      "bytes": 8052,
+      "sha256": "86f189a9b035b78a74d8168c983d23244b21a306f5b6cd02b2f7cc0f60e5b35c"
+    },
+    {
+      "path": "cadstudio/native/feature_manager.py",
+      "bytes": 4074,
+      "sha256": "d293db42b4c9e243b8d4dd8a15cbe211a8daec9067fb7fe44c7ce06e11e218c3"
+    },
+    {
+      "path": "cadstudio/native/firmware_dialog.py",
+      "bytes": 55982,
+      "sha256": "5bddb670f4b6f7fd213170d0a10a5f20a564fb932f65cf5827e1a51d7c1b2bc3"
+    },
+    {
+      "path": "cadstudio/native/firmware_emulation_dialog.py",
+      "bytes": 12209,
+      "sha256": "05505605d4a02d8d8519db4b261f4e359e971f7316e8ee269a9a499b5de48140"
+    },
+    {
+      "path": "cadstudio/native/firmware_emulation_runner.py",
+      "bytes": 3321,
+      "sha256": "dec39347bdd3fbb6411eefefa3f68f0972b03d252d6ce68370c4417554a25f32"
+    },
+    {
+      "path": "cadstudio/native/firmware_motion_dialog.py",
+      "bytes": 4739,
+      "sha256": "921d1f9035de8bd29e9c76761785e5ce458d8211a27634588ecc12622ea7f406"
+    },
+    {
+      "path": "cadstudio/native/firmware_smoke2240.py",
+      "bytes": 17111,
+      "sha256": "5dd9d488d4800f19c22e357042b81a7f960ffe720bd8026a08a2b2683ffbf57c"
+    },
+    {
+      "path": "cadstudio/native/fit_dialog.py",
+      "bytes": 5160,
+      "sha256": "eade0260f3d5f871d3a705a2e22cb022af0c2faab5aba885f3fbb685aad22d6b"
+    },
+    {
+      "path": "cadstudio/native/force_acquisition_dialog.py",
+      "bytes": 18848,
+      "sha256": "85934b764ab66d3d336b0d61bb3204b658803cf7ef62037e4d431b1723feeb61"
+    },
+    {
+      "path": "cadstudio/native/g474_pin_smoke.py",
+      "bytes": 22764,
+      "sha256": "a6f10da76226911577d5b08e8dbf0d0ed6338b18549b38bc259d0e8ed7e6fe5a"
+    },
+    {
+      "path": "cadstudio/native/gear_dialog.py",
+      "bytes": 2694,
+      "sha256": "1104d6c6a5f91f6febb625960e1bd9f1f3214990842a3551b4a65671d06f5de5"
+    },
+    {
+      "path": "cadstudio/native/geometry.py",
+      "bytes": 12230,
+      "sha256": "0f6ec90aa3d522f3f29b1a44a5a009dab3109db38e484242930b85b1046dfe48"
+    },
+    {
+      "path": "cadstudio/native/graphics.py",
+      "bytes": 8387,
+      "sha256": "36774ec3ab26d9ecaf834365a64fe7e2afa7149d35f4b5394ebb5237eb3c439b"
+    },
+    {
+      "path": "cadstudio/native/i18n.py",
+      "bytes": 82223,
+      "sha256": "b0effeb6f9dee4988c068f7a6faf7094b40a6768c7939c381cb112d248db9d2d"
+    },
+    {
+      "path": "cadstudio/native/inspect_tools.py",
+      "bytes": 14925,
+      "sha256": "154d3dfe03baf5b345fda66229622d7d9f2e06873e1ced1062402de121466f50"
+    },
+    {
+      "path": "cadstudio/native/inspection_dialog.py",
+      "bytes": 6640,
+      "sha256": "2dc7db1193e7c6ebfff37151ad20225ac431370c0c6bdad7da340e67c5425277"
+    },
+    {
+      "path": "cadstudio/native/interaction.py",
+      "bytes": 7713,
+      "sha256": "f97f687411ebcf743b4726780667df72983ddf3989c91a1260b48f0b0a8fae74"
+    },
+    {
+      "path": "cadstudio/native/interference_adjustment.py",
+      "bytes": 5869,
+      "sha256": "1104e6be08243348090ed58bd31c2e9818b744c47ce92df606b20062bff6ddf4"
+    },
+    {
+      "path": "cadstudio/native/interference_adjustment_check.py",
+      "bytes": 11151,
+      "sha256": "c2520ef2f6940c5085a2b7174f5f82a9a5041cc0f11dec5dca9cc2cbdf57fc31"
+    },
+    {
+      "path": "cadstudio/native/joint_alignment_dialog.py",
+      "bytes": 5050,
+      "sha256": "19de5a3f70eaef0d2ffad361563b019fb62ef94b329c9cd63040bdea286f36f6"
+    },
+    {
+      "path": "cadstudio/native/joint_hardware_dialog.py",
+      "bytes": 4175,
+      "sha256": "d805434b2c2b6078db737b749cfe7a1790feaacefb19fc275abd5a6e4be6798f"
+    },
+    {
+      "path": "cadstudio/native/local_ai.py",
+      "bytes": 12194,
+      "sha256": "db48e7705aa97661ca8988833b821b0d42f0776902305d7ee4e49ccd7b0bf62c"
+    },
+    {
+      "path": "cadstudio/native/mass_cg_entry.py",
+      "bytes": 9069,
+      "sha256": "7ed64fbd0dd77c59fd8fcce37897071a56736ee081b7e4e5a4c34f7b0a0ecc2b"
+    },
+    {
+      "path": "cadstudio/native/mass_cg_r2_adapter.py",
+      "bytes": 10981,
+      "sha256": "d8250f020c40c3a1c640ce86319d954691a76bdfa1cf0afeaa601e34bb41651f"
+    },
+    {
+      "path": "cadstudio/native/mass_cg_review.py",
+      "bytes": 18122,
+      "sha256": "a5c5d4c89462461d8267bfee1fa763fb2609482c779a0bc285adf0e9eab45b78"
+    },
+    {
+      "path": "cadstudio/native/mass_cg_view.py",
+      "bytes": 9168,
+      "sha256": "760e32adccc3c324f9d97ba92033a352b619bb266005826db7bf6506fec77f8d"
+    },
+    {
+      "path": "cadstudio/native/material_dialog.py",
+      "bytes": 13627,
+      "sha256": "f5955d61cd1c8798ece5f2d542d72c3c6b57e2957cb918db84c402f159e9609d"
+    },
+    {
+      "path": "cadstudio/native/mcu_pin_dialog.py",
+      "bytes": 27908,
+      "sha256": "03598c611609e963537616f57353dfb59d1b02e5af02ae890c37b442933e457b"
+    },
+    {
+      "path": "cadstudio/native/mcu_pin_smoke2170.py",
+      "bytes": 17823,
+      "sha256": "7cb7ea608375e80109cca796a31df1526cb4647cf35e3a218ea1a0c8fdc1ff11"
+    },
+    {
+      "path": "cadstudio/native/mechanical_catalog_dialog.py",
+      "bytes": 6430,
+      "sha256": "6e9da811767920a101855d80598ac7c1fa36afcde9d4ce0daa1fb34639b2a037"
+    },
+    {
+      "path": "cadstudio/native/mechanical_function_dialog.py",
+      "bytes": 2275,
+      "sha256": "6fc96befac7ee119f46bf66409bb0287507a4fb0e09acc40aace39a0bcb4d5eb"
+    },
+    {
+      "path": "cadstudio/native/mechanical_smoke.py",
+      "bytes": 6206,
+      "sha256": "29870eda91e6136450ccf761743aff9338074d25b99b5aaf8cb91b941aa41523"
+    },
+    {
+      "path": "cadstudio/native/mechanism_print_smoke.py",
+      "bytes": 8099,
+      "sha256": "219711976b76ee52276f258791870c481ab7f977a8745ceddfc52a392999baab"
+    },
+    {
+      "path": "cadstudio/native/model_picker.py",
+      "bytes": 2532,
+      "sha256": "8fc446fb8ecdb453164f130c2faea3b3d43f6dd15420123b032d1faa5a79455a"
+    },
+    {
+      "path": "cadstudio/native/modelling.py",
+      "bytes": 19612,
+      "sha256": "1fa0334f223ada08039a8d292c1d16358a5289325494deda0ce293ae864431fa"
+    },
+    {
+      "path": "cadstudio/native/motion_budget_check.py",
+      "bytes": 6047,
+      "sha256": "cdebc14942fec4a65faa366dde20f7f3906a53c04360e30a37d717b0d03f10d9"
+    },
+    {
+      "path": "cadstudio/native/motion_click_check.py",
+      "bytes": 7167,
+      "sha256": "e9f225896937aee5ba0f9eeb0473f5f7f0909c537ffa70a30e151f63a2255348"
+    },
+    {
+      "path": "cadstudio/native/motion_dialog.py",
+      "bytes": 7967,
+      "sha256": "a6a9e8b9204d7d03c7dc7be4476fa7fd6c397c20ab292f0a8cf37b8ef0b92875"
+    },
+    {
+      "path": "cadstudio/native/motion_initial_view_check.py",
+      "bytes": 13686,
+      "sha256": "88eca04d02f069fca2676fe83cec3aca5d0f47dddbe385d9f3258ab6390b65c7"
+    },
+    {
+      "path": "cadstudio/native/motion_playback_dialog.py",
+      "bytes": 18976,
+      "sha256": "a9c1495cba82268d171b682ceee75f638d35c9574e03c71c806136e1b8816ac0"
+    },
+    {
+      "path": "cadstudio/native/motion_precision_smoke.py",
+      "bytes": 19755,
+      "sha256": "e0baeecf126a508e30831d05efcf90442a7b00f3d8ea883563b073dfe63808d5"
+    },
+    {
+      "path": "cadstudio/native/motor_matrix_dialog.py",
+      "bytes": 2361,
+      "sha256": "faf02d0ab07bdf3069d958e2a8fa3a15450c391af36975396913abf1f41f984b"
+    },
+    {
+      "path": "cadstudio/native/navigation.py",
+      "bytes": 1375,
+      "sha256": "60c1c0271a1517c73c5b726805db561167d5f8253442bc921b1dc28af1d351bf"
+    },
+    {
+      "path": "cadstudio/native/notifications.py",
+      "bytes": 2249,
+      "sha256": "0914e8b16289f970233d9467fbe4e22bff8ec969e1df146164ce5a56c35b900e"
+    },
+    {
+      "path": "cadstudio/native/occlusion_smoke2191.py",
+      "bytes": 10237,
+      "sha256": "1d86bf57a35d9fc5cae4f554b66e78928b1fc20f2d057e54d72e5997dcd01368"
+    },
+    {
+      "path": "cadstudio/native/openai_setup.py",
+      "bytes": 6744,
+      "sha256": "56638d58fb48ffb5687d0df1fbb16257b3ebf320e8a6327b681391da21bd80d0"
+    },
+    {
+      "path": "cadstudio/native/parameters.py",
+      "bytes": 6021,
+      "sha256": "99510d804841650f5ec801dd3c15970626d18ff90fcb7342060e51abfa49bad5"
+    },
+    {
+      "path": "cadstudio/native/part_display_controls.py",
+      "bytes": 10240,
+      "sha256": "d6635af8cf92ec6283ff5c5d945482115d4846953abdb39d01e14717de09935a"
+    },
+    {
+      "path": "cadstudio/native/part_inspection.py",
+      "bytes": 7754,
+      "sha256": "cc4dd707b65af1175a943b667e56bbe6cb34e457240886c72a0cd5e8273f1ed7"
+    },
+    {
+      "path": "cadstudio/native/part_product_dialog.py",
+      "bytes": 12960,
+      "sha256": "ed1ddac58930fb6b4d7be0613be81f5a341b24824213b89662c0ccd56e5e6adc"
+    },
+    {
+      "path": "cadstudio/native/part_role_dialog.py",
+      "bytes": 1946,
+      "sha256": "d9cdae221da3b8de965494b70c40d8b791ef65c05f0f9f3fa1696ff03faf499c"
+    },
+    {
+      "path": "cadstudio/native/part_ui.py",
+      "bytes": 21372,
+      "sha256": "89e14e81f700a2fa2c895d34d249bc20e20a7f5a7b04e935fdb100cafe50cc6e"
+    },
+    {
+      "path": "cadstudio/native/pcb_ai.py",
+      "bytes": 11726,
+      "sha256": "fdce53c6d9312a50d7f4baf3c459b7bccfe5d81a85beda7870a12b4c9441dc85"
+    },
+    {
+      "path": "cadstudio/native/pcb_alignment_dialog.py",
+      "bytes": 17430,
+      "sha256": "c19477cb3b393fa803e5690b3032598b3201895f4c1beaaf573c8504139f6af4"
+    },
+    {
+      "path": "cadstudio/native/pcb_cost_dialog.py",
+      "bytes": 10199,
+      "sha256": "1ce894956d138327a442deb835a722839ee6ae30b1dfcc058eaece9a94e91c90"
+    },
+    {
+      "path": "cadstudio/native/pcb_embedded_dialog.py",
+      "bytes": 14410,
+      "sha256": "9271cd29b8e54d13a90b2a8014015873c3e52ad6b547c476e309149096aa64ea"
+    },
+    {
+      "path": "cadstudio/native/pcb_workbench.py",
+      "bytes": 89089,
+      "sha256": "0d7ea35b1c4a16c612b7d1c8e78ad1bde46f787ea080c70753b5746285d72ac1"
+    },
+    {
+      "path": "cadstudio/native/performance_check.py",
+      "bytes": 6067,
+      "sha256": "ba717c2765329d150ff6d0086dc3c773738b74f47d5f763735948ab70799376c"
+    },
+    {
+      "path": "cadstudio/native/physical_board_symbols.py",
+      "bytes": 12395,
+      "sha256": "8a06988469ade54dcefc99be2bc2c59607b24acff98aa6c5b1b957f0a29ac0fa"
+    },
+    {
+      "path": "cadstudio/native/picking.py",
+      "bytes": 4344,
+      "sha256": "c5a5b13812d26c391358c45d4e54796c32974a3784fa73e6530ca2e774d3b216"
+    },
+    {
+      "path": "cadstudio/native/pictorial_wiring.py",
+      "bytes": 5878,
+      "sha256": "8c6ec384f3f15dfaf93bb913d76077fbb51027fa16ae19337c8126c559e038d4"
+    },
+    {
+      "path": "cadstudio/native/placement_dialog.py",
+      "bytes": 4229,
+      "sha256": "04293cb784d078d1816dba18e1da1209ec4d8945edbbb6bc983596dfcf41deeb"
+    },
+    {
+      "path": "cadstudio/native/power_path_dialog.py",
+      "bytes": 15442,
+      "sha256": "4f8182a39b9424ca287345de280da11f4e09dc1d9953c7fbcb1ce7b36b63a22d"
+    },
+    {
+      "path": "cadstudio/native/print_ai_smoke.py",
+      "bytes": 12323,
+      "sha256": "658f29bc8c76bb35992b8024b1a94d879e4b07f7b0afdf7a3f71303f5834eab0"
+    },
+    {
+      "path": "cadstudio/native/print_batch_smoke.py",
+      "bytes": 38950,
+      "sha256": "762c7aeee92492c040231054366acf6f20e581304a73691090abd393e770f073"
+    },
+    {
+      "path": "cadstudio/native/print_dialog.py",
+      "bytes": 26356,
+      "sha256": "541355afc91a72586e6682e1766b914076da4f2856a889ba24f7409c16e25dca"
+    },
+    {
+      "path": "cadstudio/native/print_placement.py",
+      "bytes": 2309,
+      "sha256": "687db67e71759840216f506622383cab0385bfc00bfed7b12d2d09e75ac841ac"
+    },
+    {
+      "path": "cadstudio/native/print_profile_dialog.py",
+      "bytes": 7151,
+      "sha256": "cbdf15f8a84ac14d114623c47dae7c23ddd5e7f3804f4ab84a463eca38af6dfa"
+    },
+    {
+      "path": "cadstudio/native/profile_groups.py",
+      "bytes": 778,
+      "sha256": "98e1e28d4507d24d585e9def858597275cf5ea14786430cf8b6aad18e3436794"
+    },
+    {
+      "path": "cadstudio/native/program_drive_controller.py",
+      "bytes": 12829,
+      "sha256": "e5c6527613a32a7f352b1cdff9db183266a8d8835ba031c06511037277ab0516"
+    },
+    {
+      "path": "cadstudio/native/program_drive_dialog.py",
+      "bytes": 11399,
+      "sha256": "0ce164de63b1a1f576fb2260986c9ff3915585943fd635a5488baa68ec67ec3c"
+    },
+    {
+      "path": "cadstudio/native/program_drive_package_check.py",
+      "bytes": 5680,
+      "sha256": "2a917b1fe188e12062824e73287f946934b5e5129e33fa7f0ce27faea3db43ef"
+    },
+    {
+      "path": "cadstudio/native/program_drive_runner.py",
+      "bytes": 2769,
+      "sha256": "62dc3533a1d9337e4245c521b9be1a8ba0878938e636cbd838657ba2d65e4c89"
+    },
+    {
+      "path": "cadstudio/native/program_simulation_dialog.py",
+      "bytes": 15704,
+      "sha256": "916542431b3a7649ce0eb125ab5bcdfa685144299b258cfc450c9a65e097a6f6"
+    },
+    {
+      "path": "cadstudio/native/program_smoke2230.py",
+      "bytes": 6338,
+      "sha256": "8ef8136fb5013ffac986b31e9006bdae87de97cf903b13ce0630ca613e8e7b84"
+    },
+    {
+      "path": "cadstudio/native/project_history_smoke.py",
+      "bytes": 5558,
+      "sha256": "a038d77c04c601dd59d57fc83467f4e083baed8ee0b51dc827c486b24b9b9795"
+    },
+    {
+      "path": "cadstudio/native/project_review_smoke3001.py",
+      "bytes": 44647,
+      "sha256": "7703c97f1f76bce4f0cbd39c504dba825b9fbfd6f997bc7f5bb41ebcf10aa76d"
+    },
+    {
+      "path": "cadstudio/native/reference_dialog.py",
+      "bytes": 16361,
+      "sha256": "7d5dedca180de04fa9dcfe4ffd2bab9267f9446bb151c7e98c7b27acfd7deca8"
+    },
+    {
+      "path": "cadstudio/native/reference_smoke.py",
+      "bytes": 12179,
+      "sha256": "875fc96dbec648754839324960bdf765ba79d408316d467551a6eaee5927aad6"
+    },
+    {
+      "path": "cadstudio/native/reliability_smoke.py",
+      "bytes": 6143,
+      "sha256": "7a190eee37a0e5264bdf922d63f7ec3ee92b57a43d0e043f04ad84544f810172"
+    },
+    {
+      "path": "cadstudio/native/render_controls_check.py",
+      "bytes": 13726,
+      "sha256": "057a28edd87dde8f352a83613f421c4c8e4b869d8b97803fb646cab4cb7094d4"
+    },
+    {
+      "path": "cadstudio/native/render_depth.py",
+      "bytes": 2244,
+      "sha256": "270b43f0e8aae82e29d10c8d8b5bf15778694832c3057bad1072b795e4d79f3e"
+    },
+    {
+      "path": "cadstudio/native/research_dialog.py",
+      "bytes": 3651,
+      "sha256": "b6764b8225694e3efc257c8caf302ea3d7937e6c644e9d71b267463849fef152"
+    },
+    {
+      "path": "cadstudio/native/research_upgrade_smoke.py",
+      "bytes": 7082,
+      "sha256": "1baeac7f80735e4363c792236ff87b84a4aa9d4401d1b6eae163c54b27f96610"
+    },
+    {
+      "path": "cadstudio/native/role_color_settings.py",
+      "bytes": 3190,
+      "sha256": "0f6aac00a22889c6c93f3c323c22151d55f3d0bbb5e0a159617e004c60588bea"
+    },
+    {
+      "path": "cadstudio/native/role_performance_check.py",
+      "bytes": 14261,
+      "sha256": "fc59a7dbe7a14ec86a9ce6298744b8e451b84075dba7ce0598de5dc88ffdeaaf"
+    },
+    {
+      "path": "cadstudio/native/role_view.py",
+      "bytes": 10929,
+      "sha256": "1be0edec0b00ce35797d2d9c9f46451ff51cf8ffe3423ce2df102bdd53caf571"
+    },
+    {
+      "path": "cadstudio/native/saved_sketches.py",
+      "bytes": 1655,
+      "sha256": "89ccd0330032c87baf6ed571980ea5a363fdfb854fd114893ab0f9c5973a347d"
+    },
+    {
+      "path": "cadstudio/native/search_dialog.py",
+      "bytes": 4213,
+      "sha256": "140a1c8e80b612090af0601fdde696f9c651fd76e10b89760f863b04fd45f7a3"
+    },
+    {
+      "path": "cadstudio/native/selection_smoke.py",
+      "bytes": 25217,
+      "sha256": "1f02b25afafba7759dc24fee2fd03cfc4972bc168e923462ef0a26c38647bdc8"
+    },
+    {
+      "path": "cadstudio/native/sheetmetal_dialog.py",
+      "bytes": 3266,
+      "sha256": "1ee3c9f12284b692b53e50c4e5b9f1f3d69e15bf074e6ac7a2af72fdc6d3a615"
+    },
+    {
+      "path": "cadstudio/native/shortcuts.py",
+      "bytes": 7213,
+      "sha256": "03081c0b3c8fccfd5ace36d724be4b99c3feb9d5c5a15f061e494f2926e58396"
+    },
+    {
+      "path": "cadstudio/native/sketch.py",
+      "bytes": 71533,
+      "sha256": "f47522480581bc670d971a994776e13b409e246944ebe9c411949fa7022188cf"
+    },
+    {
+      "path": "cadstudio/native/sketch_clipboard.py",
+      "bytes": 2818,
+      "sha256": "ba2dd595aa3040c90bc22437db3d085679ba9f35a2d8a39c04cb5cc3704c2c45"
+    },
+    {
+      "path": "cadstudio/native/sketch_guide_smoke.py",
+      "bytes": 4650,
+      "sha256": "5bf43ae240b9f3107e847fb32fa9eca2ad75a4a10872eac2b68667bb971bc464"
+    },
+    {
+      "path": "cadstudio/native/sketch_guides.py",
+      "bytes": 3457,
+      "sha256": "b9f185dec39766a7054bc77292a7cd6b91e0629ff202bf920e3b9eefe228a200"
+    },
+    {
+      "path": "cadstudio/native/smoke.py",
+      "bytes": 14240,
+      "sha256": "faee8d4e86923d2c5fa3d5a0a02d7c0fad24292e373c5a2aa584f678d67aee4c"
+    },
+    {
+      "path": "cadstudio/native/solid_dialog.py",
+      "bytes": 11564,
+      "sha256": "e556db34ed24e4f912f01c452761240910521130339843c31064e0bf474ae446"
+    },
+    {
+      "path": "cadstudio/native/startup_smoke.py",
+      "bytes": 3301,
+      "sha256": "8f4c55a244ee4224ea066163cce20e3862fae64bd5052947d3a926fd3b617e2e"
+    },
+    {
+      "path": "cadstudio/native/studies.py",
+      "bytes": 25020,
+      "sha256": "01eba82df4199e0c90d14d596e3d494dd3d69f6ffa870a3653989f36d7c66763"
+    },
+    {
+      "path": "cadstudio/native/target_integration_check.py",
+      "bytes": 13229,
+      "sha256": "c1969b196594c04697b15d028c18e8babe1b7b66d1df4a3db600b9b2c1fbffcf"
+    },
+    {
+      "path": "cadstudio/native/target_project_check.py",
+      "bytes": 10511,
+      "sha256": "27aabf955a1e1d65944edec321104bf9f5668c0cdf03fb2c8600aba994e5981b"
+    },
+    {
+      "path": "cadstudio/native/thread_smoke.py",
+      "bytes": 6814,
+      "sha256": "c0761aac786326d4703161a8f1627b5f565797f4a2129d83bc33107b871e4989"
+    },
+    {
+      "path": "cadstudio/native/threading_tool.py",
+      "bytes": 8090,
+      "sha256": "6924cc113316c74a99e74105ec956c2997d3f2ef18aafd2d6d644a460dbc86be"
+    },
+    {
+      "path": "cadstudio/native/usability_smoke.py",
+      "bytes": 7942,
+      "sha256": "49f472e99f82ee0c9e5e1db8d9a1f5fa876192a474e7ca2c8172ec0ad16f4c56"
+    },
+    {
+      "path": "cadstudio/native/v3_smoke.py",
+      "bytes": 8650,
+      "sha256": "e64d8875aaba97c3af2c724ec22c2cd640fdeabd49e16d8a49f87e613270325b"
+    },
+    {
+      "path": "cadstudio/native/viewport.py",
+      "bytes": 38907,
+      "sha256": "5c324d46d7dcead9dc0c1f5861544f8a3b7c0e4225af39c38cbf8f6f52a76e3b"
+    },
+    {
+      "path": "cadstudio/native/widgets.py",
+      "bytes": 9449,
+      "sha256": "bca9a34512a24fb6874d830b215d49bf0af025b5ae389ce6f24ab6adb30d0c3f"
+    },
+    {
+      "path": "cadstudio/native/window.py",
+      "bytes": 201872,
+      "sha256": "563a7f1a142382356576b83dc6f292e93d6c87d580b69e59b0ae0c0388e6197d"
+    },
+    {
+      "path": "cadstudio/native/wire_connection_dialog.py",
+      "bytes": 6649,
+      "sha256": "3b2b78bdca91daf83fbbf90cfc076856cd668d4fd9c5ddb8b2059d9ff53d4f5f"
+    },
+    {
+      "path": "cadstudio/native/work_plane.py",
+      "bytes": 4165,
+      "sha256": "43f1d27d67d8c9faa6d3a73a155b1821d9bae9e44d88528dc67402f577d75630"
+    },
+    {
+      "path": "cadstudio/native/workflows.py",
+      "bytes": 35704,
+      "sha256": "fb8d4df46e9eb295d5bfadf2aeaa37bc695232c7a1e8229e391985635d57d6b3"
+    },
+    {
+      "path": "cadstudio/native_export.py",
+      "bytes": 4461,
+      "sha256": "7c4353f57cf7b532001d9144dca86cdeb07a99f9b2a23832e89fc569bb78a6ed"
+    },
+    {
+      "path": "cadstudio/ollama_setup.py",
+      "bytes": 7281,
+      "sha256": "512720e6bb4decd22d91d78470dbc0cd41a74881505104c377d1c4c8d4878e0c"
+    },
+    {
+      "path": "cadstudio/parameters.py",
+      "bytes": 7879,
+      "sha256": "cf263cd6ffc93bd04f538d6474d8b4a5eea4a05b49ed23dccce72709bd373ea3"
+    },
+    {
+      "path": "cadstudio/part_export.py",
+      "bytes": 3234,
+      "sha256": "a02eda0aa4d292356a3948f9bfef2503d628f07322461613014f1b91b4901246"
+    },
+    {
+      "path": "cadstudio/part_operations.py",
+      "bytes": 9704,
+      "sha256": "f76d7803b999293acb484ea854cda20c32df0d1aa793bad940877dcfb38d91b5"
+    },
+    {
+      "path": "cadstudio/part_product.py",
+      "bytes": 14883,
+      "sha256": "cdd685bc5e3aaf89c33322877b0c70a8e252fa9228517bb70a9fce17970d2172"
+    },
+    {
+      "path": "cadstudio/part_roles.py",
+      "bytes": 1074,
+      "sha256": "7fc21ea5c8202cc5c86c79852769643a541be95bf61a8271df821e9422f31f5e"
+    },
+    {
+      "path": "cadstudio/pcb.py",
+      "bytes": 38830,
+      "sha256": "5e24bbe7b7c8a107d4d5464607b10f78b63d8263d0c17a173ad949cec073db62"
+    },
+    {
+      "path": "cadstudio/pcb_cli.py",
+      "bytes": 1723,
+      "sha256": "a8fff217658c158f2ae81e37238b76ad1cae527982e33500a8b94cc3e601c4c9"
+    },
+    {
+      "path": "cadstudio/pcb_cost_models.py",
+      "bytes": 7228,
+      "sha256": "47adb63509c268dd5fecebc37c66e6e9be6ad1f123a2b12e6cbb80cd8703726e"
+    },
+    {
+      "path": "cadstudio/pcb_cost_workflow.py",
+      "bytes": 9114,
+      "sha256": "10ce6d4208edd06d6dc317b046ee5f5be9dfc12f88786186494a8ad095e6b01b"
+    },
+    {
+      "path": "cadstudio/pcb_editor_data.py",
+      "bytes": 2509,
+      "sha256": "7d23cfb37b2faa9e920923e26a748dc53aa12fe6066469d4a1e43959ed9eeec4"
+    },
+    {
+      "path": "cadstudio/pcb_embedded.py",
+      "bytes": 23230,
+      "sha256": "99aeb1e2a4a1255b4d8e5b31580cd5e41a5b3e362a38a1cd1c64ae3d521a3a1d"
+    },
+    {
+      "path": "cadstudio/pcb_geometry.py",
+      "bytes": 9117,
+      "sha256": "19ec15f91176ac923e18e7053413eeb05570489e9e3f7afd78c6b413a7b70382"
+    },
+    {
+      "path": "cadstudio/pcb_layer_package_check.py",
+      "bytes": 6194,
+      "sha256": "01de7b19308c254b1a855c5c1c0c0548008139ab618d708b6a55f6ca374cb473"
+    },
+    {
+      "path": "cadstudio/pcb_pin_alignment.py",
+      "bytes": 20254,
+      "sha256": "c2c982acf2d42271685d408142bac06604c3600a3f35400714d47a92b8965d02"
+    },
+    {
+      "path": "cadstudio/pcb_placement_aid.py",
+      "bytes": 13425,
+      "sha256": "4535e2425a36974c93c34bc089e1142e6188cbec9b5d0e240375880588816c96"
+    },
+    {
+      "path": "cadstudio/pcb_plugin.py",
+      "bytes": 5424,
+      "sha256": "b3c769ce83545633043113d3f3841c6d23861ae84f484303f0b97789d48200ee"
+    },
+    {
+      "path": "cadstudio/pcb_routing_aid.py",
+      "bytes": 25280,
+      "sha256": "81a2e71f738f5223daaa5085a13081be51585c9558e1a2eaa40bd7cedfe40457"
+    },
+    {
+      "path": "cadstudio/pcb_simulation.py",
+      "bytes": 6289,
+      "sha256": "2af2718fb3d5174335cb48a06fc901053269cd37cef0a8d46ec65beba93b324b"
+    },
+    {
+      "path": "cadstudio/pcb_workflow.py",
+      "bytes": 6365,
+      "sha256": "cba8f88ee9eee73379ce5b19c5dda94174679c6061f16798165e9c69891b0c78"
+    },
+    {
+      "path": "cadstudio/placement.py",
+      "bytes": 4933,
+      "sha256": "1a2886662367e07c5a3634cb7d3120bad611964eb010c876085d1431b44487c1"
+    },
+    {
+      "path": "cadstudio/planner.py",
+      "bytes": 19472,
+      "sha256": "eb07b7340142a0b17ad414c919878bc493129daa1f78688fa5d3c2ac742d39c8"
+    },
+    {
+      "path": "cadstudio/power_paths.py",
+      "bytes": 19224,
+      "sha256": "4e3ffc3c238aeea1105001f77d30eed935f82a80ac67a6e62a8b2488599dc06a"
+    },
+    {
+      "path": "cadstudio/preview_cache.py",
+      "bytes": 2596,
+      "sha256": "066335d1394743fe568faa2589ff0c9dc3b1ecc0cc8117ca6ce0d63cbbe6afa5"
+    },
+    {
+      "path": "cadstudio/preview_metadata.py",
+      "bytes": 2407,
+      "sha256": "adaa36136a509a598f0a89695753ffba05767ba3a17a9213c024cf83e167e5ec"
+    },
+    {
+      "path": "cadstudio/print_profile.py",
+      "bytes": 5482,
+      "sha256": "682a93564d4570be3720e0feb2d88c41803ac6c108f82c82f62746647593911c"
+    },
+    {
+      "path": "cadstudio/printing.py",
+      "bytes": 38341,
+      "sha256": "3e094d5e72303534e0f0880815715fcb9fa6e8a82a505b0587a561c220a3645b"
+    },
+    {
+      "path": "cadstudio/product_diagrams.py",
+      "bytes": 67864,
+      "sha256": "2f943b23c90c0ea5455d77fa125ff061967088cfc6793ee9ac80b7d31ea53865"
+    },
+    {
+      "path": "cadstudio/profile_paths.py",
+      "bytes": 1045,
+      "sha256": "a10de357b3ebcc80cfd5c2c5cf258b5773bbf47293204635bf75b8f46008d2d8"
+    },
+    {
+      "path": "cadstudio/program_attachment.py",
+      "bytes": 2897,
+      "sha256": "211a2a8dda310e0965e4619e0011ae75079ae68ab5b13a2c414e522e02447725"
+    },
+    {
+      "path": "cadstudio/program_drive_adapter.py",
+      "bytes": 21542,
+      "sha256": "1e25cc7e02e5c6c9b5bbc76e83f6f303576abd592ffcb6afee5454439ffec856"
+    },
+    {
+      "path": "cadstudio/program_drive_provenance.py",
+      "bytes": 8173,
+      "sha256": "e50480150df4e1c6dd2eed3d4f5b2411d6663ee789e8001e6a18565f724509bf"
+    },
+    {
+      "path": "cadstudio/program_drive_trust_anchor.py",
+      "bytes": 1240,
+      "sha256": "aec008ae106981be1a9f32938ac8dae528cf2599ed0810a1e8335c81f1ac0e30"
+    },
+    {
+      "path": "cadstudio/program_simulation.py",
+      "bytes": 31807,
+      "sha256": "fc78917683a9eda3e73794829eb50567500eea58f72ea8f71d4b104f84d54cad"
+    },
+    {
+      "path": "cadstudio/references.py",
+      "bytes": 5683,
+      "sha256": "51451458d95fce702b6e9540e57040a3b6b7503e14ce9861a1e261a9b9ffa810"
+    },
+    {
+      "path": "cadstudio/research_package.py",
+      "bytes": 5669,
+      "sha256": "03d661b9ad5828300e246504be1df1bfeb2151358f5eb4959600fffbd9497c0e"
+    },
+    {
+      "path": "cadstudio/role_colors.py",
+      "bytes": 2171,
+      "sha256": "211b6fb9aa4d7e1f38edc7d429a3677a0fff8e9bd4107847c73d0fb4b0e6b3b2"
+    },
+    {
+      "path": "cadstudio/role_memberships.py",
+      "bytes": 2264,
+      "sha256": "10625af290b14b13ac37e115c52bd17a125b577e2561370fc419b5753188a01f"
+    },
+    {
+      "path": "cadstudio/server.py",
+      "bytes": 9495,
+      "sha256": "a12a40c6f3065f19d80bbe8882d014ae057d38d104890504906aaab6b25c6e49"
+    },
+    {
+      "path": "cadstudio/sheetmetal.py",
+      "bytes": 1596,
+      "sha256": "67e1bf5860bdd9d29806a4333eb3529e42eaa84e71d4bc4141b64e0f22899173"
+    },
+    {
+      "path": "cadstudio/single_install.py",
+      "bytes": 14813,
+      "sha256": "72aee4db2900676b64b3bf40745decc3f2d2293d3ea5fafa7026dd1ccc9d30ad"
+    },
+    {
+      "path": "cadstudio/sketch_engine.py",
+      "bytes": 23104,
+      "sha256": "b8bdd5034b4d615cb22a3ad35f7cd0ab623035c38fe901e9297a67ff3da100c0"
+    },
+    {
+      "path": "cadstudio/sketch_frames.py",
+      "bytes": 2555,
+      "sha256": "90cf3eedb37af730289f25f21e49aac9d3a7f8530aacbfbd8c31c1d2b40d3562"
+    },
+    {
+      "path": "cadstudio/solid_tools.py",
+      "bytes": 4172,
+      "sha256": "6f7084e157d59759794df62582bb1005d70c4a1a94575963bb1ff4867e52587d"
+    },
+    {
+      "path": "cadstudio/stack_observer.py",
+      "bytes": 10928,
+      "sha256": "b8dae06f90a3c8dfb61dc171d71b3b12a03ab66a73c1b0e90beb0548d520459a"
+    },
+    {
+      "path": "cadstudio/tensile.py",
+      "bytes": 7906,
+      "sha256": "778065d15280987234f11d48dfab0a72a445569ce13f2e19ab3edf50a1d9b202"
+    },
+    {
+      "path": "cadstudio/threads.py",
+      "bytes": 7474,
+      "sha256": "a5fbc8e25ec0c41613f0b72ba9c042c19b8422ea6182bf5ab6ca037edff86539"
+    },
+    {
+      "path": "cadstudio/topology.py",
+      "bytes": 3029,
+      "sha256": "6795e98cce52af62727a398259e1913497dac5dde81e79c5ed87fe65c7c70e64"
+    },
+    {
+      "path": "cadstudio/updater.py",
+      "bytes": 20700,
+      "sha256": "c76e42108dd6c5c819185245a845922a9666ffc566629a0d34e34e039c602526"
+    },
+    {
+      "path": "cadstudio/windows_identity.py",
+      "bytes": 1265,
+      "sha256": "f11ee90b8fb1ab4abb6fc873b5c55ab1df4cf79c94b52940b88269fff739aaf1"
+    },
+    {
+      "path": "cadstudio/work_planes.py",
+      "bytes": 2904,
+      "sha256": "c016615399faabe2cb621d73e0859ed890449195eec3ee1ca5c40bd24be45216"
+    },
+    {
+      "path": "create-shortcut.ps1",
+      "bytes": 1717,
+      "sha256": "bc8eb0a0ec67a0303d5c64bc3488a94a884222081a69c9a93cb6b7bcc1f8d2b4"
+    },
+    {
+      "path": "desktop.py",
+      "bytes": 163,
+      "sha256": "4e2857e0709ce1931cf595298a967ee0321e8eac275e2e2c0b37cd2fbff477e0"
+    },
+    {
+      "path": "docs/ai-joint280-validation.json",
+      "bytes": 63803,
+      "sha256": "9f18c815f2a837b7bf7e5592326e1e1add994050ae2e05049790d0ee9f1e580f"
+    },
+    {
+      "path": "docs/ai210-chat-connected.png",
+      "bytes": 169255,
+      "sha256": "9e642827018b1f6010d4e0ded3be1509fc4d3a7380b594a3f86125c1a06fd3ab"
+    },
+    {
+      "path": "docs/ai210-compare.png",
+      "bytes": 373406,
+      "sha256": "ef1fa2045de00adf6a5c5727569b2018c49e64ab8cc04754bae9e0ba17193cd0"
+    },
+    {
+      "path": "docs/ai260-compact.png",
+      "bytes": 294315,
+      "sha256": "74f8f3b138a40fddf4f0756d751f5a498975a0a81fab500eff5a21e91a1c3de9"
+    },
+    {
+      "path": "docs/AI_EXPECTATIONS_KO.md",
+      "bytes": 8081,
+      "sha256": "043b21b5ff13def26aa55523734daf79ae60a4b9b27b99d0c838e06e0920b027"
+    },
+    {
+      "path": "docs/AI_REPAIR_KO.md",
+      "bytes": 3986,
+      "sha256": "426e02010cbd8415a3d47bbf9421a2c230df493bf569dffda3e171e973ddd7e4"
+    },
+    {
+      "path": "docs/AI_WIRING_2220.md",
+      "bytes": 5347,
+      "sha256": "ac6719a780d94534b8e4bb3bc70880fc9555dc0d08a24e668b1dadab2c2dcad6"
+    },
+    {
+      "path": "docs/assembly.png",
+      "bytes": 77546,
+      "sha256": "53b823de6fcf24de4f0d1188284df8f244881b5c2c069a4f24e74ddaa0e5bf46"
+    },
+    {
+      "path": "docs/ASSEMBLY_PARTS_KO.md",
+      "bytes": 4612,
+      "sha256": "ffefaf5e4d99b8e13bf36deed76552c5158dabc987bf0c3842b2dda4759c6dd2"
+    },
+    {
+      "path": "docs/BOM_DESIGN_KO.md",
+      "bytes": 3460,
+      "sha256": "06506abd2e5874effc8460c03454da9ee708e4b64e80fb577d7c5dbd1a6c6824"
+    },
+    {
+      "path": "docs/CAD_ELECTRICAL_REGISTRATION_EN.md",
+      "bytes": 7188,
+      "sha256": "b97dc29de51461bf1af755b9ee8b605c543fb4e14eff209ca3551cb944d9917a"
+    },
+    {
+      "path": "docs/CAD_ELECTRICAL_REGISTRATION_KO.md",
+      "bytes": 8327,
+      "sha256": "87bc26dd6f6d11facf4fe187ef94a61f915d08602f2132a126c7c41ceeee00cb"
+    },
+    {
+      "path": "docs/CHAMBER_DESIGN_KO.md",
+      "bytes": 8863,
+      "sha256": "23ac7d7ad65155426105bd12427ee4194e48c50fc902b4936e63b558d92e903e"
+    },
+    {
+      "path": "docs/codex270-live-validation.json",
+      "bytes": 1188,
+      "sha256": "05eb52c84613e6dac2d394f12a61d98ce2b76653cf48005f3bed7b67f249ff4e"
+    },
+    {
+      "path": "docs/codex270-mode.png",
+      "bytes": 112545,
+      "sha256": "33f2a0ee5a7951202af420d86915ace55d4a46cd2945a6258d151ad2cc0b6521"
+    },
+    {
+      "path": "docs/codex270-report.json",
+      "bytes": 718,
+      "sha256": "3f3150eceb1d4aea491d0556612ab31363d6ec2d2c329a588fdb243f472b5ec0"
+    },
+    {
+      "path": "docs/codex270-setup.png",
+      "bytes": 51861,
+      "sha256": "5604ae475174498232cb9638cb4998334700d7914de3e615c39e88e6f51f511f"
+    },
+    {
+      "path": "docs/codex270-viewport.png",
+      "bytes": 215654,
+      "sha256": "e3322bed5c1e03cefdf5494cdd3e9b4ec4119c45c4de7b2d60da0164eb1049ca"
+    },
+    {
+      "path": "docs/CODEX_MODE_KO.md",
+      "bytes": 5135,
+      "sha256": "8dd97fefeb6b80c43a473f3467bedd6a6a8f151f506013826080c5b31f0558dc"
+    },
+    {
+      "path": "docs/COMMON_UPDATE_20261014_KO.md",
+      "bytes": 15341,
+      "sha256": "f2d253956639f78ebd2c39c1c250314e8d8f3687af1bc2a40433129fe2780e6e"
+    },
+    {
+      "path": "docs/design-history.png",
+      "bytes": 67107,
+      "sha256": "dedf28121672b520edb3b045de75f6e1c0db381d5d1c42ec89cd0aeafc636679"
+    },
+    {
+      "path": "docs/DEVELOPMENT_SCOPE.md",
+      "bytes": 4204,
+      "sha256": "21de43d7541b6db63740fdc22b53786c08e3be2726101d06b9d2ad528ff698c0"
+    },
+    {
+      "path": "docs/draft-baseline2160-benchmark.json",
+      "bytes": 1587,
+      "sha256": "6a33b309361fc9ae1bc2156612bb31c209eaafb6b260ad8b9ce3815c2f6ace3a"
+    },
+    {
+      "path": "docs/draft-repair-auto2111.json",
+      "bytes": 1172,
+      "sha256": "97ae14d2aad90564b23168f3e80f407ad076788b161176a45b3740f2ed9865f7"
+    },
+    {
+      "path": "docs/draft-repair-auto2120.json",
+      "bytes": 2436,
+      "sha256": "97f5b7d4906f5381a435b3951ee07916ed3e7472a9184a182e39eaa2d3f49749"
+    },
+    {
+      "path": "docs/draft-repair-software2111.json",
+      "bytes": 1172,
+      "sha256": "97ae14d2aad90564b23168f3e80f407ad076788b161176a45b3740f2ed9865f7"
+    },
+    {
+      "path": "docs/draft-repair-software2120.json",
+      "bytes": 2436,
+      "sha256": "97f5b7d4906f5381a435b3951ee07916ed3e7472a9184a182e39eaa2d3f49749"
+    },
+    {
+      "path": "docs/electrical-catalog2141.png",
+      "bytes": 68022,
+      "sha256": "408f0040bc9d13da1346aa6909008e95cacad9c5613d389494233118c2821340"
+    },
+    {
+      "path": "docs/electrical-catalog2160.png",
+      "bytes": 68022,
+      "sha256": "408f0040bc9d13da1346aa6909008e95cacad9c5613d389494233118c2821340"
+    },
+    {
+      "path": "docs/electrical-catalog2170.png",
+      "bytes": 68022,
+      "sha256": "408f0040bc9d13da1346aa6909008e95cacad9c5613d389494233118c2821340"
+    },
+    {
+      "path": "docs/electrical-catalog2180.png",
+      "bytes": 68022,
+      "sha256": "408f0040bc9d13da1346aa6909008e95cacad9c5613d389494233118c2821340"
+    },
+    {
+      "path": "docs/electrical-fault2141.png",
+      "bytes": 112460,
+      "sha256": "6af1fdb85a6443459827410cedd37ccd6cabea95efaa4c5ee6c22cde9c28d05f"
+    },
+    {
+      "path": "docs/electrical-fault2160.png",
+      "bytes": 119949,
+      "sha256": "d5a29b6736803aa54986efac8706b4b36c1ce704c8c06fbcf4801cde31499f63"
+    },
+    {
+      "path": "docs/electrical-fault2170.png",
+      "bytes": 126046,
+      "sha256": "244b8df9c2ab82574f456cac6ea4bb44b606284734fb1abfefc1a2e16edd77c8"
+    },
+    {
+      "path": "docs/electrical-fault2180.png",
+      "bytes": 126046,
+      "sha256": "244b8df9c2ab82574f456cac6ea4bb44b606284734fb1abfefc1a2e16edd77c8"
+    },
+    {
+      "path": "docs/electrical-joint2140.json",
+      "bytes": 860,
+      "sha256": "8a288245ba6e0777b7bd0b9ae6500d654150be26cbaf72d72d6a7a4bd106ef41"
+    },
+    {
+      "path": "docs/electrical-joint2141.json",
+      "bytes": 1398,
+      "sha256": "e21ccecb0a5aabef5ed566760e02637dd8783ca15d4c0552972911f2ccb9638d"
+    },
+    {
+      "path": "docs/electrical-joint2160.json",
+      "bytes": 1420,
+      "sha256": "b6f564e18f3bd4da24396fd768927e52c55adde6720cebe04ba0a05597b35d16"
+    },
+    {
+      "path": "docs/electrical-joint2170.json",
+      "bytes": 1420,
+      "sha256": "b6f564e18f3bd4da24396fd768927e52c55adde6720cebe04ba0a05597b35d16"
+    },
+    {
+      "path": "docs/electrical-joint2180.json",
+      "bytes": 1420,
+      "sha256": "b6f564e18f3bd4da24396fd768927e52c55adde6720cebe04ba0a05597b35d16"
+    },
+    {
+      "path": "docs/electrical-native2160.json",
+      "bytes": 2797,
+      "sha256": "59bd3e619382d0a6beff3c01f9bbf35d4876a3c94e073a645d82f0cb720c481a"
+    },
+    {
+      "path": "docs/electrical-native2170.json",
+      "bytes": 2797,
+      "sha256": "59bd3e619382d0a6beff3c01f9bbf35d4876a3c94e073a645d82f0cb720c481a"
+    },
+    {
+      "path": "docs/electrical-native2180.json",
+      "bytes": 2797,
+      "sha256": "59bd3e619382d0a6beff3c01f9bbf35d4876a3c94e073a645d82f0cb720c481a"
+    },
+    {
+      "path": "docs/electrical-registration2180/electrical-registration-board2180.png",
+      "bytes": 175598,
+      "sha256": "971fca9a948c329803335fd0253e2c84b065394a3bf57ff4b8c59f6d06309f0f"
+    },
+    {
+      "path": "docs/electrical-registration2180/electrical-registration-english2180.png",
+      "bytes": 190570,
+      "sha256": "dffb03e59ac2533a1541b7be813fcef68e91767795959e7b4a9e8432beb17785"
+    },
+    {
+      "path": "docs/electrical-registration2180/electrical-registration-reopen2180.png",
+      "bytes": 172539,
+      "sha256": "c10cba82f84f0eea0b0b34687f7421a3f337551711cfe925f9fec53cec3b4fc0"
+    },
+    {
+      "path": "docs/electrical-registration2180/electrical-registration-schematic2180.png",
+      "bytes": 105821,
+      "sha256": "76585f0b46ae23b9d9172d3f918319f330f816313a47b00ccfaba3f06cbfe3b9"
+    },
+    {
+      "path": "docs/electrical-registration2180/electrical-registration-sensor2180.png",
+      "bytes": 152867,
+      "sha256": "7ab8afd8899b3144b211f940ec371448ba025f97385afa3bc48f7527801b65c6"
+    },
+    {
+      "path": "docs/electrical-registration2180-native.json",
+      "bytes": 4800,
+      "sha256": "afec8a19a3821cdbf6c4655592883dac7bf43a8bb69238700e3e0de89a55f44d"
+    },
+    {
+      "path": "docs/electrical-role2160.json",
+      "bytes": 1619,
+      "sha256": "46e10a988529da1ed98dc8df3489e11b273f1bca40957aabd0e18da79e992c90"
+    },
+    {
+      "path": "docs/electrical-role2170.json",
+      "bytes": 1619,
+      "sha256": "46e10a988529da1ed98dc8df3489e11b273f1bca40957aabd0e18da79e992c90"
+    },
+    {
+      "path": "docs/electrical-role2180.json",
+      "bytes": 1619,
+      "sha256": "46e10a988529da1ed98dc8df3489e11b273f1bca40957aabd0e18da79e992c90"
+    },
+    {
+      "path": "docs/electrical-schematic2160.png",
+      "bytes": 73441,
+      "sha256": "de17f5a816a5d1d1f19f865ca0843170268e01867ca96b9474b22b0e58c70773"
+    },
+    {
+      "path": "docs/electrical-schematic2170.png",
+      "bytes": 75448,
+      "sha256": "6ee8bdb74e579cca7c5dbf62a0e1bca90c626ebde1dc34ca64fec36773a0162e"
+    },
+    {
+      "path": "docs/electrical-schematic2180.png",
+      "bytes": 75448,
+      "sha256": "6ee8bdb74e579cca7c5dbf62a0e1bca90c626ebde1dc34ca64fec36773a0162e"
+    },
+    {
+      "path": "docs/electrical2140.png",
+      "bytes": 101174,
+      "sha256": "3bd8d6f5c99a2da4b7417ff2b752d771f8bbd2be2914ddc89c910971bd3847e9"
+    },
+    {
+      "path": "docs/electrical2141.png",
+      "bytes": 104438,
+      "sha256": "f658a776fc7f72032a56ba81e544888787aa2cb260065c72b1dec0e85ee0d2ae"
+    },
+    {
+      "path": "docs/electrical2160/fastener-check2160.png",
+      "bytes": 114212,
+      "sha256": "bcbf61aa0063223409b50cf3932069d7b8d454a3a9e86c45a670a4dee90f20cd"
+    },
+    {
+      "path": "docs/electrical2160/mechanical-catalog2160.png",
+      "bytes": 103462,
+      "sha256": "bb8ce2bcaae2bb88995c6fcc3dd2e18e89895c15319e61da6f9f6d11341749e0"
+    },
+    {
+      "path": "docs/electrical2160/power-path2160.png",
+      "bytes": 114127,
+      "sha256": "5144449f4279f513ebfabe0e4b3bf817f7570d98f7ddbf976e30f2d9197d8ec1"
+    },
+    {
+      "path": "docs/electrical2160/power-schematic2160.png",
+      "bytes": 76767,
+      "sha256": "4541f7b2ca540af62e954d2dcfa2e8acbaf5a6cfd076d5f94cd5f6c0f97c6e2f"
+    },
+    {
+      "path": "docs/electrical2160.png",
+      "bytes": 116684,
+      "sha256": "eb0b387ef2f3e55dbb8f9f43f2c875ce732bd84caa2d5cceb07610a0459cc426"
+    },
+    {
+      "path": "docs/electrical2170/fastener-check2160.png",
+      "bytes": 114212,
+      "sha256": "bcbf61aa0063223409b50cf3932069d7b8d454a3a9e86c45a670a4dee90f20cd"
+    },
+    {
+      "path": "docs/electrical2170/mechanical-catalog2160.png",
+      "bytes": 103462,
+      "sha256": "bb8ce2bcaae2bb88995c6fcc3dd2e18e89895c15319e61da6f9f6d11341749e0"
+    },
+    {
+      "path": "docs/electrical2170/power-path2160.png",
+      "bytes": 114127,
+      "sha256": "5144449f4279f513ebfabe0e4b3bf817f7570d98f7ddbf976e30f2d9197d8ec1"
+    },
+    {
+      "path": "docs/electrical2170/power-schematic2160.png",
+      "bytes": 77677,
+      "sha256": "a6323021d590f15ce7c6200f65d14cb9041fcf0a9d1068a5442281a1698f2a2e"
+    },
+    {
+      "path": "docs/electrical2170.png",
+      "bytes": 123290,
+      "sha256": "9dd293f947d78297ca274cc0bb2c8b7442925631a65b1faa787c8ee5e2b8b6bb"
+    },
+    {
+      "path": "docs/electrical2180/fastener-check2160.png",
+      "bytes": 114212,
+      "sha256": "bcbf61aa0063223409b50cf3932069d7b8d454a3a9e86c45a670a4dee90f20cd"
+    },
+    {
+      "path": "docs/electrical2180/mechanical-catalog2160.png",
+      "bytes": 103462,
+      "sha256": "bb8ce2bcaae2bb88995c6fcc3dd2e18e89895c15319e61da6f9f6d11341749e0"
+    },
+    {
+      "path": "docs/electrical2180/power-path2160.png",
+      "bytes": 114127,
+      "sha256": "5144449f4279f513ebfabe0e4b3bf817f7570d98f7ddbf976e30f2d9197d8ec1"
+    },
+    {
+      "path": "docs/electrical2180/power-schematic2160.png",
+      "bytes": 77677,
+      "sha256": "a6323021d590f15ce7c6200f65d14cb9041fcf0a9d1068a5442281a1698f2a2e"
+    },
+    {
+      "path": "docs/electrical2180.png",
+      "bytes": 123290,
+      "sha256": "9dd293f947d78297ca274cc0bb2c8b7442925631a65b1faa787c8ee5e2b8b6bb"
+    },
+    {
+      "path": "docs/ELECTRICAL_CATALOG_2_21_0_KO.md",
+      "bytes": 5728,
+      "sha256": "3de18ad69ab420f707116e79c19deba97b1b83d7fa092a8576045f73061ee3d2"
+    },
+    {
+      "path": "docs/ELECTRICAL_JOINT_EN.md",
+      "bytes": 7472,
+      "sha256": "309945905f2ac1440754591aaeec8f1a9a71e3ce7425c152130162077c4a7c2e"
+    },
+    {
+      "path": "docs/ELECTRICAL_JOINT_KO.md",
+      "bytes": 11293,
+      "sha256": "1457e774dc5dbfe53b707fdb05a51e3a962be4657450252bbf8d5eece6e77bce"
+    },
+    {
+      "path": "docs/ELECTRICAL_LINKS_EN.md",
+      "bytes": 3302,
+      "sha256": "9f4bc5a5d3b932ba49755a4d43aa9b9cfe36dfd0b12e827677f554680d12ce2c"
+    },
+    {
+      "path": "docs/ELECTRICAL_LINKS_KO.md",
+      "bytes": 4027,
+      "sha256": "9303883c723f010a07f04af80a47b3236661e9e7aedfc547b265082d167b0e03"
+    },
+    {
+      "path": "docs/ELECTRICAL_READINESS.md",
+      "bytes": 3736,
+      "sha256": "2020430235b60fb0c97d2473dc8513bccca65f8aaab057cd81cf0018e9ad709e"
+    },
+    {
+      "path": "docs/ELECTRICAL_SAFETY_2_23_0_KO.md",
+      "bytes": 3570,
+      "sha256": "8c7f6c21055986451cfa58a94c97cb8974508b8f1b5eb582205cea7fcdd5adf7"
+    },
+    {
+      "path": "docs/ELECTRICAL_WORKSPACE_EN.md",
+      "bytes": 2493,
+      "sha256": "74aafe4b2d6694669838877687c5b3317d34172418d3cf39277b2dfdea148340"
+    },
+    {
+      "path": "docs/ELECTRICAL_WORKSPACE_KO.md",
+      "bytes": 4319,
+      "sha256": "bdd2e9e9eff25590828f3993bdc80e36379f2ad7e9a45134af0ca32643079f3d"
+    },
+    {
+      "path": "docs/ELECTRONIC_PRODUCT_DIAGRAM_SOURCES.md",
+      "bytes": 6075,
+      "sha256": "8322579d3a20e123a71a0589a6e24f8b1002a28205d464bd00a08482c2707d45"
+    },
+    {
+      "path": "docs/ELECTRONICS_CATALOG_2_23_0_KO.md",
+      "bytes": 7698,
+      "sha256": "e08ff0d828f79a95647b213fa91af524242e0ff4dc8b523287af891878ea801c"
+    },
+    {
+      "path": "docs/ENGINEERING.md",
+      "bytes": 9299,
+      "sha256": "2f6311a452e0d81dc18f4e47dfd37172400ad1bbcc55ddf2b65c4105755086bf"
+    },
+    {
+      "path": "docs/face-sketch.png",
+      "bytes": 74433,
+      "sha256": "77309d654296562da22fe6afef7ec53dc840820e2a3e366d8f42310d494bcce4"
+    },
+    {
+      "path": "docs/FASTENER_AXIAL_CHECK_EN.md",
+      "bytes": 3554,
+      "sha256": "48b9b55ceea3934062bbfc5ef63aeb7c41748a880df654447f61d086ba9f1cac"
+    },
+    {
+      "path": "docs/FASTENER_AXIAL_CHECK_KO.md",
+      "bytes": 3905,
+      "sha256": "6ff2e3bb0f66516f6eb23e026bc2246e13ec2af14ec00be94ec58d7dadca0754"
+    },
+    {
+      "path": "docs/FILE_ASSOCIATIONS_KO.md",
+      "bytes": 6462,
+      "sha256": "823d4cc97bb4f9b1d89bf03d795b43785bee279613c5dcd832b981fa5d9bdd9b"
+    },
+    {
+      "path": "docs/FORCE_ACQUISITION.md",
+      "bytes": 6197,
+      "sha256": "f0102b5fed063ac9e52b6c24047d5a2dfea4d6a0684b83c35d6c93b58eed8e3e"
+    },
+    {
+      "path": "docs/history2181-validation.json",
+      "bytes": 566,
+      "sha256": "229d77e931b4879e7328c14098eabb41c5443f5ea0eec1f7a2bb3dc21c4cbf2e"
+    },
+    {
+      "path": "docs/history2190-validation.json",
+      "bytes": 801,
+      "sha256": "92340c87f2a7ef5d1ba2c580896863208a91c180674d4ae015aa268bb39e8812"
+    },
+    {
+      "path": "docs/joint-viewport2140.png",
+      "bytes": 272484,
+      "sha256": "5b6d7486ad18535e3dacd5eecba52d470eb2c733e94d4ed804a1ee4dc446c7cc"
+    },
+    {
+      "path": "docs/joint-viewport2141.png",
+      "bytes": 272484,
+      "sha256": "5b6d7486ad18535e3dacd5eecba52d470eb2c733e94d4ed804a1ee4dc446c7cc"
+    },
+    {
+      "path": "docs/joint-viewport2160.png",
+      "bytes": 272484,
+      "sha256": "5b6d7486ad18535e3dacd5eecba52d470eb2c733e94d4ed804a1ee4dc446c7cc"
+    },
+    {
+      "path": "docs/joint-viewport2170.png",
+      "bytes": 272484,
+      "sha256": "5b6d7486ad18535e3dacd5eecba52d470eb2c733e94d4ed804a1ee4dc446c7cc"
+    },
+    {
+      "path": "docs/joint-viewport2180.png",
+      "bytes": 272484,
+      "sha256": "5b6d7486ad18535e3dacd5eecba52d470eb2c733e94d4ed804a1ee4dc446c7cc"
+    },
+    {
+      "path": "docs/joint210-alignment.png",
+      "bytes": 405635,
+      "sha256": "9ef2dfdecfde33f497a8f2c7c6eac397c8633a3d106f9389ed1f96c4d577b67d"
+    },
+    {
+      "path": "docs/joint260-drive-preview.png",
+      "bytes": 430960,
+      "sha256": "520980ffd1f182d9b3e3077a2ded3ffb046a8e6b8aaf1fd8988e31e2764e0f09"
+    },
+    {
+      "path": "docs/legacy-validation-1.2.md",
+      "bytes": 5833,
+      "sha256": "727901b5b733453ba8ea0bc162ec72701a8cc8311c7a68ccfd98464d0fa7e50f"
+    },
+    {
+      "path": "docs/MATERIALS_KO.md",
+      "bytes": 6602,
+      "sha256": "c52e17c12f06ab35b478365d23167606694c221642dcda20bd5493af13317af3"
+    },
+    {
+      "path": "docs/mcu-pin2170/mcu-pin-editor2170.png",
+      "bytes": 164692,
+      "sha256": "d50fd64fe04f64b5cc1c2ecafef62314452e3e32c485bfb713ae01549e3996d2"
+    },
+    {
+      "path": "docs/mcu-pin2170/mcu-pin-english2170.png",
+      "bytes": 188690,
+      "sha256": "30378b032ed8783287b8ffe286aa6f82a3b72d583185f48de3f1b1fcaf24d29d"
+    },
+    {
+      "path": "docs/mcu-pin2170/mcu-pin-schematic2170.png",
+      "bytes": 125986,
+      "sha256": "7f5b72be90fe81ad1965b559bcce1671128ff4d5f0e809acc9b273b7b65b0f63"
+    },
+    {
+      "path": "docs/mcu-pin2170-native.json",
+      "bytes": 3916,
+      "sha256": "19e1490e25b2e665c5df31c417f9b832837a03bdebed53d24712a8401683c586"
+    },
+    {
+      "path": "docs/mcu-pin2180/mcu-pin-editor2170.png",
+      "bytes": 164692,
+      "sha256": "d50fd64fe04f64b5cc1c2ecafef62314452e3e32c485bfb713ae01549e3996d2"
+    },
+    {
+      "path": "docs/mcu-pin2180/mcu-pin-english2170.png",
+      "bytes": 188690,
+      "sha256": "30378b032ed8783287b8ffe286aa6f82a3b72d583185f48de3f1b1fcaf24d29d"
+    },
+    {
+      "path": "docs/mcu-pin2180/mcu-pin-schematic2170.png",
+      "bytes": 125986,
+      "sha256": "7f5b72be90fe81ad1965b559bcce1671128ff4d5f0e809acc9b273b7b65b0f63"
+    },
+    {
+      "path": "docs/mcu-pin2180-native.json",
+      "bytes": 3916,
+      "sha256": "c972127485c39ae0317e4e4304a62c0d45687c36af95249161b785493ba6bf28"
+    },
+    {
+      "path": "docs/MCU_PIN_CONNECTIONS_EN.md",
+      "bytes": 4626,
+      "sha256": "1e329e2966a9051bc61203d1c13684c37ad63aa544eba0d9673c92fbbacaced0"
+    },
+    {
+      "path": "docs/MCU_PIN_CONNECTIONS_KO.md",
+      "bytes": 5461,
+      "sha256": "8119150f1730a610e55405cc45703ee316f7d85cf1fa9f61c0f2bbc69f872bfc"
+    },
+    {
+      "path": "docs/MCU_PIN_SOURCES.md",
+      "bytes": 9647,
+      "sha256": "0357d96fac7fc8ddeaead59015995e2fdffdd55b5db07d85412a7610024445df"
+    },
+    {
+      "path": "docs/mechanical280-exploded.png",
+      "bytes": 583542,
+      "sha256": "1174cd10e79adabba63745ad2db03befef1af0e10ce7f0967dddf08612821bc3"
+    },
+    {
+      "path": "docs/mechanical280-preview.png",
+      "bytes": 379251,
+      "sha256": "9d5f640282dc3254d6f5d7551d9a910512c1b46f4435f898ef978c491ca8715d"
+    },
+    {
+      "path": "docs/mechanical280-report.json",
+      "bytes": 1236,
+      "sha256": "e3ce16e78d8afef823210fd0c7a0592a46c6efb2440148467b28031eabd9b0c3"
+    },
+    {
+      "path": "docs/mechanical280-workbench.png",
+      "bytes": 511630,
+      "sha256": "ca169b508f549f1d3a686a3f0d31a5addf23c4c53610d913b1a976df4ac5aaf9"
+    },
+    {
+      "path": "docs/MECHANICAL_CATALOG_EN.md",
+      "bytes": 3034,
+      "sha256": "a0925fcb8ffc818a7fddee97e162c8878ef07a742d5320b4b929747cf761c728"
+    },
+    {
+      "path": "docs/MECHANICAL_CATALOG_KO.md",
+      "bytes": 3681,
+      "sha256": "16cd71b74e5302053ec7ad3460ef6fcdd32d48a271c94a5419ebdb0d3f6190eb"
+    },
+    {
+      "path": "docs/mechanism-auto2110.json",
+      "bytes": 1318,
+      "sha256": "27ef4206d0170308366283daff1c661ef11f76b19c3bc781bd99c596f50fa2f9"
+    },
+    {
+      "path": "docs/mechanism-software2110.json",
+      "bytes": 1318,
+      "sha256": "27ef4206d0170308366283daff1c661ef11f76b19c3bc781bd99c596f50fa2f9"
+    },
+    {
+      "path": "docs/mechanism2110-joints.png",
+      "bytes": 556980,
+      "sha256": "3e1733e2cc8c2956f554a7f83e05863a0344a3cfb94087b5b0eda123ce33fc6d"
+    },
+    {
+      "path": "docs/MECHANISM_PRINT_ZOOM_KO.md",
+      "bytes": 6064,
+      "sha256": "5bcaf5133d63e08f0752be4074256e39d5083e99ddbfecd0dfaf797f187b0a14"
+    },
+    {
+      "path": "docs/metadata2160-benchmark.json",
+      "bytes": 776,
+      "sha256": "f422472dcf8f99b056a35193ce7b3e1fcf4d7c8f213bfb370d97f88e6cac3ef4"
+    },
+    {
+      "path": "docs/motion210-blocked.png",
+      "bytes": 652693,
+      "sha256": "29de197fd71fc9d02f4c132885828c04ef0506b28f1c70a6b748e649f4f5e09b"
+    },
+    {
+      "path": "docs/MOTION_INITIAL_VIEW_KO.md",
+      "bytes": 1971,
+      "sha256": "d8239fa994b66af010b81c84931ccda26abe055b03fc7f388c02b0f529867371"
+    },
+    {
+      "path": "docs/MOTION_INSPECTION_SLICES_KO.md",
+      "bytes": 2465,
+      "sha256": "5ab69c11a6545275b9dd0a8d944a46f25031503d2d2e3f8f833832192b55c4cf"
+    },
+    {
+      "path": "docs/MOTOR_CATALOG_2_22_0_KO.md",
+      "bytes": 7867,
+      "sha256": "22ea230b6a755cd1a4611ac753d216443ebc94291dc977e84172d8b3d4a1de36"
+    },
+    {
+      "path": "docs/native-advanced-report.json",
+      "bytes": 3125,
+      "sha256": "f4c8ee394c286f0c008a7ecee3d58b10ed9ec1e84fb0c87abd14d74d23c138fe"
+    },
+    {
+      "path": "docs/native-direct-extrude.png",
+      "bytes": 701554,
+      "sha256": "f3f5bd0ff3608bc0c76cd252569350f5926bcb13ea9bfce2eb0c6d22116f9939"
+    },
+    {
+      "path": "docs/native-direct-modeling-report.json",
+      "bytes": 1300,
+      "sha256": "a22aa327f2554ad9494c1d51d64ecb861f10e8730987bbbc31c2113bb21b7b2e"
+    },
+    {
+      "path": "docs/native-dynamics.png",
+      "bytes": 323057,
+      "sha256": "2ec0241124a65993476288b4e85fed78b7e6dc3c160c6cb83119cd7800c23471"
+    },
+    {
+      "path": "docs/native-face-joint.png",
+      "bytes": 381473,
+      "sha256": "349d54555b1ed5ee2cacda1ca241ad42dae4c14f98bb01b9930cceee8de62324"
+    },
+    {
+      "path": "docs/native-fits.png",
+      "bytes": 60129,
+      "sha256": "79bbd59fa6e77724504cf2035f13d6118f1e60cec9ff2a018803f279766f45c8"
+    },
+    {
+      "path": "docs/native-hole.png",
+      "bytes": 340980,
+      "sha256": "9408f8d9ec67a1008ace88217ec81381f6e84e6a6cf5d95836cfe521c5f7ba23"
+    },
+    {
+      "path": "docs/native-interference.png",
+      "bytes": 855801,
+      "sha256": "b165db83d66a03e4b3b2780030af97bc31baa819720bcee012cee68e9bb8e649"
+    },
+    {
+      "path": "docs/native-joint-drive.png",
+      "bytes": 381387,
+      "sha256": "7e9f0950898e3d61c835861f73ae4d49b3ed8d533dffe8cce27626f4f9bf9bb2"
+    },
+    {
+      "path": "docs/native-kernel-report.json",
+      "bytes": 323,
+      "sha256": "1337902c0b1a983d33e4ffe62dc38e61bb18e12cf0401ee6a46821b185ba5b4c"
+    },
+    {
+      "path": "docs/native-measure.png",
+      "bytes": 640285,
+      "sha256": "1d5be4d491d3ee28299ec60ca1d5a1d61b5c3c438cb1725f16f91e869fccc4a8"
+    },
+    {
+      "path": "docs/native-overconstraint.png",
+      "bytes": 110538,
+      "sha256": "81662fde346c3d9f9db269c51f37ad0bbfeff99484f0b020fe49df46916e5a65"
+    },
+    {
+      "path": "docs/native-profile-groups.png",
+      "bytes": 136482,
+      "sha256": "b06040d535fc13fd87c62d376aacf6fd3ff6f19047de75f276792e249c2293e3"
+    },
+    {
+      "path": "docs/native-release231-report.json",
+      "bytes": 292,
+      "sha256": "4386f6a9aeea14fd3523ca07709674c070255ba48dd232f18a03913ceceba3cf"
+    },
+    {
+      "path": "docs/native-release240-report.json",
+      "bytes": 10788,
+      "sha256": "094c6ea4246eb0704afc047ba76a472c1dfdd08cb422f5e013021c5da58f45a0"
+    },
+    {
+      "path": "docs/native-release241-report.json",
+      "bytes": 6072,
+      "sha256": "bfc6ae65e3e9041ed4db42209762bd2719f7b5a0957946bba5d61381e32caf3b"
+    },
+    {
+      "path": "docs/native-release242-report.json",
+      "bytes": 4357,
+      "sha256": "781bfee10b256c257c8123dce5418d8e85cacbe3653d18edfd0fd66d5a5f9d8f"
+    },
+    {
+      "path": "docs/native-reliability-report.json",
+      "bytes": 1544,
+      "sha256": "a6e95e8ec2d6e23a68784b19238178c62bc01ee1d4a8f464b858fd0a065f9940"
+    },
+    {
+      "path": "docs/native-reliability230-report.json",
+      "bytes": 1545,
+      "sha256": "d1deccf2b5ed7faac6bbca9311ee64dc7eadff05934abb226a0648fcd40d8900"
+    },
+    {
+      "path": "docs/native-sketch-guide-report.json",
+      "bytes": 1095,
+      "sha256": "2f1db2b2a8e20dc390e780ec6aa2f27ce7a73f5f6bc4fd59c469bca9ad70d773"
+    },
+    {
+      "path": "docs/native-sketch-tangent.png",
+      "bytes": 173273,
+      "sha256": "4fb53d1fcc1591868af0211f8117b16bfe4a1af75e5ab6495028e2e195ce2d9a"
+    },
+    {
+      "path": "docs/native-sketch.png",
+      "bytes": 109864,
+      "sha256": "dbe07f113634df21000fa715c9c71f0581363a7ff8ed36ddeee572a993866f6b"
+    },
+    {
+      "path": "docs/native-smoke-report.json",
+      "bytes": 1966,
+      "sha256": "177e12311dd9c5deac4b32a493a19aef931b79c00b70944d3504669540facdbd"
+    },
+    {
+      "path": "docs/native-specimen.png",
+      "bytes": 393141,
+      "sha256": "ae65c455aa029547aa143ba5796329aaad70a9b199933ade11367141eb26b42e"
+    },
+    {
+      "path": "docs/native-tensile.png",
+      "bytes": 485361,
+      "sha256": "4f2c79350260315ec1daba0c1afc5359d108dea365fd374d9a6b77f8aae9dacb"
+    },
+    {
+      "path": "docs/native-thread-external.png",
+      "bytes": 362816,
+      "sha256": "d4cf9ca3b8b47f60154ca83f29642c5504d7d1cf9d789c82fa75856f6bdcca7d"
+    },
+    {
+      "path": "docs/native-thread-internal.png",
+      "bytes": 335855,
+      "sha256": "99f3fb14fe863a050eb26001fc2274e056aa71389767d420ce693bdadda1135a"
+    },
+    {
+      "path": "docs/native-thread-report.json",
+      "bytes": 837,
+      "sha256": "9275a34634b397a05cee45d1a2b7106772576ebc9f23f14d06950473c9d4d5e3"
+    },
+    {
+      "path": "docs/native-workbench.png",
+      "bytes": 392905,
+      "sha256": "d399b2d9bf5bbed59698d9a37ab329d9fe6319297ff9fa7e4e87d52622fc2e4b"
+    },
+    {
+      "path": "docs/native210-validation.json",
+      "bytes": 20640,
+      "sha256": "1aabe6ae00abad02bfac6102ce4af0d640665399646a91dd59c4d1919791a85a"
+    },
+    {
+      "path": "docs/native211-validation.json",
+      "bytes": 20827,
+      "sha256": "4c9a99756749bc5bafb1948bc3df10f200db797bb347f1fb8672bf56cfb1f0aa"
+    },
+    {
+      "path": "docs/native2110-validation.json",
+      "bytes": 21739,
+      "sha256": "d6a9a201644ba26c5342ef96c8958d5dc5e2df89faca0e6c42091c4f09931116"
+    },
+    {
+      "path": "docs/native2111-validation.json",
+      "bytes": 22333,
+      "sha256": "2ff7d3c534ab816716be031f6960d3b8b89eed8386bb09fd3625f223791bac6a"
+    },
+    {
+      "path": "docs/native2120-validation.json",
+      "bytes": 23569,
+      "sha256": "47e25717ad27b15f23f956eee098c4273b4ce0098ab6a9b86036d0fad66e53d8"
+    },
+    {
+      "path": "docs/native2130-validation.json",
+      "bytes": 48554,
+      "sha256": "f13f1ca8dee58c7a27f81ef20b5bff475136391b046650205f01404b7b9b8bbe"
+    },
+    {
+      "path": "docs/native2140-validation.json",
+      "bytes": 29263,
+      "sha256": "58aef87642b93ce0bef8cd29054a290bce5e1ec84479d0d0a509e83ed4372a1c"
+    },
+    {
+      "path": "docs/native2141-validation.json",
+      "bytes": 28965,
+      "sha256": "ffe1f645d0fe005b8deeb1c8aa528afa796e741ffdd08f87767de39da07445bc"
+    },
+    {
+      "path": "docs/native2160-validation.json",
+      "bytes": 57963,
+      "sha256": "b4e36203884ed4275f20826df5b0e004d20d5bed1651c195f3236dd934e237f0"
+    },
+    {
+      "path": "docs/native2170-validation.json",
+      "bytes": 59876,
+      "sha256": "f8ab0cab98c39f0166b56e9c99a97d6d37191b7333a0d66aa7c00ee2224baceb"
+    },
+    {
+      "path": "docs/native2180-validation.json",
+      "bytes": 62253,
+      "sha256": "3a30fa04728533db8371798f0d52441bc0cbe6244d716fec06176a8d7d104c6b"
+    },
+    {
+      "path": "docs/native2181-validation.json",
+      "bytes": 63223,
+      "sha256": "b78d8119a037e1baa198dd1c72e0ea89f4584061e40773caf2da978787ae40f6"
+    },
+    {
+      "path": "docs/native2190-validation.json",
+      "bytes": 66715,
+      "sha256": "d7f0041060b4026bb1818f903b788f4b1db196a2d77a09bec3743d7b6d2e8d94"
+    },
+    {
+      "path": "docs/native2191-validation.json",
+      "bytes": 2603,
+      "sha256": "7c234531a7f5f2733228cb3940bdbd941cd5a4716df5f2c7e46e3320be64ef4a"
+    },
+    {
+      "path": "docs/native2200-validation.json",
+      "bytes": 3352,
+      "sha256": "8802b72eeeda9a234ca24ab7800d2ca6662329fbd2dd3648d798d094032069ae"
+    },
+    {
+      "path": "docs/native2210-validation.json",
+      "bytes": 1986,
+      "sha256": "5273195a4e03297db467a3443a6b2d0b5c44637432a5cc2303404e979a7eb887"
+    },
+    {
+      "path": "docs/native2220-validation.json",
+      "bytes": 2450,
+      "sha256": "b84e3a2b95ca84fee01dd318256d348435a229ec0040616991a13477c98670b3"
+    },
+    {
+      "path": "docs/native2230-validation.json",
+      "bytes": 3420,
+      "sha256": "d8aedfc64db2d602650c25e851c3fe2927073fbc77f21cca5d5742473d9cfc23"
+    },
+    {
+      "path": "docs/native2240-validation.json",
+      "bytes": 6003,
+      "sha256": "bb47f7fa662662c46435713ad03aa34b2b08360af5aaa8138d53ab9762c5f85c"
+    },
+    {
+      "path": "docs/native2241-validation.json",
+      "bytes": 6044,
+      "sha256": "e53d69c75130a1b265b923325de5ef8b15fc6f85f7ea8c4cc0b5e424c4022ea2"
+    },
+    {
+      "path": "docs/native240-drawing.png",
+      "bytes": 105546,
+      "sha256": "eb931c38ebf1f3a40903dde0166b9ef83521146d0704341d2d15f0e7c0206512"
+    },
+    {
+      "path": "docs/native240-inspection.png",
+      "bytes": 444794,
+      "sha256": "3bf86814cac8b050ab6065112aadb602f0ec0c8371f35d453e9fb4f87a787be7"
+    },
+    {
+      "path": "docs/native240-motion.png",
+      "bytes": 411700,
+      "sha256": "2861cd7b3736bcdc4b975b1aaf1a8117c12713997b66bbe6e57f12c292b93152"
+    },
+    {
+      "path": "docs/native240-sheetmetal.png",
+      "bytes": 391818,
+      "sha256": "5b902b08771ff1c01a503a59c22e7a560a00a09ed201ca42784ef43817107414"
+    },
+    {
+      "path": "docs/native240-solid.png",
+      "bytes": 331998,
+      "sha256": "49c4402fbb01250019ffca906eb7279df0697ccd2259574ddd8037599db6ba7b"
+    },
+    {
+      "path": "docs/native260-report.json",
+      "bytes": 3636,
+      "sha256": "7922a0087a614bd0863803a5fa19dc680138dc4a44c77951ff4257aa7f8af562"
+    },
+    {
+      "path": "docs/native260-validation.json",
+      "bytes": 17633,
+      "sha256": "910656ef2c3aad21cafffc3e0cb25ea0a935ef7d9d6f0c5aa03903cdb5118f62"
+    },
+    {
+      "path": "docs/native261-report.json",
+      "bytes": 4082,
+      "sha256": "bf6301e08246049bdbe0ddbba8e1fddf98df337424d8c1ca522c41e8f18bdf8c"
+    },
+    {
+      "path": "docs/native261-validation.json",
+      "bytes": 15024,
+      "sha256": "e5e3ce1b0143fc4b020a6eca8dd80639431f104367c4dcc802711e607f1ca684"
+    },
+    {
+      "path": "docs/native262-report.json",
+      "bytes": 4382,
+      "sha256": "71f983199de73865a3410d9c6219e7a568cf501ac5e0b41481ab5ca5ce3d77ec"
+    },
+    {
+      "path": "docs/native262-validation.json",
+      "bytes": 15357,
+      "sha256": "17592718d7b90b9ee32b7966d276c69f286ffc77414de1b4fdbe9d477a0adeb0"
+    },
+    {
+      "path": "docs/native270-validation.json",
+      "bytes": 16283,
+      "sha256": "18c2f7cda4c2b3fdea46f4bf1e9a4c0559378ffb216c6df5e97868283fbfc749"
+    },
+    {
+      "path": "docs/native280-validation.json",
+      "bytes": 17290,
+      "sha256": "7b1da6b6dce340271fde26e9ef46d5db7dc45ae65ef933d6151b89a8a61d390b"
+    },
+    {
+      "path": "docs/native290-validation.json",
+      "bytes": 19050,
+      "sha256": "9bea42cec0ddeaa07a7c6148ff5b312d20daa00fb3b9525cba3cd7ecfa4f3461"
+    },
+    {
+      "path": "docs/native3000-validation.json",
+      "bytes": 7150,
+      "sha256": "e19eeba9b2e00cba79fc76a927ee8fd1236ff9f4b5949a482fe7c1a966ffe649"
+    },
+    {
+      "path": "docs/native3001-validation.json",
+      "bytes": 4538,
+      "sha256": "88b8090fa13807c20e9aa592d72c10b9a0e67f972b7edc7b2bcbac7773adad80"
+    },
+    {
+      "path": "docs/native3002-validation.json",
+      "bytes": 1257,
+      "sha256": "08355f494e76f220894f1ee5a9bcdd70499abc691748f871d915442268dabda6"
+    },
+    {
+      "path": "docs/native310-validation.json",
+      "bytes": 6089,
+      "sha256": "6df0528733662c81aff84f6b3d85e39fd07f59c24dd677f125f07753f1500a2e"
+    },
+    {
+      "path": "docs/native311-validation.json",
+      "bytes": 2082,
+      "sha256": "c6d26a5c3540e10008cf8b9d17236f6ad906a6a74c0f3b5a0b5258b923d6e2b8"
+    },
+    {
+      "path": "docs/ollama-assembly242-live.json",
+      "bytes": 4287,
+      "sha256": "9af3e7f0c0aeb2c5a0307f1d61f7b174992edb0f9f51d7b293cb5b964a481454"
+    },
+    {
+      "path": "docs/ollama-assembly242-replay.json",
+      "bytes": 7305,
+      "sha256": "fc18600a3489b0fa3ae22a033a791f0fbf76d4cefa8f004bb41b72da40c5c767"
+    },
+    {
+      "path": "docs/ollama-cad241-cases.json",
+      "bytes": 8096,
+      "sha256": "885b8cacdbf107f86937bac1577c53aa5c874cb171f4f60cc226435f9834e881"
+    },
+    {
+      "path": "docs/ollama-cad241-native.png",
+      "bytes": 684668,
+      "sha256": "3fc810162ff8ced0b158158fe5e4603c9ffd790e003e1ce07dded12d756de0ab"
+    },
+    {
+      "path": "docs/ollama-cad241-report.json",
+      "bytes": 15316,
+      "sha256": "c379f94348b64fceaddc3885d63c6765a0c375de09c16036cd5142638167ed46"
+    },
+    {
+      "path": "docs/ollama-cad242-native.png",
+      "bytes": 687650,
+      "sha256": "4dcf1dada5ad29f04a047c4896fa7d32f4407ec0f92e2291363ee9aada08bc58"
+    },
+    {
+      "path": "docs/ollama-cad242-report.json",
+      "bytes": 4805,
+      "sha256": "49362cfc1d6b6bc7271a3c39b5acf0ed2f9a1634ed9be2d2149692cd32cbb0d0"
+    },
+    {
+      "path": "docs/ollama-validation.json",
+      "bytes": 661,
+      "sha256": "1083910d67975efe944b3ed64d44fabfb9b46be834f54046ba667a46d8690981"
+    },
+    {
+      "path": "docs/ollama240-report.json",
+      "bytes": 205,
+      "sha256": "9a63b43d509310cf3a07e46d9253faa3fea8c0ef154beff3ec261643585fea30"
+    },
+    {
+      "path": "docs/openai261-setup.png",
+      "bytes": 38520,
+      "sha256": "a1e9ca7224e429341877cfcaa20deae5da67b0a4dccaea738cbc9b3ba89f7b73"
+    },
+    {
+      "path": "docs/openai262-check.png",
+      "bytes": 51970,
+      "sha256": "dee0df488442e634514f3d55b2459a4f2eba648644d838602a3a5ece325ed4be"
+    },
+    {
+      "path": "docs/PCB_PLUGIN_KO.md",
+      "bytes": 9106,
+      "sha256": "6a48cc65568b5a8aea2d1a465602de6e20efa72d8d93c15bae3beefd53bbc168"
+    },
+    {
+      "path": "docs/PERFORMANCE_2_16_0.md",
+      "bytes": 2751,
+      "sha256": "ee7244df5f09d8649424aa815f1666d14261a6ade147b121a2787c4a6a4303ad"
+    },
+    {
+      "path": "docs/placement260-preview.png",
+      "bytes": 406131,
+      "sha256": "5e0f094e1757e6f4441c00a1e131af2ad37c4d8eb189992f0837ddda6d042bf6"
+    },
+    {
+      "path": "docs/POWER_PATH_EN.md",
+      "bytes": 2451,
+      "sha256": "b1ee8196bc437415789280dec4c5f8496d9f385b32065a0f843d6cd36a6364b6"
+    },
+    {
+      "path": "docs/POWER_PATH_KO.md",
+      "bytes": 2823,
+      "sha256": "df7f4030d17de156996f535469b6f0bb3f5c40c18d5a6ae30a19ee921eafa7ba"
+    },
+    {
+      "path": "docs/print-ai210-report.json",
+      "bytes": 2034,
+      "sha256": "3fdb02a4054c910270e9d13a8aa96ed3e024c2d3b153975fe7b885a5feb87a80"
+    },
+    {
+      "path": "docs/PRINT_AI_INTERFERENCE_KO.md",
+      "bytes": 8105,
+      "sha256": "3f5c43fe4ce2d6d07248b05064e5a6e479873c6f2125da0158d0057d87db81a1"
+    },
+    {
+      "path": "docs/PRINT_AND_COMPONENTS_KO.md",
+      "bytes": 8717,
+      "sha256": "5e6b544d330b627fb0f5d7b1ea4666d41afed50b2e2caa1554f79fc1f00e02ed"
+    },
+    {
+      "path": "docs/printing210-preview.png",
+      "bytes": 850188,
+      "sha256": "3ff853897ac0da0e0fd4784303771d3fea0f1bf48912055c766ff7b859352f80"
+    },
+    {
+      "path": "docs/printing2110-manual.png",
+      "bytes": 272613,
+      "sha256": "12044193f551338c0ba32dc7d8f12830c617e0915822548f883ee92eced0113d"
+    },
+    {
+      "path": "docs/PROGRAM_SIMULATION_2_23_0_KO.md",
+      "bytes": 2558,
+      "sha256": "de0cbad72d6f46e9c503066de60ab23a9230f6ca4f58025293331e458ff127ba"
+    },
+    {
+      "path": "docs/PROJECT_HISTORY_COMPATIBILITY_KO.md",
+      "bytes": 1563,
+      "sha256": "396d7224eae87987265868ddd596ee2d09492a2a82424cdebe003e6d1a331b28"
+    },
+    {
+      "path": "docs/references-auto2130.json",
+      "bytes": 2163,
+      "sha256": "66d9726fa7cbdd40c05a15bb6c0635524b344ce8cd3de93cd0f6c8b9f86d7ad3"
+    },
+    {
+      "path": "docs/references-software2130.json",
+      "bytes": 2163,
+      "sha256": "66d9726fa7cbdd40c05a15bb6c0635524b344ce8cd3de93cd0f6c8b9f86d7ad3"
+    },
+    {
+      "path": "docs/references2130.png",
+      "bytes": 90602,
+      "sha256": "f028400f63457d4a595ef6df0334de9e95960a0653378bc3d0ca3343d1cfe2b8"
+    },
+    {
+      "path": "docs/RELEASE_2_16_0_KO.md",
+      "bytes": 4605,
+      "sha256": "ef3046b6f0ee283cd6bbf80a23ae10fd87942adbcd701d7061726524577fe33a"
+    },
+    {
+      "path": "docs/RELEASE_2_20_0_KO.md",
+      "bytes": 5730,
+      "sha256": "33f800906712fc85c1a4d2f4bcbd4f0b4d4d0f0d0ed2295c976dc7bfdae18028"
+    },
+    {
+      "path": "docs/RELEASE_2_21_0_KO.md",
+      "bytes": 1936,
+      "sha256": "99c677752a99d8f45ac9f02b521b2b84c0fe5ebab229352c0105079ac137700e"
+    },
+    {
+      "path": "docs/RELEASE_2_22_0_KO.md",
+      "bytes": 4920,
+      "sha256": "339a3c6596f871dd8dd631fd3ec39b9c98c241ea97fde980cb490b5cb31cc1cb"
+    },
+    {
+      "path": "docs/RELEASE_2_23_0_KO.md",
+      "bytes": 5186,
+      "sha256": "43f1745b236f3a435c42e5852f72eb0c946edc9d6f85ca8487266847cdad1172"
+    },
+    {
+      "path": "docs/RELEASE_2_24_0_EN.md",
+      "bytes": 5941,
+      "sha256": "e54b9c69c3131e09fe14a924634fdbddfd16563c60c43157010f3e7d74988d2c"
+    },
+    {
+      "path": "docs/RELEASE_2_24_0_KO.md",
+      "bytes": 7171,
+      "sha256": "748ced834a13633e53f9a9cec585a48d2a0a3d1d1a5a66c5bac243520d5c894d"
+    },
+    {
+      "path": "docs/RELEASE_2_24_1_EN.md",
+      "bytes": 821,
+      "sha256": "41d7ccf5e5839f86a81a841952cd6a715cbbc2d92f60e27c2531e3f05f60befe"
+    },
+    {
+      "path": "docs/RELEASE_2_24_1_KO.md",
+      "bytes": 1170,
+      "sha256": "b785763f35c8dfe5c4222e0ed23012cbaac8f82141849fff60f0b747a9759f10"
+    },
+    {
+      "path": "docs/RELEASE_2_24_2_EN.md",
+      "bytes": 1332,
+      "sha256": "08f7adac5de7422968a9f82f58c860841d951a078ac516b0a19dd474fd927fed"
+    },
+    {
+      "path": "docs/RELEASE_2_24_2_KO.md",
+      "bytes": 1505,
+      "sha256": "08fb000d97a9f381b5c0a6046170706a5b6f72503dcf9bd49da7968fa53935d2"
+    },
+    {
+      "path": "docs/RELEASE_3_0_0_EN.md",
+      "bytes": 2842,
+      "sha256": "9551ded286d2b95e18a21e8dea273ba06abb2ca9fe62266e741b62fafd879c34"
+    },
+    {
+      "path": "docs/RELEASE_3_0_0_KO.md",
+      "bytes": 5009,
+      "sha256": "78380e0531546aba20127bb015edf84b16e75a9b32ade04fa5326c8ff48b3149"
+    },
+    {
+      "path": "docs/RELEASE_3_0_1_EN.md",
+      "bytes": 2915,
+      "sha256": "586b96611f9066b32bb68228b6c83f4c657be0e04adf753a9dc769e11dbf59ef"
+    },
+    {
+      "path": "docs/RELEASE_3_0_1_KO.md",
+      "bytes": 3171,
+      "sha256": "73cd1deded6826a77f4c5fe4e446261ec976f384274c59e7ad0322eb1bda9547"
+    },
+    {
+      "path": "docs/RELEASE_3_0_2_EN.md",
+      "bytes": 761,
+      "sha256": "05b90ad97bd09415f126f16acc9219dfc12ce70ede5d963f795a9af9a163a7fb"
+    },
+    {
+      "path": "docs/RELEASE_3_0_2_KO.md",
+      "bytes": 914,
+      "sha256": "818dd072acb532281c733c89ff2e9b0fa5cb228c4395a83e664bc8a60fdc7718"
+    },
+    {
+      "path": "docs/RELEASE_3_1_0_EN.md",
+      "bytes": 3171,
+      "sha256": "d6889fe1405e2117f297eff53836767c7d27078fa6935db7c3c3edd3ab79ce61"
+    },
+    {
+      "path": "docs/RELEASE_3_1_0_KO.md",
+      "bytes": 4675,
+      "sha256": "cedce1076d114eed1a49959c258fd7425580ad889333b8ef62f6ec2a4580c3a1"
+    },
+    {
+      "path": "docs/RELEASE_3_1_1_KO.md",
+      "bytes": 1273,
+      "sha256": "142562a32d89a567372fd9d7403b6ac34ff79983bc55b4c9933f5c89a055cead"
+    },
+    {
+      "path": "docs/RELEASE_3_3_0_KO.md",
+      "bytes": 3222,
+      "sha256": "376634dc08d87d85772353e56a070dcc89fe47e021ffc34221e7da299c4d722f"
+    },
+    {
+      "path": "docs/RELEASE_3_4_0_KO.md",
+      "bytes": 3362,
+      "sha256": "de872b146b14607dca4a1794d9d1e698824e0789f6c22d5abd94cc5f3db784ed"
+    },
+    {
+      "path": "docs/repair2111-applied.png",
+      "bytes": 858258,
+      "sha256": "deb0dc00c5b9c572ac0cfda65cc42a2b42d8f95d717d03e3a599b395b68056b4"
+    },
+    {
+      "path": "docs/repair2111-pending.png",
+      "bytes": 285644,
+      "sha256": "5ac4bba1117e8c9025cbb205556e86956d2734e77922ddd26d327e13db0c484b"
+    },
+    {
+      "path": "docs/research-usage2120.png",
+      "bytes": 39648,
+      "sha256": "a2400fac9da6d04923918cfc5562eb9d8b3dd91a1d3fe6aaf5b60b03d792ead1"
+    },
+    {
+      "path": "docs/RESEARCH_AI_EN.md",
+      "bytes": 2338,
+      "sha256": "00fadb4977a778e57bb5f2ba13a65ca89a9b63172263ecbee778b0f469f4f9d5"
+    },
+    {
+      "path": "docs/RESEARCH_AI_KO.md",
+      "bytes": 2944,
+      "sha256": "79f006d0c744a7625729c48f1111947eb99e12b7c48fb28420ce2b863a048f2b"
+    },
+    {
+      "path": "docs/RESEARCH_REFERENCES_EN.md",
+      "bytes": 5545,
+      "sha256": "9a775824e244de7a7074fb060f4a25a38212242cecae4236e4d1699da35a8d18"
+    },
+    {
+      "path": "docs/RESEARCH_REFERENCES_KO.md",
+      "bytes": 8287,
+      "sha256": "b4b0da39e790f10d789ad9d42b6baf0edee1ce1255ea5c53dbd22cfb706cf15c"
+    },
+    {
+      "path": "docs/role-compact2160.png",
+      "bytes": 358161,
+      "sha256": "88ed50ad224a1a1c179c281eeebb9c6380e8a9cf3766c07e4535f9c948e5cfa6"
+    },
+    {
+      "path": "docs/role-compact2170.png",
+      "bytes": 358096,
+      "sha256": "bb8cfdd532390782ef28e3ed3aceac47391e2fc05f21d30265b23f154a839913"
+    },
+    {
+      "path": "docs/role-compact2180.png",
+      "bytes": 358305,
+      "sha256": "616733bfbcf0f26cfa240b7ddf8c1598c20e4b68358a817913d0ff35e889f3a1"
+    },
+    {
+      "path": "docs/role-electrical2160.png",
+      "bytes": 913274,
+      "sha256": "a837bc6aa83c639b9b2e77424fd52d9c64bcb63eafa0701aed9d01fa4676e460"
+    },
+    {
+      "path": "docs/role-electrical2170.png",
+      "bytes": 913173,
+      "sha256": "a4abb6acf2b62ed6f3f8b4db502abd9668d0431f2fa159730b923b23e0a3387d"
+    },
+    {
+      "path": "docs/role-electrical2180.png",
+      "bytes": 913745,
+      "sha256": "ce401575124fd32c96b40247db204001fa9c3b3af6919ee848edd9d4c22b8332"
+    },
+    {
+      "path": "docs/selection250-compact.png",
+      "bytes": 291249,
+      "sha256": "ad9f41da2b850551b3079f24b3b1cd3b3a40e57bcb0c690a9f42e44f4920ecc6"
+    },
+    {
+      "path": "docs/selection250-report.json",
+      "bytes": 1625,
+      "sha256": "284ad6c8db6f2a097b94a877fe9a18045f04f3d39374f9db1d69d4d86cd852ea"
+    },
+    {
+      "path": "docs/selection250-validation.json",
+      "bytes": 13110,
+      "sha256": "f278fd15996d5aa5eb4a29d10cd8d4f6d47cb108e36dddf801d19f14b3782947"
+    },
+    {
+      "path": "docs/selection250-workbench.png",
+      "bytes": 612000,
+      "sha256": "ecbac9d2f6d3f01c40b0938f0aa6899b777e954587afaa0821a6150ff4e7fe8a"
+    },
+    {
+      "path": "docs/sketch-tools.png",
+      "bytes": 106366,
+      "sha256": "4270a54935a384b39f927ab477fd086e52b5d5aa1d4986d04d4a0ad48fdcfd5b"
+    },
+    {
+      "path": "docs/startup-auto-1211.json",
+      "bytes": 549,
+      "sha256": "ed30c3d2e1c2512f4f88f838b987f825b70a75dcfcfcd4279d600c555e6ffe79"
+    },
+    {
+      "path": "docs/startup-auto-1211.png",
+      "bytes": 498632,
+      "sha256": "59dc7461d078767cfe140196ecdaa6c9f9fd1facd7a56c019fee2a4b74849ee2"
+    },
+    {
+      "path": "docs/startup-fallback211.json",
+      "bytes": 549,
+      "sha256": "d3ab325c921ec36d2446b34dbe75530b544b38ab6adf4b5546fc81583dbfc324"
+    },
+    {
+      "path": "docs/startup-software-1211.json",
+      "bytes": 549,
+      "sha256": "f0127c4114d10c9343828386dc79a244991335ab26c8b9e87da095469ac04e13"
+    },
+    {
+      "path": "docs/startup-software-1211.png",
+      "bytes": 500927,
+      "sha256": "88c583b6bbc3c2f4eed34456ce283a26dd8a8dbeb6643e4414b5a7280d260453"
+    },
+    {
+      "path": "docs/STARTUP_RECOVERY_KO.md",
+      "bytes": 2126,
+      "sha256": "1e977ca0fbe2aa6df66d1e635d12d1018543f3c0fffff731ca7c82e7c1a5f856"
+    },
+    {
+      "path": "docs/usability290-electronics-en.png",
+      "bytes": 384769,
+      "sha256": "af0b9905a0d4828f4da2dd5d77cb8ea98fe119975dcf9de9ec99c20c15962c48"
+    },
+    {
+      "path": "docs/usability290-printer.png",
+      "bytes": 996341,
+      "sha256": "20a9c4d0cb6fba3cf67df9ce1a8226cac4b1ecd041782dedee722936b76cc942"
+    },
+    {
+      "path": "docs/usability290-report.json",
+      "bytes": 1224,
+      "sha256": "9b52126d8b81aca2a69dec442320d229ff355f154fec3f90efd56ee4335c1d2e"
+    },
+    {
+      "path": "docs/usability290-workbench-en.png",
+      "bytes": 633780,
+      "sha256": "bc50baf529e6b5e77cce685102f7c38ac7f9a249605768401cd2bf7a1fc94915"
+    },
+    {
+      "path": "docs/USER_MANUAL_EN.md",
+      "bytes": 19402,
+      "sha256": "0629dad4afed97ea40f82eb8ad08ace7d8559af835a41ca48cb06e36a00b33a1"
+    },
+    {
+      "path": "docs/USER_MANUAL_KO.md",
+      "bytes": 49111,
+      "sha256": "12b732a286a96494501ab232ad660baf687b09ad1042fef7f3fb3c56a66e35cf"
+    },
+    {
+      "path": "docs/validation-2.0.md",
+      "bytes": 4075,
+      "sha256": "6b0661006695b7a6ace6a8650bcaa7d3a8ce4bf37a165cff6f7167ac165bc556"
+    },
+    {
+      "path": "docs/validation-2.1.2.md",
+      "bytes": 5358,
+      "sha256": "16c6b1bd4dc09d9955a02162b24b41343c0786a530a76931a2f6dfbd3e296a06"
+    },
+    {
+      "path": "docs/WIRE_EDITING_KO.md",
+      "bytes": 1809,
+      "sha256": "41469bbef4b6a31e5edb3db640f4eb08ab0196d74b5b08ed22f4dc9b9bbf7b22"
+    },
+    {
+      "path": "docs/workplane260-extruded.png",
+      "bytes": 646458,
+      "sha256": "e3ccb571d615296dab885e703e19bbc334e4a554a1ee44cd5635888c1f979bf9"
+    },
+    {
+      "path": "docs/workplane260-preview.png",
+      "bytes": 486674,
+      "sha256": "7b88e80fd1e0cbfc1e0cea7832e2d0b78504485af5a873555c27df41162f1988"
+    },
+    {
+      "path": "examples/analytic_history.cad.json",
+      "bytes": 16798,
+      "sha256": "db40f9c53eacd6f0cff469b51af6c4fc571a0e4de233e8be7be39c07fb5bf2fd"
+    },
+    {
+      "path": "examples/analytic_history.step",
+      "bytes": 31283,
+      "sha256": "f92510d27e0ea10728e44160f9b7e4be2773fc4c5869f5f621e52e8ba94f36ea"
+    },
+    {
+      "path": "examples/bracket.cad.json",
+      "bytes": 872,
+      "sha256": "43df03964c269358acc567c16cee05432f9a1275ebe27960dfa0c8063e555684"
+    },
+    {
+      "path": "examples/bracket.step",
+      "bytes": 38477,
+      "sha256": "5e320ce61ebc15d6b958b16326262367b98db2c475afd79f359b3182f1d421b6"
+    },
+    {
+      "path": "examples/bracket.stl",
+      "bytes": 85884,
+      "sha256": "6a045f8e71c5ad824ad3db37c7a38ca2ed4d0edb750c49858f8f02d7dcfca5c1"
+    },
+    {
+      "path": "examples/custom-revolute-ai.cad.json",
+      "bytes": 20796,
+      "sha256": "fee0f00101b3c427a4f4257b9235226aeab261c9fbba09d6c2ac92eee76b045c"
+    },
+    {
+      "path": "examples/cylinder.cad.json",
+      "bytes": 772,
+      "sha256": "cac22fbfbb108ecd4263e6d0938f05463208ed68b901299df89678e3be693b23"
+    },
+    {
+      "path": "examples/extrusion.cad.json",
+      "bytes": 1332,
+      "sha256": "54341b140f04812260ff493e218f52092b77af48ddb5d3fc8dd629343aadcefb"
+    },
+    {
+      "path": "examples/extrusion.step",
+      "bytes": 21179,
+      "sha256": "7b68623e96f32f4ac9e0e8a555bcf5cfa0cc57ba5b72477a77a04216b5ad5f42"
+    },
+    {
+      "path": "examples/extrusion.stl",
+      "bytes": 884,
+      "sha256": "18dc609fc6e3ac03743490cd064c8ad20ab106f58ad191a18a2b1e72194f677d"
+    },
+    {
+      "path": "examples/face_sketch.cad.json",
+      "bytes": 3584,
+      "sha256": "a2bb25a0913b92d715286b85f39695e4ad2ea3b6b4b8906ac1957b44f2ea0044"
+    },
+    {
+      "path": "examples/face_sketch.step",
+      "bytes": 45661,
+      "sha256": "fb163b13bfd3d2129a7358399cf3a4a35c69f6f97b47265fa531c0e575228304"
+    },
+    {
+      "path": "examples/flat_specimen.cad.json",
+      "bytes": 915,
+      "sha256": "88229b3da365d5c5544a551265df632ad12b4ac84c6684a1e45fb3235cc5e679"
+    },
+    {
+      "path": "examples/geometry-report.json",
+      "bytes": 4019,
+      "sha256": "c7ca16bc984cbc9309657caf5d39eb4cd675e50356fcf2923a5015a2a8eea36f"
+    },
+    {
+      "path": "examples/link.cad.json",
+      "bytes": 854,
+      "sha256": "941fc7124cb8172e3dd673739f5b9aab430bd8808a8cd8c1521da0e1b35e32b0"
+    },
+    {
+      "path": "examples/linked-shell-configurations.cad.json",
+      "bytes": 33489,
+      "sha256": "80fc094d4c87e65c1a5888a97af654539b2ba0215aecba6a8aca551c648be2cb"
+    },
+    {
+      "path": "examples/native-pocket.cad.json",
+      "bytes": 59010,
+      "sha256": "5340992907e90801495323ee9b5f072aa87d1ac426d65299871f9fe917f66cab"
+    },
+    {
+      "path": "examples/physical-revolute.cad.json",
+      "bytes": 18051,
+      "sha256": "f71c63ee90bef96a10eda253efa8d499596d98187ebcfdebf40a1e4e189e1d87"
+    },
+    {
+      "path": "examples/plate.cad.json",
+      "bytes": 914,
+      "sha256": "f2980ec2892f7884e64b2c8e7c17fc448307664aeee2dec45fc29d62e2e3662d"
+    },
+    {
+      "path": "examples/robot_arm.cad.json",
+      "bytes": 4141,
+      "sha256": "6e8c7e4b055aa3794abc11a74ff14eb35affebd54d5fdde45e82d66fc3c18b90"
+    },
+    {
+      "path": "examples/robot_arm.step",
+      "bytes": 74963,
+      "sha256": "40607eb3bdd9ac914af8beaba27cc13d1a64b57003481fb301656273406a74e7"
+    },
+    {
+      "path": "examples/robot_arm.stl",
+      "bytes": 211284,
+      "sha256": "88e202d2a2d8d70420975b3db8835959276565cca0d2b50075f1d33f35cc0aa8"
+    },
+    {
+      "path": "examples/round_specimen.cad.json",
+      "bytes": 926,
+      "sha256": "01db7613327033aedbf32240de6247552d082cf072bbeb81883e69223b95c661"
+    },
+    {
+      "path": "examples/round_specimen.step",
+      "bytes": 17797,
+      "sha256": "4ae330f2e87b97e7e916ea5104bb84bd7c0c4ac846e408a658f3a3abafc25776"
+    },
+    {
+      "path": "examples/round_specimen.stl",
+      "bytes": 185284,
+      "sha256": "d3685133b58205db6ef6a447a59d9e93a5b1417e9295bde7620d9dd97ba62304"
+    },
+    {
+      "path": "examples/threaded-bolt-nut.cad.json",
+      "bytes": 28460,
+      "sha256": "6fc4d59e2a6cfb57e60ad5485c26da563e468c3a81746300cbbce37b7affb873"
+    },
+    {
+      "path": "examples/wafer.cad.json",
+      "bytes": 777,
+      "sha256": "c9a7f6f8302def088d1e400ce84952d648651a8479a08e9a5625c10927762c83"
+    },
+    {
+      "path": "examples/wafer.step",
+      "bytes": 11151,
+      "sha256": "d5f655a0f77c4daf2bf5a72c10008aa33e07c64d82a7eb174b7b846c1fdd006e"
+    },
+    {
+      "path": "examples/wafer.stl",
+      "bytes": 22484,
+      "sha256": "ed09dd4a487ec96aed756e934160dde3ed5f7396b558f17bd217b6abe3c36aeb"
+    },
+    {
+      "path": "integrations/ConvertSingleToIpt.ps1",
+      "bytes": 1106,
+      "sha256": "53922a2f97433be5f93b0e8ff257533804508fdaec9a266e4530cf1efd960500"
+    },
+    {
+      "path": "integrations/ConvertToIpt.ps1",
+      "bytes": 1400,
+      "sha256": "6de398b73e58eb9f852d34dbfdb0f8095962efd5f77ab1bf3be47ef6eb81541b"
+    },
+    {
+      "path": "integrations/Fusion/PromptCADImport/PromptCADImport.manifest",
+      "bytes": 243,
+      "sha256": "91c55d7c598cd3ce61a48ca7d8e9888d7f34dc48844717497ebc40b88de1dee5"
+    },
+    {
+      "path": "integrations/Fusion/PromptCADImport/PromptCADImport.py",
+      "bytes": 2540,
+      "sha256": "0a04c9fe8cb76e4cbe4b45ed948481dfa7307753a1f26071583fb5bd1ae2d1a2"
+    },
+    {
+      "path": "integrations/README.md",
+      "bytes": 3533,
+      "sha256": "02a7ca3f55e752021c85330f2eea0d41718a50edf1bb7586d4598281c2fa242e"
+    },
+    {
+      "path": "launch.py",
+      "bytes": 3229,
+      "sha256": "d04f01be3e35c69cdfddb98b362f54b77a99289ecdd90fdb73a8bda96c52adb8"
+    },
+    {
+      "path": "licenses/aiohappyeyeballs-2.7.1/LICENSE",
+      "bytes": 13936,
+      "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+    },
+    {
+      "path": "licenses/aiohttp-3.14.3/LICENSE",
+      "bytes": 1091,
+      "sha256": "279012e02a10acfd59a3f2d8f13a497332535d871c2b27c89988985b06a3a438"
+    },
+    {
+      "path": "licenses/aiohttp-3.14.3/LICENSE.txt",
+      "bytes": 11514,
+      "sha256": "ea195371abbf66a39eef56600955d1137c2c196dc144ffec46b6ea530ce70044"
+    },
+    {
+      "path": "licenses/aiosignal-1.4.0/LICENSE",
+      "bytes": 11332,
+      "sha256": "6fd5243e92dd7f98ec69c7ac377728e74905709ff527a5bf98d6d0263c04f5b6"
+    },
+    {
+      "path": "licenses/altgraph-0.17.5/LICENSE",
+      "bytes": 1002,
+      "sha256": "6c194d6db0c64d45535d10c95142b9b0cda7b7dcc7f1ddee302b3d536f3dbe46"
+    },
+    {
+      "path": "licenses/annotated-doc-0.0.5/LICENSE",
+      "bytes": 1086,
+      "sha256": "fff170779a6acbf65abdb405c087f1cee1786691e4a96a4034517e4a504a0cdf"
+    },
+    {
+      "path": "licenses/annotated-types-0.8.0/LICENSE",
+      "bytes": 1083,
+      "sha256": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
+    },
+    {
+      "path": "licenses/anyio-4.15.1/LICENSE",
+      "bytes": 1081,
+      "sha256": "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0"
+    },
+    {
+      "path": "licenses/attrs-26.1.0/LICENSE",
+      "bytes": 1109,
+      "sha256": "882115c95dfc2af1eeb6714f8ec6d5cbcabf667caff8729f42420da63f714e9f"
+    },
+    {
+      "path": "licenses/bottle-0.13.4/LICENSE",
+      "bytes": 1066,
+      "sha256": "af150257b1f7cce92b6207854f2e8f90ea9ae52d7cac758d13a47bd12e2a2443"
+    },
+    {
+      "path": "licenses/cadquery-2.8.0/LICENSE",
+      "bytes": 11691,
+      "sha256": "7f598e7f729c8fde66f0e0a660e53d784d04cfd028d3a74478c0d58730da0fbe"
+    },
+    {
+      "path": "licenses/cadquery-ocp-7.9.3.1.1/LICENSE",
+      "bytes": 11346,
+      "sha256": "a13caea71627202ad33cc4cafafdd18e667e16716488f8d9c568127121fb89fd"
+    },
+    {
+      "path": "licenses/casadi-3.8.1/LDL_License.txt",
+      "bytes": 973,
+      "sha256": "81468030e3775ea4a315f92d873b1df0b1f2dd86d7c880bbe7ae7323604e6456"
+    },
+    {
+      "path": "licenses/casadi-3.8.1/LICENSE",
+      "bytes": 1093,
+      "sha256": "1829891fcd71319f7a5644beba526fe196dfc48a2668a14b02d3aad1da1dd24f"
+    },
+    {
+      "path": "licenses/casadi-3.8.1/LICENSE-EPL-2.0.txt",
+      "bytes": 14198,
+      "sha256": "0becf16567beb77fa252b7664631dd177c8f9a1889e48995b45379c7130e5303"
+    },
+    {
+      "path": "licenses/casadi-3.8.1/LICENSE.txt",
+      "bytes": 808,
+      "sha256": "9332252e9b9e46db8285d4a3f0bf25f139bf1dca6781b956d57f2302efca6432"
+    },
+    {
+      "path": "licenses/casadi-3.8.1/LICENSE_1_0.txt",
+      "bytes": 1359,
+      "sha256": "36266a8fd073568394cb81cdb2b124f7fdae2c64c1a7ed09db34b4d22efa2951"
+    },
+    {
+      "path": "licenses/certifi-2026.7.22/LICENSE",
+      "bytes": 989,
+      "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+    },
+    {
+      "path": "licenses/cffi-2.1.1/LICENSE",
+      "bytes": 1123,
+      "sha256": "5ba24ddc57067f9249add644c3afc41a5d6dc37e23433ef759d95df370b0af63"
+    },
+    {
+      "path": "licenses/click-8.5.0/LICENSE.txt",
+      "bytes": 1475,
+      "sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d"
+    },
+    {
+      "path": "licenses/clr_loader-0.3.1/LICENSE",
+      "bytes": 1079,
+      "sha256": "dd6bdca10cdc3b24c6b0b6cef5fd611b7feb6917f127833283ddcdb310d3b453"
+    },
+    {
+      "path": "licenses/colorama-0.4.6/LICENSE.txt",
+      "bytes": 1491,
+      "sha256": "cac35c02686e5d04a5a7140bfb3b36e73aed496656e891102e428886d7930318"
+    },
+    {
+      "path": "licenses/contourpy-1.4.0/LICENSE",
+      "bytes": 1563,
+      "sha256": "0e55e86a8fbf3e9b482ae8dc9e111e1b0dc09a7d300e7f480dda68c1125ed614"
+    },
+    {
+      "path": "licenses/cycler-0.12.1/LICENSE",
+      "bytes": 1497,
+      "sha256": "f1218143d766da3fea66f13396b7f15df46a83303f29bf96ba6e98eb4d42f408"
+    },
+    {
+      "path": "licenses/distribution-versions.txt",
+      "bytes": 1666,
+      "sha256": "843e812f00804bc94945c34ecab3f3c09e5fb992576a5a707cd79326ea2f3e56"
+    },
+    {
+      "path": "licenses/ezdxf-1.4.4/LICENSE",
+      "bytes": 1092,
+      "sha256": "b946f37324a89a38a51a790386607816828f3f98033429bffab036b201e42b07"
+    },
+    {
+      "path": "licenses/fastapi-0.141.1/LICENSE",
+      "bytes": 1086,
+      "sha256": "4ec89ffc81485b97fec584b2d4a961032eeffe834453894fd9c1274906cc744e"
+    },
+    {
+      "path": "licenses/fonttools-4.65.0/LICENSE",
+      "bytes": 1093,
+      "sha256": "22bef80697ecfaa17f97e62b9a26dfa12820be05583e8dd12ad169b241274c99"
+    },
+    {
+      "path": "licenses/fonttools-4.65.0/LICENSE.external",
+      "bytes": 20410,
+      "sha256": "b082a5f86775b2641f01bccb8b9c82908481de5f502bb254b1e13bfc2a9f303d"
+    },
+    {
+      "path": "licenses/frozenlist-1.8.0/LICENSE",
+      "bytes": 11332,
+      "sha256": "6fd5243e92dd7f98ec69c7ac377728e74905709ff527a5bf98d6d0263c04f5b6"
+    },
+    {
+      "path": "licenses/h11-0.16.0/LICENSE.txt",
+      "bytes": 1124,
+      "sha256": "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361"
+    },
+    {
+      "path": "licenses/httpcore-1.0.9/LICENSE.md",
+      "bytes": 1518,
+      "sha256": "fdcb59154c74cbaba16a11242f7740bea9f23d6feb5547917d8c5f94a80392a5"
+    },
+    {
+      "path": "licenses/httpcore2-2.13.0/LICENSE.md",
+      "bytes": 1599,
+      "sha256": "c4df125c807b0613501e943a5c92496dd11d2c16604ce396097a8dde396304d9"
+    },
+    {
+      "path": "licenses/httpx-0.28.1/LICENSE.md",
+      "bytes": 1508,
+      "sha256": "4ec59d544f12b5f539a3a716fd321ac58ccd8030b465221f2c880200cdf28d8d"
+    },
+    {
+      "path": "licenses/httpx2-2.13.0/LICENSE.md",
+      "bytes": 1589,
+      "sha256": "7e7d6dbaf7fe160d39fd6e84fd02c33cab96bcbea34d36998d545bceb4a19c30"
+    },
+    {
+      "path": "licenses/idna-3.20/LICENSE.md",
+      "bytes": 1541,
+      "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+    },
+    {
+      "path": "licenses/iniconfig-2.3.0/LICENSE",
+      "bytes": 1098,
+      "sha256": "3409fa91f7ace557894632676656e32264fe5ef7581535725dc9a23774551bd4"
+    },
+    {
+      "path": "licenses/jiter-0.17.0/LICENSE",
+      "bytes": 1112,
+      "sha256": "e65c152aa65deaaa52019855bf1bbce4a0d592a048cb523b6ca691965741241e"
+    },
+    {
+      "path": "licenses/kiwisolver-1.5.1/LICENSE",
+      "bytes": 3360,
+      "sha256": "b24c2bf6185f31a124ad6bacccae3071bdc7ad7882de00b00110aa62abb76a15"
+    },
+    {
+      "path": "licenses/llvmlite-0.49.0/LICENSE",
+      "bytes": 1309,
+      "sha256": "7d6aa93e52a7ae9a995ff6a40c0ea5628311cdf1bd8dcd29c8ce9181f4af3a81"
+    },
+    {
+      "path": "licenses/llvmlite-0.49.0/LICENSE.thirdparty",
+      "bytes": 12786,
+      "sha256": "7b564c7af9ab446d245ba66adc8cda2f61d1d162f842899557499e80b715993a"
+    },
+    {
+      "path": "licenses/matplotlib-3.11.2/LICENSE",
+      "bytes": 63442,
+      "sha256": "822e8e528147569a41975592aee19c11992ab667ba50451cd929031d5fc74491"
+    },
+    {
+      "path": "licenses/matplotlib-3.11.2/LICENSE_DEJAVU",
+      "bytes": 4816,
+      "sha256": "d75938dec098f06f0ac3c00853065d94f020be1c3c62ef1dc2975ba15b4d9b0e"
+    },
+    {
+      "path": "licenses/matplotlib-3.11.2/LICENSE_STIX",
+      "bytes": 5476,
+      "sha256": "bab3d31dfef07f483624f2f65f2711e76065b8e7273278b1c071ede1041c9959"
+    },
+    {
+      "path": "licenses/Mesa-llvmpipe.txt",
+      "bytes": 3757,
+      "sha256": "4d5aebdf1b8876f167a320a7d0fe4775ee41bdf8c4650e43c78c2c8d09d855be"
+    },
+    {
+      "path": "licenses/more-itertools-11.1.0/LICENSE",
+      "bytes": 1053,
+      "sha256": "09f1c8c9e941af3e584d59641ea9b87d83c0cb0fd007eb5ef391a7e2643c1a46"
+    },
+    {
+      "path": "licenses/msgpack-1.2.2/COPYING",
+      "bytes": 628,
+      "sha256": "4fbdff42eba4593c16f7a7ea7078883b2b734870a1e2b636284ce2dce62bf4f7"
+    },
+    {
+      "path": "licenses/multidict-6.9.1/LICENSE",
+      "bytes": 11313,
+      "sha256": "2e4be5fc6c4c72a466fcb665d726e049a6891981fe536c4f04b6366749461d23"
+    },
+    {
+      "path": "licenses/multimethod-1.12/LICENSE.txt",
+      "bytes": 576,
+      "sha256": "50477e9b01163e9f1754d3318cc38059278cc6586316c4e627de3076691c8bea"
+    },
+    {
+      "path": "licenses/nlopt-2.11.0/LICENSE",
+      "bytes": 2281,
+      "sha256": "e547030bf5cf396a0b724938083e5d951404f64097b835368246e90effe8a026"
+    },
+    {
+      "path": "licenses/numba-0.67.0/LICENSE",
+      "bytes": 1310,
+      "sha256": "5f7ae5e48a0a107a9d86a9ef6c18dcce68e55959855d39380050deaea366631c"
+    },
+    {
+      "path": "licenses/numba-0.67.0/LICENSES.third-party",
+      "bytes": 26891,
+      "sha256": "e5ea3f50f1c1aa518a86903b85dfd40c4765589998eb683b9382d111d91bb9ee"
+    },
+    {
+      "path": "licenses/numpy-2.5.3/COPYING",
+      "bytes": 704,
+      "sha256": "aea41976c720f91bd19725c16916a1ace40eb1ea42620d340e587a5de4bbcea0"
+    },
+    {
+      "path": "licenses/numpy-2.5.3/dragon4_LICENSE.txt",
+      "bytes": 1441,
+      "sha256": "b0fd592d4ead563148e3977e7b589169d46a5ef2ff133c755a81af880a3fc919"
+    },
+    {
+      "path": "licenses/numpy-2.5.3/LICENSE",
+      "bytes": 1616,
+      "sha256": "d78dbb208b80d92b4d333e41a4baae50d12444f46e53199fa7726a91de6e2da7"
+    },
+    {
+      "path": "licenses/numpy-2.5.3/LICENSE.md",
+      "bytes": 3582,
+      "sha256": "b4bc2f4fa1c95778f1ed3dd8f14706bece399475b978f9f34b5d3cd72521b48a"
+    },
+    {
+      "path": "licenses/numpy-2.5.3/LICENSE.txt",
+      "bytes": 1039,
+      "sha256": "d544761558b510866c21f7e8a2d5716fca76e0b98117e3b6b86314db7244d150"
+    },
+    {
+      "path": "licenses/OCCT-LGPL_EXCEPTION.txt",
+      "bytes": 663,
+      "sha256": "04580a884ea6cea294402649ff7b5cbb167d47462d1340a4ed33e550db10a81b"
+    },
+    {
+      "path": "licenses/OCCT-LICENSE_LGPL_21.txt",
+      "bytes": 26434,
+      "sha256": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c"
+    },
+    {
+      "path": "licenses/OCP-LICENSE.txt",
+      "bytes": 11346,
+      "sha256": "a13caea71627202ad33cc4cafafdd18e667e16716488f8d9c568127121fb89fd"
+    },
+    {
+      "path": "licenses/openai-3.17.0/LICENSE",
+      "bytes": 1493,
+      "sha256": "154759c1e9eb58e42643ee43ec59d556def4d1d702d911a484c469e02f85dd5d"
+    },
+    {
+      "path": "licenses/packaging-26.3/LICENSE",
+      "bytes": 197,
+      "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+    },
+    {
+      "path": "licenses/packaging-26.3/LICENSE.APACHE",
+      "bytes": 10174,
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+    },
+    {
+      "path": "licenses/packaging-26.3/LICENSE.BSD",
+      "bytes": 1344,
+      "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+    },
+    {
+      "path": "licenses/pefile-2024.8.26/LICENSE",
+      "bytes": 1083,
+      "sha256": "b44409c067c6da52bfb54bb6624fb11a7b52157c3a13ae1400232f8196e86ad3"
+    },
+    {
+      "path": "licenses/pillow-12.3.0/LICENSE",
+      "bytes": 78016,
+      "sha256": "4f7866a74802c6326f81faff59a56546b6aec2b10b91973e0e9308de95e79857"
+    },
+    {
+      "path": "licenses/pip-25.0.1/LICENSE.txt",
+      "bytes": 1093,
+      "sha256": "634300a669d49aeae65b12c6c48c924c51a4cdf3d1ff086dc3456dc8bcaa2104"
+    },
+    {
+      "path": "licenses/pluggy-1.6.0/LICENSE",
+      "bytes": 1110,
+      "sha256": "d6b65e6c213a5d0b577911d34d6e5949b9f59d76c238c5071a2f3fc16cfb2606"
+    },
+    {
+      "path": "licenses/propcache-0.5.4/LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/propcache-0.5.4/NOTICE",
+      "bytes": 609,
+      "sha256": "56d6ac6c8105c0a51304c21db060e361af9a8ea0af9a75c239c28b5d13693838"
+    },
+    {
+      "path": "licenses/pycparser-3.0/LICENSE",
+      "bytes": 1543,
+      "sha256": "0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1"
+    },
+    {
+      "path": "licenses/pydantic-2.13.5/LICENSE",
+      "bytes": 1129,
+      "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+    },
+    {
+      "path": "licenses/pydantic_core-2.46.5/LICENSE",
+      "bytes": 1101,
+      "sha256": "fbe7f615f18d135c07000e5a86325db27f42c7729699ef166ac1f7a3f4586bf4"
+    },
+    {
+      "path": "licenses/Pygments-2.21.0/LICENSE",
+      "bytes": 1331,
+      "sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17"
+    },
+    {
+      "path": "licenses/pyinstaller-6.22.3/COPYING.txt",
+      "bytes": 32604,
+      "sha256": "0598064c7d2718e38d7914a7d08343b2fa008e3bea9ebba2aa7a6ffa5900dd64"
+    },
+    {
+      "path": "licenses/pyinstaller-hooks-contrib-2026.7/LICENSE",
+      "bytes": 27666,
+      "sha256": "91d0baaff00773038e72c0a1fc9d5d2d38706b7a2b9c04f34296608f931b9cd0"
+    },
+    {
+      "path": "licenses/pyparsing-3.3.3/LICENSE",
+      "bytes": 1062,
+      "sha256": "a5425f9dc14ac74d4c5f0b679e941f2442e32cca7452a4418d5b1a49893ebe4e"
+    },
+    {
+      "path": "licenses/pypdf-LICENSE.txt",
+      "bytes": 1605,
+      "sha256": "a97ac230e5f33ef10a5367a850eb01f91f1a0b064e34742c7794d2294557f524"
+    },
+    {
+      "path": "licenses/PySide6-6.10.2/LicenseRef-Qt-Commercial.txt",
+      "bytes": 470,
+      "sha256": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3"
+    },
+    {
+      "path": "licenses/PySide6_Addons-6.10.2/LicenseRef-Qt-Commercial.txt",
+      "bytes": 470,
+      "sha256": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3"
+    },
+    {
+      "path": "licenses/PySide6_Essentials-6.10.2/LicenseRef-Qt-Commercial.txt",
+      "bytes": 470,
+      "sha256": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3"
+    },
+    {
+      "path": "licenses/pytest-9.1.1/LICENSE",
+      "bytes": 1091,
+      "sha256": "ca836a5f9ecca3b2f350230faa20a48fb8b145653b5568d784862df864706b9b"
+    },
+    {
+      "path": "licenses/python-dateutil-2.9.0.post0/LICENSE",
+      "bytes": 2889,
+      "sha256": "ba00f51a0d92823b5a1cde27d8b5b9d2321e67ed8da9bc163eff96d5e17e577e"
+    },
+    {
+      "path": "licenses/Python-LICENSE.txt",
+      "bytes": 25066,
+      "sha256": "886a0ead2d89030ee62dbff52b04e47ab91998341295bb9c56fb952b4e081c7a"
+    },
+    {
+      "path": "licenses/pythonnet-3.1.0/LICENSE",
+      "bytes": 1104,
+      "sha256": "e1dc3a6ff017a6800dc27a7220500f512b95fbcd996d38ebbbff85c693245369"
+    },
+    {
+      "path": "licenses/pywebview-6.2.1/LICENSE",
+      "bytes": 1518,
+      "sha256": "4a988dd3598832cd3653de20dc33cb677d0fb53ab5551c879ca31280ae653675"
+    },
+    {
+      "path": "licenses/pywin32-ctypes-0.2.3/LICENSE.txt",
+      "bytes": 1644,
+      "sha256": "dfa83b3e2709adfcdb838d9ad55823ca674abb780e60563d9dd9544ccbf785e9"
+    },
+    {
+      "path": "licenses/PyYAML-6.0.3/LICENSE",
+      "bytes": 1101,
+      "sha256": "8d3928f9dc4490fd635707cb88eb26bd764102a7282954307d3e5167a577e8a4"
+    },
+    {
+      "path": "licenses/Qt-GPL-2.0-only.txt",
+      "bytes": 18092,
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    {
+      "path": "licenses/Qt-GPL-3.0-only.txt",
+      "bytes": 35147,
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "path": "licenses/Qt-LGPL-3.0-only.txt",
+      "bytes": 7651,
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+    },
+    {
+      "path": "licenses/runtype-0.5.3/LICENSE",
+      "bytes": 1068,
+      "sha256": "973c57bf5d9df70d897c02ec40996767c5d108ec77fafe66d200b4a550fcb7bf"
+    },
+    {
+      "path": "licenses/scipy-1.18.1/COPYING_QHULL.txt",
+      "bytes": 1759,
+      "sha256": "2a6ebb495e26dd5f88cbc40c593733da6edb27b64936f70409cd5a1acafb1c32"
+    },
+    {
+      "path": "licenses/scipy-1.18.1/LICENSE",
+      "bytes": 1543,
+      "sha256": "e4c4acc31e8287066d7c995d26e3ef902ca1977ee187b260b11c278366503811"
+    },
+    {
+      "path": "licenses/scipy-1.18.1/LICENSE.md",
+      "bytes": 1523,
+      "sha256": "c04661685cff9d8035fe1c4c3ab357e7f7633cafc06a73e9d90c3c5fede8a86a"
+    },
+    {
+      "path": "licenses/scipy-1.18.1/LICENSE.txt",
+      "bytes": 45881,
+      "sha256": "f0f5c56b298ec9795df1199edc328a987242716d14a1bde6813112e22dc15f99"
+    },
+    {
+      "path": "licenses/scipy-1.18.1/LICENSE_DOP",
+      "bytes": 3648,
+      "sha256": "6cc2ed6e35b8f376ff3d8f86aeef4e0c34c2309bd6f4a0565936d577839ba023"
+    },
+    {
+      "path": "licenses/setuptools-84.0.0/LICENSE",
+      "bytes": 1076,
+      "sha256": "5a57cb4db85e2a2dd88c290628908add57e3451449e0a9a71fdfb38776fd759d"
+    },
+    {
+      "path": "licenses/setuptools-84.0.0/LICENSE.APACHE",
+      "bytes": 10174,
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+    },
+    {
+      "path": "licenses/setuptools-84.0.0/LICENSE.BSD",
+      "bytes": 1344,
+      "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+    },
+    {
+      "path": "licenses/setuptools-84.0.0/LICENSE.txt",
+      "bytes": 1107,
+      "sha256": "30c23618679108f3e8ea1d2a658c7ca417bdfc891c98ef1a89fa4ff0c9828654"
+    },
+    {
+      "path": "licenses/setuptools-84.0.0/NOTICE",
+      "bytes": 18737,
+      "sha256": "09c9bcea95ca086f8bc5bed174e40bc835b297d40fb5f86bbbb570fe0a5581a7"
+    },
+    {
+      "path": "licenses/shiboken6-6.10.2/LicenseRef-Qt-Commercial.txt",
+      "bytes": 470,
+      "sha256": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3"
+    },
+    {
+      "path": "licenses/six-1.17.0/LICENSE",
+      "bytes": 1066,
+      "sha256": "4375ba20e2b9c6c4e7cad2940a628fd90e95cc3d50ee92aae755715d8ba1fbd0"
+    },
+    {
+      "path": "licenses/sniffio-1.3.1/LICENSE",
+      "bytes": 185,
+      "sha256": "652c878488d1456361e08c3f8607fd7ba59892a14103d15cce4ff93c85b5cc8b"
+    },
+    {
+      "path": "licenses/sniffio-1.3.1/LICENSE.APACHE2",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/sniffio-1.3.1/LICENSE.MIT",
+      "bytes": 1046,
+      "sha256": "3e6dae555eb92787fc82d1d48355677f454c7f65aeb38d3f9e72bf9a3daf034b"
+    },
+    {
+      "path": "licenses/starlette-1.6.0/LICENSE.md",
+      "bytes": 1518,
+      "sha256": "dcb95677a02240243187e964f941847d19b17821cf99e5afae684fab328c19bf"
+    },
+    {
+      "path": "licenses/Threejs-LICENSE.txt",
+      "bytes": 1081,
+      "sha256": "bfe119ea4fd413f5f7ca3fcd63adb0c4a073ed39daa2fe7d3e6b769e21272601"
+    },
+    {
+      "path": "licenses/trame-4.0.0/LICENSE",
+      "bytes": 552,
+      "sha256": "a0e8a7cd61a4e04aee1cad9718f5afbaac4341059fb4c3f0b9223e93750b858e"
+    },
+    {
+      "path": "licenses/trame-client-4.1.0/LICENSE",
+      "bytes": 1079,
+      "sha256": "dc7bd3fd126419153790338e50a1ebb314a014c8f1798009ff50441fa424909a"
+    },
+    {
+      "path": "licenses/trame-common-1.2.7/LICENSE",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "licenses/trame-components-2.5.0/LICENSE",
+      "bytes": 552,
+      "sha256": "a0e8a7cd61a4e04aee1cad9718f5afbaac4341059fb4c3f0b9223e93750b858e"
+    },
+    {
+      "path": "licenses/trame-server-4.0.0/LICENSE",
+      "bytes": 553,
+      "sha256": "5a6ba2e198e96e1ee6c17b17e6c614812f0271eff28f2b6c8215ab6d51afdf7e"
+    },
+    {
+      "path": "licenses/trame-vtk-2.8.13/LICENSE",
+      "bytes": 1504,
+      "sha256": "27198113c2a9a21461dbdba5a9a22639ba4e65f97c15203fbc701a15d6f4d600"
+    },
+    {
+      "path": "licenses/trame-vuetify-3.2.6/LICENSE",
+      "bytes": 1078,
+      "sha256": "00495a89884cbd1b3828013d40fa9b5aeffe155bbe642bd3753e6b10f5c5e8a8"
+    },
+    {
+      "path": "licenses/truststore-0.10.4/LICENSE",
+      "bytes": 1086,
+      "sha256": "33be7b7e8fa4fd19b1760e1a8ed8a668bdab852c91b692dd41424bcb725a9fca"
+    },
+    {
+      "path": "licenses/typing-inspection-0.4.4/LICENSE",
+      "bytes": 1090,
+      "sha256": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
+    },
+    {
+      "path": "licenses/typing_extensions-4.16.0/LICENSE",
+      "bytes": 13936,
+      "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+    },
+    {
+      "path": "licenses/uvicorn-0.53.0/LICENSE.md",
+      "bytes": 1526,
+      "sha256": "efe1acf3e62fb99c288b0ec73e5a773b7268ef4320fe757ea994214e4b63c371"
+    },
+    {
+      "path": "licenses/vtk-9.6.2/LICENSE",
+      "bytes": 1795,
+      "sha256": "fb3c1d41b57425cf3026c4bb4cd244c982a7a9475596424de5d1b7f32ea78285"
+    },
+    {
+      "path": "licenses/wslink-2.5.7/LICENSE",
+      "bytes": 1483,
+      "sha256": "28e401d582c42ba0d2904c99118b457c6595030fd4235d24f0a82e44e463edb3"
+    },
+    {
+      "path": "licenses/yarl-1.25.1/LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/yarl-1.25.1/NOTICE",
+      "bytes": 609,
+      "sha256": "56d6ac6c8105c0a51304c21db060e361af9a8ea0af9a75c239c28b5d13693838"
+    },
+    {
+      "path": "native_desktop.py",
+      "bytes": 36244,
+      "sha256": "8b1691107a5a1efa4cc62b0b44e65e18a2a46f24b438e429bfdd093d4b882903"
+    },
+    {
+      "path": "NativeCAD.spec",
+      "bytes": 3629,
+      "sha256": "c55a270ab145906fa1c3d63344fafe7953e21291bbe996f41eb9b0914c95817b"
+    },
+    {
+      "path": "PromptCADStudio.spec",
+      "bytes": 149,
+      "sha256": "3e0959c84147c7576634bb461bafe2808f487ca314556ff4cc881df111039a1a"
+    },
+    {
+      "path": "pytest.ini",
+      "bytes": 42,
+      "sha256": "b160d82f7811555051f8966d8e02750a985227c1d022208c784e606946f2eada"
+    },
+    {
+      "path": "README.md",
+      "bytes": 50185,
+      "sha256": "bb774fe72c5015cafe5d252a2d899d640a6bc37506060f58628a080d3a223b64"
+    },
+    {
+      "path": "requirements-desktop.txt",
+      "bytes": 27,
+      "sha256": "84713e6849c7d0b0d695fd3fcc3b640404d95741ca6746ab7e89c1ad1d52a2d7"
+    },
+    {
+      "path": "requirements-dev.txt",
+      "bytes": 48,
+      "sha256": "d8051f37f45da475d5b993671bf8c0e87d980a5bcd5ca9aa3e7e3ce99079e1d3"
+    },
+    {
+      "path": "requirements-lock.txt",
+      "bytes": 1614,
+      "sha256": "0827b90e3f3ce3cf080a77cea7fc597bcb74211eda09126ffdecbf84cd75a324"
+    },
+    {
+      "path": "requirements-native.txt",
+      "bytes": 123,
+      "sha256": "f9a34fda92e24a68794b0eda1e111b02d825122e43e3843428e45a91fb29d89b"
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 95,
+      "sha256": "687675e951907f64e3d81ebfc2050dda8fa05145457bc7a6e74d06a367f3887e"
+    },
+    {
+      "path": "scripts/collect_licenses.py",
+      "bytes": 1724,
+      "sha256": "0a02dd2cd8171d5367b2a63f8d2d2812bea1d10443e2d848c11aa037f310ffac"
+    },
+    {
+      "path": "scripts/generate_examples.py",
+      "bytes": 4815,
+      "sha256": "68910e29416c1b7bce70c17be400348341517dabc9cdc8cd906258828aecc87a"
+    },
+    {
+      "path": "scripts/install_native.ps1",
+      "bytes": 2644,
+      "sha256": "7bd3b0e6ff425afdcbb3137e5f2091630d2729838a15774220ba8b35993035df"
+    },
+    {
+      "path": "scripts/native_program2230_smoke.py",
+      "bytes": 180,
+      "sha256": "6a446ee2cc15423a231ccb5ffa3d4cd614206e18885e75d83b0862d8e6747b99"
+    },
+    {
+      "path": "scripts/package_windows.py",
+      "bytes": 1973,
+      "sha256": "c6316bdcdd7e2073d61181cf49e2602a1ca453069e8add513e7ead78970e49c5"
+    },
+    {
+      "path": "scripts/remove_native_registration.ps1",
+      "bytes": 1707,
+      "sha256": "80a6e23e00270b94e6af97ea3b225eeef3c014e8aa85bf5eea37471bc35c199e"
+    },
+    {
+      "path": "setup.ps1",
+      "bytes": 1193,
+      "sha256": "b33f6eb2869d39eb7cb2036a6b11e30ae3952cb6fd693a9162e7eaf58dd652f3"
+    },
+    {
+      "path": "Start CAD.vbs",
+      "bytes": 727,
+      "sha256": "733c8ac0611a5e6e48d521a0cc3924c97b3d9d7832a414f1d8282579ab0bee2d"
+    },
+    {
+      "path": "static/app.ico",
+      "bytes": 17298,
+      "sha256": "3c91a7833f271da70a05946fe47b045906db7d3e8abc8cb032d64a812c668cde"
+    },
+    {
+      "path": "static/app.js",
+      "bytes": 37557,
+      "sha256": "059c73ae82b10ede5cb8012da8c5500d04c60d24b9eb5f531abe3ee47f7cbf1e"
+    },
+    {
+      "path": "static/history.js",
+      "bytes": 11953,
+      "sha256": "aba16198a5a418437a757f253eaeca6a1f96c1986dfb2f7a48592bae9a57fddd"
+    },
+    {
+      "path": "static/icon.svg",
+      "bytes": 309,
+      "sha256": "75f58f7649f4970bafef9259194b20b50dd703018a5fe2c3f39cfd2639980182"
+    },
+    {
+      "path": "static/index.html",
+      "bytes": 15141,
+      "sha256": "f774aa662ed3ea6c1afda0196525e52a8e714e93e734008773da864cb2a6cc38"
+    },
+    {
+      "path": "static/sketch-geometry.js",
+      "bytes": 13168,
+      "sha256": "5d2b5cd7db67c737f8d65acedd05e679eedc0528a7dd1a350b7424b73f0f5740"
+    },
+    {
+      "path": "static/sketch.js",
+      "bytes": 35706,
+      "sha256": "7218cae84aab804e90a190a9e790955e5b7114ac7dca2893c93ff5131e4a32c9"
+    },
+    {
+      "path": "static/style.css",
+      "bytes": 25223,
+      "sha256": "e999817ec7ad2cb4bdd1644633ad941134f737b0c8d4ef9019a16b09596d5889"
+    },
+    {
+      "path": "static/vendor/LICENSE",
+      "bytes": 1081,
+      "sha256": "bfe119ea4fd413f5f7ca3fcd63adb0c4a073ed39daa2fe7d3e6b769e21272601"
+    },
+    {
+      "path": "static/vendor/OrbitControls.js",
+      "bytes": 38717,
+      "sha256": "0c628bb5efe96fe20d063f06850d3ff777578e565a4835c5a8abd0e57dbb04e0"
+    },
+    {
+      "path": "static/vendor/three.core.js",
+      "bytes": 1403455,
+      "sha256": "eb077d2417f61d3e6d9264c317cabc4ea35769ed6b0ab533067292a550784c20"
+    },
+    {
+      "path": "static/vendor/three.module.js",
+      "bytes": 603113,
+      "sha256": "c8211c69345d2e9949dc7a8ac969380497aa0600a5a8ac6a459c8cd02dd9cb8a"
+    },
+    {
+      "path": "static/viewer.js",
+      "bytes": 6163,
+      "sha256": "6451c9372e3a8af932ce8ac316e2cd68590c9adaddcbb921dd0761d74f26305c"
+    },
+    {
+      "path": "tests/ai_transport.py",
+      "bytes": 733,
+      "sha256": "b6b6d37c6285852602d279060149f25558de29c790075e1625d5eb706f4c7f26"
+    },
+    {
+      "path": "tests/fixtures/pin_alignment_world339.json",
+      "bytes": 3297,
+      "sha256": "9dba8039c767d0d903f3e2547c52e3a51154b5d7efdd0a46de1b9f27a1ad1665"
+    },
+    {
+      "path": "tests/sketch-geometry.test.mjs",
+      "bytes": 4736,
+      "sha256": "e46d01e957df336a2b4d90240de3491a391ca0cb9274676244af89d2f1ab03e6"
+    },
+    {
+      "path": "tests/test_advanced_geometry.py",
+      "bytes": 4190,
+      "sha256": "023c2cd5ab96add93b8088e83a64b84f1cfb9d8397c8b8eae04e70b09b00b22f"
+    },
+    {
+      "path": "tests/test_ai_panel_layout.py",
+      "bytes": 2286,
+      "sha256": "d06b0107f7cb6ae44c53afd09d3d452e758acf25ef91482164266574465a7853"
+    },
+    {
+      "path": "tests/test_ai_panel_review_v3.py",
+      "bytes": 1960,
+      "sha256": "7771b778e2d91b056568d128aba29f1e8cab3e6c0ba76f86f615356ef2344f7b"
+    },
+    {
+      "path": "tests/test_ai_responsiveness.py",
+      "bytes": 6912,
+      "sha256": "b528378ebd4cda206bd5805e8c04f9be7f6ad808d17a1796205bfb400320476d"
+    },
+    {
+      "path": "tests/test_ai_settings_v3.py",
+      "bytes": 5366,
+      "sha256": "9b29f9bca89600cf67acd915a45843850161f6c6b24edba8a5f71c0f5eaf67be"
+    },
+    {
+      "path": "tests/test_ai_wiring2220.py",
+      "bytes": 21174,
+      "sha256": "84c0cdadefd93f46773f89a4fb473c341dea5a8817b8a110f30055c55912571c"
+    },
+    {
+      "path": "tests/test_ai_work_history339.py",
+      "bytes": 13277,
+      "sha256": "3558fdd0ed9f70cbe0883d2dd4ea8d0ba714bbc4e35af863746d5e7a374a53dc"
+    },
+    {
+      "path": "tests/test_api.py",
+      "bytes": 6329,
+      "sha256": "679d17a67222a3c24ae6ca4d4c38ed58d5bbf8b3e59fae7a9c155e1a95492072"
+    },
+    {
+      "path": "tests/test_assembly_rotation_scalar.py",
+      "bytes": 6907,
+      "sha256": "b384921d4e1e0b3152638d53bc455cfff92fe7053015f2e43ea45f06df4a02af"
+    },
+    {
+      "path": "tests/test_bg431_esc_reference.py",
+      "bytes": 4236,
+      "sha256": "bb859773bf088060831fbcced356639512b6a0c58a2c8d4e228d50a27a4abd50"
+    },
+    {
+      "path": "tests/test_blank_startup.py",
+      "bytes": 2683,
+      "sha256": "57a06289050d0164778f2c13eca03479f04ebc964eca3dad562ef22c2d3ff902"
+    },
+    {
+      "path": "tests/test_board_pins.py",
+      "bytes": 7501,
+      "sha256": "de24d36b728c40ad89dfa58c2ba9ea6a1a797e0a548472b5de706d74d9a94ff9"
+    },
+    {
+      "path": "tests/test_board_supply.py",
+      "bytes": 9652,
+      "sha256": "bf495cf9eab3edc65a4c1c0c48dec3c0b2d5db42eec2884bef9680293eb35b7b"
+    },
+    {
+      "path": "tests/test_board_supply_native.py",
+      "bytes": 2340,
+      "sha256": "8f18fa3b191bce08d70e04638f96844ab368c5044e3ef7e263023e0952279b0f"
+    },
+    {
+      "path": "tests/test_bom_capacity2240.py",
+      "bytes": 6643,
+      "sha256": "1c8edf6d595ce1de6efbb9b362684c21dc0676994af8fcb4a411bb7269f52dc4"
+    },
+    {
+      "path": "tests/test_bom_design2240.py",
+      "bytes": 16509,
+      "sha256": "2993f659e6c463b989469203d609ea70d46cce06485ddd2546c8f85186aef67e"
+    },
+    {
+      "path": "tests/test_bom_design_dialog2240.py",
+      "bytes": 21811,
+      "sha256": "ea41548add369156f35d7e58fb60d81d05f3284a30a2ab58aac0f24aba67828f"
+    },
+    {
+      "path": "tests/test_bom_integration2240.py",
+      "bytes": 7080,
+      "sha256": "a474d1ac181fae741b71f8a65b9b29511ba56d25408f428a19670ec9b7a18930"
+    },
+    {
+      "path": "tests/test_bom_rows311.py",
+      "bytes": 6596,
+      "sha256": "0de210222a8896525d67dc37de6a81933e04a20285e52778196a2745e34489b0"
+    },
+    {
+      "path": "tests/test_bounds.py",
+      "bytes": 496,
+      "sha256": "213f52c86fc1a7c4b3906012d39c0960c0863531618bdb757f5c46600289d6fa"
+    },
+    {
+      "path": "tests/test_cad_feature_edits.py",
+      "bytes": 10772,
+      "sha256": "b73b5685a47a63658e3d9f6073d358ed3a6ed9f90100c52a1efee4b5f1cc4245"
+    },
+    {
+      "path": "tests/test_cad_foundations.py",
+      "bytes": 8104,
+      "sha256": "9273847114b0f48863e26efa22da9fbe517c71b69e56f92b1ae0e4944b3fb2ec"
+    },
+    {
+      "path": "tests/test_cad_scope.py",
+      "bytes": 14680,
+      "sha256": "019f69809a8e7febcd39e355ade3e148ef79af4cc3b3abffad9402242823bfbb"
+    },
+    {
+      "path": "tests/test_cad_tools.py",
+      "bytes": 19912,
+      "sha256": "8f688e79a51b52f3e5614cd37444b4d8c01573083bd3a493b7067e5c2de29658"
+    },
+    {
+      "path": "tests/test_chamber_design.py",
+      "bytes": 12101,
+      "sha256": "3a5113e3b45f69d29143cb5799c99c045bf9499789b809ff5ee76b23e464ec54"
+    },
+    {
+      "path": "tests/test_chamber_dialog.py",
+      "bytes": 8987,
+      "sha256": "88151b3ac6193a6cc988f0e4e0e58d940e6584f97cd27810580354d796407add"
+    },
+    {
+      "path": "tests/test_circuit_canvas_native.py",
+      "bytes": 17020,
+      "sha256": "18e5aebbd579fbd2dff47cb7179e5323f8da7e18fbabec2d14eb2b02d3e1955d"
+    },
+    {
+      "path": "tests/test_circuit_connections.py",
+      "bytes": 9894,
+      "sha256": "6949221565195d3a5bc615da8a249cae66aadbd2d533186f08009450233a515f"
+    },
+    {
+      "path": "tests/test_circuit_passive_native.py",
+      "bytes": 7983,
+      "sha256": "d5c10925d20f05cc8d917c99e26dde8f6fcf55c1351488b3fb2caf12ed3fb4ac"
+    },
+    {
+      "path": "tests/test_circuit_routing.py",
+      "bytes": 10079,
+      "sha256": "b6e9eedced8e8ceb8667ba97de3734b7154d2976d04b49b17b5b30b6d4f6dd0c"
+    },
+    {
+      "path": "tests/test_circuit_symbols_native.py",
+      "bytes": 11496,
+      "sha256": "c51067a4784199a5f49243b20e527717a74b5bfe04089f30aafd5289a2761863"
+    },
+    {
+      "path": "tests/test_cloud_connection.py",
+      "bytes": 6202,
+      "sha256": "c04d5031b178e002aa74854f408b171f7949734f031edfa6d80e0c455945c99f"
+    },
+    {
+      "path": "tests/test_cloud_planner.py",
+      "bytes": 8089,
+      "sha256": "7d98baca3889d4bf4f4fca02da0973ca1c2e02614c4fcd0193bad49be2f556fe"
+    },
+    {
+      "path": "tests/test_codex_connection.py",
+      "bytes": 9497,
+      "sha256": "40f51f471db8d2432593b5da176acedb7b0fecfaedc532019725af97f11f9930"
+    },
+    {
+      "path": "tests/test_codex_errors2230.py",
+      "bytes": 2495,
+      "sha256": "a49f70e24e95ac70a028e6e217ad1f44605d5a37f933c00b09a1c73a496ebb5f"
+    },
+    {
+      "path": "tests/test_codex_model_picker_native.py",
+      "bytes": 5583,
+      "sha256": "7b546f13be56317ab2e3a760fe26e7a8effff8c8be03be6c0a44fac5e26a2ebf"
+    },
+    {
+      "path": "tests/test_codex_planner.py",
+      "bytes": 2401,
+      "sha256": "b9ec9ba94af8c736ae6695e8b34b43f339dbf37cd1c37e29c6f4b14be93bba6d"
+    },
+    {
+      "path": "tests/test_codex_reconnect.py",
+      "bytes": 4750,
+      "sha256": "b7b039efd0f551c16e1281a353b78295ce62ef8989e3ef8b4b3ec01beb79d883"
+    },
+    {
+      "path": "tests/test_codex_setup_native.py",
+      "bytes": 3566,
+      "sha256": "993be2a87fcb7cfaa8573b7e64a50d43ff56502ae99ee7373d5805e8608550f5"
+    },
+    {
+      "path": "tests/test_codex_usage.py",
+      "bytes": 3886,
+      "sha256": "7e920aaf2da3f357c6fab7b1a3c1efbac96a5d863c4263e31b989b889f6d4947"
+    },
+    {
+      "path": "tests/test_codex_v3.py",
+      "bytes": 10996,
+      "sha256": "84305f2c245de51721638c1b21aab606472b33d204baab5c475159e5bcd00423"
+    },
+    {
+      "path": "tests/test_component_specs.py",
+      "bytes": 2665,
+      "sha256": "ea92c74063c50d366499c019404876aa988a2bd004ac029dfdda3337f1eaebe7"
+    },
+    {
+      "path": "tests/test_constraints.py",
+      "bytes": 5954,
+      "sha256": "496a0b5f03a680067335aa9066a5e165695d3bba32fb5a8de954382236a8d209"
+    },
+    {
+      "path": "tests/test_cursor_interactor_lifetime.py",
+      "bytes": 5119,
+      "sha256": "6f6399fbbea2c8a9e9d12f29eac521fdda7884670f9094c81fed639708506ee2"
+    },
+    {
+      "path": "tests/test_designs.py",
+      "bytes": 5823,
+      "sha256": "f8b1efe0e9c0b9d7eb98dd3089107910c1812b40108fff0e3220a9be3b631285"
+    },
+    {
+      "path": "tests/test_direct_modeling.py",
+      "bytes": 11715,
+      "sha256": "4d6834ecae73383760ae1af21aa9682f15e8543849108b65f668d4be037ef1b3"
+    },
+    {
+      "path": "tests/test_display_style.py",
+      "bytes": 2533,
+      "sha256": "6758724b77f5c6a044ccbef3ea16d0222629676dde4c7336088aadba6e47f6b5"
+    },
+    {
+      "path": "tests/test_document_large_save.py",
+      "bytes": 7389,
+      "sha256": "e93df630992f1d92eadce9f6c8dcdc5648b719dc4acab5bfb444f49d6d549c8a"
+    },
+    {
+      "path": "tests/test_draft_baseline_cache.py",
+      "bytes": 8728,
+      "sha256": "c5a90dc0b94eb1a76de114861f03c0c263f42082471153b7b3446564bd6b80cd"
+    },
+    {
+      "path": "tests/test_draft_repair.py",
+      "bytes": 8318,
+      "sha256": "9a4c0b6583b4e3810ccb942d609f28ab9d20078fc6473a3603eb0111b9d3e44c"
+    },
+    {
+      "path": "tests/test_draft_request_ownership.py",
+      "bytes": 3652,
+      "sha256": "082064a2efcf561fa760e8900e978a74fb017df57af0443ef092602026c747fe"
+    },
+    {
+      "path": "tests/test_draft_summary.py",
+      "bytes": 837,
+      "sha256": "c556a0ce6e1be4f6538a2578ff3f9ca4731f178996691fa3ca16ac1902778dcf"
+    },
+    {
+      "path": "tests/test_drawing.py",
+      "bytes": 2420,
+      "sha256": "bdad09472c940abd96a886b4d3c3b4421260a07c62aa051525cd99ef75fc74ae"
+    },
+    {
+      "path": "tests/test_drive_simulation.py",
+      "bytes": 15548,
+      "sha256": "2f4ef64ae2e8e4c7608923453c91ec0bb6e95216715d45806b59b6966e6e3713"
+    },
+    {
+      "path": "tests/test_drive_simulation_native.py",
+      "bytes": 9833,
+      "sha256": "178ff4fdc3b44f6f84035f39c49af4d83a0065a96ecec1e6fb33547b98d5f509"
+    },
+    {
+      "path": "tests/test_electrical.py",
+      "bytes": 16247,
+      "sha256": "956b134c9b07c2ece63f3d27daad64e32e54c85425959071c7d655e249e24010"
+    },
+    {
+      "path": "tests/test_electrical_catalog.py",
+      "bytes": 7957,
+      "sha256": "029c4dbbcb791a50422724e20b5b33c78c2dd9a2a825bacc9db7d84167fe8751"
+    },
+    {
+      "path": "tests/test_electrical_catalog_expansion2210.py",
+      "bytes": 11274,
+      "sha256": "c85d4fa04c1827b3de8b2b7264f9981ffda9774eb9c42295d747ce1a2febbf07"
+    },
+    {
+      "path": "tests/test_electrical_correspondence_native.py",
+      "bytes": 22267,
+      "sha256": "5c12ac6f156b8552d9097ef7795ac6013413464202c038fd3999ceabcc741746"
+    },
+    {
+      "path": "tests/test_electrical_diagnostics_native_v3.py",
+      "bytes": 7680,
+      "sha256": "d3cda3441ecb13e76d2dd5f0a0ab1c290e5bc267eec6cdcbbaec8962d65cb025"
+    },
+    {
+      "path": "tests/test_electrical_diagnostics_v3.py",
+      "bytes": 12085,
+      "sha256": "2ab84c856b2bf1668a5c25008d1edce1acee5dd20c429459364d6d26d26f84d9"
+    },
+    {
+      "path": "tests/test_electrical_draft_review.py",
+      "bytes": 8430,
+      "sha256": "9bd63a1a207a614f3cf9318b321c47f3e036edd20a8dc6d23238923c864bd97e"
+    },
+    {
+      "path": "tests/test_electrical_entrypoints2230.py",
+      "bytes": 12450,
+      "sha256": "bc78d77090ccbdba55cbe2b83429de44cf4d8212f94caf5077ed56056b81321f"
+    },
+    {
+      "path": "tests/test_electrical_history_compatibility.py",
+      "bytes": 8158,
+      "sha256": "b7e6b4b282bce2e4b93e34dfffdec9f0f460b32684c2ced425795c43449169ac"
+    },
+    {
+      "path": "tests/test_electrical_joint_native.py",
+      "bytes": 13342,
+      "sha256": "a62ca9e09981603e86e1d95f893014e600fd01b71ce3bbf5f545d53624aa2859"
+    },
+    {
+      "path": "tests/test_electrical_node_capacity.py",
+      "bytes": 15196,
+      "sha256": "56909eba52ba014f3e817c90cc2bcc22e77f3af44a8fb83a59ecb3f22b634201"
+    },
+    {
+      "path": "tests/test_electrical_node_capacity_document.py",
+      "bytes": 13293,
+      "sha256": "261b8f52a783607dfff5b4e807bad3aec191d70b52f08895e4ba4aff3d5265a7"
+    },
+    {
+      "path": "tests/test_electrical_node_capacity_native.py",
+      "bytes": 3300,
+      "sha256": "0cdfbb7d43b5713b9eb3af8e2e81e8d5c74313930727d125b4faed3b20eb1455"
+    },
+    {
+      "path": "tests/test_electrical_node_capacity_solver.py",
+      "bytes": 1314,
+      "sha256": "3810525e5d29136117c9e358f9cc2685cef0c4a5fc1c51623e047c3fdc66b065"
+    },
+    {
+      "path": "tests/test_electrical_passives.py",
+      "bytes": 13220,
+      "sha256": "95418128e806f12951a75e7b7d6fec5685f45bcf9aaed1e816bc32ee01a97b75"
+    },
+    {
+      "path": "tests/test_electrical_power.py",
+      "bytes": 2611,
+      "sha256": "92ebbdc9da48a23f8e3e2abd19591260c67a73b17cc13ccce92e1ffd0a15dc7f"
+    },
+    {
+      "path": "tests/test_electrical_readiness.py",
+      "bytes": 14691,
+      "sha256": "de9fd1464e23febb3a39292643237b56158e9c6bb17d7ce6465818a92a34b678"
+    },
+    {
+      "path": "tests/test_electrical_readiness_ai_context.py",
+      "bytes": 1888,
+      "sha256": "37ab20825f1b6070f486e3502374f2389645ccfa3c0ecf689a4bec3d48cd4470"
+    },
+    {
+      "path": "tests/test_electrical_registration.py",
+      "bytes": 20852,
+      "sha256": "056cc25833fe7697a476340ee9bc15cb7d4bee8dc36ce0f88bc4311d22f5be9d"
+    },
+    {
+      "path": "tests/test_electrical_registration_ai.py",
+      "bytes": 11255,
+      "sha256": "d70e878d0268b21130d42426d0c38744cd0f941e09ff2b97576b1354fff704f4"
+    },
+    {
+      "path": "tests/test_electrical_registration_native.py",
+      "bytes": 11392,
+      "sha256": "f9318197ed3d5ff48ae954ca0fb1e29b267e933d2ac17d03119cc1d94c8e8676"
+    },
+    {
+      "path": "tests/test_electrical_safety.py",
+      "bytes": 10686,
+      "sha256": "0efd5abaae836a8601ade32998d250604c2e6a525b2e1bad39074b070f078e9d"
+    },
+    {
+      "path": "tests/test_electrical_safety_native.py",
+      "bytes": 8252,
+      "sha256": "1bfbb51bbc1c865daab11e563a95674817ab958aa7065877fdde34207a51394c"
+    },
+    {
+      "path": "tests/test_electrical_schematic_native.py",
+      "bytes": 8413,
+      "sha256": "19bc94cb07d16267c79b8d82c7a7fa5350ec38ba64306c3ecdc5bb7764179337"
+    },
+    {
+      "path": "tests/test_electrical_schematic_positions.py",
+      "bytes": 8686,
+      "sha256": "b4f22dbe0ad694cb774d98602fe49bebb3656bd9e77341c758ea3f72b8b81c5e"
+    },
+    {
+      "path": "tests/test_electrical_workbench_native.py",
+      "bytes": 11301,
+      "sha256": "279d90ae97ad3748ca26cd90b8fdad66eca462065173d499ee1c5cbcb27cefba"
+    },
+    {
+      "path": "tests/test_electronics_catalog2230.py",
+      "bytes": 11838,
+      "sha256": "91f55320b74d639a0ba95f2bc49366242c6cf87da955cd5b3665fb62011fc207"
+    },
+    {
+      "path": "tests/test_electronics_mount.py",
+      "bytes": 2125,
+      "sha256": "70b19f9099679ef5652a06883aff71046ba93abfae1903fcdfb72612926f40d8"
+    },
+    {
+      "path": "tests/test_engineering.py",
+      "bytes": 3309,
+      "sha256": "bcfef6c22587fcb3c95b7ac0409c5d53128ca254a291588731d7ce8edd5d55d7"
+    },
+    {
+      "path": "tests/test_extended_native.py",
+      "bytes": 7405,
+      "sha256": "0024089c796af7369d606668dfd4e8d12e37a5ddbc1e23521e308aa9fef057e3"
+    },
+    {
+      "path": "tests/test_fastener_check_native.py",
+      "bytes": 5267,
+      "sha256": "30da3e9951e94d90696c05ce11b13a7ccbf0b7452d1952ec1ccb15ea97a35e88"
+    },
+    {
+      "path": "tests/test_fastener_checks.py",
+      "bytes": 5144,
+      "sha256": "067cdd157dcdf0b0cc4cd87abcb7c25856e4d0d9661577e335c64ea6b62d4ca0"
+    },
+    {
+      "path": "tests/test_feature_manager_native_lifetime.py",
+      "bytes": 6433,
+      "sha256": "3ab42b162c2929921e2cf6a63685a4130a7c8cbbc4cb66ecac70e0507f0a2475"
+    },
+    {
+      "path": "tests/test_feature_selection_native.py",
+      "bytes": 2438,
+      "sha256": "7b453c6690e72063fcbe1d73a718a7a6a2bcf107082c89d9af3430e9a061753b"
+    },
+    {
+      "path": "tests/test_file_associations2240.py",
+      "bytes": 18128,
+      "sha256": "3f23668aa10f8cc6012c740a63e7fd109d65d4df2953b8838395d3403164beb8"
+    },
+    {
+      "path": "tests/test_firmware_build.py",
+      "bytes": 9524,
+      "sha256": "cc52055c483624afdfc2e212f25cc0ed5cced03081724815e75bc9cd0f7da65c"
+    },
+    {
+      "path": "tests/test_firmware_bundle.py",
+      "bytes": 13318,
+      "sha256": "8449c1167e5dd0599c933dd5b6108d47f4033f9314a48cf0e6f2e9a65d3d58c9"
+    },
+    {
+      "path": "tests/test_firmware_dialog2240.py",
+      "bytes": 20535,
+      "sha256": "545a1450b69684fe0f224df5b347624a2a8a560dbe5639bb726feba2a1bebe36"
+    },
+    {
+      "path": "tests/test_firmware_drive.py",
+      "bytes": 5723,
+      "sha256": "01f7f0a587de494e15e8ac3e53a12588dda2838e5e9043972c281831f52585a4"
+    },
+    {
+      "path": "tests/test_firmware_editor_compat2240.py",
+      "bytes": 3087,
+      "sha256": "95e4145a210f69214894811c3c4610419da8e5f04b690e5c0055c3bee9d2f4e1"
+    },
+    {
+      "path": "tests/test_firmware_emulation.py",
+      "bytes": 9786,
+      "sha256": "b5e1e219a572b5c4e2fa24e476ce3fca13f41b461500309618d14fd7100f6b0f"
+    },
+    {
+      "path": "tests/test_firmware_generation2240.py",
+      "bytes": 26419,
+      "sha256": "2d1337a221eb4b8724615082f7c276ad5e3d7de08d8d7b26c79d74f5f60d59d9"
+    },
+    {
+      "path": "tests/test_firmware_libraries_native_v3.py",
+      "bytes": 6588,
+      "sha256": "0212e6f180b8a92f392da5a841fce5e3c856f3524b0f090c079f82ff76b720bc"
+    },
+    {
+      "path": "tests/test_firmware_libraries_v3.py",
+      "bytes": 11453,
+      "sha256": "f7761896957263b50b04ca85d1347b2cc7c9eb0b88cb8e9e5953bba6013fd307"
+    },
+    {
+      "path": "tests/test_firmware_persistence2240.py",
+      "bytes": 3987,
+      "sha256": "8aeae196822563c46c6ea8c3008c9455d1cd4efd8289a2903c3128ec34187cdb"
+    },
+    {
+      "path": "tests/test_fits.py",
+      "bytes": 1847,
+      "sha256": "0dc14dee0077a8018d16b725f3cef225987aa98948786cf3ecb978f72484d58e"
+    },
+    {
+      "path": "tests/test_flexible_wire_collisions337.py",
+      "bytes": 7911,
+      "sha256": "7c139b9fdf06c04c967d8cb623cc492158ef6e20d2b5798ecc5c50e4e5a8133c"
+    },
+    {
+      "path": "tests/test_flexible_wire_package337.py",
+      "bytes": 1408,
+      "sha256": "4a6450592f955050fece28b21ecd75a6ce08d127545d836c965e68dd5197eb6a"
+    },
+    {
+      "path": "tests/test_force_acquisition.py",
+      "bytes": 12260,
+      "sha256": "4ee8dd4e4bffdf1497d5ea1d4dc1f112dd8dd3e469040a2a8140f53ae499fa39"
+    },
+    {
+      "path": "tests/test_force_acquisition_native.py",
+      "bytes": 8262,
+      "sha256": "d2a5d27ec57ca3b7b58bac8c3344099ac13a6611e118d17a74c9b7da7d58519e"
+    },
+    {
+      "path": "tests/test_g474_pin_expansion_document.py",
+      "bytes": 15400,
+      "sha256": "bb09622c0559c2d769941f9ae4aedb829ed080041dbb56750a08a14eee14a78d"
+    },
+    {
+      "path": "tests/test_g474_pin_native_hit_test.py",
+      "bytes": 2791,
+      "sha256": "2d784695932d9775d2d6bcde1e76191c73791ba4c23a9784e585a93a1cab5517"
+    },
+    {
+      "path": "tests/test_graphics_startup.py",
+      "bytes": 4397,
+      "sha256": "b68b571b3a773ccb5cabcd26e02ee76e1d43eb4c5ab7573fee14f2aba02942e8"
+    },
+    {
+      "path": "tests/test_history.py",
+      "bytes": 2918,
+      "sha256": "0e761cbb38bb474cc3907e2fa85082e24f1ac7b0bd265d0e036057ef38f0a467"
+    },
+    {
+      "path": "tests/test_inspection_configurations.py",
+      "bytes": 5576,
+      "sha256": "b6a7dec3175d1a3208933611bfaf416cdcf845a34bd6faeeffc6adc14a8a3298"
+    },
+    {
+      "path": "tests/test_interference.py",
+      "bytes": 4652,
+      "sha256": "df404da3c9dad2bdc5618af3dc3b4acb77c1a32ab32c6b82a73bf630f638d224"
+    },
+    {
+      "path": "tests/test_interference_ai.py",
+      "bytes": 2629,
+      "sha256": "468f74213f94da86c8d03245a8cb884c9e8e38ee0f457461dd4dc2e628bf7458"
+    },
+    {
+      "path": "tests/test_interference_native.py",
+      "bytes": 5205,
+      "sha256": "547db8c9ff0e82209c1a08cbaca6f64f8686964429bc70c6d4f6e796c7d59508"
+    },
+    {
+      "path": "tests/test_joint_alignment.py",
+      "bytes": 7213,
+      "sha256": "d8fa2a2d50cb86dbc2a68260f863a0ab96b40d35fb2fc06a693747a323f187ec"
+    },
+    {
+      "path": "tests/test_joint_alignment_native.py",
+      "bytes": 1090,
+      "sha256": "af9ace8da9758c45897d1b9872cbdee9e017f4ce6c8a4a8cd6ea3560dacc5523"
+    },
+    {
+      "path": "tests/test_joint_drive.py",
+      "bytes": 4610,
+      "sha256": "edabe3e9cd53dd41a4fa3a85637cf0f1ff735916d56cfdc7ddd2d88b4b43f20f"
+    },
+    {
+      "path": "tests/test_joint_edits.py",
+      "bytes": 8261,
+      "sha256": "376ac696e001c47e51c89538a1f5480fc586fb2716e5d984b6305ffcbc652a5c"
+    },
+    {
+      "path": "tests/test_joint_edits_native.py",
+      "bytes": 5888,
+      "sha256": "9a2cfbbba3da2189fe0ea1f43f89faa880410454ae86f4eea4c8bbbce4b243ef"
+    },
+    {
+      "path": "tests/test_joint_hardware.py",
+      "bytes": 3631,
+      "sha256": "d01728735d41fe0b4219309f24c280c0ff8cd31b6c82987ad7f5a2b3e2014ed7"
+    },
+    {
+      "path": "tests/test_lazy_scipy.py",
+      "bytes": 1938,
+      "sha256": "26fc569748f7d7b657ccd16a18b4cf8e5af6d3707d4e84dd602dd60073f33bf7"
+    },
+    {
+      "path": "tests/test_material_catalog.py",
+      "bytes": 10558,
+      "sha256": "f1701c4b10ec238371ec06e3a82f85f79ae9163a6a9848c57af0080fb5753489"
+    },
+    {
+      "path": "tests/test_material_native.py",
+      "bytes": 11426,
+      "sha256": "0ff3286e7efa70b56a3db7d1a20156a76698458140c9b42cf2b39dfe4933b1d2"
+    },
+    {
+      "path": "tests/test_mcu_pin_connections.py",
+      "bytes": 16059,
+      "sha256": "603335bbf5ff0c82d44fe0b70e13796dc674c5efa06a455fb773deeb22afbb13"
+    },
+    {
+      "path": "tests/test_mcu_pin_native.py",
+      "bytes": 13290,
+      "sha256": "41fac4df1b6b51d95c2f17376643c30df187b9c57750eb0d06d8214319c87e51"
+    },
+    {
+      "path": "tests/test_mcu_schematic_isolation.py",
+      "bytes": 6177,
+      "sha256": "9eecfa076d799defc7fc5dd63edb992498d5f67447b8ac1fe9dcd2c72c6ee9b0"
+    },
+    {
+      "path": "tests/test_measurement_ai_context.py",
+      "bytes": 2289,
+      "sha256": "9cf830abe8635915ea80edd27bb41145f6c724cfc5857b23715cffef04a04bcf"
+    },
+    {
+      "path": "tests/test_measurement_catalog.py",
+      "bytes": 5941,
+      "sha256": "98fbb97a08414ee21bbf4616fdbc3340d81a70f6b1830af0d3c85f85183c3474"
+    },
+    {
+      "path": "tests/test_mechanical_catalog.py",
+      "bytes": 4884,
+      "sha256": "299fd5820da9cbe79079d8bea803f627769e038d86862f9782535a2992222ada"
+    },
+    {
+      "path": "tests/test_mechanical_catalog_native.py",
+      "bytes": 5445,
+      "sha256": "42f78459b7f0a6de22b42cacb5d8b15a2436dec515ff98f53eabc391be18e331"
+    },
+    {
+      "path": "tests/test_mechanical_function_native.py",
+      "bytes": 4224,
+      "sha256": "aee39b2e78c688f5cf7e6404b78e6a00d24ebbed1a6b3f0a865ace0275e07fe6"
+    },
+    {
+      "path": "tests/test_mechanical_functions.py",
+      "bytes": 9304,
+      "sha256": "4c69b83a74c029b358b5be99a85c0cb28d97a47e6772bda54fecb4467b0ed1ae"
+    },
+    {
+      "path": "tests/test_mechanism_print_zoom.py",
+      "bytes": 6772,
+      "sha256": "455ef1706c141479a13326d614fc6f2af6e82346e0db9682306084053bd474f2"
+    },
+    {
+      "path": "tests/test_motion_precision_native.py",
+      "bytes": 7563,
+      "sha256": "6bb001d0d36ac3a2584c7027101efa45346d5344a8c143cd313cf8fb1c525ae6"
+    },
+    {
+      "path": "tests/test_motor_catalog2220.py",
+      "bytes": 12311,
+      "sha256": "d5667faf5cec24988d8255fd453b4f543d801b794da3089f19bcc569a6a3fcb4"
+    },
+    {
+      "path": "tests/test_native.py",
+      "bytes": 5334,
+      "sha256": "7b37902a502ae62af9ed6321f39fa3fb6bd74c462c50a2da52777bfb18c88e7b"
+    },
+    {
+      "path": "tests/test_native_advanced.py",
+      "bytes": 7149,
+      "sha256": "5de397b81d2910cb222f71b99097e329d57ee012b414ec1e3f3f785d5832e38e"
+    },
+    {
+      "path": "tests/test_native_export.py",
+      "bytes": 1163,
+      "sha256": "3174636c4600d3a03e03d50778c16d797a7758bdee43179a90ec7c5d600391a6"
+    },
+    {
+      "path": "tests/test_native_export_jobs.py",
+      "bytes": 1345,
+      "sha256": "b0bebfed6f40e5eb2504b38172d3de79bc12e2d4667e646a82591a1f55c9931d"
+    },
+    {
+      "path": "tests/test_native_interaction.py",
+      "bytes": 8925,
+      "sha256": "e60774a68c1fb2ebeb2064d88aa37c6514179f2eea73f596814d8e8211a9f578"
+    },
+    {
+      "path": "tests/test_native_startup.py",
+      "bytes": 565,
+      "sha256": "5e27219be811feb1a30938a2b664cb60705ca9eaec8926a09f48fa44319e5ba0"
+    },
+    {
+      "path": "tests/test_native_startup_paths.py",
+      "bytes": 1796,
+      "sha256": "dd327524bb7c91cf5affb5a75d6ed2abb2e7ca99d295f3b9247516240678f899"
+    },
+    {
+      "path": "tests/test_native_update.py",
+      "bytes": 1986,
+      "sha256": "7b14169ba8806505fd6f53b7a6856243e7962706e755292b9560ffdfa32907fa"
+    },
+    {
+      "path": "tests/test_native_workflows.py",
+      "bytes": 5701,
+      "sha256": "fca075b3530ccbd66d1a6781877586d099313ed263ed272d83b8e35a1a70d0a7"
+    },
+    {
+      "path": "tests/test_navigation_native.py",
+      "bytes": 5628,
+      "sha256": "b9a5f4d12038375b578d9d70abe77b494685681c08afe7e89c82d1df1e431c07"
+    },
+    {
+      "path": "tests/test_notifications.py",
+      "bytes": 1191,
+      "sha256": "97247d7b6161e50673caffa66147b93aca07348f977020bdbd88cdb6fd78a9ea"
+    },
+    {
+      "path": "tests/test_ollama_setup.py",
+      "bytes": 3497,
+      "sha256": "684aae89d1beb8e0b132cef3668bfc669cbc93f00d2e37fa82b78d12e67d714f"
+    },
+    {
+      "path": "tests/test_openai_setup_native.py",
+      "bytes": 2702,
+      "sha256": "2af8eea0de1d383a260b9d5b755330dc5755c9d7be99492fce3cc09de50b4210"
+    },
+    {
+      "path": "tests/test_part_export.py",
+      "bytes": 2854,
+      "sha256": "b483af6c22910da84de7a28e5c86dadc964ebb6c99523d71b68ab8db8273f9c4"
+    },
+    {
+      "path": "tests/test_part_product.py",
+      "bytes": 13857,
+      "sha256": "cbc4766a65241fdfe0a8c39dfcba5691f1256217a3a5e7020c51d2dd79d28e4b"
+    },
+    {
+      "path": "tests/test_part_product_ai_context.py",
+      "bytes": 1388,
+      "sha256": "8bde620bd088f2984dd0eb4704c0732a4eee1786537777846200ea730aecf4e8"
+    },
+    {
+      "path": "tests/test_part_product_native.py",
+      "bytes": 13503,
+      "sha256": "1003e3622e42ce746e2994f9c1462645bca75c421b6fffdaf57ecdd11f8a9e47"
+    },
+    {
+      "path": "tests/test_part_roles.py",
+      "bytes": 3652,
+      "sha256": "0116af5a7c9ed2219d5cdf2910558fb8e71f026234a215b8eb6b0399cabd7682"
+    },
+    {
+      "path": "tests/test_part_selection.py",
+      "bytes": 8232,
+      "sha256": "65bac7f3440e7ffa4639a6745b758ec2a9b2e9cc4f93aa7e88189082d2d298f5"
+    },
+    {
+      "path": "tests/test_pcad_projects2240.py",
+      "bytes": 7480,
+      "sha256": "162f67eca56b2115162ea99e21a4d6000c53e4bdd42c689d97478c6a3ee379f1"
+    },
+    {
+      "path": "tests/test_pcb_alignment_ui339.py",
+      "bytes": 7078,
+      "sha256": "4eca8b04ee701c87bdfc602926cb285f33db7a76a535e7819a3e079b0da28807"
+    },
+    {
+      "path": "tests/test_pcb_cost_ui339.py",
+      "bytes": 7433,
+      "sha256": "c56c57d3706547e762d12a31fefa5ebfbf9fe0161235796dc5b1153adb44bf29"
+    },
+    {
+      "path": "tests/test_pcb_cost_workflow339.py",
+      "bytes": 16878,
+      "sha256": "c9baa6d25e7ef8d7de876138174c938e73aeb804f7b9d6219420ac4630846c89"
+    },
+    {
+      "path": "tests/test_pcb_editor_data339.py",
+      "bytes": 3987,
+      "sha256": "f2d76a0c50eeab0131d274708285119608e9f4e6b058f8551153eb25b65bcc72"
+    },
+    {
+      "path": "tests/test_pcb_embedded339.py",
+      "bytes": 12700,
+      "sha256": "09f3a9cb40aed7acecaf46db26fb0e42488afba4a0d7cade3ec9bebf9ec6767c"
+    },
+    {
+      "path": "tests/test_pcb_embedded_delta339.py",
+      "bytes": 3965,
+      "sha256": "87d6ca09246a1751e36e6d00417e85c659682a021490268810301026ca83f38a"
+    },
+    {
+      "path": "tests/test_pcb_embedded_ui339.py",
+      "bytes": 2191,
+      "sha256": "3ee5061f4bba08d33dca0aa143550a36de4bab3686ccc134151ecfd864db2108"
+    },
+    {
+      "path": "tests/test_pcb_external_registration339.py",
+      "bytes": 7075,
+      "sha256": "fe142aaff79ee4104d2c241347d3ebd00aed7bdfc8c34221859ed0e3f0fe2615"
+    },
+    {
+      "path": "tests/test_pcb_pin_alignment339.py",
+      "bytes": 11381,
+      "sha256": "253918b0319b6905521a8b2818b0a0715acc7d4ca5e53e5fda9d5f12175ce65e"
+    },
+    {
+      "path": "tests/test_pcb_placement_aid339.py",
+      "bytes": 6561,
+      "sha256": "44a69cb643158e9539c56a50029ea27467e7d0159b2bfcd6704174c4f9fce2bf"
+    },
+    {
+      "path": "tests/test_pcb_plugin.py",
+      "bytes": 11805,
+      "sha256": "6559fcc712ff17ab5c68c991277173beb860bd8c0b070929f3ead65ba203f74c"
+    },
+    {
+      "path": "tests/test_pcb_routing_aid339.py",
+      "bytes": 15003,
+      "sha256": "1db540ae78c52cc0bea131bf375e8ef188ba1fe1164382c627727c29c4b5a1f8"
+    },
+    {
+      "path": "tests/test_pcb_ui_review_delta339.py",
+      "bytes": 4422,
+      "sha256": "51555629ad5ca8f9873341362ec9183e1842991870249f616857aebb034a2f82"
+    },
+    {
+      "path": "tests/test_pcb_window_integration.py",
+      "bytes": 2788,
+      "sha256": "09f4e408a999f989e8a140dd1cccc8c3f52be561010de871fb208b042c68755e"
+    },
+    {
+      "path": "tests/test_pcb_workbench.py",
+      "bytes": 7036,
+      "sha256": "d9e140423b952ed913a8e4fa66b71c630c66eaac6adc5dc3ed80952fbd1ba428"
+    },
+    {
+      "path": "tests/test_pcb_workflow_integration339.py",
+      "bytes": 3312,
+      "sha256": "b7ecdc3ebc562bf3e5cb1f29b733abb9306669640445a0c0f2286e08d3c28597"
+    },
+    {
+      "path": "tests/test_pcb_workflow_session339.py",
+      "bytes": 4490,
+      "sha256": "9315e8c3112c14af8cc75af87bc10b1501c428e3983927448050f786b8470318"
+    },
+    {
+      "path": "tests/test_pcb_workflow_ui_contract339.py",
+      "bytes": 7480,
+      "sha256": "7975f432be26a198f6e041b4ddcf4c5e3f7a2c2952adc028905cb1360debe754"
+    },
+    {
+      "path": "tests/test_pcb_workflow_ui_delta339.py",
+      "bytes": 1828,
+      "sha256": "d8a6e1f8f7c38b0e620ed197acc71f271da3c3bac9b2a7fd531d5fc9c73cf2dc"
+    },
+    {
+      "path": "tests/test_physical_board_canvas.py",
+      "bytes": 7285,
+      "sha256": "b1e501de2058f3f44d3fe195359e5bac7c3fc351b803d59cf669f9206007a7cb"
+    },
+    {
+      "path": "tests/test_physical_board_symbols.py",
+      "bytes": 6415,
+      "sha256": "153b5bcb574c7f4e7e184fb093d6f8bbc38a5809bcea6a33deaade4f208b5d5c"
+    },
+    {
+      "path": "tests/test_pictorial_wiring.py",
+      "bytes": 6428,
+      "sha256": "dbef2797ab1d8cdea25d9fdebfdefc12b5c557a86d24a4f514a4375c236fb0ae"
+    },
+    {
+      "path": "tests/test_placement.py",
+      "bytes": 6927,
+      "sha256": "296322e4c9ea8891d25ef4d12cf10faab4fa36606c435dee2011bda8683d5828"
+    },
+    {
+      "path": "tests/test_placement_native.py",
+      "bytes": 4802,
+      "sha256": "064979fff9ffd7c1c0157d62437a2af2ffc03a78e00dbd0fabc4b2f9f381a371"
+    },
+    {
+      "path": "tests/test_power_path_ai.py",
+      "bytes": 9943,
+      "sha256": "133473d6c11594244ea754c0d7e956e5d97ff2220e2e409b4cff7fd52c6fc679"
+    },
+    {
+      "path": "tests/test_power_path_inputs_native.py",
+      "bytes": 4668,
+      "sha256": "d47c45e6ea10f13107e1c32be5d29dc10add119c941a6c91de67b032f48761e4"
+    },
+    {
+      "path": "tests/test_power_path_native.py",
+      "bytes": 6276,
+      "sha256": "fd5b7b0f3f7dc55888084d7b6c86fcba2c162067a0015eaf57c72525b4dd7d0c"
+    },
+    {
+      "path": "tests/test_power_paths.py",
+      "bytes": 9648,
+      "sha256": "1c5c9be2f80d6d128c67f6c9065704f90abb840124feb8d2ea7fd06d906fbfc2"
+    },
+    {
+      "path": "tests/test_preview_metadata.py",
+      "bytes": 4207,
+      "sha256": "1c02ae416b25ebf558e507cd73dce788ff9f8c85da74c63263e9a21ea3a6d3ac"
+    },
+    {
+      "path": "tests/test_preview_metadata_native.py",
+      "bytes": 4402,
+      "sha256": "cd44b912cb21980bca9fd873e14b43c339560d0f429e6d1c4520c705e5835e95"
+    },
+    {
+      "path": "tests/test_preview_render_lifecycle.py",
+      "bytes": 6069,
+      "sha256": "26fd42dd6a717a9add1fd134839d9cf937c51a169cf3ef3f5d66a3d7fabd7bf3"
+    },
+    {
+      "path": "tests/test_preview_shape_session.py",
+      "bytes": 8758,
+      "sha256": "3282aa9a0afab53e46783dd25dae93531b9b210d092d6714cdecc2ebbf1b127a"
+    },
+    {
+      "path": "tests/test_print_batch_startup.py",
+      "bytes": 750,
+      "sha256": "f65140cc7a0323370852ab7031e9b9ebe992181110e02d37edae1583d26a45dd"
+    },
+    {
+      "path": "tests/test_print_dialog_batch_native.py",
+      "bytes": 18302,
+      "sha256": "cb8b338d957d162ab1c9e86c835d0ad9f71fa74bab2dc6dcad58d48000328b11"
+    },
+    {
+      "path": "tests/test_print_profile.py",
+      "bytes": 4181,
+      "sha256": "8494b05e8115a18d6641a6a4b1f5dc433d41d40299f5398dd9a746a7dbbc1f5a"
+    },
+    {
+      "path": "tests/test_printing_chat.py",
+      "bytes": 3923,
+      "sha256": "43c05ec3406f62738217bbb9e20627a00b63ab64cd249242db420685fcbf73c7"
+    },
+    {
+      "path": "tests/test_printing_orientation.py",
+      "bytes": 12191,
+      "sha256": "1f63b0729993db1e46fa082aec1c56f2c4b1cdf391781cbcc492535ac95a25fd"
+    },
+    {
+      "path": "tests/test_printing_plates.py",
+      "bytes": 14348,
+      "sha256": "e16fe4cc9116991643494bf1d16180628342283d59cf8d2721073a20066e2cd5"
+    },
+    {
+      "path": "tests/test_product_diagrams.py",
+      "bytes": 9300,
+      "sha256": "9b95848e5f45e6b8b606737b83b660df75f7a0e81f6a947013a33dcd4c5c7ce0"
+    },
+    {
+      "path": "tests/test_product_signal_warnings.py",
+      "bytes": 2720,
+      "sha256": "fde11ce8fb8b0d3249b8d9ad7f2aff5bbbc64362d024c88e878d5285961b1028"
+    },
+    {
+      "path": "tests/test_profile_groups.py",
+      "bytes": 5685,
+      "sha256": "beca4e513c155668aedc1d65c12ba1768d7f40e7061a14b5600b0783f145364e"
+    },
+    {
+      "path": "tests/test_profile_paths337.py",
+      "bytes": 1303,
+      "sha256": "596a70fc422aa356ad7082ed2c0b05d5edce818e3bada45374e8bd79c48e3505"
+    },
+    {
+      "path": "tests/test_program_persistence2230.py",
+      "bytes": 2369,
+      "sha256": "b3ec50a2a5fa1b74f942f8c682e7fa51f76359c7f126bca31fa58e61fe8f6be5"
+    },
+    {
+      "path": "tests/test_program_simulation2230.py",
+      "bytes": 10355,
+      "sha256": "88864cc2cee47bce14137126bdd72094317a4bfa6396c24abd4c6c5cfe56315c"
+    },
+    {
+      "path": "tests/test_property_preservation.py",
+      "bytes": 6090,
+      "sha256": "3e869b52f52245bf5ed0dc7dc34a426fa09a6d3fa2acc96b0a3159174d587a49"
+    },
+    {
+      "path": "tests/test_reference_native.py",
+      "bytes": 826,
+      "sha256": "c975eb519a590c4d8b2c051be0ed01bdcce17bd12aa617adc0adbd5dc29f7f23"
+    },
+    {
+      "path": "tests/test_references.py",
+      "bytes": 7264,
+      "sha256": "914ab38f54258f4e1b9b1807884399021029e2073608ad6c972a48181789ae8d"
+    },
+    {
+      "path": "tests/test_repository_snapshot.py",
+      "bytes": 11883,
+      "sha256": "b3eb83ca74ebf907317e084722178e2e5f8e0bc5a0ffe4167d424f48772598dc"
+    },
+    {
+      "path": "tests/test_research_package.py",
+      "bytes": 3049,
+      "sha256": "d49922cc2037239972e82dc7b216e09b4b25773eaeda239006f77b45eaa5ba8b"
+    },
+    {
+      "path": "tests/test_response_schema_v3.py",
+      "bytes": 2662,
+      "sha256": "133c3560a928494bc5744ac20c2efdd22d8a22c0192e58999a2ea01e24d15488"
+    },
+    {
+      "path": "tests/test_role_view_native.py",
+      "bytes": 6679,
+      "sha256": "9f141eece85571f93e9f70aa5d45323735198069c0e506b8c2e1bcf5f6b88aa6"
+    },
+    {
+      "path": "tests/test_shape_session2230.py",
+      "bytes": 4553,
+      "sha256": "81cec82bf39e80595d6ee42765960701d23a476d9a4117bcdb7ac0e63a8f6f8c"
+    },
+    {
+      "path": "tests/test_sheetmetal.py",
+      "bytes": 954,
+      "sha256": "ebe58d20bc6aff22a4d005aad04bb5cc0c0f4dd9ed39e9456b015881d79d627b"
+    },
+    {
+      "path": "tests/test_single_install339.py",
+      "bytes": 13991,
+      "sha256": "c077de3cd8d5b81552b9bd3629da2f9f10ab32ae8a325f313333c67a1ab22999"
+    },
+    {
+      "path": "tests/test_single_install_entry339.py",
+      "bytes": 2786,
+      "sha256": "204e62779e2feaf31b3bd0a94d5cef0e0fcf3520b35793958beab96a8b08e605"
+    },
+    {
+      "path": "tests/test_sketch_engine.py",
+      "bytes": 6366,
+      "sha256": "ebb7c92081fedab94ec5205c2cea956e489d99605d5410860ff161988ee22405"
+    },
+    {
+      "path": "tests/test_sketch_guides.py",
+      "bytes": 9199,
+      "sha256": "d79938b043f6b99d652fd3c3f6d341f4b40013f0e78469e1476fece060f87500"
+    },
+    {
+      "path": "tests/test_stack_observer.py",
+      "bytes": 13008,
+      "sha256": "2f9949acc6f4f2c2c1e0b3dfda56a9296b037f12b1789588d38e5477353df356"
+    },
+    {
+      "path": "tests/test_standard_hole_native.py",
+      "bytes": 1533,
+      "sha256": "75ecf0c971080d184bad9a1a908449b997238765d6fdf34fd267c97ae3fff639"
+    },
+    {
+      "path": "tests/test_threads.py",
+      "bytes": 8100,
+      "sha256": "936eceec5516211916c6436e65bef1c4358aa24f9a75b53b923e081cdf811e77"
+    },
+    {
+      "path": "tests/test_timeline_labels_v3.py",
+      "bytes": 5784,
+      "sha256": "884baa8bdb8ecc0b804efb08433bed4292886e796d7c931203e3d7071e178eb0"
+    },
+    {
+      "path": "tests/test_unlimited_repair.py",
+      "bytes": 5580,
+      "sha256": "3b0cac93c6d080c277628dacb9a5dbbf90df82ebf3d88fb6910319481e45e93a"
+    },
+    {
+      "path": "tests/test_updater.py",
+      "bytes": 9205,
+      "sha256": "6d90819f0f5942746887c6ec6501fa730aa979775234e1285df2609967607261"
+    },
+    {
+      "path": "tests/test_updater_ownership339.py",
+      "bytes": 6585,
+      "sha256": "49bc5208bcb09f0176bd4548929fea1013f06de7b2638c34385d28e0a7c09b4d"
+    },
+    {
+      "path": "tests/test_usability_native.py",
+      "bytes": 5168,
+      "sha256": "a04b527581dc93b07adb3260308bc9fee89f4cd3b6958fd35180619656478907"
+    },
+    {
+      "path": "tests/test_viewport_lighting.py",
+      "bytes": 1873,
+      "sha256": "22195317c92c821e3e13b4e62fd58b96d956860efd182b6c061296bfab431558"
+    },
+    {
+      "path": "tests/test_viewport_occlusion.py",
+      "bytes": 6555,
+      "sha256": "885fba34372ec853217d02d596c9244288bb49cb314635855efd342e702e6914"
+    },
+    {
+      "path": "tests/test_windows_identity338.py",
+      "bytes": 7181,
+      "sha256": "304777cb338e2bd8e83eec96a672427fd928d62f18e9d784133803434a4ce911"
+    },
+    {
+      "path": "tests/test_wire_editing.py",
+      "bytes": 6449,
+      "sha256": "8b60af7c9bd9aaa02464883af9aded5ff4f90caee9ae0f068fe72b60f97d3d1a"
+    },
+    {
+      "path": "tests/test_wire_editing_native.py",
+      "bytes": 7583,
+      "sha256": "a6aff94dae4ad81586d7d5969685d4c6ae6313a21ebd55483f65de1f1f3d0e97"
+    },
+    {
+      "path": "tests/test_work_planes.py",
+      "bytes": 7674,
+      "sha256": "4823d844294753f5d01e8aa655e72d16d26d7973d8b4af94d024aa9619171376"
+    },
+    {
+      "path": "tests/test_work_planes_native.py",
+      "bytes": 4678,
+      "sha256": "8e787c00044f565ff567753699fa98dcc303b449319626b1d56ec166ec5e94ed"
+    },
+    {
+      "path": "THIRD_PARTY.md",
+      "bytes": 3608,
+      "sha256": "2dd4271f75e3ef8c6c4aa2f4efa31425dad90a7a6cd6fcc8282b1126e803e274"
+    },
+    {
+      "path": "update_desktop.py",
+      "bytes": 14016,
+      "sha256": "d274682f851ab04ec2d55580df8415c0286c7dec485e4501bb3bee3afc9c01ed"
+    },
+    {
+      "path": "Updater.spec",
+      "bytes": 1208,
+      "sha256": "84ad665f2a98c0b722abd44c4fdb0835775588d6dcec44d6b993c0f8355f948c"
+    },
+    {
+      "path": "VALIDATION.md",
+      "bytes": 88023,
+      "sha256": "6917178b792b3e4c2d5d3013353bf4545f7972343d9dd01dc7adcb6bee6c4fd6"
+    }
+  ],
+  "base_freeze_sha256": "466b03c153f328fe8947b37ce37581935a5609da55831e41abeae79ef63b91a8",
+  "changed_files": [
+    "cadstudio/__init__.py",
+    "cadstudio/models.py",
+    "cadstudio/native/ai_chat.py",
+    "cadstudio/native/document.py",
+    "cadstudio/native/pcb_ai.py",
+    "cadstudio/native/pcb_workbench.py",
+    "cadstudio/native/window.py",
+    "cadstudio/pcb.py",
+    "cadstudio/program_drive_trust_anchor.py",
+    "cadstudio/references.py",
+    "cadstudio/updater.py",
+    "create-shortcut.ps1",
+    "native_desktop.py",
+    "scripts/install_native.ps1",
+    "update_desktop.py"
+  ],
+  "new_files": [
+    "cadstudio/_pcb_pin_alignment_core_r1.py",
+    "cadstudio/ai_work_history.py",
+    "cadstudio/native/pcb_alignment_dialog.py",
+    "cadstudio/native/pcb_cost_dialog.py",
+    "cadstudio/native/pcb_embedded_dialog.py",
+    "cadstudio/pcb_cost_models.py",
+    "cadstudio/pcb_cost_workflow.py",
+    "cadstudio/pcb_editor_data.py",
+    "cadstudio/pcb_embedded.py",
+    "cadstudio/pcb_pin_alignment.py",
+    "cadstudio/pcb_placement_aid.py",
+    "cadstudio/pcb_routing_aid.py",
+    "cadstudio/pcb_workflow.py",
+    "cadstudio/single_install.py",
+    "docs/RELEASE_3_4_0_KO.md",
+    "tests/fixtures/pin_alignment_world339.json",
+    "tests/test_ai_work_history339.py",
+    "tests/test_pcb_alignment_ui339.py",
+    "tests/test_pcb_cost_ui339.py",
+    "tests/test_pcb_cost_workflow339.py",
+    "tests/test_pcb_editor_data339.py",
+    "tests/test_pcb_embedded339.py",
+    "tests/test_pcb_embedded_delta339.py",
+    "tests/test_pcb_embedded_ui339.py",
+    "tests/test_pcb_external_registration339.py",
+    "tests/test_pcb_pin_alignment339.py",
+    "tests/test_pcb_placement_aid339.py",
+    "tests/test_pcb_routing_aid339.py",
+    "tests/test_pcb_ui_review_delta339.py",
+    "tests/test_pcb_workflow_integration339.py",
+    "tests/test_pcb_workflow_session339.py",
+    "tests/test_pcb_workflow_ui_contract339.py",
+    "tests/test_pcb_workflow_ui_delta339.py",
+    "tests/test_single_install339.py",
+    "tests/test_single_install_entry339.py",
+    "tests/test_updater_ownership339.py"
+  ],
+  "user_projects_or_profiles_included": false,
+  "reason": "Reviewed PCB workflows/history/single-install source; GUI and manufacturing acceptance tracked separately"
+}

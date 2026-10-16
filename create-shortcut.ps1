@@ -1,13 +1,23 @@
 $ErrorActionPreference = 'Stop'
-$desktopPath = [Environment]::GetFolderPath('Desktop')
-$shortcutPath = Join-Path $desktopPath 'Prompt CAD Studio.lnk'
-$shellObject = New-Object -ComObject WScript.Shell
-$shortcut = $shellObject.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = Join-Path $env:WINDIR 'System32\wscript.exe'
-$shortcut.Arguments = '"' + (Join-Path $PSScriptRoot 'Start CAD.vbs') + '"'
-$shortcut.WorkingDirectory = $PSScriptRoot
-$shortcut.Description = 'Prompt CAD Studio - Local parametric CAD'
-$shortcut.IconLocation = (Join-Path $PSScriptRoot 'static\app.ico') + ',0'
-$shortcut.WindowStyle = 7
-$shortcut.Save()
-Write-Output $shortcutPath
+$cadCanonical = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs\PromptCADStudio'))
+$cadExe = Join-Path $cadCanonical 'PromptCADStudio.exe'
+if (-not (Test-Path -LiteralPath $cadExe -PathType Leaf)) { throw 'Run the Windows package Install.ps1 first. Source/VBS launchers cannot become the installed app.' }
+$cadReportPath = Join-Path ([IO.Path]::GetTempPath()) ('PromptCADStudio-shortcut-' + [guid]::NewGuid().ToString('N') + '.json')
+try {
+    $cadProcess = Start-Process -FilePath $cadExe -ArgumentList ('--register-cad-files --registration-report "' + $cadReportPath + '"') -WorkingDirectory $cadCanonical -WindowStyle Hidden -Wait -PassThru
+    if (-not (Test-Path -LiteralPath $cadReportPath -PathType Leaf)) { throw 'Canonical app verification did not produce a receipt.' }
+    $cadResult = Get-Content -LiteralPath $cadReportPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($cadProcess.ExitCode -ne 0 -or -not $cadResult.success) { throw ('Canonical registration failed: ' + $cadResult.error) }
+    $cadShell = New-Object -ComObject WScript.Shell
+    foreach ($cadLinkFolder in @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))) {
+        $cadShortcut = $cadShell.CreateShortcut((Join-Path $cadLinkFolder 'Prompt CAD Studio.lnk'))
+        $cadShortcut.TargetPath = $cadExe
+        $cadShortcut.Arguments = ''
+        $cadShortcut.WorkingDirectory = $cadCanonical
+        $cadShortcut.IconLocation = "$cadExe,0"
+        $cadShortcut.Description = 'Prompt CAD Studio'
+        $cadShortcut.Save()
+    }
+} finally {
+    if (Test-Path -LiteralPath $cadReportPath -PathType Leaf) { Remove-Item -LiteralPath $cadReportPath -Force }
+}

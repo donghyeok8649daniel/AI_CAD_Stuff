@@ -28,6 +28,7 @@ def parse_startup_args(argv=None):
     parser.add_argument('--motion-initial-view-check',type=Path)
     parser.add_argument('--pcb-layer-package-check',type=Path)
     parser.add_argument('--flexible-wire-policy-check',type=Path)
+    parser.add_argument('--install-canonical',type=Path,metavar='REPORT',help='Install this verified Windows bundle to the single per-user app folder; no GUI.')
     parser.add_argument('--pcb-legacy-fixtures',type=Path)
     parser.add_argument('--project-capacity-check',type=Path)
     parser.add_argument('--capacity-check-input',type=Path)
@@ -46,6 +47,8 @@ def parse_startup_args(argv=None):
     parser.add_argument('--g474-observe-symbol',action='append',default=[])
     parser.add_argument("project", nargs="?", type=Path, help="CAD project opened by Windows")
     args=parser.parse_args(argv)
+    if args.install_canonical and any(value for key,value in vars(args).items() if key not in ('install_canonical','renderer','no_restore')):
+        parser.error('--install-canonical is a separate headless installation action.')
     g474_fields={'g474_project','g474_elf','g474_board','g474_save','g474_run_dir','g474_backend','g474_duration','g474_scenario','g474_observe_symbol','renderer','no_restore'}
     if args.g474_project:
         if any(value for key,value in vars(args).items() if key not in g474_fields):
@@ -121,6 +124,9 @@ def main():
     from cadstudio.windows_identity import APP_USER_MODEL_ID,set_windows_app_identity
     app_identity_set=set_windows_app_identity()
     args=parse_startup_args()
+    if args.install_canonical:
+        from cadstudio.single_install import run_install_cli
+        return run_install_cli(Path(sys.executable),args.install_canonical)
     if args.flexible_wire_policy_check:
         try:
             from cadstudio.flexible_wire_package_check import run
@@ -257,6 +263,8 @@ def main():
             if args.register_cad_files and args.unregister_cad_files:raise ValueError('동시에 등록과 해제를 요청할 수 없습니다.')
             if args.register_cad_files or args.unregister_cad_files:
                 if not getattr(sys,'frozen',False):raise ValueError('설치된 Windows EXE에서 CAD 파일 연결을 설정하세요.')
+                from cadstudio.single_install import require_canonical_executable
+                require_canonical_executable(Path(sys.executable))
                 result=register(Path(sys.executable)) if args.register_cad_files else unregister(Path(sys.executable))
             if args.default_apps:open_default_apps()
             result=dict(success=True,registration=result)

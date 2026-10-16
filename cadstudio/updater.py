@@ -94,7 +94,16 @@ def validate_manifest(data):
         total += size
     if total > MAX_EXPANDED:
         raise UpdateError('업데이트 용량 제한을 초과했습니다.')
+    reject_profile_ownership(data)
     return data
+
+
+def reject_profile_ownership(manifest):
+    """Profiles are user state, never release-owned payload on any update path."""
+    for name in manifest['files']:
+        first = name.split('/', 1)[0].casefold()
+        if first in ('profile', 'profiles', 'userdata') or first.startswith('profile-'):
+            raise UpdateError('사용자 프로필은 프로그램 설치 목록에 포함하거나 정리할 수 없습니다.')
 
 
 def write_json(path, data):
@@ -284,6 +293,7 @@ def prepare_archive(folder, archive, expected_sha, work, progress):
             raise UpdateError('ZIP 파일 목록과 설치 정보가 다릅니다.')
         changed = []
         preserved = []
+        unowned_documents = []
         for name, entry in manifest['files'].items():
             dest = contained(folder, name)
             if dest.exists() and not dest.is_file():
@@ -291,14 +301,29 @@ def prepare_archive(folder, archive, expected_sha, work, progress):
             info = zipfile.getinfo(prefix + name)
             if info.file_size != entry['size']:
                 raise UpdateError('압축 파일의 크기 정보가 다릅니다.')
+            # Verify the source even for unchanged or preserved destinations.
+            # An equal installed hash must not hide a corrupt archive member.
+            source_hash = hashlib.sha256()
+            with zipfile.open(info) as source:
+                while chunk := source.read(1024**2):
+                    source_hash.update(chunk)
+            if source_hash.hexdigest() != entry['sha256']:
+                raise UpdateError(f'파일 검증에 실패했습니다: {name}')
+            document = name.startswith(('examples/', 'docs/'))
+            unowned = not previous or name not in previous['files']
+            if dest.is_file() and unowned and document:
+                # This is a user document even when its bytes happen to match
+                # this release. Do not claim ownership for a later deletion.
+                preserved.append(name)
+                unowned_documents.append(name)
+                continue
+            if previous and unowned and dest.exists():
+                raise UpdateError(f'사용자 파일과 업데이트 경로가 겹칩니다: {name}')
             if not dest.is_file() or dest.stat().st_size != entry['size'] or digest(dest) != entry['sha256']:
-                if name.startswith(('examples/', 'docs/')) and dest.is_file():
-                    if not previous or name not in previous['files'] or digest(dest) != previous['files'][name]['sha256']:
+                if document and dest.is_file():
+                    if digest(dest) != previous['files'][name]['sha256']:
                         preserved.append(name)
                         continue
-                # Files unknown to an existing manifest belong to the user.
-                if previous and name not in previous['files'] and dest.exists():
-                    raise UpdateError(f'사용자 파일과 업데이트 경로가 겹칩니다: {name}')
                 changed.append(name)
         needed = sum(manifest['files'][name]['size'] for name in changed)
         if shutil.disk_usage(folder).free < needed + 64 * 1024**2:
@@ -321,13 +346,18 @@ def prepare_archive(folder, archive, expected_sha, work, progress):
                     # Preserve locally modified documents even when once bundled.
                     if dest.is_file() and digest(dest) == entry['sha256']:
                         removed.append(name)
+        # The ZIP manifest is checked in full above. Installed ownership omits
+        # only pre-existing, unowned documents; their bytes were never installed.
+        manifest = {**manifest, 'files': {name: entry for name, entry in manifest['files'].items()
+                                        if name not in unowned_documents}}
         write_json(stage / MANIFEST, manifest)
         return manifest, changed, removed, preserved
 
 
-def apply_archive(folder, archive, expected_sha, progress=lambda text, percent: None, *, release=None):
+def apply_archive(folder, archive, expected_sha, progress=lambda text, percent: None, *, release=None, closed_callback=None):
     folder = installation(folder)
     with install_lock(folder):
+        if closed_callback is not None and closed_callback() is False:raise UpdateError('CAD 앱 종료 확인이 거부되었습니다.')
         require_closed(folder)
         work = transaction_dir(folder)
         try:
@@ -335,6 +365,7 @@ def apply_archive(folder, archive, expected_sha, progress=lambda text, percent: 
             # Remove leftovers from an interrupted download/previous commit.
             clean_transaction(folder, work)
             work = transaction_dir(folder)
+            if closed_callback is not None and closed_callback() is False:raise UpdateError('CAD 앱 종료 확인이 거부되었습니다.')
             require_closed(folder)
             if release:
                 if shutil.disk_usage(folder).free < release['size'] + 64 * 1024**2:
@@ -345,6 +376,7 @@ def apply_archive(folder, archive, expected_sha, progress=lambda text, percent: 
             manifest, changed, removed, preserved = prepare_archive(folder, Path(archive), expected_sha, work, progress)
             if release:
                 archive.unlink()
+            if closed_callback is not None and closed_callback() is False:raise UpdateError('CAD 앱 종료 확인이 거부되었습니다.')
             require_closed(folder)
             operations = []
             for name in changed + removed + [MANIFEST]:

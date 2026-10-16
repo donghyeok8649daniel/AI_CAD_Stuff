@@ -13,6 +13,7 @@ import time
 
 from cadstudio.updater import (APP_ID, EXE, UpdateError, apply_archive,
                                installation, installed_version, latest_release, version)
+from cadstudio.single_install import canonical_install_dir,require_canonical_directory,require_canonical_executable
 
 
 def hidden_process(args, **kwargs):
@@ -22,22 +23,13 @@ def hidden_process(args, **kwargs):
 
 
 def detect_install():
-    """Prefer this bundle, then the user's actual Desktop shortcut."""
-    candidates = [Path(sys.executable).parent] if getattr(sys, 'frozen', False) else []
-    if os.name == 'nt':
-        command = "$p=Join-Path ([Environment]::GetFolderPath('Desktop')) 'Prompt CAD Studio.lnk'; if(Test-Path -LiteralPath $p){(New-Object -ComObject WScript.Shell).CreateShortcut($p).TargetPath}"
-        try:
-            result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', command], capture_output=True, text=True, timeout=15, creationflags=subprocess.CREATE_NO_WINDOW)
-            if result.stdout.strip():
-                candidates.append(Path(result.stdout.strip()).parent)
-        except (OSError, subprocess.TimeoutExpired):
-            pass
-    for folder in candidates:
-        try:
-            return installation(folder)
-        except UpdateError:
-            pass
-    return None
+    """A downloaded/relocated updater never makes its own folder an install."""
+    try:return canonical_installation(canonical_install_dir())
+    except (OSError,ValueError,UpdateError):return None
+
+
+def canonical_installation(folder):
+    return installation(require_canonical_directory(folder))
 
 
 def wait_for_app(pid):
@@ -115,7 +107,7 @@ def refresh_file_registration(folder, result):
         return result
     from cadstudio.file_associations import is_registered, register
     try:
-        executable = Path(folder) / EXE
+        executable = require_canonical_executable(Path(folder) / EXE)
         if is_registered(executable):
             register(executable)
     except (OSError, ValueError, RuntimeError) as exc:
@@ -170,7 +162,7 @@ def show_window(args):
         if not release:
             return
         try:
-            folder = installation(folder_value.get())
+            folder = canonical_installation(folder_value.get())
             current = installed_version(folder)
             if current and version(current) >= version(release['version']):
                 status.set(f'이미 최신 버전입니다. v{current} · 추가 다운로드 없음')
@@ -184,7 +176,7 @@ def show_window(args):
 
     def start():
         try:
-            folder = installation(folder_value.get())
+            folder = canonical_installation(folder_value.get())
         except Exception as exc:
             messagebox.showerror('설치 폴더 확인', str(exc), parent=root)
             return
@@ -285,6 +277,8 @@ def main():
     if args.gui_smoke:args.auto_update=False;args.restart=False
     if not args.install_dir:
         args.install_dir = detect_install()
+    if args.install_dir:
+        args.install_dir=require_canonical_directory(args.install_dir)
     if args.install_dir and relocate_if_needed(args):
         return 0
     try:

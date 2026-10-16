@@ -970,8 +970,15 @@ class DraftRequest(StrictModel):
     selected_feature: str | None = Field(default=None, max_length=40)
     selected_joint: str | None = Field(default=None, max_length=40)
     references: list[ReferenceMaterial] = Field(default_factory=list, max_length=8)
+    work_history: ReferenceMaterial | None = None
     bom: BomDocument | None = None
     role_colors: dict[str,str] | None = None
+
+    @field_validator('work_history')
+    @classmethod
+    def valid_work_history(cls,value):
+        from .ai_work_history import validate_work_history_reference
+        return validate_work_history_reference(value)
 
     @field_validator('role_colors')
     @classmethod
@@ -999,6 +1006,7 @@ class DraftRequest(StrictModel):
         data=handler(self)
         if self.bom is None:data.pop('bom',None)
         if self.role_colors is None:data.pop('role_colors',None)
+        if self.work_history is None:data.pop('work_history',None)
         return data
 
 
