@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "version": "3.4.0",
-  "build_id": "public-3.4.0-pcb-workflows-history-singleinstall-20261017-r1",
-  "created_utc": "2026-10-16T22:18:31.859602+00:00",
+  "build_id": "public-3.4.0-pcb-workflows-history-singleinstall-20261017-r2",
+  "created_utc": "2026-10-16T22:52:17.633892+00:00",
   "application_modules": 298,
   "files": [
     {
@@ -18,7 +18,7 @@
     {
       "path": "cadstudio/__init__.py",
       "bytes": 96,
-      "sha256": "487bd91d2cc4e0e7859a108c9e027f8a0aab59510711a6f5d145275bc6353c39"
+      "sha256": "04736de0b0663cd0c4cd05bc32a5f3ddfef8a2133d15595d2f6939abe1f784a9"
     },
     {
       "path": "cadstudio/_pcb_pin_alignment_core_r1.py",
@@ -977,8 +977,8 @@
     },
     {
       "path": "cadstudio/native/pcb_workbench.py",
-      "bytes": 89089,
-      "sha256": "0d7ea35b1c4a16c612b7d1c8e78ad1bde46f787ea080c70753b5746285d72ac1"
+      "bytes": 90623,
+      "sha256": "ccce20e129863c0e5e09d3daf891fda43b446d04723d9ce9f16a2aff06cb627f"
     },
     {
       "path": "cadstudio/native/performance_check.py",
@@ -1423,7 +1423,7 @@
     {
       "path": "cadstudio/program_drive_trust_anchor.py",
       "bytes": 1240,
-      "sha256": "aec008ae106981be1a9f32938ac8dae528cf2599ed0810a1e8335c81f1ac0e30"
+      "sha256": "ddef70acd3d0266919d44fb14f130096c18c7c6dd9662325664be14745ef727d"
     },
     {
       "path": "cadstudio/program_simulation.py",
@@ -5026,62 +5026,13 @@
       "sha256": "6917178b792b3e4c2d5d3013353bf4545f7972343d9dd01dc7adcb6bee6c4fd6"
     }
   ],
-  "base_freeze_sha256": "466b03c153f328fe8947b37ce37581935a5609da55831e41abeae79ef63b91a8",
+  "base_freeze_sha256": "4b21ea6c439bfaae81d6d3b8e223725f7796dc1e3bfee238d83701ac76cef5bc",
   "changed_files": [
     "cadstudio/__init__.py",
-    "cadstudio/models.py",
-    "cadstudio/native/ai_chat.py",
-    "cadstudio/native/document.py",
-    "cadstudio/native/pcb_ai.py",
     "cadstudio/native/pcb_workbench.py",
-    "cadstudio/native/window.py",
-    "cadstudio/pcb.py",
-    "cadstudio/program_drive_trust_anchor.py",
-    "cadstudio/references.py",
-    "cadstudio/updater.py",
-    "create-shortcut.ps1",
-    "native_desktop.py",
-    "scripts/install_native.ps1",
-    "update_desktop.py"
+    "cadstudio/program_drive_trust_anchor.py"
   ],
-  "new_files": [
-    "cadstudio/_pcb_pin_alignment_core_r1.py",
-    "cadstudio/ai_work_history.py",
-    "cadstudio/native/pcb_alignment_dialog.py",
-    "cadstudio/native/pcb_cost_dialog.py",
-    "cadstudio/native/pcb_embedded_dialog.py",
-    "cadstudio/pcb_cost_models.py",
-    "cadstudio/pcb_cost_workflow.py",
-    "cadstudio/pcb_editor_data.py",
-    "cadstudio/pcb_embedded.py",
-    "cadstudio/pcb_pin_alignment.py",
-    "cadstudio/pcb_placement_aid.py",
-    "cadstudio/pcb_routing_aid.py",
-    "cadstudio/pcb_workflow.py",
-    "cadstudio/single_install.py",
-    "docs/RELEASE_3_4_0_KO.md",
-    "tests/fixtures/pin_alignment_world339.json",
-    "tests/test_ai_work_history339.py",
-    "tests/test_pcb_alignment_ui339.py",
-    "tests/test_pcb_cost_ui339.py",
-    "tests/test_pcb_cost_workflow339.py",
-    "tests/test_pcb_editor_data339.py",
-    "tests/test_pcb_embedded339.py",
-    "tests/test_pcb_embedded_delta339.py",
-    "tests/test_pcb_embedded_ui339.py",
-    "tests/test_pcb_external_registration339.py",
-    "tests/test_pcb_pin_alignment339.py",
-    "tests/test_pcb_placement_aid339.py",
-    "tests/test_pcb_routing_aid339.py",
-    "tests/test_pcb_ui_review_delta339.py",
-    "tests/test_pcb_workflow_integration339.py",
-    "tests/test_pcb_workflow_session339.py",
-    "tests/test_pcb_workflow_ui_contract339.py",
-    "tests/test_pcb_workflow_ui_delta339.py",
-    "tests/test_single_install339.py",
-    "tests/test_single_install_entry339.py",
-    "tests/test_updater_ownership339.py"
-  ],
+  "new_files": [],
   "user_projects_or_profiles_included": false,
   "reason": "Reviewed PCB workflows/history/single-install source; GUI and manufacturing acceptance tracked separately"
 }

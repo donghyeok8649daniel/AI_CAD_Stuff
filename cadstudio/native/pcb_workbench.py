@@ -8,7 +8,8 @@ from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QThreadPool
 from PySide6.QtGui import QColor, QPainter, QPen, QPainterPath, QTransform
 from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QLabel,QPushButton,
     QLineEdit,QComboBox,QDoubleSpinBox,QSpinBox,QPlainTextEdit,QTableWidget,QTableWidgetItem,
-    QTabWidget,QSplitter,QDialog,QDialogButtonBox,QCheckBox,QFileDialog,QHeaderView,QAbstractItemView,QGroupBox)
+    QTabWidget,QSplitter,QDialog,QDialogButtonBox,QCheckBox,QFileDialog,QHeaderView,QAbstractItemView,QGroupBox,
+    QScrollArea,QLayout,QGridLayout)
 from ..pcb import (PCBProject,PCBComponent,PCBTrack,PCBPoint,PCBVia,new_component,divider_example,pad_positions,
     copper_layers,via_layers,pcb_digest,inspect_layout,bom_report,bom_csv)
 from ..pcb_simulation import simulate_pcb,spice_netlist
@@ -265,7 +266,10 @@ class PCBWorkbench(QWidget):
         super().__init__(parent);self.host=parent;self.setObjectName('pcbWorkbench');self.base=deepcopy(raw);self.base_sha=design_digest(raw);self.project=PCBProject.model_validate(raw.get('pcb') or {});self.dirty=False;self.alive=True;self.advice_task=None;self.simulation_result=None;self.route=None
         self.workflow=PCBWorkflowSession(self.project);self.preview_project=None;self.locked_refs=set()
         self.workflow_task=None;self._workflow_workers=[];self.workflow_nonce=0;self.workflow_result=None;self._workflow_controls=[];self.cost_proposal=None
-        root=QVBoxLayout(self);top=QHBoxLayout();root.addLayout(top)
+        outer=QVBoxLayout(self);outer.setContentsMargins(0,0,0,0)
+        self.workbench_scroll=QScrollArea();self.workbench_scroll.setObjectName('pcbWorkbenchScroll');self.workbench_scroll.setWidgetResizable(True);outer.addWidget(self.workbench_scroll)
+        contents=QWidget();contents.setObjectName('pcbWorkbenchContents');root=QVBoxLayout(contents);root.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize);self.workbench_scroll.setWidget(contents)
+        top=QHBoxLayout();root.addLayout(top)
         top.addWidget(QLabel('PCB  /  설계 · 배선 · 시뮬레이션'))
         for title,callback,name in [('CAD에 PCB 저장',lambda:self.request_apply(False),'pcbApply'),('PCB + 전장에 명시 적용',lambda:self.request_apply(True),'pcbElectricalApply')]:
             control=push(title,callback,name);top.addWidget(control);self._workflow_controls.append(control)
@@ -282,23 +286,28 @@ class PCBWorkbench(QWidget):
             group=QGroupBox(title);actions_layout=QVBoxLayout(group)
             for text,callback,name in actions:
                 control=push(text,callback,name);actions_layout.addWidget(control);self._workflow_controls.append(control)
+            actions_layout.addStretch(1)
             groups.addWidget(group)
         self.stack_status=QLabel();self.stack_status.setObjectName('pcbLayerStackSummary');self.stack_status.setWordWrap(True);root.addWidget(self.stack_status)
         self.route_hint=QLabel('시작 패드 → 꺾임점 → 같은 연결 그룹의 끝 패드 / Start pad → corners → end pad on the same net. 비아는 구리층을 연결합니다. / Vias join copper layers.');self.route_hint.setObjectName('pcbRoutingSteps');self.route_hint.setWordWrap(True);root.addWidget(self.route_hint)
         self.workflow_report=QPlainTextEdit();self.workflow_report.setObjectName('pcbWorkflowReport');self.workflow_report.setReadOnly(True);self.workflow_report.setMaximumHeight(130);root.addWidget(self.workflow_report)
-        preview_row=QHBoxLayout();root.addLayout(preview_row)
-        self.trial_choice=QComboBox();self.trial_choice.setObjectName('pcbLayerTrials');preview_row.addWidget(self.trial_choice,1)
-        self.trial_preview=push('선택안 미리보기 / Preview trial',self.preview_trial,'pcbPreviewTrial');preview_row.addWidget(self.trial_preview)
-        self.preview_apply=push('미리보기 → PCB 초안에 적용 / Apply preview',self.apply_workflow_preview,'pcbApplyWorkflowPreview');preview_row.addWidget(self.preview_apply)
-        self.preview_cancel=push('미리보기 취소 / Cancel preview',self.cancel_workflow_preview,'pcbCancelWorkflowPreview');preview_row.addWidget(self.preview_cancel)
-        self.workflow_cancel=push('계산 취소 / Cancel calculation',self.cancel_workflow,'pcbCancelWorkflow');preview_row.addWidget(self.workflow_cancel)
+        preview_row=QGridLayout();root.addLayout(preview_row)
+        self.trial_choice=QComboBox();self.trial_choice.setObjectName('pcbLayerTrials');preview_row.addWidget(self.trial_choice,0,0,1,2)
+        self.trial_preview=push('선택안 미리보기 / Preview trial',self.preview_trial,'pcbPreviewTrial');preview_row.addWidget(self.trial_preview,0,2)
+        self.preview_apply=push('미리보기 → PCB 초안에 적용 / Apply preview',self.apply_workflow_preview,'pcbApplyWorkflowPreview');preview_row.addWidget(self.preview_apply,1,0)
+        self.preview_cancel=push('미리보기 취소 / Cancel preview',self.cancel_workflow_preview,'pcbCancelWorkflowPreview');preview_row.addWidget(self.preview_cancel,1,1)
+        self.workflow_cancel=push('계산 취소 / Cancel calculation',self.cancel_workflow,'pcbCancelWorkflow');preview_row.addWidget(self.workflow_cancel,1,2)
         undo_row=QHBoxLayout();root.addLayout(undo_row)
         self.undo_button=push('PCB 초안 되돌리기 / Undo',self.undo_draft,'pcbDraftUndo');undo_row.addWidget(self.undo_button)
         self.redo_button=push('PCB 초안 다시 실행 / Redo',self.redo_draft,'pcbDraftRedo');undo_row.addWidget(self.redo_button)
         note=QLabel('미리보기 적용은 PCB 초안만 바꿉니다. 전체 CAD 저장은 상단 버튼으로 따로 적용하세요. / Preview applies to the PCB draft only; save to CAD separately.');note.setWordWrap(True);undo_row.addWidget(note,1)
-        splitter=QSplitter();root.addWidget(splitter,1);left=QWidget();ll=QVBoxLayout(left);splitter.addWidget(left);self.canvas=PCBBoardCanvas();splitter.addWidget(self.canvas);splitter.setStretchFactor(1,2)
-        self.tabs=QTabWidget();ll.addWidget(self.tabs)
-        layout_page=QWidget();self.layout_page=layout_page;lp=QVBoxLayout(layout_page);self.tabs.addTab(layout_page,'배치 / 배선')
+        splitter=QSplitter();splitter.setObjectName('pcbEditorSplitter');splitter.setChildrenCollapsible(False);splitter.setMinimumHeight(360);root.addWidget(splitter,1)
+        left=QWidget();left.setMinimumWidth(360);ll=QVBoxLayout(left);ll.setContentsMargins(0,0,0,0);splitter.addWidget(left);self.canvas=PCBBoardCanvas();splitter.addWidget(self.canvas);splitter.setStretchFactor(0,1);splitter.setStretchFactor(1,1);splitter.setSizes([460,420])
+        self.tabs=QTabWidget();self.tabs.setUsesScrollButtons(True);self.tabs.setElideMode(Qt.TextElideMode.ElideRight);ll.addWidget(self.tabs)
+        def tab_page(title):
+            page=QScrollArea();page.setWidgetResizable(True);body=QWidget();layout=QVBoxLayout(body);layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize);page.setWidget(body);self.tabs.addTab(page,title)
+            return page,layout
+        layout_page,lp=tab_page('배치 / 배선');self.layout_page=layout_page
         form=QFormLayout();lp.addLayout(form);self.board_name=QLineEdit(self.project.name);self.width=number(self.project.width_mm,2,500);self.height=number(self.project.height_mm,2,500);self.nets=QLineEdit(', '.join(self.project.nets));self.clearance=number(self.project.clearance_mm,.05,5);self.edge=number(self.project.edge_clearance_mm,0,10)
         self.layer_count=QComboBox();self.layer_count.setObjectName('pcbLayerCount')
         for count in (2,4,6,8):self.layer_count.addItem(f'{count}층 / {count} layers',count)
@@ -308,20 +317,20 @@ class PCBWorkbench(QWidget):
         self.components=QTableWidget(0,3);self.components.setHorizontalHeaderLabels(['참조','값 / 모델','net']);self.components.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows);self.components.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers);self.components.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch);self.components.cellDoubleClicked.connect(lambda *_:self.edit_component());self.components.itemSelectionChanged.connect(self.component_selection_changed);lp.addWidget(self.components)
         row=QHBoxLayout();self.add_kind=QComboBox();self.add_kind.addItems(['resistor','capacitor','voltage_source','none','unsupported']);row.addWidget(self.add_kind);row.addWidget(push('추가',self.add_component,'pcbAdd'));row.addWidget(push('핀 / 모델 / 가격 편집',lambda:self.edit_component(),'pcbComponentEdit'));row.addWidget(push('삭제',self.delete_component));lp.addLayout(row)
         row=QHBoxLayout();self.route_button=QCheckBox('배선 연결하기 · Connect traces');self.route_button.toggled.connect(self.set_routing);row.addWidget(self.route_button);self.layer=QComboBox();self.layer.setObjectName('pcbActiveLayer');self.layer.addItems(copper_layers(self.project));self.layer.currentTextChanged.connect(self.layer_changed);row.addWidget(self.layer);self.track_width=number(.25,.05,10);self.track_width.setToolTip('배선 폭 mm / Trace width in mm');row.addWidget(self.track_width);lp.addLayout(row)
-        row=QHBoxLayout();row.addWidget(QLabel('표시 / Visible'));self.layer_visibility={}
-        for layer in COPPER_COLORS:
-            box=QCheckBox(layer);box.setObjectName('pcbVisible'+layer.replace('.',''));box.setChecked(True);box.setStyleSheet('color: '+COPPER_COLORS[layer]);box.toggled.connect(self.visibility_changed);self.layer_visibility[layer]=box;row.addWidget(box)
+        row=QGridLayout();row.addWidget(QLabel('표시 / Visible'),0,0,1,4);self.layer_visibility={}
+        for index,layer in enumerate(COPPER_COLORS):
+            box=QCheckBox(layer);box.setObjectName('pcbVisible'+layer.replace('.',''));box.setChecked(True);box.setStyleSheet('color: '+COPPER_COLORS[layer]);box.toggled.connect(self.visibility_changed);self.layer_visibility[layer]=box;row.addWidget(box,1+index//4,index%4)
         lp.addLayout(row)
         help_label=QLabel('부품 드래그로 배치 · 배선: 패드/비아 → 꺾임점 → 같은 net 패드/비아\n우클릭 / Esc 취소 · 다층 패드 또는 비아에서 층을 바꿔 배선');help_label.setWordWrap(True);lp.addWidget(help_label)
         self.tracks=QComboBox();lp.addWidget(self.tracks);lp.addWidget(push('선택 배선 삭제',self.delete_track));lp.addWidget(push('배치 / 구리 연결 검사',self.check_layout,'pcbLayoutCheck'))
-        sim_page=QWidget();sl=QVBoxLayout(sim_page);self.tabs.addTab(sim_page,'시뮬레이션 / AI');sf=QFormLayout();sl.addLayout(sf)
+        sim_page,sl=tab_page('시뮬레이션 / AI');sf=QFormLayout();sl.addLayout(sf)
         self.analysis=QComboBox();self.analysis.addItems(['dc','ac']);self.analysis.setCurrentText(self.project.simulation.analysis);self.frequency=number(self.project.simulation.frequency_hz,.001,1e9)
         sf.addRow('해석',self.analysis);sf.addRow('AC 주파수 Hz',self.frequency);sl.addWidget(push('명시 실행 · Simulate',self.simulate,'pcbSimulate'))
         self.sim_text=QPlainTextEdit();self.sim_text.setReadOnly(True);sl.addWidget(self.sim_text,1)
         self.question=QPlainTextEdit('이 PCB의 net·배치·배선과 회로 모델을 검토하고, 개선안을 설명해 주세요.');self.question.setMaximumHeight(90);sl.addWidget(self.question)
         row=QHBoxLayout();row.addWidget(push('Codex PCB 설계 자문',self.review,'pcbAI'));self.cancel_button=push('자문 취소',self.stop_advice,'pcbAICancel');self.cancel_button.setEnabled(False);row.addWidget(self.cancel_button);sl.addLayout(row)
         self.advice=QPlainTextEdit();self.advice.setReadOnly(True);sl.addWidget(self.advice,1)
-        bom_page=QWidget();self.bom_page=bom_page;bl=QVBoxLayout(bom_page);self.tabs.addTab(bom_page,'BOM / 예산');bf=QFormLayout();bl.addLayout(bf);self.quantity=QSpinBox();self.quantity.setRange(1,100000);self.quantity.setValue(self.project.budget.board_quantity);self.currency=QLineEdit(self.project.budget.currency);self.limit=QLineEdit(str(self.project.budget.limit) if self.project.budget.limit is not None else '')
+        bom_page,bl=tab_page('BOM / 예산');self.bom_page=bom_page;bf=QFormLayout();bl.addLayout(bf);self.quantity=QSpinBox();self.quantity.setRange(1,100000);self.quantity.setValue(self.project.budget.board_quantity);self.currency=QLineEdit(self.project.budget.currency);self.limit=QLineEdit(str(self.project.budget.limit) if self.project.budget.limit is not None else '')
         for title,w in [('보드 수량',self.quantity),('예산 통화',self.currency),('예산 한도 (빈칸=미정)',self.limit)]:bf.addRow(title,w)
         bl.addWidget(push('BOM / 예산 계산',self.update_budget,'pcbBOM'));self.bom_text=QPlainTextEdit();self.bom_text.setReadOnly(True);bl.addWidget(self.bom_text)
         bl.addWidget(push('제품 중복 제외 · 입력 견적 계산',self.cost_estimate,'pcbCostEstimate'))
@@ -330,17 +339,23 @@ class PCBWorkbench(QWidget):
         bl.addWidget(push('Codex 가격·견적 자문',lambda:self.review('cost'),'pcbCostAI'))
         bl.addWidget(push('AI 가격 범위 제안 생성',lambda:self.review('cost_proposal'),'pcbCostProposal'))
         self.cost_preview_button=push('AI 가격안 미리보기 · 명시 채택',self.preview_cost_proposal,'pcbCostProposalPreview');self.cost_preview_button.setEnabled(False);bl.addWidget(self.cost_preview_button)
-        via_page=QWidget();self.via_page=via_page;vl=QVBoxLayout(via_page);self.tabs.addTab(via_page,'비아 / 구리 영역')
+        via_page,vl=tab_page('비아 / 구리 영역');self.via_page=via_page
         self.vias=QTableWidget(0,6);self.vias.setObjectName('pcbVias');self.vias.setHorizontalHeaderLabels(['ID','net','X / Y mm','구리 / 드릴 mm','연결 층','실제 층']);self.vias.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows);self.vias.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers);self.vias.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents);self.vias.cellDoubleClicked.connect(lambda *_:self.edit_via());self.vias.itemSelectionChanged.connect(self.via_selection_changed);vl.addWidget(self.vias)
         row=QHBoxLayout();row.addWidget(push('비아 추가',self.add_via,'pcbViaAdd'));row.addWidget(push('선택 비아 편집',self.edit_via,'pcbViaEdit'));row.addWidget(push('선택 비아 삭제',self.delete_via,'pcbViaDelete'));vl.addLayout(row)
         self.zones=QTableWidget(0,4);self.zones.setObjectName('pcbZones');self.zones.setHorizontalHeaderLabels(['ID','net','층','구리 상태']);self.zones.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers);self.zones.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch);vl.addWidget(self.zones)
         note=QLabel('저장된 채움 polygon만 구리로 표시합니다. outline / 미채움은 점선 경계이며 구리 채움이 아닙니다.\n비아·구리 영역 편집도 초안입니다. 검토 후 상단 저장 버튼으로 명시 적용하세요.');note.setWordWrap(True);vl.addWidget(note)
-        review_page=QWidget();rl=QVBoxLayout(review_page);self.tabs.addTab(review_page,'제품·전원 조건 검사')
+        review_page,rl=tab_page('제품·전원 조건 검사')
         condition_note=QLabel('실제 동작 조건을 아는 값만 입력하세요. 빈칸은 미확인입니다. 제품의 권장 어댑터 전류는 소비전류가 아닙니다.\n전압은 공통 기준 전위이며 핀 검사에서는 지정한 GND 반환 net과의 차이를 사용합니다.');condition_note.setWordWrap(True);rl.addWidget(condition_note)
         self.net_conditions=QTableWidget(0,6);self.net_conditions.setHorizontalHeaderLabels(['net','전위 V','전원 한도 A','전체 부하 A','출처','동작 조건']);self.net_conditions.itemChanged.connect(self.operating_conditions_changed);rl.addWidget(self.net_conditions)
         control=push('배치·전압·전류 조건 검사',lambda:self.start_workflow('stability'),'pcbEmbeddedReview');rl.addWidget(control);self._workflow_controls.append(control)
         self.embedded_report=QPlainTextEdit();self.embedded_report.setReadOnly(True);rl.addWidget(self.embedded_report,1)
         self.status=QLabel();self.status.setWordWrap(True);root.addWidget(self.status)
+        for control in self.findChildren(QWidget):
+            if isinstance(control,QPushButton):control.setMinimumHeight(max(32,control.sizeHint().height()))
+            elif isinstance(control,(QLineEdit,QComboBox,QDoubleSpinBox,QSpinBox)):control.setMinimumHeight(max(28,control.sizeHint().height()))
+        for table in (self.components,self.vias,self.zones,self.net_conditions):table.setMinimumHeight(120)
+        for text in (self.sim_text,self.advice,self.bom_text,self.embedded_report):text.setMinimumHeight(120)
+        self.question.setMinimumHeight(72);self.workflow_report.setMinimumHeight(72)
         self.canvas.placementChanged.connect(self.move_component);self.canvas.componentSelected.connect(self.select_component);self.canvas.viaSelected.connect(self.select_via);self.canvas.routeClicked.connect(self.route_click);self.redraw();self.update_workflow_controls()
 
     def error(self,exc):self.status.setText(str(exc))
