@@ -24,6 +24,11 @@ def parse_startup_args(argv=None):
     parser.add_argument('--automatic-interference-check',type=Path)
     parser.add_argument('--common-app-check',type=Path)
     parser.add_argument('--motion-click-check',type=Path)
+    parser.add_argument('--motion-budget-check',type=Path)
+    parser.add_argument('--motion-initial-view-check',type=Path)
+    parser.add_argument('--pcb-layer-package-check',type=Path)
+    parser.add_argument('--flexible-wire-policy-check',type=Path)
+    parser.add_argument('--pcb-legacy-fixtures',type=Path)
     parser.add_argument('--project-capacity-check',type=Path)
     parser.add_argument('--capacity-check-input',type=Path)
     parser.add_argument('--program-drive-package-check',type=Path)
@@ -55,6 +60,16 @@ def parse_startup_args(argv=None):
         parser.error('--project-capacity-check uses only owned project copies.')
     if args.motion_click_check and any(value for key,value in vars(args).items() if key not in ('motion_click_check','renderer','no_restore')):
         parser.error('--motion-click-check uses only owned Qt signals and an inert offscreen viewport.')
+    if args.motion_budget_check and any(value for key,value in vars(args).items() if key not in ('motion_budget_check','renderer','no_restore')):
+        parser.error('--motion-budget-check uses only headless owned clocks/small geometry fixtures.')
+    if args.motion_initial_view_check and any(value for key,value in vars(args).items() if key not in ('motion_initial_view_check','renderer','no_restore')):
+        parser.error('--motion-initial-view-check uses only owned inert/offscreen initial-view fixtures.')
+    if args.flexible_wire_policy_check and any(value for key,value in vars(args).items() if key not in ('flexible_wire_policy_check','renderer','no_restore')):
+        parser.error('--flexible-wire-policy-check uses only owned small/offscreen fixtures.')
+    if bool(args.pcb_layer_package_check)!=bool(args.pcb_legacy_fixtures):
+        parser.error('--pcb-layer-package-check requires owned --pcb-legacy-fixtures.')
+    if args.pcb_layer_package_check and any(value for key,value in vars(args).items() if key not in ('pcb_layer_package_check','pcb_legacy_fixtures','renderer','no_restore')):
+        parser.error('--pcb-layer-package-check uses only owned small PCB/history fixtures.')
     if args.common_app_check and any(value for key,value in vars(args).items() if key not in ('common_app_check','renderer','no_restore')):
         parser.error('--common-app-check uses only owned package/offscreen fixtures.')
     if args.automatic_interference_check and any(value for key,value in vars(args).items() if key not in ('automatic_interference_check','renderer','no_restore')):
@@ -104,6 +119,48 @@ def parse_startup_args(argv=None):
 
 def main():
     args=parse_startup_args()
+    if args.flexible_wire_policy_check:
+        try:
+            from cadstudio.flexible_wire_package_check import run
+            return run(args.flexible_wire_policy_check)
+        except Exception:
+            import json
+            failure=traceback.format_exc()
+            try:
+                with args.flexible_wire_policy_check.open('x',encoding='utf-8') as stream:
+                    json.dump({'success':False,'exception':failure,'native_inputs':0},stream,ensure_ascii=False,indent=2)
+            except OSError:
+                print(failure,file=sys.stderr)
+            return 1
+    if args.pcb_layer_package_check:
+        try:
+            from cadstudio.pcb_layer_package_check import run
+            return run(args.pcb_layer_package_check,args.pcb_legacy_fixtures)
+        except Exception:
+            import json
+            failure=traceback.format_exc()
+            try:
+                with args.pcb_layer_package_check.open('x',encoding='utf-8') as stream:
+                    json.dump({'success':False,'exception':failure,'native_inputs':0},stream,ensure_ascii=False,indent=2)
+            except OSError:
+                print(failure,file=sys.stderr)
+            return 1
+    if args.motion_initial_view_check:
+        try:
+            from cadstudio.native.motion_initial_view_check import run
+            return run(args.motion_initial_view_check)
+        except Exception:
+            import json
+            args.motion_initial_view_check.write_text(json.dumps({'success':False,'exception':traceback.format_exc(),'native_inputs':0},ensure_ascii=False,indent=2),encoding='utf-8')
+            return 1
+    if args.motion_budget_check:
+        try:
+            from cadstudio.native.motion_budget_check import run
+            return run(args.motion_budget_check)
+        except Exception:
+            import json
+            args.motion_budget_check.write_text(json.dumps({'success':False,'exception':traceback.format_exc(),'native_inputs':0},ensure_ascii=False,indent=2),encoding='utf-8')
+            return 1
     if args.g474_project:
         from cadstudio.firmware_emulation_cli import main as run_g474
         command=['--project',str(args.g474_project),'--duration',str(args.g474_duration if args.g474_duration is not None else 0.01)]
@@ -178,11 +235,6 @@ def main():
     if args.target_project_check:
         from cadstudio.native.target_project_check import run
         return run(args.target_project_check,args.target_check_input)
-    # This local candidate has its own portable profile and never restores the
-    # installed application's user session or modifies its file association.
-    if not os.getenv('CADSTUDIO_DATA_DIR'):
-        base = Path(sys.executable).parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parent
-        os.environ['CADSTUDIO_DATA_DIR'] = str(base / ('profile-' + __build_id__))
     if args.print_batch_smoke:
         report=args.print_batch_smoke.resolve()
         os.environ['CADSTUDIO_DATA_DIR']=str(report.parent/(report.stem+'-profile'))
@@ -218,7 +270,8 @@ def main():
         # and exit status instead of blocking the user with a Windows dialog.
         import ctypes
         ctypes.windll.kernel32.SetErrorMode(0x0001|0x0002|0x8000)
-    data=Path(os.getenv('CADSTUDIO_DATA_DIR',str(Path(os.getenv('LOCALAPPDATA',str(Path.home()/'AppData/Local')))/'PromptCADStudio')));data.mkdir(parents=True,exist_ok=True);os.environ['CADSTUDIO_DATA_DIR']=str(data)
+    from cadstudio.profile_paths import default_data_dir
+    data=default_data_dir();data.mkdir(parents=True,exist_ok=True);os.environ['CADSTUDIO_DATA_DIR']=str(data)
     log_path=data/('graphics-'+args.graphics_probe[0]+'-native.log' if args.graphics_probe else 'native-desktop.log')
     if log_path.exists() and log_path.stat().st_size>2_000_000:log_path.replace(log_path.with_suffix('.previous.log'))
     log=log_path.open('a',encoding='utf-8',buffering=1)

@@ -5,13 +5,15 @@ import json
 from .pcb import PCBProject, bom_report, inspect_layout, pcb_digest
 from .pcb_simulation import simulate_pcb, spice_netlist
 
-MANIFEST = dict(id='promptcad.pcb',version='0.1.0',schema_version=1,workspace='pcb',
+MANIFEST = dict(id='promptcad.pcb',version='0.2.0',schema_version=1,workspace='pcb',
     entry_point='cadstudio.pcb_plugin:execute',ui_entry_point='cadstudio.native.pcb_workbench:PCBWorkbench',
     commands=['validate','layout','simulate','bom','spice','electrical_preview'],
     dependencies=['pydantic (existing CAD runtime)','numpy (existing CAD runtime)','PySide6 (existing CAD runtime)'],
     simulation_backend='builtin-linear',external_runtime=None,
     permissions=dict(automatic_execution=False,network=False,filesystem=False,hardware=False),
     ai='Explicit existing ChatGPT/Codex answer transport; advisory only; no API fallback',
+    geometry=dict(copper_layers=[2,4],pads=['circle','rect','oval','roundrect'],drills='circular',
+        vias='ordered copper-layer span',zones='declared outlines and explicitly supplied filled polygons are distinct'),
     limits=['No dynamic code plugins. No Gerber/KiCad import or fabrication acceptance.',
         'DC/AC ideal R/C/voltage-source models only; unmodeled devices block simulation.'])
 
@@ -41,6 +43,12 @@ def electrical_preview(project, workspace=None):
     existing=ElectricalWorkspace.model_validate(raw)
     ids={c.id for c in existing.components};nodes=set(existing.nodes)
     def node(n):return 'GND' if n=='GND' else 'pcb_'+n
+    reserved=nodes|{node(n) for n in p.nets}
+    def nc(ref,port,occupied):
+        prefix='pcb_nc_'+ref+'_'+port;candidate=prefix;index=0
+        while candidate in occupied:
+            index+=1;candidate=prefix+'_'+str(index)
+        return candidate
     added=[]
     for c in p.components:
         if not c.fitted:continue
@@ -60,7 +68,9 @@ def electrical_preview(project, workspace=None):
                 row['voltage_v']=m.dc_voltage_v
         else:
             connections={pin.number:node(pin.net) for pin in c.pins if pin.net}
-            connected=list(dict.fromkeys(connections.values()));a=connected[0] if connected else 'pcb_'+c.ref+'_NCa';b=connected[1] if len(connected)>1 else ('GND' if a!='GND' else 'pcb_'+c.ref+'_NCb')
+            connected=list(dict.fromkeys(connections.values()));occupied=reserved|nodes|set(connections.values())
+            a=connected[0] if connected else nc(c.ref,'a',occupied)
+            b=connected[1] if len(connected)>1 else nc(c.ref,'b',occupied|{a})
             row=dict(id=identifier,name=(c.ref+' '+(c.value or 'PCB passive'))[:80],kind='load',a=a,b=b,analysis_enabled=False,terminal_pins=connections)
             nodes.update(connections.values())
         nodes.update([row['a'],row['b']]);added.append(row)

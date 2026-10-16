@@ -1089,7 +1089,13 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def motion_playback_dialog(self):
         if self.busy or self.sketching or not self.document.design:return
         from .motion_playback_dialog import MotionPlaybackDialog
-        dialog=MotionPlaybackDialog(self,self.document.design,lambda:self.document.design)
+        from ..motion_initial_view import capture_initial_motion_snapshot
+        def revision():
+            data=getattr(getattr(self.document,'journal',None),'data',None)
+            return (id(self.document),self.operation_serial,data.get('cursor') if isinstance(data,dict) else None)
+        snapshot=capture_initial_motion_snapshot(self.document.design,self.result,revision())
+        dialog=MotionPlaybackDialog(self,self.document.design,lambda:self.document.design,
+                                    initial_snapshot=snapshot,revision_provider=revision)
         try:dialog.exec()
         finally:dialog.deleteLater()
     def start_face_joint(self):

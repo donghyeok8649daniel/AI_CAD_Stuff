@@ -410,6 +410,7 @@ def _preview_result(design, shapes, meshes, *, checked_collisions=None, check=la
         minimum = [min(p[i] for p in points) for i in range(3)]
         maximum = [max(p[i] for p in points) for i in range(3)]
         from .interference import exact_collisions
+        from .collision_policy import collision_exclusion_stats
         check()
         collisions = exact_collisions(design, shapes, check=check) if checked_collisions is None else checked_collisions
         check()
@@ -421,6 +422,7 @@ def _preview_result(design, shapes, meshes, *, checked_collisions=None, check=la
             "bounds": [b-a for a,b in zip(minimum,maximum)],
             "min": minimum, "max": maximum,
             "triangles": sum(len(m["triangles"])//3 for m in meshes), "collisions": collisions,"assembly_constraints":solve_assembly(design),
+            **collision_exclusion_stats(design),
             "joint_readiness":joint_readiness(design,shapes,collisions),
         }}
 

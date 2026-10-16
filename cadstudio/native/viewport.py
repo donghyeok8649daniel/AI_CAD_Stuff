@@ -29,6 +29,7 @@ def polydata(vertices,triangles):
 
 from .interaction import SelectionTools
 from .render_depth import reset_clipping,surface_offset,line_offset
+from ..collision_policy import collision_caption
 
 
 class ViewportCaption(QLabel):
@@ -333,11 +334,16 @@ class CADViewport(QWidget,SelectionTools):
             s=result['stats'];self.caption.setText(f"{s['parts']}개 부품   ·   {' × '.join(f'{n:.2f}' for n in s['bounds'])} mm   ·   {s['volume']:,.2f} mm³")
             if result.get('sketches'):self.caption.setText(self.caption.text()+f"   ·   스케치 {len(result['sketches'])}개")
             if s['assembly_constraints']['mates']:self.caption.setText(self.caption.text()+f"   ·   조립 자유도 {s['assembly_constraints']['dof']}")
-            if s['collisions']:self.caption.setText(self.caption.text()+f"   ·   간섭 {len(s['collisions'])}건")
+            collision_text=collision_caption(s)
+            if collision_text:
+                self.caption.setText(collision_text+"   ·   "+self.caption.text() if s.get('flexible_wire_excluded_count',0) else self.caption.text()+"   ·   "+collision_text)
         else:self.caption.setText('새 설계 · 스케치를 시작하거나 부품을 추가하세요.')
         hits=(result or {}).get('stats',{}).get('collisions',[])
         self.collision_button.setVisible(bool(hits));self.collision_button.setText(f'간섭 {len(hits)} · 확인')
         self.collision_button.setToolTip('부품 체적이 겹칩니다. 눌러 부품 이름·체적과 위치를 확인하세요. 그룹·숨김 상태와 관계없이 검사합니다.')
+        if (result or {}).get('stats',{}).get('flexible_wire_excluded_count',0):
+            self.collision_button.setText(f'고정부품 간섭 {len(hits)} · 확인')
+            self.collision_button.setToolTip('명시적으로 분류한 유연 전선 몸체를 제외한 체적 간섭입니다. 단자·커넥터·PCB는 검사에 남습니다. 그룹·숨김 상태와 관계없이 검사합니다.')
         self.rebuild_pick_objects()
         for key in self.hidden:self.visibility(key,False,False)
         self.select_many([i for i in self.selected_ids if i in self.actors],False)

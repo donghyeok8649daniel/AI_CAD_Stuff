@@ -6,15 +6,15 @@ This is not a continuous swept-volume or physical motor certification.
 """
 from copy import deepcopy
 from math import ceil,isfinite
-import time
 import numpy as np
+from .motion_budget import MotionInspectionBudget
 from .models import Design
 from .assembly_motion import motion_controls,set_joint_motion,JOINT_AXES
 from .automatic_interference import design_digest
 from .constraints import transform_matrix
 
 
-def _sample_collision_hits(current,shapes,base,baseline_hits,check,baseline_bounds=None,baseline_solids=None):
+def _sample_collision_hits(current,shapes,base,baseline_hits,check,baseline_bounds=None,baseline_solids=None,completed=lambda:None):
     """Reuse only exact unchanged static pairs already checked in the full start.
 
     The caller holds KERNEL_LOCK and verifies identical local geometry/features.
@@ -22,26 +22,31 @@ def _sample_collision_hits(current,shapes,base,baseline_hits,check,baseline_boun
     """
     from .kernel import exact_bounds
     from .interference import pair,VOLUME_EPS
+    from .collision_policy import flexible_wire_part_ids
     if [p.id for p in current.parts]!=[p.id for p in base.parts] or len(shapes)!=len(current.parts):raise ValueError('구동 부품 목록이 바뀌었습니다.')
+    excluded=set(flexible_wire_part_ids(current))
+    if excluded!=set(flexible_wire_part_ids(base)):raise ValueError('간섭 검사 분류가 바뀌었습니다. 기준 자세부터 다시 검사하세요.')
     unchanged=[p.transform==q.transform for p,q in zip(current.parts,base.parts)]
     prior={pair(hit):hit for hit in baseline_hits}
     bounds=[baseline_bounds[i] if baseline_bounds is not None and unchanged[i] else exact_bounds(shape) for i,shape in enumerate(shapes)]
     solids=[baseline_solids[i] if baseline_solids is not None and unchanged[i] else bool(shape.Solids()) for i,shape in enumerate(shapes)]
     stationary={current.parts[i].id for i,value in enumerate(unchanged) if value}
     changed_indices=[i for i,value in enumerate(unchanged) if not value]
-    hits=[hit for hit in baseline_hits if hit['a'] in stationary and hit['b'] in stationary]
+    hits=[hit for hit in baseline_hits if hit['a'] in stationary and hit['b'] in stationary and hit['a'] not in excluded and hit['b'] not in excluded]
     checked=0;reused=len(stationary)*(len(stationary)-1)//2
     for i,a in enumerate(shapes):
         candidates=(j for j in changed_indices if j>i) if unchanged[i] else range(i+1,len(shapes))
         for j in candidates:
             check()
             checked+=1
-            if not solids[i] or not solids[j]:continue
+            if current.parts[i].id in excluded or current.parts[j].id in excluded:completed();continue
+            if not solids[i] or not solids[j]:completed();continue
             ba,bb=bounds[i],bounds[j]
-            if not all(min(getattr(ba,k+'max'),getattr(bb,k+'max'))-max(getattr(ba,k+'min'),getattr(bb,k+'min'))>1e-5 for k in 'xyz'):continue
+            if not all(min(getattr(ba,k+'max'),getattr(bb,k+'max'))-max(getattr(ba,k+'min'),getattr(bb,k+'min'))>1e-5 for k in 'xyz'):completed();continue
             volume=a.intersect(shapes[j]).Volume()
             if not isfinite(volume):raise ValueError('간섭 체적을 계산하지 못했습니다. 형상을 확인하세요.')
             if volume>VOLUME_EPS:hits.append(dict(a=current.parts[i].id,b=current.parts[j].id,volume=volume))
+            completed()
     return hits,checked,reused
 
 
@@ -50,7 +55,7 @@ def pose_matrix(transform):
     return matrix
 
 
-def compile_joint_playback(raw,targets,*,step_degrees=2.,check=lambda:None,seconds=None):
+def compile_joint_playback(raw,targets,*,step_degrees=2.,check=lambda:None,seconds=None,progress=lambda report:None,wait_seconds=120.,segmented=False):
     from .kernel import KERNEL_LOCK,build,local_shape_session,exact_bounds,_rigid_pose_shapes,_preview_same_checked_pose
     from .interference import physical_collisions,exact_collisions,describe
     if type(step_degrees) not in (int,float) or not isfinite(step_degrees) or not .25<=step_degrees<=2:
@@ -58,12 +63,10 @@ def compile_joint_playback(raw,targets,*,step_degrees=2.,check=lambda:None,secon
     if seconds is None:seconds=180. if isinstance(raw,dict) and len(raw.get('parts',()))>256 else 120.
     if type(seconds) not in (int,float) or not isfinite(seconds) or not .01<=seconds<=300:raise ValueError('검사 시간 범위를 확인하세요.')
     if not isinstance(targets,list) or not 1<=len(targets)<=8:raise ValueError('회전 관절 1~8개를 선택하세요.')
-    started=time.monotonic()
-    def guard():
-        check()
-        if time.monotonic()-started>seconds:raise ValueError('표본 구동 검사 시간 한도입니다. 구동 범위를 나누세요. 원본은 유지됩니다.')
-    with KERNEL_LOCK,local_shape_session():
-        guard();base=Design.model_validate(deepcopy(raw));base_shapes=build(base);normalized=base.model_dump()
+    budget=MotionInspectionBudget(seconds,check,progress,wait_seconds,segmented=segmented);guard=budget.guard
+    with budget.locked(KERNEL_LOCK),local_shape_session():
+        budget.phase('base_validation');guard();base=Design.model_validate(deepcopy(raw));budget.checkpoint()
+        budget.phase('base_build');base_shapes=build(base);budget.checkpoint();normalized=base.model_dump()
         # Cross-body cuts can change local geometry as joints move. The rigid
         # mesh player explicitly rejects these instead of showing stale meshes.
         if any(f.get('tool_part_id') and not f.get('suppressed',False) for p in normalized['parts'] for f in p['features']):
@@ -83,26 +86,27 @@ def compile_joint_playback(raw,targets,*,step_degrees=2.,check=lambda:None,secon
             ids.add(mid);drives.append(dict(mate_id=mid,start=controls['rz']['value'],end=float(end)))
         distance=max(abs(d['end']-d['start']) for d in drives)
         if distance<1e-9:raise ValueError('각도 변화가 없습니다.')
-        endpoint=deepcopy(normalized)
+        budget.phase('endpoint_validation');endpoint=deepcopy(normalized)
         for drive in drives:set_joint_motion(endpoint,drive['mate_id'],{'rz':drive['end']})
-        endpoint=Design.model_validate(endpoint);build(endpoint)
+        endpoint=Design.model_validate(endpoint);budget.checkpoint();budget.phase('endpoint_build');build(endpoint);budget.checkpoint()
         old_mates={m.id:m for m in base.mates}
         def coordinate_steps(mate):
             prior=old_mates[mate.id]
             return [ceil(abs(getattr(mate,axis)-getattr(prior,axis))/(step_degrees if axis.startswith('r') else .5)) for axis in JOINT_AXES[mate.kind]]
         steps=max(ceil(distance/step_degrees),max((n for mate in endpoint.mates for n in coordinate_steps(mate)),default=0))
         if steps>720:raise ValueError('검사 자세는 최대721개입니다. 범위를 나누세요.')
-        guard();start_hits=exact_collisions(base,base_shapes,check=guard);physical=physical_collisions(base,start_hits)
+        budget.phase('baseline_collisions',samples=steps+1);guard();start_hits=exact_collisions(base,base_shapes,check=guard,completed=budget.checkpoint);physical=physical_collisions(base,start_hits)
         if physical:raise ValueError('현재 자세에 체적 간섭이 남아 재생을 시작하지 않습니다.\n'+describe(base,physical))
         reference_only=[h for h in start_hits if h not in physical]
-        guard();baseline_bounds=[exact_bounds(s) for s in base_shapes];baseline_solids=[bool(s.Solids()) for s in base_shapes];guard()
+        budget.phase('baseline_bounds');guard();baseline_bounds=[exact_bounds(s) for s in base_shapes];baseline_solids=[bool(s.Solids()) for s in base_shapes];budget.checkpoint()
         initial={p.id:pose_matrix(p.transform) for p in base.parts};frames=[];moving=set();pair_checks=len(base_shapes)*(len(base_shapes)-1)//2;static_pairs_reused=0
         previous_coordinates=None;max_angular_step=0.;max_linear_step=0.
         for index in range(steps+1):
-            guard();fraction=index/steps;pose=deepcopy(normalized)
+            budget.phase('sample_validation',sample=index+1);guard();fraction=index/steps;pose=deepcopy(normalized)
             values={d['mate_id']:d['start']+(d['end']-d['start'])*fraction for d in drives}
             for mid,value in values.items():set_joint_motion(pose,mid,{'rz':value})
-            current=Design.model_validate(pose);guard();shapes=base_shapes if index==0 else _rigid_pose_shapes(base,base_shapes,current);guard()
+            current=Design.model_validate(pose);budget.checkpoint();budget.phase('sample_shapes');shapes=base_shapes if index==0 else _rigid_pose_shapes(base,base_shapes,current);budget.checkpoint()
+            budget.phase('sample_invariants')
             actual={m.id:m for m in current.mates}
             if any(abs(actual[mid].rz-value)>1e-7 for mid,value in values.items()):raise ValueError('변수·구속이 요청한 관절각을 바꿨습니다. 기존 구속을 먼저 확인하세요.')
             coordinates={(m.id,axis):getattr(m,axis) for m in current.mates for axis in JOINT_AXES[m.kind]}
@@ -116,25 +120,29 @@ def compile_joint_playback(raw,targets,*,step_degrees=2.,check=lambda:None,secon
             previous_coordinates=coordinates
             if any(a.geometry!=p.geometry or a.features!=p.features or a.source_part_id!=p.source_part_id for a,p in zip(base.parts,current.parts)) or any(getattr(base,k)!=getattr(current,k) for k in ('assets','sketches','parameters','dimension_bindings','configurations')):
                 raise ValueError('구동 중 지역 형상 입력이 달라졌습니다. 강체 메시 재생을 중단합니다.')
+            budget.phase('sample_collisions')
             if index==0:hits=start_hits
             else:
-                hits,checked,reused=_sample_collision_hits(current,shapes,base,start_hits,guard,baseline_bounds,baseline_solids)
+                hits,checked,reused=_sample_collision_hits(current,shapes,base,start_hits,guard,baseline_bounds,baseline_solids,budget.checkpoint)
                 pair_checks+=checked;static_pairs_reused+=reused
             physical=physical_collisions(current,hits)
             if physical:raise ValueError(f'재생 구간 {fraction:.3f}에서 체적 간섭이 발견되었습니다.\n'+describe(current,physical))
-            matrices={}
+            budget.phase('frame_matrices');matrices={}
             for a,p in zip(base.parts,current.parts):
                 if p.transform==a.transform:continue
                 delta=pose_matrix(p.transform)@np.linalg.inv(initial[p.id])
                 if not np.allclose(delta,np.eye(4),atol=1e-8,rtol=0):moving.add(p.id);matrices[p.id]=delta.tolist()
             frames.append(dict(fraction=fraction,joint_degrees=values,matrices=matrices))
+            budget.checkpoint()
         if not moving:raise ValueError('실제로 움직이는 부품이 없습니다.')
-        guard();result=_preview_same_checked_pose(base,base_shapes,normalized,start_hits,guard);guard()
+        budget.phase('checked_preview');budget.checkpoint();result=_preview_same_checked_pose(base,base_shapes,normalized,start_hits,budget.checkpoint);budget.checkpoint()
+        metrics=budget.finish()
         return dict(base_digest=design_digest(normalized),preview=result,frames=frames,moving_ids=sorted(moving),drives=drives,
                     samples=len(frames),step_degrees=max_angular_step,driver_step_degrees=distance/steps,max_linear_step_mm=max_linear_step,
                     pair_checks=pair_checks,static_pairs_reused=static_pairs_reused,static_pair_reuse='exact_same_pose_and_local_geometry_after_full_baseline_check',reference_only=reference_only,
                     can_loop=not frames[-1]['matrices'],scope='exact_current_and_sampled_poses_only_not_continuous_sweep',
-                    actual_rpm=None,electrical_power_verified=False,hardware_motion_allowed=False,budget_seconds=seconds)
+                    actual_rpm=None,electrical_power_verified=False,hardware_motion_allowed=False,budget_seconds=seconds,
+                    inspection_metrics=metrics)
 
 
 def playback_frame_index(elapsed_s,rpm,drive_distance,frame_count,mode='loop'):

@@ -3,6 +3,7 @@ from copy import deepcopy
 import hashlib
 import json
 from .models import Design
+from .collision_policy import flexible_wire_part_ids
 
 
 def geometry_inputs(design):
@@ -32,6 +33,10 @@ def reuse_preview(design, baseline, result):
     No new geometry or interference verdict is invented here.
     """
     if baseline is None or result is None:
+        return None
+    # The saved tag changes collision scope without moving a BRep. Never carry
+    # a verdict across that change, even if metadata keys become less strict.
+    if set(flexible_wire_part_ids(design)) != set(flexible_wire_part_ids(baseline)):
         return None
     if geometry_inputs(design) != geometry_inputs(baseline):
         return None

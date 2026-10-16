@@ -2,9 +2,10 @@
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QDialog,QDialogButtonBox,QFormLayout,QHBoxLayout,
-    QLineEdit,QPlainTextEdit,QScrollArea,QVBoxLayout,QWidget,QComboBox,QApplication)
+    QLineEdit,QPlainTextEdit,QScrollArea,QVBoxLayout,QWidget,QComboBox,QApplication,QCheckBox)
 
 from ..models import Design
+from ..collision_policy import FLEXIBLE_WIRE_LABEL,FLEXIBLE_WIRE_VALUE
 from ..part_product import ProductMetadata,product_for_part,product_from_catalog,product_from_reference,set_part_product
 from .widgets import button,label
 
@@ -34,6 +35,16 @@ class PartProductDialog(QDialog):
         self.specs.setPlaceholderText(self.word('치수·전압·전류 등 단위와 적용 조건을 함께 입력하세요. 모르는 값은 미정으로 남기세요.',
             'Include units and conditions for dimensions, voltage and current. Leave unknown values unspecified.'))
         form.addRow(self.word('제품 스펙 / 조건','Specifications / conditions'),self.specs)
+        self.flexible_wire=QCheckBox(self.word('유연 전선 몸체만 기계 간섭 검사에서 제외',
+            'Exclude this flexible wire body from mechanical interference checks'))
+        self.flexible_wire.setObjectName('partProduct_flexibleWireExclusion')
+        self.flexible_wire.setToolTip(self.word(
+            '유연한 전선 몸체에만 직접 선택하세요. 고정 단자·커넥터·PCB·모터·구조 부품에는 선택하지 마세요. '
+            '전기적 단선·합선이나 전선의 마찰·굽힘·안전성을 검증하는 설정이 아닙니다. 저장해야 적용됩니다.',
+            'Select explicitly for a flexible wire body only. Do not select for rigid terminals, connectors, PCBs, motors or structural parts. '
+            'This does not verify electrical opens/shorts, chafing, bending or safety. Save to apply.'))
+        self._classification_specs=[]
+        form.addRow(self.word('기계 간섭 분류','Mechanical interference classification'),self.flexible_wire)
         for key,ko,en in [('official_url','공식 제품 페이지','Official product page'),('datasheet_url','데이터시트 / 도면','Datasheet / drawing'),
             ('purchase_url','구매 페이지','Purchase page'),('source_url','자료 출처','Reference source')]:
             row=QHBoxLayout();field=QLineEdit();field.setMaxLength(1500);field.setPlaceholderText('https://…');field.setObjectName('partProduct_'+key)
@@ -71,12 +82,22 @@ class PartProductDialog(QDialog):
         index=self.catalog.findData(prior)
         if index>=0:self.catalog.setCurrentIndex(index)
 
-    def load_product(self,product):
+    @staticmethod
+    def wire_spec(spec):
+        return spec.get('label')==FLEXIBLE_WIRE_LABEL and spec.get('value')==FLEXIBLE_WIRE_VALUE
+
+    def load_product(self,product,*,preserve_classification=False):
+        prior_classification=self.flexible_wire.isChecked()
         self._base=product.model_dump() if product else {};self._clear=False
         for key,field in self.fields.items():field.setText(self._base.get(key) or '')
         self.specs.setPlainText(self._base.get('spec_summary') or '')
         self.notes.setPlainText(self._base.get('notes') or '')
         facts=self._base.get('specs') or []
+        if not preserve_classification:
+            self._classification_specs=[dict(fact) for fact in facts if self.wire_spec(fact)]
+            self.flexible_wire.setChecked(bool(self._classification_specs))
+        else:
+            self.flexible_wire.setChecked(prior_classification)
         sources=self._base.get('sources') or []
         self.reference_details.setPlainText('\n'.join(f"{f['label']}: {f.get('value') if f.get('value') is not None else '?'} {f.get('unit','')} · {f.get('condition','')}" for f in facts))
         self.reference_details.setVisible(bool(facts));self.sources.clear()
@@ -87,7 +108,7 @@ class PartProductDialog(QDialog):
 
     def use_catalog(self):
         selected=self.catalog.currentData()
-        if selected:self.load_product(product_from_catalog(*selected.split('/',1)))
+        if selected:self.load_product(product_from_catalog(*selected.split('/',1)),preserve_classification=True)
 
     def read_reference(self):
         from .component_specs_dialog import ComponentSpecsDialog
@@ -99,7 +120,7 @@ class PartProductDialog(QDialog):
                 prior=self.candidate().model_dump() if not self._clear else {}
                 for key in ('name','manufacturer','model','official_url','datasheet_url','purchase_url','notes'):
                     if prior.get(key):setattr(imported,key,prior[key])
-                self.load_product(imported)
+                self.load_product(imported,preserve_classification=True)
             except ValueError as exc:self.status.setText(str(exc)[:1200])
         dialog.deleteLater()
 
@@ -121,12 +142,26 @@ class PartProductDialog(QDialog):
             # new SKU's evidence. Explicitly edited links remain user input.
             for key in ('source_url','official_url','datasheet_url','purchase_url'):
                 if values.get(key)==self._base.get(key):values[key]=''
+        # This saved author classification belongs to the CAD body, rather
+        # than a catalog SKU or its numeric facts. An explicit checkbox edit
+        # changes only this exact tag; product-reference edits cannot erase it.
+        facts=values.get('specs') or []
+        if self.flexible_wire.isChecked():
+            if not any(self.wire_spec(fact) for fact in facts):
+                facts=[*facts,*(dict(fact) for fact in self._classification_specs)]
+                if not self._classification_specs:
+                    facts.append(dict(label=FLEXIBLE_WIRE_LABEL,value=FLEXIBLE_WIRE_VALUE,
+                        condition=self.word('사용자가 유연 전선 몸체로 명시 분류했습니다. 고정 단자·커넥터는 제외하지 않습니다.',
+                            'Explicitly classified by the user as a flexible wire body; rigid terminals and connectors are not excluded.')))
+        else:
+            facts=[fact for fact in facts if not self.wire_spec(fact)]
+        values['specs']=facts
         return ProductMetadata.model_validate(values)
 
     def clear_reference(self):
         self.load_product(None);self._clear=True
-        self.status.setText(self.word('저장하면 이 부품의 제품 자료를 지웁니다. 전장 등록은 유지됩니다.',
-            'Save clears this part reference. Its electrical registration remains intact.'))
+        self.status.setText(self.word('제품 자료와 유연 전선 간섭 제외 설정을 비웠습니다. 저장해야 적용되며, 전장 등록은 유지됩니다.',
+            'Product references and the flexible-wire exclusion have been cleared. Save to apply; electrical registration remains intact.'))
 
     def open_link(self,key):
         try:

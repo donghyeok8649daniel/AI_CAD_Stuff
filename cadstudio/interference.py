@@ -12,27 +12,35 @@ from .models import Design
 VOLUME_EPS = 1e-5
 
 
-def exact_collisions(design, shapes=None, check=lambda: None):
+def exact_collisions(design, shapes=None, check=lambda: None, *, completed=lambda:None):
     from .kernel import KERNEL_LOCK, build, exact_bounds
+    from .collision_policy import flexible_wire_part_ids
     with KERNEL_LOCK:
         shapes = build(design) if shapes is None else shapes
         bounds = [exact_bounds(s) for s in shapes]
         solids = [bool(s.Solids()) for s in shapes]
+        excluded = set(flexible_wire_part_ids(design))
         collisions = []
         for i, a in enumerate(shapes):
             for j in range(i + 1, len(shapes)):
                 check()
+                if design.parts[i].id in excluded or design.parts[j].id in excluded:
+                    completed()
+                    continue
                 if not solids[i] or not solids[j]:
+                    completed()
                     continue
                 ba, bb = bounds[i], bounds[j]
                 if not all(min(getattr(ba, k+'max'), getattr(bb, k+'max')) -
                            max(getattr(ba, k+'min'), getattr(bb, k+'min')) > 1e-5 for k in 'xyz'):
+                    completed()
                     continue
                 volume = a.intersect(shapes[j]).Volume()
                 if not math.isfinite(volume):
                     raise ValueError('간섭 체적을 계산하지 못했습니다. 형상을 확인하세요.')
                 if volume > VOLUME_EPS:
                     collisions.append(dict(a=design.parts[i].id, b=design.parts[j].id, volume=volume))
+                completed()
         return collisions
 
 
