@@ -13,8 +13,11 @@ def equivalent(a,b):
     return a==b
 
 
-def apply_changes(design,changes):
-    result=deepcopy(design)
+def apply_changes(design,changes,*,_path_copy=False):
+    # Checked history and owned internal Journal replay opt into shared,
+    # read-only intermediate states. Copy every progressively changed path;
+    # the public default retains independent untouched JSON subtrees.
+    result=design.copy() if _path_copy else deepcopy(design)
     for change in changes:
         node=result
         for key in change.path:
@@ -23,7 +26,11 @@ def apply_changes(design,changes):
         try:
             for key in change.path[:-1]:
                 if isinstance(node,list) and (type(key) is not int or key<0):raise KeyError(key)
-                node=node[key]
+                child=node[key]
+                if _path_copy and isinstance(child,(dict,list)):
+                    child=child.copy()
+                    node[key]=child
+                node=child
             key=change.path[-1]
             if isinstance(node,list):
                 if type(key) is not int or key<0 or key>=len(node) or change.operation=='remove':raise KeyError(key)
@@ -55,7 +62,7 @@ def validate_history(journal,current):
         if index==0:data=journal.base.model_dump()
         else:
             if entry.parent not in parents:raise ValueError('작업 이력이 이전에 존재하지 않는 단계에 연결되었습니다.')
-            data=apply_changes(states[entry.parent],entry.changes)
+            data=apply_changes(states[entry.parent],entry.changes,_path_copy=True)
             # Every past state must still be a valid declarative design. Only current geometry is built.
             checked=Design.model_validate(data).model_dump()
             if not equivalent(checked,data):raise ValueError('작업 이력에 해석 결과와 다른 형상·구속 값이 있습니다.')

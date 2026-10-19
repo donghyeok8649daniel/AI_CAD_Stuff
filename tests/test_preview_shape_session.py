@@ -15,10 +15,14 @@ def clear_persistent_shape_caches():
     assert kernel._local_shape_session.get() is None
     kernel._part_cached.cache_clear()
     kernel._build_cached.cache_clear()
+    kernel._preview_mesh_cache.clear();kernel._part_mesh_cache.clear()
+    kernel._live_local_shapes.clear()
     yield
     assert kernel._local_shape_session.get() is None
     kernel._part_cached.cache_clear()
     kernel._build_cached.cache_clear()
+    kernel._preview_mesh_cache.clear();kernel._part_mesh_cache.clear()
+    kernel._live_local_shapes.clear()
 
 
 def parameter_parts(count=40):

@@ -421,7 +421,11 @@ class PCBWorkbench(QWidget):
             rows.append('가격/구매 소유 미확인: '+(', '.join(result['unpriced_component_refs']) or '없음'))
             rows.append('모듈 내부 모델 제외: '+str(result['excluded_internal_models']))
             rows.append('별도 비용 미입력: '+(', '.join(result['unknown_additional_costs']) or '없음')+' · 통화 자동 환산 없음')
-            rows.append('수량/품번 변경으로 사용하지 않은 이전 AI 추정: '+str(len(result['stale_ai_estimates'])))
+            rows.append('현재 제품·수량·견적 조건과 맞지 않아 사용하지 않은 이전 AI 추정: '+str(len(result['stale_ai_estimates'])))
+            for key,reason in sorted(result['stale_quantity_breaks'].items()):rows.append('사용하지 않은 단가표 · '+key+' · '+reason)
+            if result['stale_quantity_breaks']:rows.append('단가표는 제품과 견적의 통화·기준일·출처를 검토한 뒤 견적 조건에서 명시적으로 재연결하세요.')
+            for entry in result['stale_ai_estimates']:rows.append('사용하지 않은 AI 가격안 · '+', '.join(entry['row']['refs'])+' · '+entry['reason'])
+            if result['stale_ai_estimates']:rows.append('AI 가격안은 현재 조건으로 새로 생성한 뒤 미리보기에서 검토·채택하세요. 단가표 재연결로 AI 가격안을 복구하지 않습니다.')
             rows.extend(', '.join(row['refs'])+' · '+(row.get('mpn') or row.get('value') or '제품 미정')+f" · 필요 {row['required_quantity']} / 구매 {row['purchase_quantity']} · "+str(row.get('rounded_subtotal'))+' '+row['quote']['currency'] for row in result['rows'])
             self.bom_text.setPlainText('\n'.join(rows))
         except (ValueError,TypeError) as exc:self.error(exc)
@@ -945,7 +949,9 @@ class PCBWorkbench(QWidget):
         try:
             target=Path(path)
             if target.stat().st_size>2*1024*1024:raise ValueError('PCB 파일은 2 MiB 이하여야 합니다. / File too large.')
-            self.replace_project(PCBProject.model_validate_json(target.read_bytes()))
+            from ..pcb_compatibility import decode_compatible
+            data,_=decode_compatible(target.read_bytes(),expected_kind='pcb')
+            self.replace_project(PCBProject.model_validate(data))
         except (ValueError,OSError) as exc:self.error(exc)
 
     def export_file(self,kind):
@@ -954,7 +960,10 @@ class PCBWorkbench(QWidget):
         path,_=QFileDialog.getSaveFileName(self,'PCB 내보내기','board.'+suffix,filters)
         if not path:return
         try:
-            text=self.project.model_dump_json(indent=2) if kind=='pcb' else bom_csv(self.project) if kind=='bom' else spice_netlist(self.project)
+            if kind=='pcb':
+                from ..pcb_compatibility import encode_compatible
+                text,_=encode_compatible(self.project.model_dump(mode='json'),expected_kind='pcb')
+            else:text=bom_csv(self.project) if kind=='bom' else spice_netlist(self.project)
             Path(path).write_text(text,encoding='utf-8-sig' if kind=='bom' else 'utf-8');self.status.setText('내보내기 완료 · '+path)
         except (ValueError,OSError) as exc:self.error(exc)
 

@@ -104,6 +104,8 @@ class CostTierBinding(CostModel):
 class PCBCostInputs(CostModel):
     quantity_breaks: dict[Annotated[str,Field(min_length=1,max_length=120)],list[CostPriceTier]] = Field(default_factory=dict,max_length=128)
     quantity_break_bindings: dict[Annotated[str,Field(min_length=1,max_length=120)],CostTierBinding] = Field(default_factory=dict,max_length=128)
+    quantity_break_contexts: dict[Annotated[str,Field(min_length=1,max_length=120)],Annotated[str,Field(pattern=r'^[a-f0-9]{64}$')]] = Field(default_factory=dict,max_length=128)
+    accepted_ai_quote_contexts: dict[Annotated[str,Field(pattern=r'^[a-f0-9]{64}$')],Annotated[str,Field(pattern=r'^[a-f0-9]{64}$')]] = Field(default_factory=dict,max_length=128)
     additional_costs: dict[Literal['pcb_fabrication','assembly_consumables','shipping','tax_import'],CostRange] = Field(default_factory=dict,max_length=4)
     accepted_ai_estimates: list[CostAIRangeRow] = Field(default_factory=list,max_length=128)
     accepted_ai_bindings: dict[Annotated[str,Field(pattern=r'^[a-f0-9]{64}$')],
@@ -114,6 +116,8 @@ class PCBCostInputs(CostModel):
         data=_safe(handler(self))
         if not self.quantity_break_bindings:data.pop('quantity_break_bindings',None)
         if not self.accepted_ai_bindings:data.pop('accepted_ai_bindings',None)
+        if not self.quantity_break_contexts:data.pop('quantity_break_contexts',None)
+        if not self.accepted_ai_quote_contexts:data.pop('accepted_ai_quote_contexts',None)
         return data
 
     @model_validator(mode='after')

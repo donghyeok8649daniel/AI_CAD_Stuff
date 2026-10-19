@@ -21,6 +21,8 @@ def parse_startup_args(argv=None):
     parser.add_argument('--target-check-input',type=Path)
     parser.add_argument('--performance-check',type=Path)
     parser.add_argument('--role-performance-check',type=Path)
+    parser.add_argument('--performance-data-check',type=Path)
+    parser.add_argument('--performance-data-input',type=Path)
     parser.add_argument('--automatic-interference-check',type=Path)
     parser.add_argument('--common-app-check',type=Path)
     parser.add_argument('--motion-click-check',type=Path)
@@ -118,12 +120,20 @@ def parse_startup_args(argv=None):
     if args.print_batch_smoke and any(value for key,value in vars(args).items()
             if key not in ('print_batch_smoke','renderer','no_restore')):
         parser.error('--print-batch-smoke uses only its owned synthetic project; other startup actions are not supported.')
+    if args.performance_data_input and not args.performance_data_check:
+        parser.error('--performance-data-input requires --performance-data-check')
+    if args.performance_data_check and any(value for key,value in vars(args).items()
+            if key not in ('performance_data_check','performance_data_input','renderer','no_restore')):
+        parser.error('--performance-data-check does not permit other startup actions')
     return args
 
 def main():
+    args=parse_startup_args()
+    if args.performance_data_check:
+        from cadstudio.performance_data_check import run
+        return run(args.performance_data_check,args.performance_data_input)
     from cadstudio.windows_identity import APP_USER_MODEL_ID,set_windows_app_identity
     app_identity_set=set_windows_app_identity()
-    args=parse_startup_args()
     if args.install_canonical:
         from cadstudio.single_install import run_install_cli
         return run_install_cli(Path(sys.executable),args.install_canonical)

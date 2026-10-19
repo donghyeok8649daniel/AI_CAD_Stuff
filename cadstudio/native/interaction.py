@@ -91,6 +91,7 @@ class SelectionTools:
             self.geometry_selected.emit(identifier,self.selection_mode,record);self.message.emit(text);self.footer.setText(text);self.window.Render()
         return True
     def profile_at(self,x,y):
+        if not self.profile_actors:return None
         picker=vtkCellPicker();picker.SetTolerance(.004);picker.PickFromListOn()
         for actor in self.profile_actors:picker.AddPickList(actor)
         if picker.Pick(x,y,0,self.renderer):return picker.GetActor()

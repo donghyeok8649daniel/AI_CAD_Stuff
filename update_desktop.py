@@ -102,18 +102,26 @@ def restart(folder):
 
 
 def refresh_file_registration(folder, result):
-    """Keep an opted-in installation registered; never claim new defaults."""
+    """Report payload and .pcad route completion separately; preserve user choices."""
     if os.name != 'nt':
         return result
-    from cadstudio.file_associations import is_registered, register
+    from cadstudio.file_associations import refresh_owned_pcad_routes
     try:
         executable = require_canonical_executable(Path(folder) / EXE)
-        if is_registered(executable):
-            register(executable)
+        registration = refresh_owned_pcad_routes(executable)
+        result['registration'] = registration
+        result['registration_succeeded'] = True
+        result['pcad_routes_current'] = registration['pcad_routes_current']
+        if registration.get('file_association_warning'):
+            result['file_association_warning'] = registration['file_association_warning']
     except (OSError, ValueError, RuntimeError) as exc:
         # The release is already applied. An association failure must not turn
         # a successful file replacement into a failed update or a retry loop.
         result['file_association_warning'] = 'CAD 파일 연결 갱신을 완료하지 못했습니다. Install.ps1을 다시 실행하세요. ' + str(exc)
+        result['registration_succeeded'] = False
+        result['pcad_routes_current'] = False
+    result['payload_installed'] = True
+    result['installation_complete'] = result['registration_succeeded'] and result['pcad_routes_current']
     return result
 
 
@@ -227,7 +235,7 @@ def show_window(args):
                 elif message[0] == 'done':
                     state['running'] = False
                     progress['value'] = 100
-                    status.set(f'v{message[2]["version"]} 업데이트 완료. 이전 파일과 임시 다운로드를 정리했습니다.')
+                    status.set(f'v{message[2]["version"]} 앱 파일 업데이트 완료. 이전 파일과 임시 다운로드를 정리했습니다.')
                     if message[2].get('file_association_warning'):
                         status.set(status.get() + '\n' + message[2]['file_association_warning'])
                     action.configure(text='CAD 실행', state='normal', command=lambda: (restart(message[1]), root.destroy()))
@@ -291,6 +299,7 @@ def main():
                 args.report.write_text(json.dumps(result), encoding='utf-8')
             if args.restart:
                 restart(args.install_dir)
+            return 0 if result.get('installation_complete', True) else 3
         else:
             show_window(args)
     finally:

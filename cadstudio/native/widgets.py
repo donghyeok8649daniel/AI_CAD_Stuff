@@ -109,6 +109,7 @@ def clear_layout(layout):
 class WorkerSignals(QObject):
     done=Signal(object)
     failed=Signal(str)
+    progress=Signal(str)
 
 
 class Worker(QRunnable):

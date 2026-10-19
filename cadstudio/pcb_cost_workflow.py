@@ -21,19 +21,45 @@ def _purchase_identity(component):
     return hashlib.sha256(json.dumps(value,sort_keys=True,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
 
+
+def _context_digest(value):
+    return hashlib.sha256(json.dumps(value,sort_keys=True,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
+
+def _schedule_quote_context(row,tiers):
+    return _context_digest(dict(quote=row['quote'],tiers=[tier.model_dump(mode='json') for tier in tiers]))
+
+
+def _ai_quote_context(components,row,inputs):
+    keys=set(row.refs)|({row.mpn} if row.mpn else set())
+    return _context_digest(dict(
+        estimate=row.model_dump(mode='json'),
+        quotes={ref:components[ref].quote.model_dump(mode='json') for ref in row.refs},
+        tiers={key:[tier.model_dump(mode='json') for tier in tiers] for key,tiers in inputs.quantity_breaks.items() if key in keys}))
+
+
 def with_cost_inputs(project,inputs,*,rebind_quantity_breaks=False):
     p=PCBProject.model_validate(project)
     raw=p.model_dump(mode='json')
     if inputs is None:raw['budget']['cost_inputs']=None
     else:
         checked=PCBCostInputs.model_validate(inputs);old=read_cost_inputs(p)
-        bindings={};components={c.ref:c for c in p.components}
+        from .pcb_embedded import estimate_cost
+        bom=estimate_cost(p)['rows']
+        bindings={};contexts={};components={c.ref:c for c in p.components}
         for key in checked.quantity_breaks:
             if key in old.quantity_breaks and not rebind_quantity_breaks:
                 if key in old.quantity_break_bindings:bindings[key]=old.quantity_break_bindings[key].model_dump()
             elif key in components:
                 bindings[key]=dict(kind='ref',ref=key,purchase_identity_sha256=_purchase_identity(components[key]))
-        value=checked.model_dump(mode='json');value['quantity_break_bindings']=bindings
+            if key in old.quantity_breaks and not rebind_quantity_breaks:
+                if key in old.quantity_break_contexts:contexts[key]=old.quantity_break_contexts[key]
+            else:
+                matches=[row for row in bom if key==row['mpn'] or key in row['refs']]
+                if len(matches)==1:contexts[key]=_schedule_quote_context(matches[0],checked.quantity_breaks[key])
+        value=checked.model_dump(mode='json');value['quantity_break_bindings']=bindings;value['quantity_break_contexts']=contexts
+        ai_keys={_row_binding_key(row) for row in checked.accepted_ai_estimates}
+        value['accepted_ai_quote_contexts']={key:context for key,context in checked.accepted_ai_quote_contexts.items() if key in ai_keys}
         raw['budget']['cost_inputs']=PCBCostInputs.model_validate(value).model_dump(mode='json')
     return PCBProject.model_validate(raw)
 
@@ -76,6 +102,8 @@ def _saved_schedules(project,inputs):
                 stale[key]='Reference purchase identity changed; explicitly recheck and rebind this price schedule.'
         elif key in components:
             stale[key]='Reference price schedule has no confirmed purchase identity; explicit rebind required.'
+        if key not in stale and inputs.quantity_break_contexts.get(key)!=_schedule_quote_context(matches[0],rows):
+            stale[key]='Quote or tier currency/date/source context is missing or changed; explicitly review and rebind this schedule.'
         if key not in stale:schedules[key]=[row.model_dump(mode='json') for row in rows]
     return schedules,stale
 
@@ -91,6 +119,8 @@ def estimate_saved_cost(project,*,quantity_breaks=None,rounding='0.01'):
             binding=inputs.accepted_ai_bindings.get(_row_binding_key(row))
             if not binding or set(binding)!=set(row.refs) or any(ref not in components or _purchase_identity(components[ref])!=identity for ref,identity in binding.items()):
                 valid=False;reason='AI estimate purchase identity is missing or changed; a fresh proposal/adoption is required.'
+        if valid and inputs.accepted_ai_quote_contexts.get(_row_binding_key(row))!=_ai_quote_context(components,row,inputs):
+            valid=False;reason='AI estimate quote or saved-tier currency/date/source context is missing or changed; a fresh proposal/adoption is required.'
         if valid:eligible[_key(row)]=row
         else:stale.append(dict(row=row.model_dump(mode='json'),reason=reason))
     totals={};contributions=[];unpriced=[];used=[];unused=[];quantum=Decimal(str(rounding))
@@ -147,4 +177,7 @@ def adopt_cost_proposal(project,proposal):
     bindings=dict(inputs.accepted_ai_bindings);components={c.ref:c for c in p.components}
     for row in checked.rows:bindings[_row_binding_key(row)]={ref:_purchase_identity(components[ref]) for ref in row.refs}
     raw['accepted_ai_bindings']=bindings
+    contexts=dict(inputs.accepted_ai_quote_contexts)
+    for row in checked.rows:contexts[_row_binding_key(row)]=_ai_quote_context(components,row,inputs)
+    raw['accepted_ai_quote_contexts']=contexts
     return with_cost_inputs(p,raw)

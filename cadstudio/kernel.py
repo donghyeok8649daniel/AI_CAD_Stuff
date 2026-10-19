@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from threading import RLock
+from weakref import WeakValueDictionary
 
 import cadquery as cq
 from OCP.Bnd import Bnd_Box
@@ -18,8 +19,19 @@ from .sketch_engine import extrude_regions, sketch_status, projected_face
 
 KERNEL_LOCK = RLock()
 from .preview_cache import MeshCache
+from . import preview_quality
 _preview_mesh_cache = MeshCache()
+_part_mesh_cache = MeshCache(max_bytes=64*1024**2,max_entries=512,max_raw_bytes=16*1024**2)
 _local_shape_session = ContextVar('local_shape_session', default=None)
+_live_local_shapes = WeakValueDictionary()
+
+
+def set_preview_quality(value):
+    with KERNEL_LOCK:preview_quality.set_mode(value)
+
+
+def _mesh_key(design):
+    return sha256((preview_quality.mode()+'\0'+design.model_dump_json()).encode('utf-8')).digest()
 
 
 @contextmanager
@@ -258,7 +270,19 @@ def local_shape(design,part,_stack=()):
     cache = _local_shape_session.get()
     if cache is not None and key in cache:
         return cache[key]
-    shape = _part_cached(*key)
+    # Hash checked construction inputs, not native pointers or bounding boxes.
+    # The asset/tool hashes identify data already decoded/built above. Labels
+    # and world pose are handled separately by the display payload cache.
+    # A project-supplied SHA is not sufficient: changed bytes claiming an old
+    # SHA must miss this cache and reach decode_shape's integrity validation.
+    asset_key=(sha256(asset[0].encode('utf-8')).digest(),asset[1]) if asset else None
+    input_key=sha256(repr((key[0],asset_key,
+        tuple((identifier,value[1]) for identifier,value in tools))).encode('utf-8')).digest()
+    shape=_live_local_shapes.get(input_key)
+    if shape is None:
+        shape=_part_cached(*key)
+        shape._cadstudio_mesh_input_key=input_key
+        _live_local_shapes[input_key]=shape
     if cache is not None and len(cache) < 256:
         cache[key] = shape
     return shape
@@ -269,12 +293,19 @@ def _build_cached(canonical_json):
     design = Design.model_validate_json(canonical_json)
     shapes = []
     for p in design.parts:
-        s = local_shape(design,p)
+        local = s = local_shape(design,p)
         t = p.transform
         for angle, axis in [(t.rx, (1, 0, 0)), (t.ry, (0, 1, 0)), (t.rz, (0, 0, 1))]:
             if angle:
                 s = s.rotate((0, 0, 0), axis, angle)
-        shapes.append(s.translate((t.x, t.y, t.z)))
+        world=s.translate((t.x, t.y, t.z))
+        # The two bounded build-cache entries own their source geometry. The
+        # weak index itself owns nothing, so previous documents cannot create
+        # an unbounded native-shape cache. A small edit reuses the other parts.
+        world._cadstudio_local_shape=local
+        world._cadstudio_world_pose_key=p.transform.model_dump_json()
+        world._cadstudio_world_stamp=world.wrapped.Located(world.wrapped.Location())
+        shapes.append(world)
     return shapes
 
 
@@ -336,32 +367,72 @@ def _rigid_pose_shapes(base, base_shapes, current):
         return shapes
 
 
-def preview(design: Design):
+def preview(design: Design,*,progress=None,previous=None):
     with KERNEL_LOCK, local_shape_session():
+        if progress:progress(f'조립 형상 생성 · {len(design.parts)}개 부품')
         shapes = build(design)
+        previous_meshes={}
+        if previous is not None:
+            baseline,old_result=previous
+            from .preview_metadata import geometry_key
+            if baseline is not None and old_result is not None and old_result.get('_geometry_key')==geometry_key(baseline):
+                previous_meshes={mesh['id']:mesh for mesh in old_result.get('meshes',[])}
         # build still resolves current face references and assembly constraints.
         # Only display payload is reused; interference/readiness below stay live.
-        mesh_key = sha256(design.model_dump_json().encode('utf-8')).digest()
-        meshes = _preview_mesh_cache.get(mesh_key)
+        mesh_key = _mesh_key(design)
+        meshes = None if previous_meshes else _preview_mesh_cache.get(mesh_key)
         if meshes is None:
-            meshes = _preview_meshes(design, shapes)
-            _preview_mesh_cache.put(mesh_key, meshes)
-        return _preview_result(design, shapes, meshes)
+            meshes = _preview_meshes(design, shapes,progress=progress,previous_meshes=previous_meshes)
+            if not previous_meshes:_preview_mesh_cache.put(mesh_key, meshes)
+        return _preview_result(design, shapes, meshes,progress=progress)
 
 
-def _preview_meshes(design, shapes, check=lambda:None):
+def _preview_meshes(design, shapes, check=lambda:None,progress=None,previous_meshes=None):
+        quality=preview_quality.mode()
+        plan=[]
+        for part,shape in zip(design.parts,shapes):
+            check();local=local_shape(design,part)
+            input_key=getattr(local,'_cadstudio_mesh_input_key',None)
+            tolerance,angular=preview_quality.tolerances(quality,len(design.parts),part.geometry.kind)
+            part_key=(input_key,part.transform.model_dump_json(),tolerance,angular) if input_key is not None else None
+            plan.append((part,shape,local,part_key,tolerance,angular))
+        _part_mesh_cache.retain({row[3] for row in plan if row[3] is not None})
         meshes = []
-        for part, shape in zip(design.parts, shapes):
+        for part,shape,local,part_key,tolerance,angular in plan:
             check()
+            if progress:progress(f'화면용 메시 · {len(meshes)+1}/{len(plan)} · {part.name}')
             vertices,triangles,triangle_faces,face_info=[],[],[],[]
-            local=local_shape(design,part)
+            token=sha256(repr(part_key).encode('utf-8')).hexdigest() if part_key is not None else None
+            prior=(previous_meshes or {}).get(part.id)
+            # Native transactions opt into sharing immutable bulk arrays with
+            # their still-visible previous preview, avoiding a second assembly.
+            cached=dict(prior) if token is not None and prior is not None and prior.get('_display_input_key')==token else None
+            if cached is None:cached=_part_mesh_cache.get(part_key) if part_key is not None else None
+            if cached is not None:
+                # Cached trees are independent. Explicit previous-preview
+                # sharing owns a new metadata shell around read-only arrays.
+                cached.update(id=part.id,name=part.name,color=part.color,
+                    anchors=anchors(part.geometry),
+                    sketch_constraints=sketch_status(part.geometry) if part.geometry.kind=='extrusion' else None)
+                meshes.append(cached);continue
+            previous=getattr(shape,'_cadstudio_tessellation_settings',None)
+            if previous is not None and previous!=(tolerance,angular):
+                from OCP.BRepTools import BRepTools
+                # Remove only old display triangulation when switching modes.
+                # Topology, analytic surfaces and face order stay unchanged.
+                BRepTools.Clean_s(shape.wrapped)
+            shape._cadstudio_tessellation_settings=(tolerance,angular)
             local_faces=local.Faces()
             local_bounds=exact_bounds(local)
             for i,face in enumerate(shape.Faces()):
                 check()
-                vs,ts=face.tessellate(.04,.12)
-                start=len(vertices);vertices.extend(vs)
-                triangles.extend(tuple(idx+start for idx in tri) for tri in ts);triangle_faces.extend([i]*len(ts))
+                vs,ts=face.tessellate(tolerance,angular)
+                # Keep the final flat payload directly. Holding every native
+                # Vector and per-triangle tuple until the whole part finishes
+                # used several extra copies on imported, finely faceted parts.
+                start=len(vertices)//3
+                vertices.extend(round(c,7) for v in vs for c in v.toTuple())
+                triangles.extend(idx+start for tri in ts for idx in tri);triangle_faces.extend([i]*len(ts))
                 lf=local_faces[i]
                 info={"index":i,"planar":lf.geomType()=="PLANE"}
                 from .topology import face_reference
@@ -386,19 +457,24 @@ def _preview_meshes(design, shapes, check=lambda:None):
             from .advanced_geometry import edge_records
             pick_edges=edge_records(shape)
             meshes.append({
+                "_display_input_key":token,
                 "id": part.id, "name": part.name, "color": part.color,
-                "vertices": [round(c, 7) for v in vertices for c in v.toTuple()],
-                "triangles": [i for t in triangles for i in t],
+                "vertices": vertices,
+                "triangles": triangles,
                 "pick_edges":pick_edges,"pick_vertices":[list(v.Center().toTuple()) for v in shape.Vertices()],
                 "triangle_faces":triangle_faces,"faces":face_info,"anchors":anchors(part.geometry),"sketch_constraints":sketch_info,
                 "volume": shape.Volume() if shape.Solids() else 0, "area": shape.Area(), "valid": shape.isValid(),
                 "solid":bool(shape.Solids()),
                 "bounds": [bb.xlen, bb.ylen, bb.zlen],
             })
+            if part_key is not None:
+                # Do not let an over-budget sequential scan evict the very
+                # same live parts just before their turn (LRU scan thrashing).
+                check();_part_mesh_cache.put(part_key,meshes[-1],evict=False)
         return meshes
 
 
-def _preview_result(design, shapes, meshes, *, checked_collisions=None, check=lambda:None):
+def _preview_result(design, shapes, meshes, *, checked_collisions=None, check=lambda:None,progress=None):
         from .native.saved_sketches import preview_sketches
         saved_sketches = preview_sketches(design)
         points = [p for sketch in saved_sketches for row in sketch['lines'] for p in row]
@@ -412,11 +488,20 @@ def _preview_result(design, shapes, meshes, *, checked_collisions=None, check=la
         from .interference import exact_collisions
         from .collision_policy import collision_exclusion_stats
         check()
-        collisions = exact_collisions(design, shapes, check=check) if checked_collisions is None else checked_collisions
+        if checked_collisions is None and progress:
+            total=len(shapes)*(len(shapes)-1)//2;count=0
+            progress(f'간섭 검사 · 0/{total}쌍')
+            def completed():
+                nonlocal count
+                count+=1
+                if count%1024==0 or count==total:progress(f'간섭 검사 · {count}/{total}쌍')
+            collisions=exact_collisions(design,shapes,check=check,completed=completed)
+        else:collisions = exact_collisions(design, shapes, check=check) if checked_collisions is None else checked_collisions
         check()
         from .joint_readiness import joint_readiness
         from .preview_metadata import geometry_key
-        return {"_geometry_key":geometry_key(design),"meshes": meshes, "sketches": saved_sketches, "stats": {
+        if progress:progress('조립 구속 · 관절 지지 형상 확인 중')
+        return {"_geometry_key":geometry_key(design),"_display_quality":preview_quality.mode(),"meshes": meshes, "sketches": saved_sketches, "stats": {
             "valid": all(m["valid"] for m in meshes), "parts": len(shapes),
             "volume": sum(m["volume"] for m in meshes),
             "bounds": [b-a for a,b in zip(minimum,maximum)],
@@ -441,13 +526,14 @@ def export(design: Design, destination: Path, fmt: str):
                 assembly.add(shape, name=part.id, color=cq.Color(*rgb))
             assembly.export(str(destination), "STEP")
         else:
-            cq.exporters.export(cq.Compound.makeCompound(shapes), str(destination), exportType="STL", tolerance=0.025, angularTolerance=0.1)
+            from .mesh_export import export_stl
+            export_stl(shapes,destination)
 
 
 def _preview_same_checked_pose(design, shapes, checked_raw, collisions, check):
     if design.model_dump()!=checked_raw:raise ValueError('이미 검사한 미리보기 자세가 바뀌었습니다.')
     check()
-    mesh_key=sha256(design.model_dump_json().encode('utf-8')).digest()
+    mesh_key=_mesh_key(design)
     meshes=_preview_mesh_cache.get(mesh_key)
     if meshes is None:
         meshes=_preview_meshes(design,shapes,check=check)

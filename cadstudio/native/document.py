@@ -4,14 +4,65 @@ from datetime import datetime,timezone
 import json
 import os
 from pathlib import Path
+from typing import Annotated
 from uuid import uuid4
-from pydantic import TypeAdapter
+from pydantic import BeforeValidator,TypeAdapter,ValidationError
 from ..models import Design,Project,HistoryChange
 from ..history import apply_changes
 
 
 MAX_PROJECT_READ_BYTES=512*1024*1024
 _PROJECT_JSON=TypeAdapter(Project)
+
+
+def _atomic_project_write(path,data,publish=None):
+    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    temp=path.with_suffix('.'+uuid4().hex+'.tmp')
+    try:
+        with temp.open('xb') as stream:
+            stream.write(data);stream.flush();os.fsync(stream.fileno())
+        if publish is None:os.replace(temp,path)
+        else:return publish(temp,path)
+    finally:
+        try:temp.unlink(missing_ok=True)
+        except OSError:pass  # Preserve the original write/replace failure.
+    return True
+
+
+def _project_payload_preflight(payload):
+    # Pydantic has decoded this JSON object once. Inspect that same raw tree
+    # before constructing models; do not decode or validate a second time.
+    from ..pcb_compatibility import preflight,CURRENT_PROFILE,PCBCompatibilityError
+    report=preflight(payload,CURRENT_PROFILE)
+    if not report['compatible']:raise PCBCompatibilityError(report)
+    return payload
+
+
+_PROJECT_READ_JSON=TypeAdapter(Annotated[Project,BeforeValidator(_project_payload_preflight)])
+
+
+def _plain_json_tree(value):
+    # Public Journal callers may supply tuples, custom containers or shared
+    # references. Path copying must not change their deepcopy semantics.
+    # This is an optimization budget, not a project acceptance limit.
+    pending=[iter((value,))];seen=set();remaining=100_000
+    while pending:
+        try:item=next(pending[-1])
+        except StopIteration:
+            pending.pop();continue
+        remaining-=1
+        if remaining<0:return False
+        kind=type(item)
+        if kind in (dict,list):
+            identifier=id(item)
+            if identifier in seen:return False
+            seen.add(identifier)
+            if kind is dict:
+                if any(type(key) is not str for key in item):return False
+                pending.append(iter(item.values()))
+            else:pending.append(iter(item))
+        elif kind not in (str,int,float,bool,type(None)):return False
+    return True
 
 
 def differences(before,after,path=()):
@@ -52,8 +103,11 @@ class Journal:
     def at(self,identifier):
         if identifier in self.cache:return deepcopy(self.cache[identifier])
         data=deepcopy(self.data['base'])
+        path_copy=type(data) in (dict,list) and _plain_json_tree(data)
         for entry in self.path(identifier):
-            data=apply_changes(data,[HistoryChange.model_validate(c) for c in entry['changes']])
+            changes=[HistoryChange.model_validate(c) for c in entry['changes']]
+            path_copy=path_copy and all(_plain_json_tree(change.after) for change in changes)
+            data=apply_changes(data,changes,_path_copy=path_copy)
         self.cache[identifier]=data
         if len(self.cache)>8:self.cache.pop(next(iter(self.cache)))
         return deepcopy(data)
@@ -99,7 +153,14 @@ class Document:
         before=deepcopy(self.design if self.design is not None else context.get('journal_base'))
         if before is None:raise ValueError('AI 작업 기록의 시작 설계가 없습니다.')
         Design.model_validate(before)
-        journal=Journal(data=self.journal.data) if self.journal else Journal(before,'설계 시작',context=common)
+        if self.journal:
+            # Saved records/base are append-only here. Give the candidate its
+            # own cursor/head dictionary, entries list, index and cache without
+            # cloning every historical geometry/context payload. The default
+            # public Journal(data=...) constructor still owns a deep copy.
+            candidate={**self.journal.data,'entries':list(self.journal.data['entries'])}
+            journal=Journal(data=candidate,_owned_data=True)
+        else:journal=Journal(before,'설계 시작',context=common)
         for row in context['journal_steps']:
             action=row['action'];changes=[HistoryChange.model_validate(c) for c in row['changes']]
             after=apply_changes(before,changes)
@@ -109,7 +170,10 @@ class Document:
             before=after
         if before!=data:raise ValueError('AI 작업 기록과 최종 설계가 다릅니다. 다시 생성하세요.')
         # No mutation before the entire sequence and final snapshot match.
-        self.journal=journal;self.design=deepcopy(data);self.dirty=True
+        # Allocate the final snapshot before publishing either state. If this
+        # copy raises (for example MemoryError), keep the old design AND journal.
+        final_design=deepcopy(data)
+        self.journal=journal;self.design=final_design;self.dirty=True
 
     def _history_bound_context(self,context):
         if context and '_ai_history_binding' in context:
@@ -120,27 +184,31 @@ class Document:
 
     def load(self,project,path=None):
         project=project if isinstance(project,Project) else Project.model_validate(project)
-        self.design=project.design.model_dump();self.prompt=project.prompt
+        design=project.design.model_dump();prompt=project.prompt
         # model_dump owns fresh JSON containers. A second complete copy of the
         # large embedded history adds no isolation; standalone Journal callers
         # still get an independent copy by default.
-        self.journal=Journal(data=project.history.model_dump(),_owned_data=True) if project.history else Journal(self.design,'프로젝트 가져오기',context={'source':'import'})
-        self.path=Path(path) if path else None;self.dirty=False
+        journal=Journal(data=project.history.model_dump(),_owned_data=True) if project.history else Journal(design,'프로젝트 가져오기',context={'source':'import'})
+        resolved_path=Path(path) if path else None
+        # Keep the currently open document intact if validation, allocation or
+        # path conversion fails while constructing the incoming state.
+        self.design=design;self.prompt=prompt;self.journal=journal;self.path=resolved_path;self.dirty=False
 
     def write(self,path,*,autosave=False):
-        path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+        path=Path(path)
         # Pydantic emits compact UTF-8 bytes directly: keep every history step
         # and embedded asset without an indented string or a second encoding.
         data=_PROJECT_JSON.dump_json(self.project())
-        temp=path.with_suffix('.'+uuid4().hex+'.tmp')
-        try:
-            with temp.open('xb') as stream:
-                stream.write(data);stream.flush();os.fsync(stream.fileno())
-            os.replace(temp,path)
-        finally:
-            try:temp.unlink(missing_ok=True)
-            except OSError:pass  # Preserve the original write/replace failure.
+        _atomic_project_write(path,data)
         if not autosave:self.path=path;self.dirty=False
+
+    def autosave_snapshot(self):
+        """Own just the persisted state, without replaying history on the UI thread."""
+        snapshot=Document()
+        state=deepcopy(dict(design=self.design,history=self.journal.data if self.journal else None,prompt=self.prompt))
+        snapshot.design=state['design'];snapshot.prompt=state['prompt']
+        if state['history'] is not None:snapshot.journal=Journal(data=state['history'],_owned_data=True)
+        return snapshot
 
 
 def resolve_project_path(path):
@@ -166,4 +234,12 @@ def read_project(path,*,max_bytes=MAX_PROJECT_READ_BYTES):
     with path.open('rb') as stream:
         data=stream.read() if max_bytes is None else stream.read(max_bytes+1)
     check_size(len(data))
-    return Project.model_validate_json(data.removeprefix(b'\xef\xbb\xbf'))
+    try:return _PROJECT_READ_JSON.validate_json(data.removeprefix(b'\xef\xbb\xbf'))
+    except ValidationError as exc:
+        # BeforeValidator wraps ValueErrors. Preserve the machine-readable
+        # compatibility report without parsing or running validation again.
+        from ..pcb_compatibility import PCBCompatibilityError
+        for error in exc.errors(include_url=False,include_input=False):
+            original=error.get('ctx',{}).get('error')
+            if isinstance(original,PCBCompatibilityError):raise original from exc
+        raise

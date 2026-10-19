@@ -40,7 +40,9 @@ def export_parts(raw, identifiers, destination, formats=('step','stl'), placemen
                         name=base+'.'+fmt;path=Path(scratch)/name
                         if fmt=='step':
                             a=cq.Assembly();a.add(shape,name=part.id,color=cq.Color(*[int(part.color[i:i+2],16)/255 for i in (1,3,5)]));a.export(str(path),'STEP')
-                        else:cq.exporters.export(shape,str(path),exportType='STL',tolerance=.025,angularTolerance=.1)
+                        else:
+                            from .mesh_export import export_stl
+                            export_stl([shape],path)
                         archive.write(path,name);names.append(name)
                     manifest['parts'].append(dict(id=part.id,name=part.name,files=names,source_transform=part.transform.model_dump(),volume_mm3=shape.Volume()))
                 archive.writestr('parts.json',json.dumps(manifest,ensure_ascii=False,indent=2))

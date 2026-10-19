@@ -8,7 +8,7 @@ import vtkmodules.qt
 vtkmodules.qt.PyQtImpl='PySide6'
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 from vtkmodules.vtkCommonCore import vtkPoints,vtkIdList
-from vtkmodules.vtkCommonDataModel import vtkPolyData,vtkCellArray
+from vtkmodules.vtkCommonDataModel import vtkPolyData,vtkCellArray,vtkStaticCellLocator
 from vtkmodules.vtkRenderingCore import vtkRenderer,vtkActor,vtkPolyDataMapper,vtkCellPicker,vtkTextActor,vtkLightKit
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
 from vtkmodules.vtkInteractionWidgets import vtkOrientationMarkerWidget
@@ -297,22 +297,42 @@ class CADViewport(QWidget,SelectionTools):
 
     def load(self,result,fit=True):
         from .display_overrides import surviving_opacities
+        retained={}
+        for mesh in (result or {}).get('meshes',[]):
+            old=self.meshes.get(mesh['id'])
+            if old is not None and old['vertices'] is mesh['vertices'] and old['triangles'] is mesh['triangles'] and mesh['id'] in self.actors:
+                retained[mesh['id']]=self.actors[mesh['id']]
+        old_locators=getattr(self,'pick_locators',{})
         self.part_opacities=surviving_opacities(getattr(self,'part_opacities',{}),
             [m['id'] for m in result['meshes']] if result else [])
-        self._selection_styles={}
+        self._selection_styles={};self.pick_locators={pair[0]:old_locators[pair[0]] for pair in retained.values() if pair[0] in old_locators}
         for actor in self.edge_candidates:self.renderer.RemoveActor(actor)
         self.edge_candidates={}
-        for data in self.actors.values():
-            for actor in data:self.renderer.RemoveActor(actor)
+        for identifier,data in self.actors.items():
+            if identifier not in retained:
+                for actor in data:self.renderer.RemoveActor(actor)
         for actor in [*self.sketch_actors,*self.profile_actors,*self.pick_objects]:self.renderer.RemoveActor(actor)
         self.profile_actors={};self.pick_objects={};self.hovered_profile=None
-        self.sketch_actors={};self.actors={};self.actor_ids={};self.meshes={};self.clear_face();self.result=result
+        self.sketch_actors={};self.actors=retained;self.actor_ids={pair[0]:identifier for identifier,pair in retained.items()};self.meshes={};self.clear_face();self.result=result
         if result:
             for mesh in result['meshes']:
-                self.meshes[mesh['id']]=mesh;data=polydata(mesh['vertices'],mesh['triangles'])
+                self.meshes[mesh['id']]=mesh
+                if mesh['id'] in retained:
+                    actor,edge_actor=retained[mesh['id']];color=tuple(int(mesh['color'][i:i+2],16)/255 for i in (1,3,5))
+                    actor.GetProperty().SetColor(*color);opacity=self.part_opacities.get(mesh['id'],1.)
+                    actor.GetProperty().SetOpacity(opacity);edge_actor.GetProperty().SetOpacity(opacity)
+                    continue
+                data=polydata(mesh['vertices'],mesh['triangles'])
                 normals=vtkPolyDataNormals();normals.SetInputData(data);normals.SetFeatureAngle(35);normals.SplittingOn();normals.ConsistencyOn();normals.AutoOrientNormalsOn()
                 mapper=vtkPolyDataMapper();mapper.SetInputConnection(normals.GetOutputPort());mapper.ScalarVisibilityOff()
+                # A cell picker otherwise linearly scans the same triangles at
+                # each click/zoom. Keep one index for the actual mapper input;
+                # small meshes need no index or additional allocation.
+                if len(mesh['triangles'])//3>=2000:
+                    normals.Update();locator=vtkStaticCellLocator();locator.SetDataSet(normals.GetOutput());locator.BuildLocator()
+                else:locator=None
                 actor=vtkActor();actor.SetMapper(mapper);color=tuple(int(mesh['color'][i:i+2],16)/255 for i in [1,3,5]);actor.GetProperty().SetColor(*color);actor.GetProperty().SetSpecular(.18);actor.GetProperty().SetSpecularPower(28);actor.GetProperty().SetAmbient(.24);actor.GetProperty().SetDiffuse(.76)
+                if locator is not None:self.pick_locators[actor]=locator
                 edges=vtkFeatureEdges();edges.SetInputData(data);edges.BoundaryEdgesOn();edges.FeatureEdgesOn();edges.ManifoldEdgesOff();edges.NonManifoldEdgesOff();edges.SetFeatureAngle(28)
                 edge_mapper=vtkPolyDataMapper();edge_mapper.SetInputConnection(edges.GetOutputPort());edge_mapper.ScalarVisibilityOff();edge_actor=vtkActor();edge_actor.SetMapper(edge_mapper);edge_actor.GetProperty().SetColor(.19,.29,.34);edge_actor.GetProperty().SetLineWidth(1);edge_actor.PickableOff();edge_actor.SetVisibility(self.show_edges)
                 for a in [actor,edge_actor]:self.renderer.AddActor(a)
@@ -332,6 +352,8 @@ class CADViewport(QWidget,SelectionTools):
                     actor=vtkActor();actor.SetMapper(mapper);actor.GetProperty().SetColor(.2,.85,.72);actor.GetProperty().SetOpacity(.07);self.renderer.AddActor(actor);self.profile_actors[actor]=(sketch['id'],region['index'])
             self.make_grid(max(result['stats']['bounds'])*1.2)
             s=result['stats'];self.caption.setText(f"{s['parts']}개 부품   ·   {' × '.join(f'{n:.2f}' for n in s['bounds'])} mm   ·   {s['volume']:,.2f} mm³")
+            quality={'auto':'자동','fine':'정밀','fast':'빠름'}.get(result.get('_display_quality','fine'),'정밀')
+            self.caption.setText(self.caption.text()+'   ·   표시 '+quality)
             if result.get('sketches'):self.caption.setText(self.caption.text()+f"   ·   스케치 {len(result['sketches'])}개")
             if s['assembly_constraints']['mates']:self.caption.setText(self.caption.text()+f"   ·   조립 자유도 {s['assembly_constraints']['dof']}")
             collision_text=collision_caption(s)
@@ -356,7 +378,7 @@ class CADViewport(QWidget,SelectionTools):
 
     def pick(self,x,y,additive=False,body=False):
         if additive or body:
-            picker=vtkCellPicker();picker.SetTolerance(.004);picker.PickFromListOn()
+            picker=self.body_picker();picker.SetTolerance(.004);picker.PickFromListOn()
             for actor,identifier in self.actor_ids.items():
                 if identifier not in self.hidden:picker.AddPickList(actor)
             identifier=self.actor_ids.get(picker.GetActor()) if picker.Pick(x,y,0,self.renderer) else None
@@ -374,7 +396,7 @@ class CADViewport(QWidget,SelectionTools):
             actor=self.profile_at(x,y)
             if actor in self.profile_actors:
                 sid,index=self.profile_actors[actor];self.clear_face();self.profile_selected.emit(sid,index);self.message.emit(f'스케치 영역 {index+1} 선택 · E: 3D 돌출');return
-        picker=vtkCellPicker();picker.SetTolerance(.004);picker.PickFromListOn()
+        picker=self.body_picker();picker.SetTolerance(.004);picker.PickFromListOn()
         for actor in (self.sketch_actors if self.selection_mode=='sketch' else self.actor_ids):picker.AddPickList(actor)
         if self.selection_mode=='auto':
             for actor in self.sketch_actors:picker.AddPickList(actor)
@@ -419,6 +441,12 @@ class CADViewport(QWidget,SelectionTools):
 
     def select(self,identifier,render=True):
         self.select_many([identifier] if identifier else [],render)
+
+    def body_picker(self):
+        picker=vtkCellPicker()
+        for actor,locator in getattr(self,'pick_locators',{}).items():
+            if actor.GetVisibility():picker.AddLocator(locator)
+        return picker
 
     def select_many(self,identifiers,render=True):
         self.selected_ids=list(identifiers);self.selected=identifiers[-1] if identifiers else None
@@ -524,7 +552,7 @@ class CADViewport(QWidget,SelectionTools):
 
     def zoom_at_cursor(self,position,factor):
         from .navigation import zoom_camera
-        picker=vtkCellPicker();picker.SetTolerance(.002);picker.PickFromListOn()
+        picker=self.body_picker();picker.SetTolerance(.002);picker.PickFromListOn()
         for identifier,(actor,_) in self.actors.items():
             if identifier not in self.hidden:picker.AddPickList(actor)
         anchor=picker.GetPickPosition() if picker.Pick(*position,0,self.renderer) else None

@@ -5,11 +5,36 @@ are reported separately: a retained union/intersection tool is a reference body.
 This is discrete pose checking, not continuous swept-volume certification.
 """
 from copy import deepcopy
+from collections import OrderedDict
 import math
 
 from .models import Design
 
 VOLUME_EPS = 1e-5
+_collision_cache=OrderedDict()
+COLLISION_CACHE_LIMIT=8192
+
+
+def _checked_shape_key(part,shape):
+    local=getattr(shape,'_cadstudio_local_shape',None)
+    key=getattr(local,'_cadstudio_mesh_input_key',None)
+    pose=part.transform.model_dump_json()
+    stamp=getattr(shape,'_cadstudio_world_stamp',None)
+    if (key is None or pose!=getattr(shape,'_cadstudio_world_pose_key',None)
+            or stamp is None or not shape.wrapped.IsEqual(stamp)):return None
+    return key,pose
+
+
+def _intersection_volume(a,b):
+    # Each operation has only two operands. OCCT's per-Boolean parallel work
+    # pools consumed large temporary allocations for threaded/imported bodies.
+    # Keep CadQuery's exact operation, operands and tolerance; serialize this
+    # operation rather than changing collision scope or meshing solids.
+    import cadquery as cq
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
+    args=a if isinstance(a,cq.Compound) else (a,)
+    operation=BRepAlgoAPI_Common();operation.SetUseOBB(True);operation.SetNonDestructive(True)
+    return a._bool_op(args,(b,),operation,parallel=False).Volume()
 
 
 def exact_collisions(design, shapes=None, check=lambda: None, *, completed=lambda:None):
@@ -20,6 +45,7 @@ def exact_collisions(design, shapes=None, check=lambda: None, *, completed=lambd
         bounds = [exact_bounds(s) for s in shapes]
         solids = [bool(s.Solids()) for s in shapes]
         excluded = set(flexible_wire_part_ids(design))
+        shape_keys=[_checked_shape_key(part,shape) for part,shape in zip(design.parts,shapes)]
         collisions = []
         for i, a in enumerate(shapes):
             for j in range(i + 1, len(shapes)):
@@ -35,9 +61,16 @@ def exact_collisions(design, shapes=None, check=lambda: None, *, completed=lambd
                            max(getattr(ba, k+'min'), getattr(bb, k+'min')) > 1e-5 for k in 'xyz'):
                     completed()
                     continue
-                volume = a.intersect(shapes[j]).Volume()
+                key=(shape_keys[i],shape_keys[j]) if shape_keys[i] is not None and shape_keys[j] is not None else None
+                if key is not None and key in _collision_cache:
+                    volume=_collision_cache[key];_collision_cache.move_to_end(key)
+                else:
+                    volume = _intersection_volume(a,shapes[j])
                 if not math.isfinite(volume):
                     raise ValueError('간섭 체적을 계산하지 못했습니다. 형상을 확인하세요.')
+                if key is not None:
+                    _collision_cache[key]=volume
+                    while len(_collision_cache)>COLLISION_CACHE_LIMIT:_collision_cache.popitem(last=False)
                 if volume > VOLUME_EPS:
                     collisions.append(dict(a=design.parts[i].id, b=design.parts[j].id, volume=volume))
                 completed()

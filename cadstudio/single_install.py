@@ -242,10 +242,16 @@ def run_install_cli(executable,report):
         target=canonical_install_dir()
         result=install_canonical(Path(executable).parent,target,closed_callback=windows_closed_guard(executable))
         canonical=require_canonical_executable(target/U.EXE)
-        from .file_associations import register
-        try:result['registration']=register(canonical);result['registration_succeeded']=True
+        from .file_associations import refresh_owned_pcad_routes
+        try:
+            registration=refresh_owned_pcad_routes(canonical)
+            result['registration']=registration;result['registration_succeeded']=True
+            result['pcad_routes_current']=registration['pcad_routes_current']
+            if registration.get('file_association_warning'):result['file_association_warning']=registration['file_association_warning']
         except (OSError,ValueError,RuntimeError) as exc:
-            result['registration_succeeded']=False;result['file_association_warning']=str(exc)
+            result['registration_succeeded']=False;result['pcad_routes_current']=False;result['file_association_warning']=str(exc)
+        result['payload_installed']=True
+        result['installation_complete']=result['registration_succeeded'] and result['pcad_routes_current']
     except (OSError,ValueError,RuntimeError) as exc:result=dict(success=False,error=str(exc))
     with report.open('x',encoding='utf-8') as stream:json.dump(result,stream,ensure_ascii=False,indent=2)
-    return 0 if result.get('success') else 2
+    return (0 if result.get('installation_complete') else 3) if result.get('success') else 2

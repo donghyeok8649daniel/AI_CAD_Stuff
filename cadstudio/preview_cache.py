@@ -44,7 +44,13 @@ class MeshCache:
         self.items.move_to_end(key);self.hits+=1
         return result
 
-    def put(self,key,meshes):
+    def retain(self,keys):
+        """Discard only payloads outside the current checked working set."""
+        for key in list(self.items):
+            if key not in keys:
+                packed,_=self.items.pop(key);self.bytes-=len(packed)
+
+    def put(self,key,meshes,*,evict=True):
         try:
             with _BoundedBuffer(self.max_raw_bytes) as stream:
                 pickle.Pickler(stream,protocol=5).dump(meshes)
@@ -52,6 +58,9 @@ class MeshCache:
                 size=stream.tell()
         except (MemoryError,_TooLarge):return False
         if len(packed)>self.max_bytes or self.max_entries<1:return False
+        previous=self.items.get(key)
+        if not evict and (self.bytes-(len(previous[0]) if previous else 0)+len(packed)>self.max_bytes
+                or len(self.items)-(1 if previous else 0)>=self.max_entries):return False
         old=self.items.pop(key,None)
         if old:self.bytes-=len(old[0])
         while self.items and (len(self.items)>=self.max_entries or self.bytes+len(packed)>self.max_bytes):

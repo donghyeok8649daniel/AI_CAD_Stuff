@@ -69,7 +69,8 @@ def export_print_stl(prepared, destination, *, tolerance=.025, cancelled=None):
         with KERNEL_LOCK:
             shapes=build(prepared)
             if not shapes or any(not s.isValid() or not s.Solids() for s in shapes):raise ValueError('유효한 출력 솔리드가 필요합니다.')
-            cq.exporters.export(cq.Compound.makeCompound(shapes),str(temporary),exportType='STL',tolerance=tolerance,angularTolerance=.1)
+            from .mesh_export import export_stl
+            export_stl(shapes,temporary,tolerance=tolerance)
         _check_cancel(cancelled)
         os.replace(temporary,target)
     finally:temporary.unlink(missing_ok=True)
@@ -627,7 +628,8 @@ def export_print_stls(plates, results, destination, *, tolerance=.025, cancelled
                         occupied.append(rect)
                     name = f'plate-{index + 1:03d}.stl'
                     path = Path(scratch) / name
-                    cq.exporters.export(cq.Compound.makeCompound(shapes), str(path), exportType='STL', tolerance=tolerance, angularTolerance=.1)
+                    from .mesh_export import export_stl
+                    export_stl(shapes,path,tolerance=tolerance)
                     _check_cancel(cancelled)
                     archive.write(path, name)
                     manifest['plates'].append(dict(index=index, file=name, sha256=hashlib.sha256(path.read_bytes()).hexdigest(),

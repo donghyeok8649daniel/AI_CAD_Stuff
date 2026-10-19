@@ -8,10 +8,11 @@ import sys
 import time
 from pathlib import Path
 from uuid import uuid4
-from PySide6.QtCore import Qt,QTimer,QThreadPool,QSize,Slot,QSignalBlocker
+from PySide6.QtCore import Qt,QTimer,QThreadPool,QSize,Slot,QSignalBlocker,QEventLoop
 from PySide6.QtGui import QAction,QActionGroup,QKeySequence,QColor,QIcon
 from PySide6.QtWidgets import (QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QDockWidget,QTreeWidget,QTreeWidgetItem,QTreeWidgetItemIterator,QListWidget,QListWidgetItem,QAbstractItemView,QStackedWidget,QScrollArea,QToolBar,QToolButton,QMenu,QLineEdit,QComboBox,QCheckBox,QPlainTextEdit,QFileDialog,QMessageBox,QDialog,QDialogButtonBox,QColorDialog,QProgressBar,QLabel,QSplitter,QInputDialog,QLayout)
 from .document import Document,read_project,resolve_project_path
+from .autosave import AutosaveQueue
 from .widgets import icon,number,label,button,clear_layout,Worker
 from .viewport import CADViewport
 from .sketch import SketchEditor,combo
@@ -42,6 +43,9 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.selected_joint=None;self.selected_feature=None
         self.document=Document();self.result=None;self.selected=None;self.selected_parts=[];self.selected_sketch=None;self.selected_profile=None;self.busy=False;self.worker=None;self.sketching=False;self.joint_picks=None;self.last_draft=None;self.ai_task=None;self.ai_stage='';self.ai_started=0;self.data_dir=DATA_DIR;self.data_dir.mkdir(parents=True,exist_ok=True);self.autosave=self.data_dir/'native-autosave.pcad';self.operation_serial=0
         self.load_role_color_settings()
+        from .. import preview_quality
+        from ..kernel import set_preview_quality
+        set_preview_quality(preview_quality.load(self.data_dir/'preview-quality.json'))
         from .i18n import install_language
         self.language_service=install_language(self.data_dir/'ui-settings.json')
         from .notifications import CompletionNotifier
@@ -50,6 +54,8 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.actions={};brand=QLabel('PROMPT  /  CAD');brand.setStyleSheet('color:#76d5c2;font-size:11px;font-weight:600;padding:0 14px;');self.menuBar().setCornerWidget(brand,Qt.Corner.TopRightCorner);self.make_menus();self.make_toolbar();self.make_browser();self.make_properties();self.make_timeline();self.make_ai()
         self.progress=QProgressBar();self.progress.setRange(0,0);self.progress.setFixedWidth(140);self.progress.setMaximumHeight(12);self.progress.hide();self.statusBar().addPermanentWidget(self.progress);self.statusBar().addPermanentWidget(QLabel(f'  mm  ·  NATIVE {__version__}  '));self.message('새 스케치에서 시작하거나 부품을 추가하세요.');self.rebuild_tree();self.show_properties();self.title()
         self.ai_timer=QTimer(self);self.ai_timer.setInterval(500);self.ai_timer.timeout.connect(self.ai_tick)
+        self.autosave_queue=AutosaveQueue(self.autosave)
+        self.autosave_timer=QTimer(self);self.autosave_timer.setInterval(500);self.autosave_timer.timeout.connect(self.autosave_status);self.autosave_timer.start()
         self.ai_status_button=button('AI 생성 취소',self.cancel_ai);self.ai_status_button.hide();self.statusBar().addPermanentWidget(self.ai_status_button)
         if os.getenv('CADSTUDIO_RENDERER')=='software':
             self.graphics_status=button('소프트웨어 3D · 안정 모드',self.graphics_diagnostics)
@@ -151,6 +157,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             a=self.action(key,title,lambda checked,k=key:self.toggle_display(k,checked));a.setCheckable(True);a.setChecked(True);view.addAction(a)
         language=view.addMenu('언어 / Language');group=QActionGroup(self);group.setExclusive(True)
         view.addAction(self.action('display_style','격자 · 축 색상 / 밝기 / 선 굵기…',self.display_style_dialog))
+        view.addAction(self.action('preview_quality','3D 표시 품질 · 대형 조립품 최적화…',self.preview_quality_dialog))
         notify=self.action('ai_notifications','AI 설계 완료 알림',lambda:None);notify.setCheckable(True);notify.setChecked(self.completion_notifier.enabled);notify.toggled.connect(self.completion_notifier.set_enabled);view.addAction(notify)
         for code,title in [('ko','한국어'),('en','English')]:
             a=language.addAction(title);a.setCheckable(True);a.setChecked(self.language_service.language==code);group.addAction(a);a.triggered.connect(lambda checked,c=code:self.change_language(c))
@@ -1312,7 +1319,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         elif self.workspace.currentData()=='pcb' and not self.sketching:self.refresh_pcb_workspace()
         self.refresh_wiring_diagram()
     def about_dialog(self):
-        QMessageBox.about(self,APP_NAME,f'Prompt CAD Studio v{__version__}\n{__build_id__}\nLocal integration candidate · not a public release\nWindows native CAD · Qt / VTK / Open CASCADE\n\nUnits: mm\nProject + history: .pcad (legacy .cad.json supported)\nDirect geometry export: STEP / STL\nF3D: requires Fusion · IPT: requires Inventor\nAutodesk conversion transfers geometry, not the feature timeline.')
+        QMessageBox.about(self,APP_NAME,f'Prompt CAD Studio v{__version__}\n{__build_id__}\nApplication build · see release validation for verified scope\nWindows native CAD · Qt / VTK / Open CASCADE\n\nUnits: mm\nProject + history: .pcad (legacy .cad.json supported)\nDirect geometry export: STEP / STL\nF3D: requires Fusion · IPT: requires Inventor\nAutodesk conversion transfers geometry, not the feature timeline.')
     def change_language(self,code):
         try:self.language_service.set_language(code)
         except OSError:self.show_error('언어 설정을 저장하지 못했습니다.')
@@ -1323,6 +1330,28 @@ class MainWindow(QMainWindow,PartSelectionUI):
     def display_style_dialog(self):
         from .display_style import DisplayStyleDialog
         DisplayStyleDialog(self).exec()
+    def preview_quality_dialog(self):
+        if self.busy or self.sketching:return
+        from .. import preview_quality
+        from ..kernel import set_preview_quality
+        modes=['auto','fine','fast'];labels=['자동 · 대형 조립품의 곡면 표시 최적화','정밀 · 기존 표시 품질','빠름 · 화면 표시만 간략화']
+        old=preview_quality.mode()
+        chosen,ok=QInputDialog.getItem(self,'3D 표시 품질','CAD 형상·치수·간섭 검사·STEP/STL 출력 정밀도는 유지됩니다.',labels,modes.index(old),False)
+        if not ok:return
+        mode=modes[labels.index(chosen)]
+        if mode==old:return
+        raw=deepcopy(self.document.design)
+        def work():
+            with KERNEL_LOCK:
+                set_preview_quality(mode)
+                try:return preview(Design.model_validate(raw)) if raw else None
+                except Exception:set_preview_quality(old);raise
+        def done(result):
+            self.result=result;self.viewport.load(result,False)
+            try:preview_quality.save(self.data_dir/'preview-quality.json',mode)
+            except OSError as exc:self.message('표시 품질을 적용했지만 설정 저장에 실패했습니다: '+str(exc));return
+            self.message('3D 표시 품질: '+labels[modes.index(mode)]+' · 원본 CAD / 출력 정밀도 유지')
+        self.run(work,done,'화면용 메시 갱신 중…')
     def toggle_display(self,key,visible):
         if key=='grid':self.viewport.show_grid(visible);self.editor.grid_visible=visible
         else:self.viewport.show_axes(visible);self.editor.axes_visible=visible
@@ -1344,6 +1373,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
             self.set_busy(False)
             if failed:failed(text)
             else:self.show_error(text)
+        worker.signals.progress.connect(lambda text:self.message(text) if self.worker is worker and self.busy else None)
         worker.signals.done.connect(complete);worker.signals.failed.connect(error);QThreadPool.globalInstance().start(worker)
     def show_error(self,text):
         self.message(text[:500]);QMessageBox.warning(self,'작업을 완료하지 못했습니다',text[:2400])
@@ -1354,7 +1384,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
                 from ..preview_metadata import reuse_preview
                 d=Design.model_validate(raw)
                 cached=reuse_preview(d,baseline,previous_result)
-                r=cached if cached is not None else preview(d)
+                r=cached if cached is not None else preview(d,previous=(baseline,previous_result))
                 if context.get('tool')=='prompt':
                     from ..interference import validate_candidate
                     validate_candidate(d,baseline,collisions=r['stats']['collisions'])
@@ -1385,8 +1415,10 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.run(work,done,failed=self.editor.error if self.sketching else None)
     def autosave_document(self):
         if self.document.design:
-            try:self.document.write(self.autosave,autosave=True)
+            try:self.autosave_queue.submit(self.document)
             except Exception as exc:self.message('자동 저장 실패: '+str(exc))
+    def autosave_status(self):
+        for exc in self.autosave_queue.errors():self.message('자동 저장 실패: '+str(exc))
     def part(self):return next((p for p in (self.document.design or {}).get('parts',[]) if p['id']==self.selected),None)
     def rebuild_tree(self):
         self.refresh_bom_status()
@@ -1861,6 +1893,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.cancel_ai();self.operation_serial+=1;self.accept_draft.setEnabled(False)
         self.reset_role_view(restore=False)
         self.set_references([])
+        self.autosave_queue.invalidate()
         self.document=Document();self.result=None;self.selected=None;self.selected_parts=[];self.selected_sketch=None;self.selected_profile=None;self.last_draft=None;self._temporary_part_display=None;self.viewport.load(None);self.viewport.joints.set_design(None);self.viewport.hidden.clear();self.isolation_hidden=None;self.actions['isolate'].setChecked(False);self.rebuild_tree();self.rebuild_timeline();self.show_properties();self.title()
     def recovery_autosave_path(self):
         if self.autosave.exists():return self.autosave
@@ -1880,11 +1913,17 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.cancel_ai()
         path=resolve_project_path(path)
         def work():
-            with KERNEL_LOCK:project=read_project(path);r=preview(project.design);return project,r
+            self.worker.signals.progress.emit('프로젝트 파일 · 전체 작업 기록 검증 중…')
+            project=read_project(path)
+            with KERNEL_LOCK:r=preview(project.design,progress=self.worker.signals.progress.emit)
+            return project,r
         def done(result):
+            project,candidate_result=result
+            self.document.load(project,None if recovery else path)
+            self.autosave_queue.invalidate()
             self.set_references([])
             self.reset_role_view(restore=False)
-            project,self.result=result;self.document.load(project,None if recovery else path);self.operation_serial+=1;self.last_draft=None;self.accept_draft.setEnabled(False);self.document.dirty=recovery;self.selected=project.design.parts[0].id if project.design.parts else None;self.selected_sketch=None;self.prompt.setPlainText(project.prompt);self.viewport.hidden.clear();self.isolation_hidden=None;self.actions['isolate'].setChecked(False);self._temporary_part_display=None;self.viewport.reset_part_opacity(render=False);self.viewport.load(self.result,True);self.viewport.joints.set_design(project.design);self.refresh_role_view();self.rebuild_tree();self.select_parts([self.selected] if self.selected else []);self.rebuild_timeline();self.title();self.message('자동 저장한 설계를 복구했습니다.' if recovery else '프로젝트와 작업 기록을 열었습니다.')
+            self.result=candidate_result;self.operation_serial+=1;self.last_draft=None;self.accept_draft.setEnabled(False);self.document.dirty=recovery;self.selected=project.design.parts[0].id if project.design.parts else None;self.selected_sketch=None;self.prompt.setPlainText(project.prompt);self.viewport.hidden.clear();self.isolation_hidden=None;self.actions['isolate'].setChecked(False);self._temporary_part_display=None;self.viewport.reset_part_opacity(render=False);self.viewport.load(self.result,True);self.viewport.joints.set_design(project.design);self.refresh_role_view();self.rebuild_tree();self.select_parts([self.selected] if self.selected else []);self.rebuild_timeline();self.title();self.message('자동 저장한 설계를 복구했습니다.' if recovery else '프로젝트와 작업 기록을 열었습니다.')
         self.run(work,done,'프로젝트 · 작업 기록 검증 중…')
     def save(self,save_as=False):
         if self.busy or self.sketching or not self.document.design:return False
@@ -1896,8 +1935,24 @@ class MainWindow(QMainWindow,PartSelectionUI):
             chosen,_=QFileDialog.getSaveFileName(self,'CAD 프로젝트 저장',str(default),'Prompt CAD 프로젝트 (*.pcad);;기존 CAD JSON 프로젝트 (*.cad.json)')
             if not chosen:return False
             path=Path(chosen if chosen.lower().endswith(('.pcad','.cad.json')) else chosen+'.pcad')
-        try:self.document.write(path);self.title();self.message('설계와 전체 작업 기록 저장: '+str(path));return True
+        try:snapshot=self.document.autosave_snapshot()
         except Exception as exc:self.show_error(str(exc));return False
+        # Keep the established boolean save/check-save contract, but pump Qt
+        # while the owned snapshot validates and writes in a worker. The busy
+        # guard prevents edits, open/new and shutdown from racing this save.
+        loop=QEventLoop(self);outcome={'saved':False}
+        def work():snapshot.write(path,autosave=True);return path
+        def done(saved):
+            try:
+                self.document.path=Path(saved);self.document.dirty=False
+                outcome['saved']=True;self.title();self.message('설계와 전체 작업 기록 저장: '+str(saved))
+            finally:loop.quit()
+        def failed(text):
+            try:self.show_error(text)
+            finally:loop.quit()
+        self.run(work,done,'설계와 전체 작업 기록 저장 중…',failed=failed)
+        loop.exec()
+        return outcome['saved']
     def export_file(self,fmt):
         if self.busy or self.sketching or not self.document.design:return
         if fmt in ('f3d','ipt'):
@@ -2172,6 +2227,10 @@ class MainWindow(QMainWindow,PartSelectionUI):
         if not getattr(self,'_update_close',False) and not self.check_save():event.ignore();return
         panel=getattr(self,'wiring_window',None)
         if panel is not None:panel.close();panel.deleteLater();self.wiring_window=None
-        self.autosave_document();self.editor.stop();self.viewport.shutdown();event.accept()
+        try:
+            if self.document.design:self.autosave_queue.submit(self.document)
+            self.autosave_queue.close()
+        except Exception as exc:self.message('자동 저장 실패: '+str(exc));event.ignore();return
+        self.autosave_timer.stop();self.editor.stop();self.viewport.shutdown();event.accept()
         panel=getattr(self,'pcb_panel',None)
         if panel is not None:panel.alive=False;panel.stop_advice()

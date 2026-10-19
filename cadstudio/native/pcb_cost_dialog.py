@@ -48,7 +48,7 @@ class PCBCostInputsDialog(QDialog):
                 else:self.additional.setItem(r,col,QTableWidgetItem(str(value.get(field) or '') if field!='currency' else value.get(field,self.project.budget.currency)))
         hint=QLabel('확정된 단일 금액은 최소와 최대를 같게 입력하세요. 입력 금액은 근거가 있는 조건부 비용이며 공급사 보장이나 발주가 아닙니다.');hint.setWordWrap(True);root.addWidget(hint)
         self.clear_ai=QCheckBox('저장된 AI 가격 추정만 제거 (실제 부품 견적은 유지)');root.addWidget(self.clear_ai)
-        self.rebind_tiers=QCheckBox('현재 품번·제품 규격·출처를 다시 대조했으며 참조별 단가표를 현재 제품에 재연결합니다.');root.addWidget(self.rebind_tiers)
+        self.rebind_tiers=QCheckBox('제품과 견적의 통화·기준일·출처, 수량별 단가를 다시 검토했으며 단가표를 현재 조건에 재연결합니다.');root.addWidget(self.rebind_tiers)
         self.error.setWordWrap(True);outer.addWidget(self.error)
         buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel);buttons.accepted.connect(self.accept);buttons.rejected.connect(self.reject);outer.addWidget(buttons)
 

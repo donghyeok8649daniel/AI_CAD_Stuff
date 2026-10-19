@@ -10,8 +10,10 @@ The registration is opt-in through installation or the application's command.
 """
 from dataclasses import dataclass
 import json
+import ntpath
 import os
 from pathlib import Path
+import re
 from urllib.parse import quote
 
 APP_NAME = 'PromptCADStudio'
@@ -30,6 +32,9 @@ CAD_VERB = CLASSES + r'\SystemFileAssociations\.json\shell\PromptCADStudio.OpenC
 REGISTERED_APPS = r'Software\RegisteredApplications'
 STATE_KEY = r'Software\PromptCADStudio\FileAssociationRegistration'
 STATE_VALUE = 'State'
+COMPAT_STATE_VALUE = 'CompatibilityRoutes'
+COMPAT_PROGID = 'pcad_auto_file'
+COMPAT_COMMAND = CLASSES + '\\' + COMPAT_PROGID + r'\shell\open\command'
 CAD_FILENAME_QUERY = 'System.FileName:~"*.cad.json"'
 DEFAULT_APPS_URI = 'ms-settings:defaultapps?registeredAppUser=' + quote(APP_NAME, safe='')
 REG_SZ = 1
@@ -222,7 +227,7 @@ def _restore(backend, snapshots):
             backend.set(key, name, previous)
 
 
-def register(executable, *, _backend=None):
+def _register(executable, *, _backend=None, _compatible_values=None):
     """Register native .pcad and claim only a currently unassigned default.
 
     Existing unrelated values in our named slots cause a failure before any
@@ -247,7 +252,10 @@ def register(executable, *, _backend=None):
     for entry in plan:
         if (entry.key, entry.name) == default_address:
             continue
-        if backend.get(entry.key, entry.name) != expected.get((entry.key, entry.name)):
+        address = (entry.key, entry.name)
+        actual = backend.get(*address)
+        compatible = _compatible_values or {}
+        if actual != expected.get(address) and not (address in compatible and actual == compatible[address]):
             raise AssociationError('기존 파일 연결이 다른 설정과 겹칩니다. 현재 설정을 보존했습니다.')
     original_keys = set(old_state['created_keys']) if old_state else set()
     candidates = set(_key_candidates(plan))
@@ -293,6 +301,176 @@ def register(executable, *, _backend=None):
             'userchoice_written': False, 'legacy_json_default_changed': False,
             'legacy_json_general_values_removed': retired_removed,
             'legacy_json_user_edits_preserved': retired_preserved}
+
+
+def register(executable, *, _backend=None):
+    """Low-level opt-in registration; installation uses the guarded route refresh."""
+    return _register(executable, _backend=_backend)
+
+
+def _command_executable(value):
+    """Recognize only the two single-file commands written by CAD/Windows.
+
+    Never accept a shell, extra argument, unquoted filename placeholder, relative
+    executable, environment expansion, or an executable sharing only our name.
+    The returned path still requires independent release/state ownership proof.
+    """
+    if not isinstance(value, tuple) or len(value) != 2 or value[1] != REG_SZ or not isinstance(value[0], str):
+        return None
+    match = re.fullmatch(r'\s*"([^"\r\n\x00]+)"\s+(?:--open\s+)?"%1"\s*', value[0])
+    if not match:
+        return None
+    path = match.group(1)
+    if (not re.fullmatch(r'[A-Za-z]:', ntpath.splitdrive(path)[0]) or not ntpath.isabs(path) or
+            ntpath.basename(path).casefold() != EXE_NAME.casefold() or '%' in path):
+        return None
+    return path
+
+
+def _path_identity(path):
+    return ntpath.normcase(ntpath.normpath(str(path)))
+
+
+def _selected_pcad_progids(backend):
+    """Read only the known Windows selection slots, including Latest's child."""
+    base = r'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pcad'
+    values = []
+    for suffix in (r'\UserChoice', r'\UserChoiceLatest', r'\UserChoiceLatest\UserChoice'):
+        value = backend.get(base + suffix, 'ProgId')
+        if value is not None:
+            if value[1] != REG_SZ or not isinstance(value[0], str) or not 1 <= len(value[0]) <= 256:
+                raise AssociationError('Windows .pcad 선택 정보를 확인할 수 없습니다. 사용자 선택을 보존했습니다.')
+            values.append(value[0])
+    if not values:
+        value = backend.merged_default(EXTENSION)
+        if value is not None:
+            if value[1] != REG_SZ or not isinstance(value[0], str) or not 1 <= len(value[0]) <= 256:
+                raise AssociationError('기존 .pcad 기본 앱 정보를 확인할 수 없습니다.')
+            values.append(value[0])
+    return list(dict.fromkeys(values))
+
+
+def _verify_release_executable(path):
+    """Inspect only the exact legacy command's adjacent manifest and EXE bytes."""
+    from .single_install import no_reparse
+    from . import updater
+    try:
+        target = no_reparse(path)
+        if target.name.casefold() != EXE_NAME.casefold() or not target.is_file():
+            return False
+        manifest_path = no_reparse(target.parent / updater.MANIFEST)
+        if not manifest_path.is_file() or manifest_path.stat().st_size > 8 * 1024**2:
+            return False
+        manifest = updater.validate_manifest(json.loads(manifest_path.read_text(encoding='utf-8')))
+        entry = manifest['files'][updater.EXE]
+        return target.stat().st_size == entry['size'] and updater.digest(target) == entry['sha256']
+    except (OSError, ValueError, KeyError, RuntimeError):
+        return False
+
+
+def _compatibility_state(backend):
+    stored = backend.get(STATE_KEY, COMPAT_STATE_VALUE)
+    if stored is None:
+        return {'schema': 1, 'app': APP_NAME, 'entries': []}
+    try:
+        if stored[1] != REG_SZ:
+            raise ValueError()
+        value = json.loads(stored[0])
+        if value['schema'] != 1 or type(value['schema']) is not int or value['app'] != APP_NAME or not isinstance(value['entries'], list) or len(value['entries']) > 1:
+            raise ValueError()
+        for row in value['entries']:
+            if set(row) != {'key', 'name', 'previous', 'installed'} or row['key'] != COMPAT_COMMAND or row['name'] != '' or _command_executable(tuple(row['installed'])) is None:
+                raise ValueError()
+            if row['previous'] is not None and (not isinstance(row['previous'], list) or len(row['previous']) != 2 or row['previous'][1] != REG_SZ or not isinstance(row['previous'][0], str)):
+                raise ValueError()
+        return value
+    except (KeyError, TypeError, ValueError):
+        raise AssociationError('이전 호환 파일 연결의 소유 기록을 확인할 수 없습니다. 설정을 보존했습니다.') from None
+
+
+def refresh_owned_pcad_routes(executable, *, _backend=None, _canonical_validator=None, _legacy_verifier=None):
+    """Refresh the single installed app and only demonstrably CAD-owned aliases.
+
+    Windows UserChoice/Hash and unrelated project handlers are never written.
+    A selected pcad_auto_file command needs canonical, intact prior registration,
+    or exact adjacent release-manifest/EXE proof. An unproved route is preserved
+    and explicitly reported as incomplete, rather than silently called current.
+    Standard registration, alias writes and their ownership record roll back as
+    one unit if a write fails. Payload installation is a separate transaction.
+    """
+    if _canonical_validator is None:
+        from .single_install import require_canonical_executable
+        _canonical_validator = require_canonical_executable
+    path = _executable(_canonical_validator(executable))
+    backend = _backend if _backend is not None else _WindowsRegistry()
+    verifier = _legacy_verifier or _verify_release_executable
+    plan = registration_plan(path)
+    state = _state(backend, plan)
+    compat_state = _compatibility_state(backend)
+    selected = _selected_pcad_progids(backend)
+    owned_paths = {_path_identity(path)}
+    if state:
+        previous = state['executable']
+        saved_commands = {(row['key'], row['name']): (row['value'], REG_SZ) for row in state['entries']}
+        command_keys = (PROJECT + r'\shell\open\command', APPLICATION + r'\shell\open\command')
+        if all(_command_executable(saved_commands.get((key, ''))) is not None and
+               _path_identity(_command_executable(saved_commands[key, ''])) == _path_identity(previous)
+               for key in command_keys):
+            owned_paths.add(_path_identity(previous))
+    def command_owned(value):
+        old_path = _command_executable(value)
+        return bool(old_path and (_path_identity(old_path) in owned_paths or verifier(old_path) is True))
+    # Allow an intact CAD-owned command changed by Windows Open With, while
+    # retaining the strict conflict policy for every unrelated registration slot.
+    compatible = {}
+    for entry in plan:
+        address = (entry.key, entry.name)
+        actual = backend.get(*address)
+        if entry.key in (PROJECT + r'\shell\open\command', APPLICATION + r'\shell\open\command') and command_owned(actual):
+            compatible[address] = actual
+        elif state is None and actual == (entry.value, REG_SZ):
+            compatible[address] = actual  # Identical standard app metadata only.
+    alias_before = backend.get(COMPAT_COMMAND, '')
+    alias_selected = any(item.casefold() == COMPAT_PROGID.casefold() for item in selected)
+    alias_repair = alias_selected and command_owned(alias_before)
+    command = f'"{path}" --open "%1"'
+    prior_plan = _state_plan(plan, state['schema']) if state else plan
+    addresses = {(entry.key, entry.name) for entry in [*plan, *prior_plan]} | {(STATE_KEY, STATE_VALUE), (STATE_KEY, COMPAT_STATE_VALUE)}
+    if alias_repair:
+        addresses.add((COMPAT_COMMAND, ''))
+    snapshots = [(key, name, backend.get(key, name)) for key, name in sorted(addresses)]
+    originally_present = {key for key in _key_candidates(plan) if backend.key_exists(key)}
+    try:
+        result = _register(path, _backend=backend, _compatible_values=compatible)
+        if alias_repair:
+            if backend.get(COMPAT_COMMAND, '') != alias_before:
+                raise AssociationError('호환 파일 연결이 작업 중 변경되어 갱신을 취소했습니다.')
+            backend.set(COMPAT_COMMAND, '', (command, REG_SZ))
+            rows = compat_state['entries']
+            previous = rows[0]['previous'] if rows and alias_before == tuple(rows[0]['installed']) else list(alias_before)
+            compat_state = {'schema': 1, 'app': APP_NAME, 'entries': [dict(key=COMPAT_COMMAND, name='', previous=previous, installed=[command, REG_SZ])]}
+            backend.set(STATE_KEY, COMPAT_STATE_VALUE, (json.dumps(compat_state, ensure_ascii=False), REG_SZ))
+        selected_after = _selected_pcad_progids(backend)
+        route_keys = {PROGID.casefold(): PROJECT + r'\shell\open\command',
+                      ('Applications\\' + EXE_NAME).casefold(): APPLICATION + r'\shell\open\command',
+                      COMPAT_PROGID.casefold(): COMPAT_COMMAND}
+        current = bool(selected_after) and all(item.casefold() in route_keys and
+            backend.get(route_keys[item.casefold()], '') == (command, REG_SZ) for item in selected_after)
+        result.update(registration_succeeded=True, pcad_routes_current=current,
+            compatibility_routes_updated=int(alias_repair), needs_user_selection=not current,
+            selected_pcad_progids=selected_after, userchoice_written=False,
+            compatibility_ownership_recorded=bool(compat_state['entries']))
+        if not current:
+            result['file_association_warning'] = '앱 파일은 설치됐지만 기존 .pcad 선택 경로는 보존했습니다. Windows 기본 앱에서 Prompt CAD Studio를 선택하세요.'
+    except Exception:
+        _restore(backend, snapshots)
+        for key in reversed(_key_candidates(plan)):
+            if key not in originally_present:
+                backend.prune_empty(key)
+        raise
+    if _backend is None:
+        _notify_shell()
+    return result
 
 
 def is_registered(executable, *, _backend=None):

@@ -5,16 +5,19 @@ import json
 from .pcb import PCBProject, bom_report, inspect_layout, pcb_digest
 from .pcb_simulation import simulate_pcb, spice_netlist
 
-MANIFEST = dict(id='promptcad.pcb',version='0.2.0',schema_version=1,workspace='pcb',
+MANIFEST = dict(id='promptcad.pcb',version='0.2.6',schema_version=1,workspace='pcb',
     entry_point='cadstudio.pcb_plugin:execute',ui_entry_point='cadstudio.native.pcb_workbench:PCBWorkbench',
-    commands=['validate','layout','simulate','bom','spice','electrical_preview'],
+    commands=['validate','layout','simulate','bom','spice','electrical_preview','compatibility','drill_review','drill_review_verify','excellon_prepare','excellon_split_prepare','excellon_split_declaration_draft'],
     dependencies=['pydantic (existing CAD runtime)','numpy (existing CAD runtime)','PySide6 (existing CAD runtime)'],
     simulation_backend='builtin-linear',external_runtime=None,
     permissions=dict(automatic_execution=False,network=False,filesystem=False,hardware=False),
     ai='Explicit existing ChatGPT/Codex answer transport; advisory only; no API fallback',
-    geometry=dict(copper_layers=[2,4],pads=['circle','rect','oval','roundrect'],drills='circular',
+    geometry=dict(copper_layers=[2,4,6,8],pads=['circle','rect','oval','roundrect'],drills='circular',
         vias='ordered copper-layer span',zones='declared outlines and explicitly supplied filled polygons are distinct'),
-    limits=['No dynamic code plugins. No Gerber/KiCad import or fabrication acceptance.',
+    excellon_candidate=dict(dialect='ucamco-xnc-2021.11-circular-metric-pth',explicit_profile_required=True,machine_program_qualified=False),
+    excellon_split_candidate=dict(dialect='ucamco-xnc-2021.11-split-circular-metric',explicit_per_hole_plating_required=True,filesystem_writer='CLI only; Windows new-directory package',machine_program_qualified=False),
+    fabrication_review=dict(format='pcb-circular-drill-review-json-v1',units='mm',origin='pcb-design',fabrication_files='UNAVAILABLE',rules='explicit caller values only'),
+    limits=['Declared circular PTH XNC is CAD-to-CAM data requiring an explicit profile; Gerber output and machine/manufacturing qualification remain unavailable. Circular-drill JSON is a geometry review only.', 'No dynamic code plugins. No Gerber/KiCad import or fabrication acceptance.',
         'DC/AC ideal R/C/voltage-source models only; unmodeled devices block simulation.'])
 
 
@@ -80,6 +83,28 @@ def electrical_preview(project, workspace=None):
 
 def execute(command, payload, **options):
     if command not in MANIFEST['commands']:raise ValueError('지원하지 않는 PCB 명령입니다. / Unknown PCB command.')
+    if command=='compatibility':
+        from .pcb_compatibility import preflight,CURRENT_PROFILE
+        return preflight(payload,options.get('target_profile',CURRENT_PROFILE))
+    if command=='excellon_split_declaration_draft':
+        from .pcb_excellon_declarations import split_declaration_draft
+        from .pcb_excellon_export import unavailable
+        if options:return unavailable('UNSUPPORTED_REQUEST_OPTION','Declaration drafts consume the current PCB only; no replacement profile or inferred defaults.',options=sorted(options))
+        return split_declaration_draft(payload)
+    if command=='excellon_split_prepare':
+        from .pcb_excellon_split import prepare_split_xnc
+        from .pcb_excellon_export import unavailable
+        if set(options)-{'profile'}:return unavailable('UNSUPPORTED_REQUEST_OPTION','No unknown split export options are ignored.',options=sorted(set(options)-{'profile'}))
+        return prepare_split_xnc(payload,options.get('profile'))
+    if command=='excellon_prepare':
+        from .pcb_excellon_export import prepare_declared_xnc,unavailable
+        if set(options)-{'profile'}:return unavailable('UNSUPPORTED_REQUEST_OPTION','No unknown Excellon export options are ignored.',options=sorted(set(options)-{'profile'}))
+        return prepare_declared_xnc(payload,options.get('profile'))
+    if command in ('drill_review','drill_review_verify'):
+        from .pcb_drill_review import drill_review,verify_drill_review,_unavailable
+        allowed={'review_report'} if command=='drill_review_verify' else {'minimum_gap_mm','minimum_edge_mm','units','origin','output_format','max_findings'}
+        if set(options)-allowed:return _unavailable('UNSUPPORTED_REQUEST_OPTION','No unrecognized drill-review request options are ignored.',options=sorted(set(options)-allowed))
+        return verify_drill_review(payload,options.get('review_report')) if command=='drill_review_verify' else drill_review(payload,**options)
     project=PCBProject.model_validate(payload)
     if command=='validate':return dict(status='valid',pcb_sha256=pcb_digest(project),project=project.model_dump(mode='json'))
     if command=='layout':return inspect_layout(project)
