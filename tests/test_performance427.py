@@ -312,7 +312,7 @@ def test_actual_manual_save_keeps_boolean_contract_and_live_state_on_failure(tmp
             if failure:raise OSError('owned failure')
             done(work())
         except Exception as exc:failed(str(exc))
-    window=SimpleNamespace(document=doc,busy=False,sketching=False,run=run,title=lambda:None,message=captured.append,show_error=errors.append)
+    window=SimpleNamespace(document=doc,result=None,data_dir=tmp_path/'profile',busy=False,sketching=False,run=run,title=lambda:None,message=captured.append,show_error=errors.append)
     namespace={'Path':Path,'QEventLoop':Loop}
     exec(compile(ast.fix_missing_locations(ast.Module(body=[node],type_ignores=[])),'actual_save_ast','exec'),namespace)
     assert namespace['save'](window) is (not failure)

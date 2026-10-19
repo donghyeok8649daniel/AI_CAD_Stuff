@@ -13,6 +13,7 @@ from PySide6.QtGui import QAction,QActionGroup,QKeySequence,QColor,QIcon
 from PySide6.QtWidgets import (QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QDockWidget,QTreeWidget,QTreeWidgetItem,QTreeWidgetItemIterator,QListWidget,QListWidgetItem,QAbstractItemView,QStackedWidget,QScrollArea,QToolBar,QToolButton,QMenu,QLineEdit,QComboBox,QCheckBox,QPlainTextEdit,QFileDialog,QMessageBox,QDialog,QDialogButtonBox,QColorDialog,QProgressBar,QLabel,QSplitter,QInputDialog,QLayout)
 from .document import Document,read_project,resolve_project_path
 from .autosave import AutosaveQueue
+from ..project_open import load_project_preview,remember_saved_preview
 from .widgets import icon,number,label,button,clear_layout,Worker
 from .viewport import CADViewport
 from .sketch import SketchEditor,combo
@@ -1913,10 +1914,7 @@ class MainWindow(QMainWindow,PartSelectionUI):
         self.cancel_ai()
         path=resolve_project_path(path)
         def work():
-            self.worker.signals.progress.emit('프로젝트 파일 · 전체 작업 기록 검증 중…')
-            project=read_project(path)
-            with KERNEL_LOCK:r=preview(project.design,progress=self.worker.signals.progress.emit)
-            return project,r
+            return load_project_preview(path,self.data_dir/'verified-previews',progress=self.worker.signals.progress.emit)
         def done(result):
             project,candidate_result=result
             self.document.load(project,None if recovery else path)
@@ -1941,7 +1939,12 @@ class MainWindow(QMainWindow,PartSelectionUI):
         # while the owned snapshot validates and writes in a worker. The busy
         # guard prevents edits, open/new and shutdown from racing this save.
         loop=QEventLoop(self);outcome={'saved':False}
-        def work():snapshot.write(path,autosave=True);return path
+        preview_for_save=self.result
+        cache_folder=self.data_dir/'verified-previews'
+        def work():
+            snapshot.write(path,autosave=True)
+            if preview_for_save is not None:remember_saved_preview(path,snapshot.design,preview_for_save,cache_folder)
+            return path
         def done(saved):
             try:
                 self.document.path=Path(saved);self.document.dirty=False

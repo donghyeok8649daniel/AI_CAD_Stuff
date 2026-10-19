@@ -220,7 +220,7 @@ def resolve_project_path(path):
     return path
 
 
-def read_project(path,*,max_bytes=MAX_PROJECT_READ_BYTES):
+def read_project(path,*,max_bytes=MAX_PROJECT_READ_BYTES,fingerprint=None):
     """Read a checked project with a bounded default, adjustable by the caller."""
     path=resolve_project_path(path)
     if max_bytes is not None and (type(max_bytes) is not int or max_bytes<=0):
@@ -234,7 +234,12 @@ def read_project(path,*,max_bytes=MAX_PROJECT_READ_BYTES):
     with path.open('rb') as stream:
         data=stream.read() if max_bytes is None else stream.read(max_bytes+1)
     check_size(len(data))
-    try:return _PROJECT_READ_JSON.validate_json(data.removeprefix(b'\xef\xbb\xbf'))
+    try:
+        project=_PROJECT_READ_JSON.validate_json(data.removeprefix(b'\xef\xbb\xbf'))
+        if fingerprint is not None:
+            from hashlib import sha256
+            fingerprint(sha256(data).hexdigest())
+        return project
     except ValidationError as exc:
         # BeforeValidator wraps ValueErrors. Preserve the machine-readable
         # compatibility report without parsing or running validation again.

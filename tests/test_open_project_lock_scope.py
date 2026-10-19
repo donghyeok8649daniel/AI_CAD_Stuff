@@ -3,7 +3,7 @@ import ast
 from copy import deepcopy
 from pathlib import Path
 import threading
-from types import SimpleNamespace
+from types import SimpleNamespace,FunctionType
 
 import pytest
 
@@ -45,8 +45,19 @@ def actual_worker(read_project,preview,lock,path):
     def progress_preview(value,**kwargs):
         assert callable(kwargs['progress'])
         return preview(value)
-    host=SimpleNamespace(worker=SimpleNamespace(signals=SimpleNamespace(progress=SimpleNamespace(emit=lambda text:None))))
-    namespace={'read_project':read_project,'preview':progress_preview,'KERNEL_LOCK':lock,'path':path,'self':host}
+    class Cache:
+        def __init__(self,folder):self.error=None
+        def binding(self,*args):return None
+        def get(self,binding):return None
+        def put(self,*args):return False
+    def checked_read(value,*,fingerprint):
+        project=read_project(value);fingerprint('0'*64);return project
+    host=SimpleNamespace(data_dir=Path('owned-no-io'),worker=SimpleNamespace(signals=SimpleNamespace(progress=SimpleNamespace(emit=lambda text:None))))
+    from cadstudio.project_open import load_project_preview
+    loader=FunctionType(load_project_preview.__code__,{**load_project_preview.__globals__,
+        'VerifiedPreviewCache':Cache,'read_project':checked_read,'preview':progress_preview,'KERNEL_LOCK':lock})
+    loader.__kwdefaults__=load_project_preview.__kwdefaults__
+    namespace={'__package__':'cadstudio.native','load_project_preview':loader,'path':path,'self':host}
     exec(compile(module,str(SOURCE),'exec'),namespace)
     return namespace['work']
 

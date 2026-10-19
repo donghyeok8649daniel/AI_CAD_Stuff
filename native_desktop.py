@@ -23,6 +23,11 @@ def parse_startup_args(argv=None):
     parser.add_argument('--role-performance-check',type=Path)
     parser.add_argument('--performance-data-check',type=Path)
     parser.add_argument('--performance-data-input',type=Path)
+    parser.add_argument('--project-open-data-check',type=Path)
+    parser.add_argument('--project-open-input',type=Path)
+    parser.add_argument('--project-open-cache',type=Path)
+    parser.add_argument('--project-open-smoke',type=Path)
+    parser.add_argument('--project-open-smoke-input',type=Path)
     parser.add_argument('--automatic-interference-check',type=Path)
     parser.add_argument('--common-app-check',type=Path)
     parser.add_argument('--motion-click-check',type=Path)
@@ -125,10 +130,20 @@ def parse_startup_args(argv=None):
     if args.performance_data_check and any(value for key,value in vars(args).items()
             if key not in ('performance_data_check','performance_data_input','renderer','no_restore')):
         parser.error('--performance-data-check does not permit other startup actions')
+    opening=(args.project_open_data_check,args.project_open_input,args.project_open_cache)
+    if any(opening) and not all(opening):parser.error('Project opening acceptance requires report, input and owned cache folder.')
+    if args.project_open_data_check and any(value for key,value in vars(args).items() if key not in ('project_open_data_check','project_open_input','project_open_cache','renderer','no_restore')):
+        parser.error('Project opening acceptance is a separate data-only action.')
+    if bool(args.project_open_smoke)!=bool(args.project_open_smoke_input):parser.error('Native open smoke requires an owned input copy.')
+    if args.project_open_smoke and any(value for key,value in vars(args).items() if key not in ('project_open_smoke','project_open_smoke_input','renderer','no_restore')):
+        parser.error('Native open smoke is a separate owned verification action.')
     return args
 
 def main():
     args=parse_startup_args()
+    if args.project_open_data_check:
+        from cadstudio.project_open_data_check import run
+        return run(args.project_open_data_check,args.project_open_input,args.project_open_cache)
     if args.performance_data_check:
         from cadstudio.performance_data_check import run
         return run(args.performance_data_check,args.performance_data_input)
@@ -291,6 +306,7 @@ def main():
         import ctypes
         ctypes.windll.kernel32.SetErrorMode(0x0001|0x0002|0x8000)
     from cadstudio.profile_paths import default_data_dir
+    if args.project_open_smoke:os.environ['CADSTUDIO_DATA_DIR']=str(args.project_open_smoke.resolve().parent/'open-profile')
     data=default_data_dir();data.mkdir(parents=True,exist_ok=True);os.environ['CADSTUDIO_DATA_DIR']=str(data)
     log_path=data/('graphics-'+args.graphics_probe[0]+'-native.log' if args.graphics_probe else 'native-desktop.log')
     if log_path.exists() and log_path.stat().st_size>2_000_000:log_path.replace(log_path.with_suffix('.previous.log'))
@@ -438,6 +454,10 @@ def main():
     if args.mechanism_print_smoke:
         from cadstudio.native.mechanism_print_smoke import run
         QTimer.singleShot(300,lambda:run(app,window,args.mechanism_print_smoke))
+        return app.exec()
+    if args.project_open_smoke:
+        from cadstudio.native.project_open_smoke import run
+        QTimer.singleShot(300,lambda:run(app,window,args.project_open_smoke,args.project_open_smoke_input))
         return app.exec()
     if args.startup_smoke:
         from cadstudio.native.startup_smoke import run
